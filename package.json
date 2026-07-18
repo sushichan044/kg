@@ -1,0 +1,8 @@
+{
+  "name": "@repo/root",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "vite-plus": "0.2.5"
+  }
+}

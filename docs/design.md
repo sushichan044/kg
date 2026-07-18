@@ -47,11 +47,11 @@ Vite must not watch paths outside the frontend root, because that behavior diffe
 
 The default manuscript grid uses these settings:
 
-| Setting | Default | Allowed range |
-| --- | ---: | ---: |
-| Characters per line | 27 | 10–60 |
-| Lines per stage | 23 | 10–60 |
-| Stages per page | 2 | 1–3 |
+| Setting             | Default | Allowed range |
+| ------------------- | ------: | ------------: |
+| Characters per line |      27 |         10–60 |
+| Lines per stage     |      23 |         10–60 |
+| Stages per page     |       2 |           1–3 |
 
 A **line** is one vertical column of cells.
 Characters fill a line from top to bottom.
@@ -170,13 +170,13 @@ The grid must remain visible at normal display brightness without competing with
 
 Suggested tokens:
 
-| Role | Color |
-| --- | --- |
-| Work surface | `#d8d0c2` |
-| Sidebar | `#eee8dc` |
-| Paper | `#f7efd8` |
-| Text | `#2f2a24` |
-| Grid | `#d8c7a6` |
+| Role          | Color     |
+| ------------- | --------- |
+| Work surface  | `#d8d0c2` |
+| Sidebar       | `#eee8dc` |
+| Paper         | `#f7efd8` |
+| Text          | `#2f2a24` |
+| Grid          | `#d8c7a6` |
 | Active accent | `#9b3f32` |
 
 Use system fonts and avoid remote font downloads.

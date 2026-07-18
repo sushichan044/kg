@@ -5,7 +5,6 @@
       "source.organizeImports": "explicit"
     }
   },
-  "editor.formatOnSave": true,
   "go.alternateTools": {
     "customFormatter": "golangci-lint"
   },
@@ -13,5 +12,25 @@
   "go.formatTool": "custom",
   "go.lintFlags": ["--config=${workspaceFolder}/.golangci.yml"],
   "go.lintTool": "golangci-lint",
-  "go.useLanguageServer": true
+  "go.useLanguageServer": true,
+  "[javascript]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "editor.codeActionsOnSave": {
+    "source.fixAll.oxc": "explicit"
+  },
+  "editor.defaultFormatter": "oxc.oxc-vscode",
+  "editor.formatOnSave": true,
+  "js/ts.experimental.useTsgo": true,
+  "oxc.fmt.configPath": "./vite.config.ts",
+  "editor.formatOnSaveMode": "file"
 }

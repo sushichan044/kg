@@ -1,0 +1,347 @@
+/*
+ * kg visual language: a quiet writing desk. Warm gray surface, cream paper,
+ * dark brown-black text, a subdued tan grid. The paper grows from the selected
+ * grid rather than scaling cells to fit the viewport.
+ */
+
+:root {
+  --surface: #d8d0c2;
+  --sidebar: #eee8dc;
+  --paper: #f7efd8;
+  --text: #2f2a24;
+  --grid: #d8c7a6;
+  --accent: #9b3f32;
+
+  /* The same cell size drives horizontal and vertical dimensions, so cells stay
+     square and page density stays comparable across settings. */
+  --cell-size: 1.55rem;
+  --stage-gap: calc(var(--cell-size) * 2);
+  --page-padding: calc(var(--cell-size) * 2);
+
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--surface);
+  color: var(--text);
+  font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", system-ui, sans-serif;
+}
+
+/* Screen-reader-only utility; becomes visible when focused (skip link). */
+.visually-hidden:where(:not(:focus-within, :active)) {
+  position: absolute !important;
+  clip-path: inset(50%) !important;
+  overflow: hidden !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  white-space: nowrap !important;
+}
+
+.skip-link:focus {
+  position: fixed;
+  inset-block-start: 0.5rem;
+  inset-inline-start: 0.5rem;
+  z-index: 10;
+  padding: 0.5rem 0.75rem;
+  background: var(--sidebar);
+  border: 2px solid var(--accent);
+  border-radius: 4px;
+}
+
+:where(a, button, input, select):focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Layout: fixed sidebar + separately scrolling preview. */
+.app {
+  display: grid;
+  grid-template-columns: minmax(15rem, 20rem) 1fr;
+  height: 100%;
+}
+
+@media (max-width: 52rem) {
+  /* Place the sidebar above the preview instead of shrinking the cells. */
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1rem;
+  background: var(--sidebar);
+  overflow: auto;
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.brand__name {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.brand__mode {
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+.file-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.file-list__item {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  text-align: start;
+  background: transparent;
+  border: 0;
+  border-inline-start: 4px solid transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.file-list__item:hover {
+  background: rgb(0 0 0 / 5%);
+}
+
+/* Active file: accent bar + weight, so it does not rely on color alone. */
+.file-list__item[aria-current="page"] {
+  border-inline-start-color: var(--accent);
+  font-weight: 700;
+  background: rgb(155 63 50 / 8%);
+}
+
+.files__empty,
+.preview__empty {
+  opacity: 0.7;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.control {
+  display: grid;
+  grid-template-columns: auto 4rem;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+}
+
+.control label {
+  grid-column: 1;
+}
+
+.control input {
+  grid-column: 2;
+  width: 100%;
+  padding: 0.25rem;
+  font: inherit;
+}
+
+.control input[aria-invalid="true"] {
+  outline: 2px solid var(--accent);
+}
+
+.control__hint {
+  grid-column: 2;
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.presets {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.presets select,
+.preset-save input {
+  width: 100%;
+  padding: 0.25rem;
+  font: inherit;
+}
+
+.preset-save {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.preset-save input {
+  flex: 1;
+}
+
+.preset-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.preset-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.stats {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.stats__row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.stats dt {
+  opacity: 0.8;
+}
+
+.stats dd {
+  margin: 0;
+}
+
+/* Numeric statistics use Mincho, matching the manuscript. */
+.stats__num {
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.status {
+  margin: 0;
+  min-height: 1.25rem;
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+/* Preview area */
+.preview {
+  overflow: auto;
+  padding: var(--page-padding);
+}
+
+.preview__header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: baseline;
+  margin-block-end: var(--page-padding);
+}
+
+.preview__path {
+  font-weight: 600;
+}
+
+.preview__settings {
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+  opacity: 0.8;
+}
+
+/* Continuous vertical stack of pages, centered when space permits. */
+.manuscript-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--cell-size) * 2);
+}
+
+.manuscript-page {
+  padding: var(--page-padding);
+  background: var(--paper);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 15%);
+}
+
+@supports (content-visibility: auto) {
+  /* Defer rendering of pages below the fold; the first page is not deferred.
+     contain-intrinsic-size prevents scroll jumping and remembers actual size. */
+  .manuscript-page[data-offscreen] {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 60rem;
+  }
+}
+
+.manuscript-page__grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--stage-gap);
+}
+
+/* A stage: lines fill right-to-left; the stage closes the right and bottom
+   edges that per-cell top/left borders do not cover. */
+.manuscript-stage {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  border-inline-end: 1px solid var(--grid);
+  border-block-end: 1px solid var(--grid);
+}
+
+.manuscript-line {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Physical dimensions and borders only — never writing-mode on the cell. */
+.manuscript-cell {
+  box-sizing: border-box;
+  width: var(--cell-size);
+  height: var(--cell-size);
+  border-top: 1px solid var(--grid);
+  border-left: 1px solid var(--grid);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The glyph owns text orientation. vertical-rl lets the font pick vertical
+   Japanese punctuation; text-orientation: mixed keeps kana upright. */
+.manuscript-glyph {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", "Hiragino Mincho Pro", serif;
+  font-size: calc(var(--cell-size) * 0.82);
+  line-height: 1;
+}
+
+@media (forced-colors: active) {
+  .manuscript-cell,
+  .manuscript-stage {
+    border-color: CanvasText;
+  }
+}
