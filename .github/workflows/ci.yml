@@ -22,21 +22,21 @@ jobs:
   lint:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - uses: ./.github/actions/setup
         with:
           go-version-file: go.mod
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@82606bf257cbaff209d206a39f5134f0cfbfd2ee # v9.2.1
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           version: latest
 
   test:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - uses: ./.github/actions/setup
         with:
@@ -51,3 +51,72 @@ jobs:
         if: always()
         run: |
           go tool tparse -file ./go-test.out -format markdown >> "$GITHUB_STEP_SUMMARY"
+
+  frontend:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: ./.github/actions/setup
+        with:
+          go-version-file: go.mod
+
+      - name: Install Playwright (chromium)
+        run: pnpm --filter kg-frontend exec playwright install --with-deps chromium
+
+      - name: Check
+        run: pnpm --filter kg-frontend check
+
+      - run: pnpm --filter kg-frontend test --project unit
+
+  browser-test:
+    name: Run browser tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          go-version-file: go.mod
+
+      - name: Get installed Playwright version
+        id: playwright-version
+        run: echo "version=$(pnpm exec --filter kg-frontend playwright --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Playwright Browser Cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: "${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}"
+          restore-keys: ${{ runner.os }}-playwright-
+
+      - name: Install Playwright Browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm exec --filter kg-frontend playwright install --with-deps
+
+      - name: Install Playwright system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm exec --filter kg-frontend playwright install-deps
+
+      - name: Save Playwright Browser Cache if main or dev branch
+        if: github.ref_name == 'main' || github.ref_name == 'dev'
+        id: save-pnpm-cache
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ steps.playwright-cache.outputs.cache-primary-key }}
+
+      - run: pnpm --filter kg-frontend test --project browser
+
+      - name: Upload test screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-screenshots
+          path: app/components/__screenshots__/
+          retention-days: 7

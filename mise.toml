@@ -49,9 +49,18 @@ run = "golangci-lint fmt"
 description = "Run tests"
 run = "go test ./... -cover -json | go tool tparse -all"
 
+[tasks."build:frontend"]
+description = "Build the embedded frontend into internal/static/dist"
+run = "pnpm --filter kg-frontend build"
+
+[tasks.build]
+description = "Build the kg binary with the embedded frontend"
+depends = ["build:frontend"]
+run = "go build -o bin/kg ."
+
 [tasks.clean]
 description = "Remove generated files"
 run = """
-rm -rf bin/
+rm -rf bin/ internal/static/dist/
 go clean
 """

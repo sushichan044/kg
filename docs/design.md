@@ -31,8 +31,9 @@ The implementation agent should study `/Users/sushichan044/workspace/github.com/
 - stable file IDs derived from absolute paths; and
 - graceful shutdown when the foreground process receives an interrupt.
 
-The initial implementation does not need mo's groups, Markdown rendering, search, uploads, session backup, background process management, or server restart controls.
-Keep the server interface limited to listing watched text files, reading one file, and notifying the browser when the file catalog or file content changes.
+The initial implementation does not need mo's groups, Markdown rendering, search, or uploads.
+It does adopt a background (daemon) process model, server restart, and a minimal session backup of the watched paths, because these materially improve the writing workflow: start once and keep editing, forward new paths to the running instance, and reload the browser after a rebuild.
+Beyond listing watched text files, reading one file, and notifying the browser when the file catalog or file content changes, the server also exposes status, shutdown, restart, and add-watched-path endpoints under the `/_/api/` namespace to support that process model.
 
 Use mo's event semantics where practical:
 
@@ -42,6 +43,18 @@ Use mo's event semantics where practical:
 
 The server is the only filesystem watcher.
 Vite must not watch paths outside the frontend root, because that behavior differs across platforms and Vite versions.
+
+## Command line and discovery
+
+`kg [PATH ...]` watches the given files and directories; a directory is scanned recursively for `.txt` files, and with no path the current directory is watched.
+
+By default `kg` starts a detached background server, opens the browser, and returns the shell prompt; `--foreground` runs the server in the current process instead. When a server already listens on the port, a second `kg <path>` forwards the new paths to it rather than starting another server.
+
+- `-p, --port` selects the port (default 6280); `--no-open` suppresses opening the browser.
+- `--shutdown`, `--restart`, and `--status` control a running server. `--restart` re-execs the server so connected browsers reload via the `started` event.
+- The server binds to localhost only. Background logs and the watched-path backup live under the XDG state directory (`%LOCALAPPDATA%` on Windows, `$XDG_STATE_HOME` or `~/.local/state` otherwise).
+
+Discovery excludes what the writer keeps out of view: files matched by the enclosing repository's `.gitignore` and `.git/info/exclude`, the `.git` directory, and any dot-prefixed directory.
 
 ## Manuscript grid model
 
@@ -217,6 +230,8 @@ Persist this state under a versioned localStorage key such as `kg.viewer.state.v
 - current preview mode;
 - current mode settings; and
 - named custom presets.
+
+The stored payload carries a top-level `version` field. On load, an incompatible version is discarded (falling back to defaults) or migrated, so fast-moving changes to the display requirements never load settings the current UI cannot honor.
 
 The built-in `27字 × 23行 × 2段` preset cannot be overwritten or deleted.
 Saving an existing custom-preset name requires confirmation.

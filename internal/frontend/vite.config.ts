@@ -1,6 +1,7 @@
 import babel from "@rolldown/plugin-babel";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { defineConfig } from "vite-plus";
+import { playwright } from "vite-plus/test/browser-playwright";
 
 // The Go server owns the port; during frontend development Vite proxies the API
 // and SSE stream (everything under /_/) to it. Vite must not watch paths outside
@@ -56,6 +57,32 @@ export default defineConfig({
 
       "oxc/branches-sharing-code": "error",
     },
+  },
+
+  test: {
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "unit",
+          include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+          exclude: ["src/**/*.browser.test.ts", "src/**/*.browser.test.tsx"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "browser",
+          include: ["src/**/*.browser.test.ts", "src/**/*.browser.test.tsx"],
+          browser: {
+            enabled: true,
+            provider: playwright(),
+            headless: true,
+            instances: [{ browser: "chromium" }],
+          },
+        },
+      },
+    ],
   },
 
   plugins: [
