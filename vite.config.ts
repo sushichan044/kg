@@ -2,7 +2,7 @@ import { defineConfig } from "vite-plus";
 
 export default defineConfig({
   fmt: {
-    ignorePatterns: ["pnpm-lock.yaml", "CHANGELOG.md"],
+    ignorePatterns: ["pnpm-lock.yaml", "CHANGELOG.md", ".release-please-manifest.json"],
     jsdoc: {
       commentLineStrategy: "multiline",
     },
