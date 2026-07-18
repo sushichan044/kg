@@ -2,7 +2,12 @@ module github.com/sushichan044/kg
 
 go 1.26
 
-require github.com/stretchr/testify v1.11.1
+require (
+	github.com/fsnotify/fsnotify v1.10.1
+	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
+	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
+	github.com/stretchr/testify v1.11.1
+)
 
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect

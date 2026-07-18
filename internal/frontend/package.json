@@ -1,0 +1,31 @@
+{
+  "name": "kg-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "build": "vp build",
+    "preview": "vp preview",
+    "check": "vp check",
+    "test": "vp test"
+  },
+  "dependencies": {
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@rolldown/plugin-babel": "0.2.3",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.3",
+    "@vitest/browser": "4.1.10",
+    "@vitest/browser-playwright": "4.1.10",
+    "babel-plugin-react-compiler": "1.0.0",
+    "oxlint": "1.74.0",
+    "playwright": "1.61.1",
+    "typescript": "7.0.2",
+    "vite": "8.1.5",
+    "vite-plus": "0.2.5",
+    "vitest": "4.1.10"
+  }
+}
