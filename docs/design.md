@@ -122,7 +122,7 @@ Use physical dimensions on the cell:
 
 .manuscript-glyph {
   writing-mode: vertical-rl;
-  text-orientation: mixed;
+  text-orientation: upright;
 }
 ```
 
@@ -149,11 +149,11 @@ font-family: "Yu Mincho", "Hiragino Mincho ProN", "Hiragino Mincho Pro", serif;
 ```
 
 `writing-mode: vertical-rl` allows the font and browser to select vertical Japanese punctuation glyphs.
-`text-orientation: mixed` leaves Japanese upright and applies the browser's standard vertical behavior to Latin characters.
+`text-orientation: upright` stands every character up, including Latin letters and digits, so they are not rotated sideways.
 Do not add character-specific rotation tables unless a later preview mode defines them as part of its own contract.
 
 One grapheme always consumes one cell, even when it contains a variation selector, combining mark, or emoji sequence.
-Sequences such as two digits or `!?` are not tate-chu-yoko in the initial mode.
+Latin letters and digits stand upright in their own cells; sequences such as two digits or `!?` are not combined into tate-chu-yoko in the initial mode.
 
 ## Page geometry
 

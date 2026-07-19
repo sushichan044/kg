@@ -330,10 +330,11 @@ body {
 }
 
 /* The glyph owns text orientation. vertical-rl lets the font pick vertical
-   Japanese punctuation; text-orientation: mixed keeps kana upright. */
+   Japanese punctuation; text-orientation: upright stands every character up,
+   including Latin letters and digits, so they are not rotated sideways. */
 .manuscript-glyph {
   writing-mode: vertical-rl;
-  text-orientation: mixed;
+  text-orientation: upright;
   font-family: "Yu Mincho", "Hiragino Mincho ProN", "Hiragino Mincho Pro", serif;
   font-size: calc(var(--cell-size) * 0.82);
   line-height: 1;
