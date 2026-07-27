@@ -110,3 +110,28 @@ test("characters advance top-to-bottom and lines advance right-to-left", () => {
   // The next source line starts to the left of the first line.
   expect(u.left).toBeLessThan(a.left);
 });
+
+test("Unicode dash characters turn sideways while Latin letters remain upright", () => {
+  const sidewaysDashes = ["‐", "‑", "‒", "–", "—", "―"];
+  renderGrid(`${sidewaysDashes.join("")}A`, {
+    charsPerLine: 10,
+    linesPerStage: 3,
+    stagesPerPage: 1,
+  });
+
+  const glyphs = [...container.querySelectorAll<HTMLElement>(".manuscript-glyph")];
+  const latinLetter = glyphs.find((glyph) => glyph.textContent === "A");
+  expect(latinLetter).toBeDefined();
+  if (!latinLetter) {
+    return;
+  }
+
+  for (const dash of sidewaysDashes) {
+    const glyph = glyphs.find((candidate) => candidate.textContent === dash);
+    expect(glyph).toBeDefined();
+    if (glyph) {
+      expect(getComputedStyle(glyph).textOrientation).toBe("mixed");
+    }
+  }
+  expect(getComputedStyle(latinLetter).textOrientation).toBe("upright");
+});

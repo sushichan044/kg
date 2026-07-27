@@ -340,6 +340,10 @@ body {
   line-height: 1;
 }
 
+.manuscript-glyph--sideways {
+  text-orientation: mixed;
+}
+
 @media (forced-colors: active) {
   .manuscript-cell,
   .manuscript-stage {
