@@ -10,6 +10,9 @@ interface ManuscriptGridProps {
   onVisiblePageChange: (index: number) => void;
 }
 
+// U+2010 through U+2015 share Unicode's rotated vertical orientation.
+const sidewaysDashPattern = /^[\u2010-\u2015]$/u;
+
 // pageText reconstructs a page's source text in logical reading order for the
 // screen-reader-only element, so assistive tech reads prose instead of a wall of
 // empty grid cells.
@@ -81,7 +84,17 @@ export function ManuscriptGrid({ pages, restoreToPage, onVisiblePageChange }: Ma
                     {line.map((cell, cellIndex) => (
                       // eslint-disable-next-line react-x/no-array-index-key
                       <span key={cellIndex} className="manuscript-cell">
-                        {cell === null ? null : <span className="manuscript-glyph">{cell}</span>}
+                        {cell === null ? null : (
+                          <span
+                            className={
+                              sidewaysDashPattern.test(cell)
+                                ? "manuscript-glyph manuscript-glyph--sideways"
+                                : "manuscript-glyph"
+                            }
+                          >
+                            {cell}
+                          </span>
+                        )}
                       </span>
                     ))}
                   </div>

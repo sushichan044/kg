@@ -150,7 +150,7 @@ font-family: "Yu Mincho", "Hiragino Mincho ProN", "Hiragino Mincho Pro", serif;
 
 `writing-mode: vertical-rl` allows the font and browser to select vertical Japanese punctuation glyphs.
 `text-orientation: upright` stands every character up, including Latin letters and digits, so they are not rotated sideways.
-Do not add character-specific rotation tables unless a later preview mode defines them as part of its own contract.
+Dash characters from `U+2010` through `U+2015` use mixed orientation so the browser rotates them according to their Unicode vertical-orientation property.
 
 One grapheme always consumes one cell, even when it contains a variation selector, combining mark, or emoji sequence.
 Latin letters and digits stand upright in their own cells; sequences such as two digits or `!?` are not combined into tate-chu-yoko in the initial mode.
