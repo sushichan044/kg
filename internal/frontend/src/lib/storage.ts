@@ -3,26 +3,41 @@
 // migrate an old shape or discard it and fall back to defaults, rather than
 // loading settings the current UI can no longer honor.
 
+import {
+  DEFAULT_APPEARANCE,
+  DEFAULT_ZOOM,
+  isFixedZoomPercent,
+  isFontPresetId,
+  isMarginMm,
+  isPaperSizeId,
+} from "./manuscriptAppearance";
+import type { ManuscriptAppearanceSettings, ZoomMode } from "./manuscriptAppearance";
 import { DEFAULT_SETTINGS, SETTING_RANGES } from "./pagination";
 import type { GridSettings } from "./pagination";
 
-const STORAGE_KEY = "kg.viewer.state.v1";
-const STATE_VERSION = 1;
+const STORAGE_KEY = "kg.viewer.state.v2";
+const LEGACY_STORAGE_KEY = "kg.viewer.state.v1";
+const STATE_VERSION = 2;
 
 export interface Preset {
   name: string;
   settings: GridSettings;
+  appearance: ManuscriptAppearanceSettings;
 }
 
 export interface ViewerState {
   selectedPath: string | null;
   settings: GridSettings;
+  appearance: ManuscriptAppearanceSettings;
+  zoom: ZoomMode;
   presets: Preset[];
 }
 
 const DEFAULT_STATE: ViewerState = {
   selectedPath: null,
   settings: DEFAULT_SETTINGS,
+  appearance: DEFAULT_APPEARANCE,
+  zoom: DEFAULT_ZOOM,
   presets: [],
 };
 
@@ -40,10 +55,42 @@ function isValidSettings(value: unknown): value is GridSettings {
   });
 }
 
-// migrate turns a raw persisted payload into a valid ViewerState, or returns
-// null when it is incompatible. Future versions add cases here to transform old
-// shapes; unknown versions and invalid data are discarded.
-function migrate(parsed: unknown): ViewerState | null {
+function parseAppearance(value: unknown): ManuscriptAppearanceSettings | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  if (
+    !isPaperSizeId(record.paperSize) ||
+    !isMarginMm(record.marginMm) ||
+    !isFontPresetId(record.fontPreset)
+  ) {
+    return null;
+  }
+
+  return {
+    paperSize: record.paperSize,
+    marginMm: record.marginMm,
+    fontPreset: record.fontPreset,
+  };
+}
+
+function parseZoom(value: unknown): ZoomMode | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  if (record.mode === "fit") {
+    return { mode: "fit" };
+  }
+  if (record.mode === "fixed" && isFixedZoomPercent(record.percent)) {
+    return { mode: "fixed", percent: record.percent };
+  }
+
+  return null;
+}
+
+function migrateCurrent(parsed: unknown): ViewerState | null {
   if (typeof parsed !== "object" || parsed === null) {
     return null;
   }
@@ -55,15 +102,40 @@ function migrate(parsed: unknown): ViewerState | null {
   if (!isValidSettings(obj.settings)) {
     return null;
   }
+  const appearance = parseAppearance(obj.appearance);
+  const zoom = parseZoom(obj.zoom);
+  if (appearance === null || zoom === null) {
+    return null;
+  }
 
   return {
     selectedPath: typeof obj.selectedPath === "string" ? obj.selectedPath : null,
     settings: obj.settings,
-    presets: parsePresets(obj.presets),
+    appearance,
+    zoom,
+    presets: parsePresets(obj.presets, false),
   };
 }
 
-function parsePresets(value: unknown): Preset[] {
+function migrateLegacy(parsed: unknown): ViewerState | null {
+  if (typeof parsed !== "object" || parsed === null) {
+    return null;
+  }
+  const obj = parsed as Record<string, unknown>;
+  if (obj.version !== 1 || !isValidSettings(obj.settings)) {
+    return null;
+  }
+
+  return {
+    selectedPath: typeof obj.selectedPath === "string" ? obj.selectedPath : null,
+    settings: obj.settings,
+    appearance: DEFAULT_APPEARANCE,
+    zoom: DEFAULT_ZOOM,
+    presets: parsePresets(obj.presets, true),
+  };
+}
+
+function parsePresets(value: unknown, legacy: boolean): Preset[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -75,7 +147,10 @@ function parsePresets(value: unknown): Preset[] {
     }
     const rec = item as Record<string, unknown>;
     if (typeof rec.name === "string" && isValidSettings(rec.settings)) {
-      presets.push({ name: rec.name, settings: rec.settings });
+      const appearance = legacy ? DEFAULT_APPEARANCE : parseAppearance(rec.appearance);
+      if (appearance !== null) {
+        presets.push({ name: rec.name, settings: rec.settings, appearance });
+      }
     }
   }
 
@@ -85,11 +160,12 @@ function parsePresets(value: unknown): Preset[] {
 export function loadState(): ViewerState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw === null) {
-      return DEFAULT_STATE;
+    if (raw !== null) {
+      return migrateCurrent(JSON.parse(raw)) ?? DEFAULT_STATE;
     }
+    const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
 
-    return migrate(JSON.parse(raw)) ?? DEFAULT_STATE;
+    return legacy === null ? DEFAULT_STATE : (migrateLegacy(JSON.parse(legacy)) ?? DEFAULT_STATE);
   } catch {
     return DEFAULT_STATE;
   }
