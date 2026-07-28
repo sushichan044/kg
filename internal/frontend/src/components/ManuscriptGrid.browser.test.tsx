@@ -111,27 +111,45 @@ test("characters advance top-to-bottom and lines advance right-to-left", () => {
   expect(u.left).toBeLessThan(a.left);
 });
 
-test("Unicode dash characters turn sideways while Latin letters remain upright", () => {
-  const sidewaysDashes = ["‐", "‑", "‒", "–", "—", "―"];
-  renderGrid(`${sidewaysDashes.join("")}A`, {
-    charsPerLine: 10,
+test("symbols follow Unicode orientation while Latin letters and ASCII digits stay upright", () => {
+  const unicodeOrientedGlyphs = [
+    "‐",
+    "‑",
+    "‒",
+    "–",
+    "—",
+    "―",
+    "‥",
+    "…",
+    "-",
+    "－",
+    "−",
+    "─",
+    "あ",
+    "ー",
+    "〜",
+    "⁉︎",
+  ];
+  const uprightGlyphs = ["A", "é", "é", "7"];
+  renderGrid(`${unicodeOrientedGlyphs.join("")}${uprightGlyphs.join("")}`, {
+    charsPerLine: 20,
     linesPerStage: 3,
     stagesPerPage: 1,
   });
 
   const glyphs = [...container.querySelectorAll<HTMLElement>(".manuscript-glyph")];
-  const latinLetter = glyphs.find((glyph) => glyph.textContent === "A");
-  expect(latinLetter).toBeDefined();
-  if (!latinLetter) {
-    return;
-  }
-
-  for (const dash of sidewaysDashes) {
-    const glyph = glyphs.find((candidate) => candidate.textContent === dash);
+  for (const expected of unicodeOrientedGlyphs) {
+    const glyph = glyphs.find((candidate) => candidate.textContent === expected);
     expect(glyph).toBeDefined();
     if (glyph) {
       expect(getComputedStyle(glyph).textOrientation).toBe("mixed");
     }
   }
-  expect(getComputedStyle(latinLetter).textOrientation).toBe("upright");
+  for (const expected of uprightGlyphs) {
+    const glyph = glyphs.find((candidate) => candidate.textContent === expected);
+    expect(glyph).toBeDefined();
+    if (glyph) {
+      expect(getComputedStyle(glyph).textOrientation).toBe("upright");
+    }
+  }
 });

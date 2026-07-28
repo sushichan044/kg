@@ -10,8 +10,9 @@ interface ManuscriptGridProps {
   onVisiblePageChange: (index: number) => void;
 }
 
-// U+2010 through U+2015 share Unicode's rotated vertical orientation.
-const sidewaysDashPattern = /^[\u2010-\u2015]$/u;
+// Latin text and ASCII digits follow the preview's upright-per-cell contract;
+// every other grapheme delegates its orientation to Unicode via CSS mixed mode.
+const uprightGlyphPattern = /^(?:\p{Script=Latin}|[0-9])/u;
 
 // pageText reconstructs a page's source text in logical reading order for the
 // screen-reader-only element, so assistive tech reads prose instead of a wall of
@@ -87,8 +88,8 @@ export function ManuscriptGrid({ pages, restoreToPage, onVisiblePageChange }: Ma
                         {cell === null ? null : (
                           <span
                             className={
-                              sidewaysDashPattern.test(cell)
-                                ? "manuscript-glyph manuscript-glyph--sideways"
+                              uprightGlyphPattern.test(cell)
+                                ? "manuscript-glyph manuscript-glyph--upright"
                                 : "manuscript-glyph"
                             }
                           >

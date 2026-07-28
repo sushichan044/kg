@@ -329,19 +329,18 @@ body {
   justify-content: center;
 }
 
-/* The glyph owns text orientation. vertical-rl lets the font pick vertical
-   Japanese punctuation; text-orientation: upright stands every character up,
-   including Latin letters and digits, so they are not rotated sideways. */
+/* The glyph owns text orientation. mixed delegates each grapheme to Unicode's
+   vertical-orientation property and enables vertical font substitutions. */
 .manuscript-glyph {
   writing-mode: vertical-rl;
-  text-orientation: upright;
+  text-orientation: mixed;
   font-family: "Yu Mincho", "Hiragino Mincho ProN", "Hiragino Mincho Pro", serif;
   font-size: calc(var(--cell-size) * 0.82);
   line-height: 1;
 }
 
-.manuscript-glyph--sideways {
-  text-orientation: mixed;
+.manuscript-glyph--upright {
+  text-orientation: upright;
 }
 
 @media (forced-colors: active) {
