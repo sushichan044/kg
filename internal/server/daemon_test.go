@@ -2,6 +2,7 @@ package server_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/sushichan044/kg/internal/server"
+	"github.com/sushichan044/kg/internal/version"
 )
 
 func TestHandler_AddRootsExtendsCatalog(t *testing.T) {
@@ -38,6 +40,34 @@ func TestHandler_AddRootsExtendsCatalog(t *testing.T) {
 	require.Equal(t, http.StatusAccepted, rec.Code)
 	// AddRoots rescans synchronously, so the catalog is updated by now.
 	assert.Equal(t, []string{"b.txt"}, relPaths(srv.Files()))
+}
+
+func TestHandler_StatusReportsVersionAndRoots(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	srv := server.New(discardLogger())
+	w, err := server.NewWatcher(srv, []string{root}, root, discardLogger())
+	require.NoError(t, err)
+	srv.AttachRoots(w)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go w.Run(ctx)
+
+	req := httptest.NewRequest(http.MethodGet, "/_/api/status", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler(dummySPA()).ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var status struct {
+		Version string   `json:"version"`
+		Roots   []string `json:"roots"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &status))
+	assert.Equal(t, version.Get(), status.Version)
+	assert.Equal(t, []string{root}, status.Roots)
 }
 
 func TestHandler_ShutdownRequestSignals(t *testing.T) {
