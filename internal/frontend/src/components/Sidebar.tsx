@@ -1,6 +1,13 @@
 import { useState } from "react";
 
 import type { FileEntry } from "../lib/api";
+import { FONT_PRESETS, MARGIN_OPTIONS, PAPER_SIZES } from "../lib/manuscriptAppearance";
+import type {
+  FontPresetId,
+  ManuscriptAppearanceSettings,
+  MarginMm,
+  PaperSizeId,
+} from "../lib/manuscriptAppearance";
 import { SETTING_RANGES } from "../lib/pagination";
 import type { GridSettings, Statistics } from "../lib/pagination";
 import type { Preset } from "../lib/storage";
@@ -20,6 +27,10 @@ export interface SidebarProps {
   drafts: Record<SettingField, string>;
   invalid: Record<SettingField, boolean>;
   onSettingChange: (field: SettingField, raw: string) => void;
+  appearance: ManuscriptAppearanceSettings;
+  onPaperSizeChange: (paperSize: PaperSizeId) => void;
+  onMarginChange: (marginMm: MarginMm) => void;
+  onFontPresetChange: (fontPreset: FontPresetId) => void;
   presets: Preset[];
   builtinPresetName: string;
   onApplyPreset: (name: string) => void;
@@ -37,6 +48,10 @@ export function Sidebar(props: SidebarProps) {
     drafts,
     invalid,
     onSettingChange,
+    appearance,
+    onPaperSizeChange,
+    onMarginChange,
+    onFontPresetChange,
     presets,
     builtinPresetName,
     onApplyPreset,
@@ -81,7 +96,8 @@ export function Sidebar(props: SidebarProps) {
         )}
       </nav>
 
-      <div className="controls">
+      <fieldset className="controls">
+        <legend>組版</legend>
         {CONTROLS.map(({ field, label }) => {
           const range = SETTING_RANGES[field];
           const hintId = `hint-${field}`;
@@ -107,7 +123,74 @@ export function Sidebar(props: SidebarProps) {
             </div>
           );
         })}
-      </div>
+      </fieldset>
+
+      <fieldset className="paper-controls">
+        <legend>紙面</legend>
+
+        <div className="select-control">
+          <label htmlFor="paper-size">用紙</label>
+          <select
+            id="paper-size"
+            value={appearance.paperSize}
+            onChange={(event) => {
+              const selected = PAPER_SIZES.find((paper) => paper.id === event.target.value);
+              if (selected) {
+                onPaperSizeChange(selected.id);
+              }
+            }}
+          >
+            {PAPER_SIZES.map((paper) => (
+              <option key={paper.id} value={paper.id}>
+                {paper.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="select-control">
+          <label htmlFor="paper-margin">最低余白</label>
+          <select
+            id="paper-margin"
+            value={appearance.marginMm}
+            onChange={(event) => {
+              const value = Number(event.target.value);
+              const selected = MARGIN_OPTIONS.find((margin) => margin === value);
+              if (selected !== undefined) {
+                onMarginChange(selected);
+              }
+            }}
+          >
+            {MARGIN_OPTIONS.map((margin) => (
+              <option key={margin} value={margin}>
+                {margin}mm
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="select-control">
+          <label htmlFor="manuscript-font">書体</label>
+          <select
+            id="manuscript-font"
+            value={appearance.fontPreset}
+            onChange={(event) => {
+              const selected = FONT_PRESETS.find((font) => font.id === event.target.value);
+              if (selected) {
+                onFontPresetChange(selected.id);
+              }
+            }}
+          >
+            {FONT_PRESETS.map((font) => (
+              <option key={font.id} value={font.id}>
+                {font.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <p className="paper-controls__note">紙面と文字サイズは概算です。</p>
+      </fieldset>
 
       <div className="presets">
         <label htmlFor="preset-apply">プリセット</label>

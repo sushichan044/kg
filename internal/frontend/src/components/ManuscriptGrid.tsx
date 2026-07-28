@@ -1,14 +1,26 @@
 import { useEffect, useRef } from "react";
+import type { CSSProperties } from "react";
 
+import type { ManuscriptGeometry } from "../lib/manuscriptAppearance";
 import type { Page, Stage } from "../lib/pagination";
 
 interface ManuscriptGridProps {
   pages: Page[];
+  geometry: ManuscriptGeometry;
+  fontFamily: string;
+  scale: number;
   // restoreToPage is the page index to scroll to when the pagination changes
   // (file switch, or a setting that changed the page count).
   restoreToPage: number;
   onVisiblePageChange: (index: number) => void;
 }
+
+type ManuscriptStyle = CSSProperties & {
+  "--cell-size": string;
+  "--manuscript-font": string;
+  "--page-height": string;
+  "--page-width": string;
+};
 
 // Latin text and ASCII digits follow the preview's upright-per-cell contract;
 // every other grapheme delegates its orientation to Unicode via CSS mixed mode.
@@ -23,10 +35,23 @@ function pageText(page: Page): string {
     .join("\n");
 }
 
-export function ManuscriptGrid({ pages, restoreToPage, onVisiblePageChange }: ManuscriptGridProps) {
+export function ManuscriptGrid({
+  pages,
+  geometry,
+  fontFamily,
+  scale,
+  restoreToPage,
+  onVisiblePageChange,
+}: ManuscriptGridProps) {
   const pageRefs = useRef<Array<HTMLElement | null>>([]);
   const restoreRef = useRef(restoreToPage);
   restoreRef.current = restoreToPage;
+  const style: ManuscriptStyle = {
+    "--cell-size": `${geometry.cellSizeMm * scale}mm`,
+    "--manuscript-font": fontFamily,
+    "--page-height": `${geometry.paperHeightMm * scale}mm`,
+    "--page-width": `${geometry.paperWidthMm * scale}mm`,
+  };
 
   // Scroll to the remembered page whenever the pagination changes.
   useEffect(() => {
@@ -59,7 +84,7 @@ export function ManuscriptGrid({ pages, restoreToPage, onVisiblePageChange }: Ma
   }, [pages, onVisiblePageChange]);
 
   return (
-    <div className="manuscript-stack">
+    <div className="manuscript-stack" style={style}>
       {pages.map((page, pageIndex) => (
         <section
           // Page order is stable for a given pagination, so the index is a valid key.
@@ -69,6 +94,8 @@ export function ManuscriptGrid({ pages, restoreToPage, onVisiblePageChange }: Ma
             pageRefs.current[pageIndex] = el;
           }}
           data-page-index={pageIndex}
+          data-paper-width-mm={geometry.paperWidthMm}
+          data-paper-height-mm={geometry.paperHeightMm}
           className="manuscript-page"
           aria-label={`${pageIndex + 1}ページ目、全${pages.length}ページ`}
           // The first page is above the fold; defer only later pages.
