@@ -14,7 +14,7 @@ It helps a writer change characters per line, lines per stage, and stage count w
 
 `kg` is not a production typesetting engine.
 Its pagination does not predict an InDesign document, and its output is not suitable as print-ready artwork.
-Final composition, font selection, spacing, and export belong in InDesign or another DTP application.
+Final composition, exact font metrics, spacing, and export belong in InDesign or another DTP application.
 
 The first preview mode is **manuscript grid**.
 Later versions may add modes such as a paperback page preview, but those modes should remain rough visual checks rather than print specifications.
@@ -106,13 +106,9 @@ The outer cell owns geometry and borders.
 The inner glyph owns text orientation.
 Empty cells retain the outer element and omit the glyph content.
 
-Use physical dimensions on the cell:
+Use one computed physical dimension on the cell:
 
 ```css
-.manuscript-page {
-  --cell-size: 1.55rem;
-}
-
 .manuscript-cell {
   box-sizing: border-box;
   width: var(--cell-size);
@@ -142,10 +138,11 @@ The first grapheme appears in the top-right cell.
 The next grapheme appears directly below it.
 After a line fills, the next grapheme starts at the top of the adjacent line on the left.
 
-Use a Japanese Mincho system-font stack for manuscript text:
+Let the writer switch between Japanese Mincho and Gothic system-font stacks:
 
 ```css
 font-family: "Yu Mincho", "Hiragino Mincho ProN", "Hiragino Mincho Pro", serif;
+font-family: "Yu Gothic", "Hiragino Kaku Gothic ProN", system-ui, sans-serif;
 ```
 
 `writing-mode: vertical-rl` allows the font and browser to select vertical Japanese punctuation glyphs.
@@ -157,20 +154,38 @@ Latin letters and ASCII digits stand upright in their own cells; sequences such 
 
 ## Page geometry
 
-A stage has this physical grid size:
+A stage has this grid size:
 
 ```text
 width  = lines per stage × cell size
 height = characters per line × cell size
 ```
 
-A page stacks the configured stages vertically.
-Use a stage gap of two cell sizes and page padding of at least two cell sizes.
-The paper grows from the selected grid instead of scaling cells to fit the viewport.
+A page stacks the configured stages vertically with a gap of two cell sizes.
+The writer selects A4, A5, JIS B5, or JIS B6 paper in portrait orientation and a minimum margin of 10, 15, 20, 25, or 30 millimeters.
+The default is A5 with a 20 millimeter minimum margin.
+
+Choose the largest square cell that fits the complete grid inside the selected paper and minimum margin:
+
+```text
+grid height in cells = stages per page × characters per line
+                     + 2 × (stages per page - 1)
+
+cell size = min(
+  (paper width - 2 × minimum margin) / lines per stage,
+  (paper height - 2 × minimum margin) / grid height in cells
+)
+```
+
+Center the grid on the paper.
+The non-limiting axis may therefore have more than the selected minimum margin.
+Set the glyph size to 82 percent of the cell size and show its approximate point size using `72pt = 25.4mm`.
 
 Center pages when space permits.
 Allow horizontal and vertical scrolling when pages exceed the viewport.
-Never shrink cells automatically, because a changing cell size makes comparisons between settings misleading.
+Provide fixed preview zoom levels at 50, 75, 100, 125, and 150 percent.
+Also provide a fit-page mode that recomputes the scale when the preview viewport changes size, capped at 150 percent.
+Zoom changes display dimensions only; it does not change pagination or the reported point size.
 
 Show pages as one continuous vertical stack with a restrained shadow and visible separation.
 Use `content-visibility: auto` on offscreen pages when browser support permits it, while preserving the measured intrinsic page size.
@@ -206,11 +221,13 @@ The sidebar contains, in order:
 1. the `kg` product label and active preview-mode name;
 2. the watched text-file list;
 3. manuscript-grid controls;
-4. preset controls;
-5. character, source-line, and page statistics; and
-6. a live status message.
+4. paper, margin, and font controls;
+5. preset controls;
+6. character, source-line, and page statistics; and
+7. a live status message.
 
-The preview header shows the selected relative path and the current settings in the form `27字 × 23行 × 2段`.
+The preview header shows the selected relative path, paper, margin, font, approximate point size, and grid settings.
+It also contains zoom-out, zoom-in, and fit-page controls.
 The paper stack begins below that header.
 
 Use the relative path as the stable file label when duplicate basenames exist.
@@ -224,16 +241,18 @@ The preview remains scrollable in both axes.
 Apply a valid setting as soon as the numeric input changes.
 Keep an invalid draft value in the field, show the allowed range, and retain the last valid layout until the value becomes valid.
 
-Persist this state under a versioned localStorage key such as `kg.viewer.state.v1`:
+Persist this state under the versioned localStorage key `kg.viewer.state.v2`:
 
 - selected file path;
 - current preview mode;
-- current mode settings; and
+- current mode settings;
+- paper, minimum margin, font, and preview zoom; and
 - named custom presets.
 
 The stored payload carries a top-level `version` field. On load, an incompatible version is discarded (falling back to defaults) or migrated, so fast-moving changes to the display requirements never load settings the current UI cannot honor.
 
-The built-in `27字 × 23行 × 2段` preset cannot be overwritten or deleted.
+Presets include paper, margin, and font settings, but exclude preview zoom.
+The built-in `A5 / 20mm / 明朝 / 27字 × 23行 × 2段` preset cannot be overwritten or deleted.
 Saving an existing custom-preset name requires confirmation.
 Deleting a custom preset requires confirmation.
 
@@ -278,8 +297,9 @@ The first release contains only `manuscript-grid`.
 The initial `kg` release does not provide:
 
 - print, PDF, image, or InDesign export;
-- page sizes expressed in millimeters or points;
-- user-installed fonts or font embedding;
+- arbitrary paper sizes, landscape orientation, or calibrated on-screen physical dimensions;
+- user-installed font enumeration, arbitrary font names, or font embedding;
+- print-accurate point sizes or line breaks;
 - professional kinsoku shori;
 - tate-chu-yoko, ruby, warichu, or emphasis marks;
 - glyph-level kerning or optical alignment;
@@ -308,8 +328,11 @@ Browser tests must verify:
 - the first character occupies the top-right cell;
 - characters advance top-to-bottom and lines advance right-to-left;
 - every measured cell has equal width and height within 0.5 CSS pixels;
+- paper dimensions, minimum margins, and centered grid geometry match the selected settings;
 - empty cells retain all four grid edges when combined with adjacent cells;
 - Japanese brackets and punctuation use vertical glyph orientation;
+- font presets switch the manuscript font stack;
+- fixed zoom levels and fit-page mode preserve pagination;
 - changing each setting immediately repaginates the selected file;
 - settings and presets survive a browser reload;
 - the visible page is restored for each file;

@@ -5,6 +5,15 @@ import { Sidebar } from "./components/Sidebar";
 import { useServerEvents } from "./hooks/useServerEvents";
 import { fetchContent, fetchFiles } from "./lib/api";
 import type { FileEntry } from "./lib/api";
+import {
+  adjacentZoomLevel,
+  calculateManuscriptGeometry,
+  DEFAULT_APPEARANCE,
+  fitPagePercent,
+  fontPreset,
+  paperSize,
+} from "./lib/manuscriptAppearance";
+import type { FontPresetId, MarginMm, PaperSizeId } from "./lib/manuscriptAppearance";
 import { DEFAULT_SETTINGS, paginate, SETTING_RANGES } from "./lib/pagination";
 import type { GridSettings } from "./lib/pagination";
 import { loadPage, loadState, savePage, saveState } from "./lib/storage";
@@ -19,7 +28,7 @@ const NO_INVALID: Record<SettingField, boolean> = {
   stagesPerPage: false,
 };
 
-const BUILTIN_PRESET_NAME = `${DEFAULT_SETTINGS.charsPerLine}字 × ${DEFAULT_SETTINGS.linesPerStage}行 × ${DEFAULT_SETTINGS.stagesPerPage}段`;
+const BUILTIN_PRESET_NAME = `${paperSize(DEFAULT_APPEARANCE.paperSize).label} / ${DEFAULT_APPEARANCE.marginMm}mm / ${fontPreset(DEFAULT_APPEARANCE.fontPreset).label} / ${DEFAULT_SETTINGS.charsPerLine}字 × ${DEFAULT_SETTINGS.linesPerStage}行 × ${DEFAULT_SETTINGS.stagesPerPage}段`;
 
 function initialDrafts(settings: GridSettings): Record<SettingField, string> {
   return {
@@ -37,12 +46,14 @@ export function App() {
   const [currentPage, setCurrentPage] = useState(0);
   const [drafts, setDrafts] = useState(() => initialDrafts(state.settings));
   const [invalid, setInvalid] = useState<Record<SettingField, boolean>>(NO_INVALID);
+  const [fitPercent, setFitPercent] = useState(100);
+  const previewViewportRef = useRef<HTMLDivElement>(null);
 
   // Latest state for event handlers that must not close over stale values.
   const stateRef = useRef(state);
   stateRef.current = state;
 
-  const { settings } = state;
+  const { appearance, settings, zoom } = state;
 
   const selectedFile = files.find((f) => f.path === state.selectedPath) ?? files[0] ?? null;
   const selectedId = selectedFile?.id ?? null;
@@ -109,6 +120,47 @@ export function App() {
     },
   });
 
+  const geometry = useMemo(
+    () => calculateManuscriptGeometry(settings, appearance),
+    [appearance, settings],
+  );
+
+  useEffect(() => {
+    if (zoom.mode !== "fit") {
+      return;
+    }
+    const viewport = previewViewportRef.current;
+    if (viewport === null) {
+      return;
+    }
+
+    const updateFitPercent = () => {
+      const style = getComputedStyle(viewport);
+      const availableWidth =
+        viewport.clientWidth -
+        Number.parseFloat(style.paddingInlineStart) -
+        Number.parseFloat(style.paddingInlineEnd);
+      const availableHeight =
+        viewport.clientHeight -
+        Number.parseFloat(style.paddingBlockStart) -
+        Number.parseFloat(style.paddingBlockEnd);
+      setFitPercent(
+        fitPagePercent(
+          availableWidth,
+          availableHeight,
+          geometry.paperWidthMm,
+          geometry.paperHeightMm,
+        ),
+      );
+    };
+
+    updateFitPercent();
+    const observer = new ResizeObserver(updateFitPercent);
+    observer.observe(viewport);
+
+    return () => observer.disconnect();
+  }, [geometry.paperHeightMm, geometry.paperWidthMm, zoom.mode]);
+
   const onSettingChange = useCallback((field: SettingField, raw: string) => {
     setDrafts((d) => ({ ...d, [field]: raw }));
 
@@ -144,12 +196,16 @@ export function App() {
   const applyPreset = useCallback((name: string) => {
     const preset =
       name === BUILTIN_PRESET_NAME
-        ? { name, settings: DEFAULT_SETTINGS }
+        ? { name, settings: DEFAULT_SETTINGS, appearance: DEFAULT_APPEARANCE }
         : stateRef.current.presets.find((p) => p.name === name);
     if (preset === undefined) {
       return;
     }
-    setState((s) => ({ ...s, settings: preset.settings }));
+    setState((s) => ({
+      ...s,
+      settings: preset.settings,
+      appearance: preset.appearance,
+    }));
     setDrafts(initialDrafts(preset.settings));
     setInvalid(NO_INVALID);
     setStatus(`プリセット「${name}」を適用しました`);
@@ -171,7 +227,10 @@ export function App() {
     }
     setState((s) => ({
       ...s,
-      presets: [...s.presets.filter((p) => p.name !== name), { name, settings: s.settings }],
+      presets: [
+        ...s.presets.filter((p) => p.name !== name),
+        { name, settings: s.settings, appearance: s.appearance },
+      ],
     }));
     setStatus(`プリセット「${name}」を保存しました`);
   }, []);
@@ -189,7 +248,34 @@ export function App() {
     [content, settings],
   );
 
-  const headerSettings = `${settings.charsPerLine}字 × ${settings.linesPerStage}行 × ${settings.stagesPerPage}段`;
+  const selectedPaper = paperSize(appearance.paperSize);
+  const selectedFont = fontPreset(appearance.fontPreset);
+  const effectivePercent = zoom.mode === "fixed" ? zoom.percent : fitPercent;
+  const zoomOutLevel = adjacentZoomLevel(effectivePercent, "out");
+  const zoomInLevel = adjacentZoomLevel(effectivePercent, "in");
+  const headerSettings = `${selectedPaper.label} / ${appearance.marginMm}mm / ${selectedFont.label} / 約${geometry.fontSizePt.toFixed(1)}pt / ${settings.charsPerLine}字 × ${settings.linesPerStage}行 × ${settings.stagesPerPage}段`;
+  const zoomLabel = `${Math.round(effectivePercent)}%`;
+
+  const onPaperSizeChange = useCallback((paperSizeId: PaperSizeId) => {
+    setState((current) => ({
+      ...current,
+      appearance: { ...current.appearance, paperSize: paperSizeId },
+    }));
+  }, []);
+
+  const onMarginChange = useCallback((marginMm: MarginMm) => {
+    setState((current) => ({
+      ...current,
+      appearance: { ...current.appearance, marginMm },
+    }));
+  }, []);
+
+  const onFontPresetChange = useCallback((fontPresetId: FontPresetId) => {
+    setState((current) => ({
+      ...current,
+      appearance: { ...current.appearance, fontPreset: fontPresetId },
+    }));
+  }, []);
 
   return (
     <div className="app">
@@ -204,6 +290,10 @@ export function App() {
         drafts={drafts}
         invalid={invalid}
         onSettingChange={onSettingChange}
+        appearance={appearance}
+        onPaperSizeChange={onPaperSizeChange}
+        onMarginChange={onMarginChange}
+        onFontPresetChange={onFontPresetChange}
         presets={state.presets}
         builtinPresetName={BUILTIN_PRESET_NAME}
         onApplyPreset={applyPreset}
@@ -219,18 +309,67 @@ export function App() {
         ) : (
           <>
             <header className="preview__header">
-              <span className="preview__path">{selectedFile.path}</span>
-              <span className="preview__settings">{headerSettings}</span>
+              <div className="preview__document">
+                <span className="preview__path">{selectedFile.path}</span>
+                <span className="preview__settings">{headerSettings}</span>
+              </div>
+              <div className="zoom-controls" role="group" aria-label="表示倍率">
+                <button
+                  type="button"
+                  aria-label="縮小"
+                  disabled={zoomOutLevel === null}
+                  onClick={() => {
+                    if (zoomOutLevel !== null) {
+                      setState((current) => ({
+                        ...current,
+                        zoom: { mode: "fixed", percent: zoomOutLevel },
+                      }));
+                    }
+                  }}
+                >
+                  −
+                </button>
+                <output className="zoom-controls__value">{zoomLabel}</output>
+                <button
+                  type="button"
+                  aria-label="拡大"
+                  disabled={zoomInLevel === null}
+                  onClick={() => {
+                    if (zoomInLevel !== null) {
+                      setState((current) => ({
+                        ...current,
+                        zoom: { mode: "fixed", percent: zoomInLevel },
+                      }));
+                    }
+                  }}
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={zoom.mode === "fit"}
+                  onClick={() => {
+                    setState((current) => ({ ...current, zoom: { mode: "fit" } }));
+                  }}
+                >
+                  全体表示
+                </button>
+              </div>
             </header>
-            {pagination === null ? (
-              <p className="preview__loading">読み込み中…</p>
-            ) : (
-              <ManuscriptGrid
-                pages={pagination.pages}
-                restoreToPage={currentPage}
-                onVisiblePageChange={onVisiblePageChange}
-              />
-            )}
+            <div ref={previewViewportRef} className="preview__viewport">
+              {pagination === null ? (
+                <p className="preview__loading">読み込み中…</p>
+              ) : (
+                <ManuscriptGrid
+                  pages={pagination.pages}
+                  geometry={geometry}
+                  fontFamily={selectedFont.family}
+                  scale={effectivePercent / 100}
+                  restoreToPage={currentPage}
+                  onVisiblePageChange={onVisiblePageChange}
+                />
+              )}
+            </div>
           </>
         )}
       </main>

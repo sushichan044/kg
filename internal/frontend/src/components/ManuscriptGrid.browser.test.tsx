@@ -6,6 +6,12 @@ import type { Root } from "react-dom/client";
 // oxlint-disable-next-line vite-plus/prefer-vite-plus-imports
 import { afterEach, beforeEach, expect, test } from "vitest";
 
+import {
+  calculateManuscriptGeometry,
+  DEFAULT_APPEARANCE,
+  fontPreset,
+} from "../lib/manuscriptAppearance";
+import type { ManuscriptAppearanceSettings } from "../lib/manuscriptAppearance";
 import { paginate } from "../lib/pagination";
 import type { GridSettings } from "../lib/pagination";
 import { ManuscriptGrid } from "./ManuscriptGrid";
@@ -30,10 +36,25 @@ afterEach(() => {
   container.remove();
 });
 
-function renderGrid(text: string, settings: GridSettings): void {
+function renderGrid(
+  text: string,
+  settings: GridSettings,
+  appearance: ManuscriptAppearanceSettings = DEFAULT_APPEARANCE,
+  scale = 1,
+): void {
   const { pages } = paginate(text, settings);
+  const geometry = calculateManuscriptGeometry(settings, appearance);
   flushSync(() => {
-    root.render(<ManuscriptGrid pages={pages} restoreToPage={0} onVisiblePageChange={noop} />);
+    root.render(
+      <ManuscriptGrid
+        pages={pages}
+        geometry={geometry}
+        fontFamily={fontPreset(appearance.fontPreset).family}
+        scale={scale}
+        restoreToPage={0}
+        onVisiblePageChange={noop}
+      />,
+    );
   });
 }
 
@@ -73,6 +94,41 @@ test("every cell is square and equal in size within 0.5px", () => {
   for (const r of rects) {
     expect(Math.abs(r.width - first.width)).toBeLessThanOrEqual(0.5);
     expect(Math.abs(r.height - first.height)).toBeLessThanOrEqual(0.5);
+  }
+});
+
+test("renders the selected paper size and scale with the grid inside its minimum margin", () => {
+  const settings = { charsPerLine: 27, linesPerStage: 23, stagesPerPage: 2 };
+  renderGrid("あ", settings, DEFAULT_APPEARANCE, 0.5);
+
+  const page = container.querySelector(".manuscript-page")?.getBoundingClientRect();
+  const grid = container.querySelector(".manuscript-page__grid")?.getBoundingClientRect();
+  expect(page).toBeDefined();
+  expect(grid).toBeDefined();
+  if (!page || !grid) {
+    throw new Error("Expected the manuscript page and grid to render");
+  }
+
+  const pixelsPerMmAtScale = (96 / 25.4) * 0.5;
+  expect(page.width).toBeCloseTo(148 * pixelsPerMmAtScale, 0);
+  expect(page.height).toBeCloseTo(210 * pixelsPerMmAtScale, 0);
+  expect(grid.left - page.left).toBeGreaterThanOrEqual(20 * pixelsPerMmAtScale - 1);
+  expect(page.right - grid.right).toBeGreaterThanOrEqual(20 * pixelsPerMmAtScale - 1);
+  expect(grid.top - page.top).toBeGreaterThanOrEqual(20 * pixelsPerMmAtScale - 1);
+  expect(page.bottom - grid.bottom).toBeGreaterThanOrEqual(20 * pixelsPerMmAtScale - 1);
+});
+
+test("applies the selected font preset to manuscript glyphs", () => {
+  renderGrid(
+    "あ",
+    { charsPerLine: 5, linesPerStage: 3, stagesPerPage: 1 },
+    { ...DEFAULT_APPEARANCE, fontPreset: "gothic" },
+  );
+
+  const glyph = container.querySelector(".manuscript-glyph");
+  expect(glyph).not.toBeNull();
+  if (glyph) {
+    expect(getComputedStyle(glyph).fontFamily).toContain("Yu Gothic");
   }
 });
 

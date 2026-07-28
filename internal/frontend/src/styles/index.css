@@ -11,12 +11,7 @@
   --text: #2f2a24;
   --grid: #d8c7a6;
   --accent: #9b3f32;
-
-  /* The same cell size drives horizontal and vertical dimensions, so cells stay
-     square and page density stays comparable across settings. */
-  --cell-size: 1.55rem;
-  --stage-gap: calc(var(--cell-size) * 2);
-  --page-padding: calc(var(--cell-size) * 2);
+  --viewer-padding: 2rem;
 
   color-scheme: light;
 }
@@ -151,6 +146,22 @@ body {
   gap: 0.75rem;
 }
 
+.controls,
+.paper-controls {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.controls legend,
+.paper-controls legend {
+  inline-size: 100%;
+  margin-block-end: 0.65rem;
+  padding: 0;
+  font-weight: 700;
+}
+
 .control {
   display: grid;
   grid-template-columns: auto 4rem;
@@ -177,6 +188,31 @@ body {
   grid-column: 2;
   font-size: 0.75rem;
   opacity: 0.7;
+}
+
+.paper-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.select-control {
+  display: grid;
+  grid-template-columns: minmax(5rem, 1fr) minmax(7rem, 1.4fr);
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.select-control select {
+  inline-size: 100%;
+  padding: 0.35rem;
+  font: inherit;
+}
+
+.paper-controls__note {
+  margin: 0;
+  font-size: 0.8rem;
+  opacity: 0.75;
 }
 
 .presets {
@@ -252,16 +288,30 @@ body {
 
 /* Preview area */
 .preview {
-  overflow: auto;
-  padding: var(--page-padding);
+  min-inline-size: 0;
+  min-block-size: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .preview__header {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 1rem;
+  align-items: safe center;
+  gap: 0.75rem 1.5rem;
+  padding: 1rem var(--viewer-padding);
+  background: rgb(216 208 194 / 92%);
+  border-block-end: 1px solid rgb(47 42 36 / 14%);
+}
+
+.preview__document {
+  min-inline-size: 0;
+  display: flex;
+  flex: 1 1 24rem;
+  flex-wrap: wrap;
   align-items: baseline;
-  margin-block-end: var(--page-padding);
+  gap: 0.35rem 1rem;
 }
 
 .preview__path {
@@ -273,16 +323,65 @@ body {
   opacity: 0.8;
 }
 
+.zoom-controls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.zoom-controls button {
+  min-block-size: 2rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid rgb(47 42 36 / 35%);
+  border-radius: 3px;
+  background: var(--sidebar);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.zoom-controls button[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.zoom-controls button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.zoom-controls__value {
+  min-inline-size: 3.5rem;
+  text-align: center;
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.preview__viewport {
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: auto;
+  padding: var(--viewer-padding);
+  overscroll-behavior: contain;
+}
+
 /* Continuous vertical stack of pages, centered when space permits. */
 .manuscript-stack {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: calc(var(--cell-size) * 2);
+  inline-size: max-content;
+  min-inline-size: 100%;
+  gap: 2rem;
 }
 
 .manuscript-page {
-  padding: var(--page-padding);
+  display: grid;
+  place-items: center;
+  inline-size: var(--page-width);
+  block-size: var(--page-height);
+  flex: none;
   background: var(--paper);
   box-shadow: 0 1px 4px rgb(0 0 0 / 15%);
 }
@@ -299,7 +398,7 @@ body {
 .manuscript-page__grid {
   display: flex;
   flex-direction: column;
-  gap: var(--stage-gap);
+  gap: calc(var(--cell-size) * 2);
 }
 
 /* A stage: lines fill right-to-left; the stage closes the right and bottom
@@ -334,7 +433,7 @@ body {
 .manuscript-glyph {
   writing-mode: vertical-rl;
   text-orientation: mixed;
-  font-family: "Yu Mincho", "Hiragino Mincho ProN", "Hiragino Mincho Pro", serif;
+  font-family: var(--manuscript-font);
   font-size: calc(var(--cell-size) * 0.82);
   line-height: 1;
 }
@@ -347,5 +446,10 @@ body {
   .manuscript-cell,
   .manuscript-stage {
     border-color: CanvasText;
+  }
+
+  .zoom-controls button[aria-pressed="true"] {
+    border-color: Highlight;
+    box-shadow: inset 0 0 0 1px Highlight;
   }
 }

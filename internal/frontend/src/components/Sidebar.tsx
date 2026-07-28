@@ -1,6 +1,13 @@
 import { useState } from "react";
 
 import type { FileEntry } from "../lib/api";
+import { FONT_PRESETS, MARGIN_OPTIONS, PAPER_SIZES } from "../lib/manuscriptAppearance";
+import type {
+  FontPresetId,
+  ManuscriptAppearanceSettings,
+  MarginMm,
+  PaperSizeId,
+} from "../lib/manuscriptAppearance";
 import { SETTING_RANGES } from "../lib/pagination";
 import type { GridSettings, Statistics } from "../lib/pagination";
 import type { Preset } from "../lib/storage";
@@ -13,6 +20,29 @@ const CONTROLS: Array<{ field: SettingField; label: string }> = [
   { field: "stagesPerPage", label: "段数" },
 ];
 
+interface SelectControlProps {
+  id: string;
+  label: string;
+  value: string | number;
+  options: Array<{ value: string | number; label: string }>;
+  onChange: (value: string) => void;
+}
+
+function SelectControl({ id, label, value, options, onChange }: SelectControlProps) {
+  return (
+    <div className="select-control">
+      <label htmlFor={id}>{label}</label>
+      <select id={id} value={value} onChange={(event) => onChange(event.target.value)}>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 export interface SidebarProps {
   files: FileEntry[];
   selectedId: string | null;
@@ -20,6 +50,10 @@ export interface SidebarProps {
   drafts: Record<SettingField, string>;
   invalid: Record<SettingField, boolean>;
   onSettingChange: (field: SettingField, raw: string) => void;
+  appearance: ManuscriptAppearanceSettings;
+  onPaperSizeChange: (paperSize: PaperSizeId) => void;
+  onMarginChange: (marginMm: MarginMm) => void;
+  onFontPresetChange: (fontPreset: FontPresetId) => void;
   presets: Preset[];
   builtinPresetName: string;
   onApplyPreset: (name: string) => void;
@@ -37,6 +71,10 @@ export function Sidebar(props: SidebarProps) {
     drafts,
     invalid,
     onSettingChange,
+    appearance,
+    onPaperSizeChange,
+    onMarginChange,
+    onFontPresetChange,
     presets,
     builtinPresetName,
     onApplyPreset,
@@ -81,7 +119,8 @@ export function Sidebar(props: SidebarProps) {
         )}
       </nav>
 
-      <div className="controls">
+      <fieldset className="controls">
+        <legend>組版</legend>
         {CONTROLS.map(({ field, label }) => {
           const range = SETTING_RANGES[field];
           const hintId = `hint-${field}`;
@@ -107,7 +146,52 @@ export function Sidebar(props: SidebarProps) {
             </div>
           );
         })}
-      </div>
+      </fieldset>
+
+      <fieldset className="paper-controls">
+        <legend>紙面</legend>
+
+        <SelectControl
+          id="paper-size"
+          label="用紙"
+          value={appearance.paperSize}
+          options={PAPER_SIZES.map((paper) => ({ value: paper.id, label: paper.label }))}
+          onChange={(value) => {
+            const selected = PAPER_SIZES.find((paper) => paper.id === value);
+            if (selected) {
+              onPaperSizeChange(selected.id);
+            }
+          }}
+        />
+
+        <SelectControl
+          id="paper-margin"
+          label="最低余白"
+          value={appearance.marginMm}
+          options={MARGIN_OPTIONS.map((margin) => ({ value: margin, label: `${margin}mm` }))}
+          onChange={(value) => {
+            const selected = MARGIN_OPTIONS.find((margin) => margin === Number(value));
+            if (selected !== undefined) {
+              onMarginChange(selected);
+            }
+          }}
+        />
+
+        <SelectControl
+          id="manuscript-font"
+          label="書体"
+          value={appearance.fontPreset}
+          options={FONT_PRESETS.map((font) => ({ value: font.id, label: font.label }))}
+          onChange={(value) => {
+            const selected = FONT_PRESETS.find((font) => font.id === value);
+            if (selected) {
+              onFontPresetChange(selected.id);
+            }
+          }}
+        />
+
+        <p className="paper-controls__note">紙面と文字サイズは概算です。</p>
+      </fieldset>
 
       <div className="presets">
         <label htmlFor="preset-apply">プリセット</label>
