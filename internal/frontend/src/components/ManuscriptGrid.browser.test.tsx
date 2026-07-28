@@ -106,7 +106,7 @@ test("renders the selected paper size and scale with the grid inside its minimum
   expect(page).toBeDefined();
   expect(grid).toBeDefined();
   if (!page || !grid) {
-    return;
+    throw new Error("Expected the manuscript page and grid to render");
   }
 
   const pixelsPerMmAtScale = (96 / 25.4) * 0.5;

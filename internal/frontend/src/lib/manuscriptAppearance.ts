@@ -39,6 +39,9 @@ export const DEFAULT_APPEARANCE: ManuscriptAppearanceSettings = {
   fontPreset: "mincho",
 };
 
+const DEFAULT_PAPER_SIZE =
+  PAPER_SIZES.find((paper) => paper.id === DEFAULT_APPEARANCE.paperSize) ?? PAPER_SIZES[0];
+
 export const ZOOM_LEVELS = [50, 75, 100, 125, 150] as const;
 export type FixedZoomPercent = (typeof ZOOM_LEVELS)[number];
 
@@ -49,7 +52,7 @@ export const DEFAULT_ZOOM: ZoomMode = { mode: "fixed", percent: 100 };
 const STAGE_GAP_CELLS = 2;
 const FONT_TO_CELL_RATIO = 0.82;
 const CSS_PIXELS_PER_MM = 96 / 25.4;
-const MAX_FIT_PERCENT = 150;
+const MAX_FIT_PERCENT = Math.max(...ZOOM_LEVELS);
 
 export interface ManuscriptGeometry {
   paperWidthMm: number;
@@ -59,7 +62,7 @@ export interface ManuscriptGeometry {
 }
 
 export function paperSize(id: PaperSizeId) {
-  return PAPER_SIZES.find((paper) => paper.id === id) ?? PAPER_SIZES[1];
+  return PAPER_SIZES.find((paper) => paper.id === id) ?? DEFAULT_PAPER_SIZE;
 }
 
 export function fontPreset(id: FontPresetId) {

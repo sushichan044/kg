@@ -28,7 +28,7 @@ const NO_INVALID: Record<SettingField, boolean> = {
   stagesPerPage: false,
 };
 
-const BUILTIN_PRESET_NAME = `A5 / 20mm / 明朝 / ${DEFAULT_SETTINGS.charsPerLine}字 × ${DEFAULT_SETTINGS.linesPerStage}行 × ${DEFAULT_SETTINGS.stagesPerPage}段`;
+const BUILTIN_PRESET_NAME = `${paperSize(DEFAULT_APPEARANCE.paperSize).label} / ${DEFAULT_APPEARANCE.marginMm}mm / ${fontPreset(DEFAULT_APPEARANCE.fontPreset).label} / ${DEFAULT_SETTINGS.charsPerLine}字 × ${DEFAULT_SETTINGS.linesPerStage}行 × ${DEFAULT_SETTINGS.stagesPerPage}段`;
 
 function initialDrafts(settings: GridSettings): Record<SettingField, string> {
   return {
@@ -159,7 +159,7 @@ export function App() {
     observer.observe(viewport);
 
     return () => observer.disconnect();
-  }, [geometry.paperHeightMm, geometry.paperWidthMm, selectedId, zoom.mode]);
+  }, [geometry.paperHeightMm, geometry.paperWidthMm, zoom.mode]);
 
   const onSettingChange = useCallback((field: SettingField, raw: string) => {
     setDrafts((d) => ({ ...d, [field]: raw }));

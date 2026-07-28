@@ -102,17 +102,12 @@ function migrateCurrent(parsed: unknown): ViewerState | null {
   if (!isValidSettings(obj.settings)) {
     return null;
   }
-  const appearance = parseAppearance(obj.appearance);
-  const zoom = parseZoom(obj.zoom);
-  if (appearance === null || zoom === null) {
-    return null;
-  }
 
   return {
     selectedPath: typeof obj.selectedPath === "string" ? obj.selectedPath : null,
     settings: obj.settings,
-    appearance,
-    zoom,
+    appearance: parseAppearance(obj.appearance) ?? DEFAULT_APPEARANCE,
+    zoom: parseZoom(obj.zoom) ?? DEFAULT_ZOOM,
     presets: parsePresets(obj.presets, false),
   };
 }
@@ -147,10 +142,10 @@ function parsePresets(value: unknown, legacy: boolean): Preset[] {
     }
     const rec = item as Record<string, unknown>;
     if (typeof rec.name === "string" && isValidSettings(rec.settings)) {
-      const appearance = legacy ? DEFAULT_APPEARANCE : parseAppearance(rec.appearance);
-      if (appearance !== null) {
-        presets.push({ name: rec.name, settings: rec.settings, appearance });
-      }
+      const appearance = legacy
+        ? DEFAULT_APPEARANCE
+        : (parseAppearance(rec.appearance) ?? DEFAULT_APPEARANCE);
+      presets.push({ name: rec.name, settings: rec.settings, appearance });
     }
   }
 
@@ -158,11 +153,19 @@ function parsePresets(value: unknown, legacy: boolean): Preset[] {
 }
 
 export function loadState(): ViewerState {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw !== null) {
-      return migrateCurrent(JSON.parse(raw)) ?? DEFAULT_STATE;
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw !== null) {
+    try {
+      const current = migrateCurrent(JSON.parse(raw));
+      if (current !== null) {
+        return current;
+      }
+    } catch {
+      // Continue to the legacy key so a partial v2 write does not hide valid v1 state.
     }
+  }
+
+  try {
     const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
 
     return legacy === null ? DEFAULT_STATE : (migrateLegacy(JSON.parse(legacy)) ?? DEFAULT_STATE);

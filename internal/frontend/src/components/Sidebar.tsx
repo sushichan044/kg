@@ -20,6 +20,29 @@ const CONTROLS: Array<{ field: SettingField; label: string }> = [
   { field: "stagesPerPage", label: "段数" },
 ];
 
+interface SelectControlProps {
+  id: string;
+  label: string;
+  value: string | number;
+  options: Array<{ value: string | number; label: string }>;
+  onChange: (value: string) => void;
+}
+
+function SelectControl({ id, label, value, options, onChange }: SelectControlProps) {
+  return (
+    <div className="select-control">
+      <label htmlFor={id}>{label}</label>
+      <select id={id} value={value} onChange={(event) => onChange(event.target.value)}>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 export interface SidebarProps {
   files: FileEntry[];
   selectedId: string | null;
@@ -128,66 +151,44 @@ export function Sidebar(props: SidebarProps) {
       <fieldset className="paper-controls">
         <legend>紙面</legend>
 
-        <div className="select-control">
-          <label htmlFor="paper-size">用紙</label>
-          <select
-            id="paper-size"
-            value={appearance.paperSize}
-            onChange={(event) => {
-              const selected = PAPER_SIZES.find((paper) => paper.id === event.target.value);
-              if (selected) {
-                onPaperSizeChange(selected.id);
-              }
-            }}
-          >
-            {PAPER_SIZES.map((paper) => (
-              <option key={paper.id} value={paper.id}>
-                {paper.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <SelectControl
+          id="paper-size"
+          label="用紙"
+          value={appearance.paperSize}
+          options={PAPER_SIZES.map((paper) => ({ value: paper.id, label: paper.label }))}
+          onChange={(value) => {
+            const selected = PAPER_SIZES.find((paper) => paper.id === value);
+            if (selected) {
+              onPaperSizeChange(selected.id);
+            }
+          }}
+        />
 
-        <div className="select-control">
-          <label htmlFor="paper-margin">最低余白</label>
-          <select
-            id="paper-margin"
-            value={appearance.marginMm}
-            onChange={(event) => {
-              const value = Number(event.target.value);
-              const selected = MARGIN_OPTIONS.find((margin) => margin === value);
-              if (selected !== undefined) {
-                onMarginChange(selected);
-              }
-            }}
-          >
-            {MARGIN_OPTIONS.map((margin) => (
-              <option key={margin} value={margin}>
-                {margin}mm
-              </option>
-            ))}
-          </select>
-        </div>
+        <SelectControl
+          id="paper-margin"
+          label="最低余白"
+          value={appearance.marginMm}
+          options={MARGIN_OPTIONS.map((margin) => ({ value: margin, label: `${margin}mm` }))}
+          onChange={(value) => {
+            const selected = MARGIN_OPTIONS.find((margin) => margin === Number(value));
+            if (selected !== undefined) {
+              onMarginChange(selected);
+            }
+          }}
+        />
 
-        <div className="select-control">
-          <label htmlFor="manuscript-font">書体</label>
-          <select
-            id="manuscript-font"
-            value={appearance.fontPreset}
-            onChange={(event) => {
-              const selected = FONT_PRESETS.find((font) => font.id === event.target.value);
-              if (selected) {
-                onFontPresetChange(selected.id);
-              }
-            }}
-          >
-            {FONT_PRESETS.map((font) => (
-              <option key={font.id} value={font.id}>
-                {font.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <SelectControl
+          id="manuscript-font"
+          label="書体"
+          value={appearance.fontPreset}
+          options={FONT_PRESETS.map((font) => ({ value: font.id, label: font.label }))}
+          onChange={(value) => {
+            const selected = FONT_PRESETS.find((font) => font.id === value);
+            if (selected) {
+              onFontPresetChange(selected.id);
+            }
+          }}
+        />
 
         <p className="paper-controls__note">紙面と文字サイズは概算です。</p>
       </fieldset>

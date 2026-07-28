@@ -184,7 +184,7 @@ Set the glyph size to 82 percent of the cell size and show its approximate point
 Center pages when space permits.
 Allow horizontal and vertical scrolling when pages exceed the viewport.
 Provide fixed preview zoom levels at 50, 75, 100, 125, and 150 percent.
-Also provide a fit-page mode that recomputes the scale when the preview viewport changes size.
+Also provide a fit-page mode that recomputes the scale when the preview viewport changes size, capped at 150 percent.
 Zoom changes display dimensions only; it does not change pagination or the reported point size.
 
 Show pages as one continuous vertical stack with a restrained shadow and visible separation.
