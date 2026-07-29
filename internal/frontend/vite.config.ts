@@ -15,56 +15,37 @@ export default defineConfig({
   resolve: {
     dedupe: ["react", "react-dom"],
   },
-  lint: {
-    categories: {
-      correctness: "error",
-      nursery: "error",
-      perf: "error",
-    },
-    env: {
-      browser: true,
-    },
-    plugins: [
-      // https://oxc.rs/docs/guide/usage/linter/plugins.html#supported-plugins
-      // enabled by default
-      "eslint",
-      "typescript",
-      "unicorn",
-      "oxc",
-
-      // optional
-      "import",
-      "node",
-      "promise",
-      "vitest",
-    ],
-    rules: {
-      "import/consistent-type-specifier-style": "error",
-
-      "typescript/array-type": ["error", { default: "array-simple" }],
-      "typescript/ban-ts-comment": "error",
-      "typescript/consistent-type-assertions": "error",
-      "typescript/consistent-type-imports": "error",
-      "typescript/no-misused-promises": "error",
-      "typescript/no-explicit-any": "error",
-      "typescript/no-unnecessary-type-assertion": "error",
-      "typescript/no-unnecessary-type-conversion": "error",
-      "typescript/no-unsafe-call": "error",
-      "typescript/non-nullable-type-assertion-style": "error",
-      "typescript/switch-exhaustiveness-check": "error",
-      "typescript/no-confusing-void-expression": "error",
-
-      "node/no-path-concat": "error",
-
-      "unicorn/custom-error-definition": "error",
-      "unicorn/switch-case-braces": "error",
-      "unicorn/prefer-date-now": "error",
-      "unicorn/consistent-assert": "error",
-
-      "oxc/branches-sharing-code": "error",
+  run: {
+    tasks: {
+      build: {
+        command: "vp build",
+        dependsOn: [{ task: "build", from: "dependencies" }],
+      },
+      check: {
+        command: "vp check",
+        dependsOn: [{ task: "build", from: "dependencies" }],
+      },
+      "check:fix": {
+        command: "vp check --fix",
+        dependsOn: [{ task: "build", from: "dependencies" }],
+        cache: false,
+      },
+      dev: {
+        command: "vp dev",
+        dependsOn: [{ task: "build", from: "dependencies" }],
+        cache: false,
+      },
+      preview: {
+        command: "vp preview",
+        dependsOn: ["build"],
+        cache: false,
+      },
+      test: {
+        command: "vp test",
+        dependsOn: [{ task: "build", from: "dependencies" }],
+      },
     },
   },
-
   test: {
     passWithNoTests: true,
     projects: [

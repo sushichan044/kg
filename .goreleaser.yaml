@@ -3,7 +3,7 @@ version: 2
 
 before:
   hooks:
-    - go generate ./...
+    - vp run --filter kg-frontend build
 
 builds:
   - main: .

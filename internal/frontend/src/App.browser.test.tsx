@@ -1,9 +1,7 @@
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
-// Browser-mode tests use Vitest's browser runner directly.
-// oxlint-disable-next-line vite-plus/prefer-vite-plus-imports
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vite-plus/test";
 
 import { App } from "./App";
 
@@ -56,7 +54,9 @@ afterEach(() => {
 });
 
 test("connects proofreading feedback to the drawer and manuscript cells", async () => {
-  flushSync(() => root.render(<App />));
+  flushSync(() => {
+    root.render(<App />);
+  });
 
   await vi.waitFor(() => {
     expect(host.querySelector('[aria-label="校正エラー 4件"]')).not.toBeNull();
@@ -80,14 +80,16 @@ test("connects proofreading feedback to the drawer and manuscript cells", async 
 });
 
 test("opens compact file, settings, and diagnostics sheets", async () => {
-  flushSync(() => root.render(<App />));
+  flushSync(() => {
+    root.render(<App />);
+  });
 
   await vi.waitFor(() => {
     expect(host.querySelector(".mobile-toolbar strong")?.textContent).toBe("testdata/novel.txt");
   });
 
   const buttons = Array.from(host.querySelectorAll<HTMLButtonElement>(".mobile-toolbar button"));
-  expect(buttons.map((button) => button.textContent?.trim())).toEqual([
+  expect(buttons.map((button) => button.textContent.trim())).toEqual([
     "ファイル",
     "校正 4",
     "設定",

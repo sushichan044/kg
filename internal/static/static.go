@@ -1,7 +1,6 @@
 // Package static embeds the built frontend and serves it as a single-page
-// application. During release builds the Go binary is self-contained; the
-// embedded files are produced by the frontend build (see the go:generate
-// directive below).
+// application. The generated assets are checked in so standard Go builds are
+// self-contained.
 package static
 
 import (
@@ -10,8 +9,6 @@ import (
 	"net/http"
 	"strings"
 )
-
-//go:generate sh -c "cd ../frontend && pnpm install && pnpm run build"
 
 //go:embed all:dist
 var dist embed.FS

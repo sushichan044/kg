@@ -30,7 +30,9 @@ export function DiagnosticList({
           <button
             type="button"
             aria-current={diagnostic.id === activeDiagnosticId ? "true" : undefined}
-            onClick={() => onSelect(diagnostic)}
+            onClick={() => {
+              onSelect(diagnostic);
+            }}
           >
             <span className="kgv-diagnostic-location">
               {diagnostic.location.start.line}行 {diagnostic.location.start.column}列

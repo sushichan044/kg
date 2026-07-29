@@ -34,6 +34,6 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - run: pnpm build
+      - run: vp run build:packages
 
-      - run: pnpm pkg-pr-new './packages/*'
+      - run: vp run pkg-pr-new './packages/*'

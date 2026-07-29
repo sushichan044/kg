@@ -19,6 +19,21 @@ export default defineConfig({
       treeshake: true,
     },
   ],
+  run: {
+    tasks: {
+      build: "vp pack",
+      check: "vp check",
+      "check:fix": {
+        command: "vp check --fix",
+        cache: false,
+      },
+      dev: {
+        command: "vp pack --watch",
+        cache: false,
+      },
+      test: "vp test",
+    },
+  },
   test: {
     projects: [
       {

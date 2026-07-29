@@ -66,7 +66,9 @@ export function ViewerToolbar({
             <button
               type="button"
               aria-pressed={zoom.mode === "fit"}
-              onClick={() => onZoomChange({ mode: "fit" })}
+              onClick={() => {
+                onZoomChange({ mode: "fit" });
+              }}
             >
               全体表示
             </button>

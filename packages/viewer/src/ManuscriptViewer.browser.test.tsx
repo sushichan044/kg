@@ -3,9 +3,7 @@ import type { GridSettings } from "@sushichan044/kg-core";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
-// Browser-mode tests use Vitest's browser runner directly.
-// oxlint-disable-next-line vite-plus/prefer-vite-plus-imports
-import { afterEach, beforeEach, expect, test } from "vitest";
+import { afterEach, beforeEach, expect, test } from "vite-plus/test";
 
 import { ManuscriptViewer } from "./ManuscriptViewer";
 

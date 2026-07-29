@@ -1,8 +1,5 @@
 import { DEFAULT_APPEARANCE, DEFAULT_SETTINGS, DEFAULT_ZOOM } from "@sushichan044/kg-core";
-// Runs in the browser project for a real localStorage. Imports the runner from
-// "vitest" directly; the "vite-plus/test" re-export does not resolve it.
-// oxlint-disable-next-line vite-plus/prefer-vite-plus-imports
-import { beforeEach, expect, test } from "vitest";
+import { beforeEach, expect, test } from "vite-plus/test";
 
 import { loadState, saveState } from "./storage";
 import type { ViewerState } from "./storage";

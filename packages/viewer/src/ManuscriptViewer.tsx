@@ -43,6 +43,7 @@ type ManuscriptStyle = CSSProperties & {
 };
 
 const uprightGlyphPattern = /^(?:\p{Script=Latin}|[0-9])/u;
+const EMPTY_DIAGNOSTICS: ManuscriptDiagnostic[] = [];
 
 function pageText(page: Page): string {
   return page
@@ -77,7 +78,7 @@ export function ManuscriptViewer({
   settings = DEFAULT_SETTINGS,
   appearance = DEFAULT_APPEARANCE,
   zoom = DEFAULT_ZOOM,
-  diagnostics = [],
+  diagnostics = EMPTY_DIAGNOSTICS,
   activeDiagnosticId = null,
   restoreToPage = 0,
   ariaLabel = "原稿プレビュー",
@@ -97,6 +98,25 @@ export function ManuscriptViewer({
   const [fitPercent, setFitPercent] = useState(100);
   const effectivePercent = zoom.mode === "fixed" ? zoom.percent : fitPercent;
   const selectedFont = fontPreset(appearance.fontPreset);
+  const renderedPages = useMemo(
+    () =>
+      pagination.pages.map((page, pageIndex) => ({
+        id: `page:${pageIndex}`,
+        index: pageIndex,
+        page,
+        stages: page.map((stage, stageIndex) => ({
+          id: `page:${pageIndex}:stage:${stageIndex}`,
+          lines: stage.map((line, lineIndex) => ({
+            id: `page:${pageIndex}:stage:${stageIndex}:line:${lineIndex}`,
+            cells: line.map((cell, cellIndex) => ({
+              id: `page:${pageIndex}:stage:${stageIndex}:line:${lineIndex}:cell:${cellIndex}`,
+              cell,
+            })),
+          })),
+        })),
+      })),
+    [pagination.pages],
+  );
 
   useEffect(() => {
     if (zoom.mode !== "fit") {
@@ -131,7 +151,9 @@ export function ManuscriptViewer({
     const observer = new ResizeObserver(updateFitPercent);
     observer.observe(viewport);
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+    };
   }, [geometry.paperHeightMm, geometry.paperWidthMm, zoom.mode]);
 
   useEffect(() => {
@@ -165,7 +187,9 @@ export function ManuscriptViewer({
       }
     }
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+    };
   }, [onVisiblePageChange, pagination.pages]);
 
   useEffect(() => {
@@ -196,11 +220,9 @@ export function ManuscriptViewer({
     <div className={joinClassNames("kgv-viewer", className)} aria-label={ariaLabel}>
       <div ref={viewportRef} className="kgv-viewport">
         <div className="kgv-stack" style={style}>
-          {pagination.pages.map((page, pageIndex) => (
+          {renderedPages.map(({ id, index: pageIndex, page, stages }) => (
             <section
-              // Page order is stable for one pagination result.
-              // eslint-disable-next-line react-x/no-array-index-key
-              key={pageIndex}
+              key={id}
               ref={(element) => {
                 pageRefs.current[pageIndex] = element;
               }}
@@ -213,18 +235,13 @@ export function ManuscriptViewer({
             >
               <p className="kgv-visually-hidden">{pageText(page)}</p>
               <div className="kgv-page-grid">
-                {page.map((stage, stageIndex) => (
-                  // eslint-disable-next-line react-x/no-array-index-key
-                  <div key={stageIndex} className="kgv-stage">
-                    {stage.map((line, lineIndex) => (
-                      // eslint-disable-next-line react-x/no-array-index-key
-                      <div key={lineIndex} className="kgv-line">
-                        {line.map((cell, cellIndex) => {
+                {stages.map(({ id: stageId, lines }) => (
+                  <div key={stageId} className="kgv-stage">
+                    {lines.map(({ id: lineId, cells }) => (
+                      <div key={lineId} className="kgv-line">
+                        {cells.map(({ id: cellId, cell }) => {
                           if (cell === null) {
-                            return (
-                              // eslint-disable-next-line react-x/no-array-index-key
-                              <span key={cellIndex} className="kgv-cell" />
-                            );
+                            return <span key={cellId} className="kgv-cell" />;
                           }
                           const cellDiagnostics = diagnosticsForCell(cell, diagnostics);
                           const first = cellDiagnostics[0];
@@ -234,8 +251,7 @@ export function ManuscriptViewer({
 
                           return (
                             <span
-                              // eslint-disable-next-line react-x/no-array-index-key
-                              key={cellIndex}
+                              key={cellId}
                               className="kgv-cell"
                               data-diagnostic={cellDiagnostics.length > 0 ? "" : undefined}
                               data-diagnostic-active={active ? "" : undefined}

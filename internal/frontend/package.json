@@ -2,36 +2,24 @@
   "name": "kg-frontend",
   "private": true,
   "type": "module",
-  "scripts": {
-    "predev": "pnpm --filter @sushichan044/kg-viewer build",
-    "dev": "vp dev",
-    "prebuild": "pnpm --filter @sushichan044/kg-viewer build",
-    "build": "vp build",
-    "preview": "vp preview",
-    "precheck": "pnpm --filter @sushichan044/kg-viewer build",
-    "check": "vp check",
-    "pretest": "pnpm --filter @sushichan044/kg-viewer build",
-    "test": "vp test"
-  },
   "dependencies": {
     "@sushichan044/kg-core": "workspace:*",
     "@sushichan044/kg-viewer": "workspace:*",
-    "react": "19.2.7",
-    "react-dom": "19.2.7"
+    "react": "catalog:prod",
+    "react-dom": "catalog:prod"
   },
   "devDependencies": {
-    "@rolldown/plugin-babel": "0.2.3",
-    "@types/react": "19.2.17",
-    "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "6.0.3",
-    "@vitest/browser": "4.1.10",
-    "@vitest/browser-playwright": "4.1.10",
+    "@rolldown/plugin-babel": "catalog:dev",
+    "@types/react": "catalog:dev",
+    "@types/react-dom": "catalog:dev",
+    "@vitejs/plugin-react": "catalog:dev",
+    "@vitest/browser": "catalog:dev",
+    "@vitest/browser-playwright": "catalog:dev",
     "babel-plugin-react-compiler": "1.0.0",
     "oxlint": "1.74.0",
-    "playwright": "1.61.1",
-    "typescript": "7.0.2",
-    "vite": "8.1.5",
-    "vite-plus": "0.2.5",
-    "vitest": "4.1.10"
+    "playwright": "catalog:dev",
+    "typescript": "catalog:dev",
+    "vite": "catalog:dev",
+    "vite-plus": "catalog:dev"
   }
 }

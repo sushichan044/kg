@@ -28,14 +28,17 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Verify Go install
+        run: go install .
+        env:
+          GOBIN: ${{ runner.temp }}/bin
+
       - run: |
           go mod verify
           git diff --exit-code go.mod go.sum
 
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
-        with:
-          version: latest
+      - name: Go checks
+        run: vp run lint
 
   test:
     runs-on: ubuntu-24.04
@@ -47,9 +50,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Test
-        run: |
-          set -o pipefail
-          go test ./... -json | tee ./go-test.out | go tool tparse -all
+        run: vp run test:ci
 
       - name: Add job summary
         if: always()
@@ -66,16 +67,13 @@ jobs:
           go-version-file: go.mod
 
       - name: Check
-        run: |
-          pnpm --filter @sushichan044/kg-core check
-          pnpm --filter @sushichan044/kg-viewer check
-          pnpm --filter kg-frontend check
+        run: vp run -r check
+
+      - name: Check generated frontend
+        run: vp run check:generated
 
       - name: Unit tests
-        run: |
-          pnpm --filter @sushichan044/kg-core test --project unit
-          pnpm --filter @sushichan044/kg-viewer test --project unit
-          pnpm --filter kg-frontend test --project unit
+        run: vp run --filter @sushichan044/kg-core --filter @sushichan044/kg-viewer --filter kg-frontend test --project unit
 
   browser-test:
     name: Run browser tests
@@ -111,9 +109,7 @@ jobs:
         run: pnpm --filter kg-frontend exec playwright install-deps chromium-headless-shell
 
       - name: Browser tests
-        run: |
-          pnpm --filter @sushichan044/kg-viewer test --project browser
-          pnpm --filter kg-frontend test --project browser
+        run: vp run --filter @sushichan044/kg-viewer --filter kg-frontend test --project browser
 
       - name: Upload test screenshots on failure
         if: failure()

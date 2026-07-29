@@ -44,20 +44,15 @@
     "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
-    "build": "vp pack",
-    "check": "vp check",
-    "dev": "vp pack --watch",
-    "prepublishOnly": "vp pack",
-    "test": "vp test"
+    "prepublishOnly": "vp run build"
   },
   "devDependencies": {
-    "@arethetypeswrong/core": "0.18.5",
-    "publint": "0.3.22",
-    "typescript": "7.0.2",
-    "unplugin-unused": "0.5.7",
-    "vite": "8.1.5",
-    "vite-plus": "0.2.5",
-    "vitest": "4.1.10"
+    "@arethetypeswrong/core": "catalog:dev",
+    "publint": "catalog:dev",
+    "typescript": "catalog:dev",
+    "unplugin-unused": "catalog:dev",
+    "vite": "catalog:dev",
+    "vite-plus": "catalog:dev"
   },
   "engines": {
     "node": ">=22.12.0"

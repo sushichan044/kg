@@ -32,7 +32,13 @@ function SelectControl({ id, label, value, options, onChange }: SelectControlPro
   return (
     <div className="select-control">
       <label htmlFor={id}>{label}</label>
-      <select id={id} value={value} onChange={(event) => onChange(event.target.value)}>
+      <select
+        id={id}
+        value={value}
+        onChange={(event) => {
+          onChange(event.target.value);
+        }}
+      >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -62,7 +68,9 @@ export function FilePanel({ files, selectedId, onSelect }: FilePanelProps) {
                 type="button"
                 className="file-list__item"
                 aria-current={file.id === selectedId ? "page" : undefined}
-                onClick={() => onSelect(file.id)}
+                onClick={() => {
+                  onSelect(file.id);
+                }}
               >
                 {file.path}
               </button>
@@ -134,7 +142,9 @@ export function SettingsPanel({
                 value={drafts[field]}
                 aria-invalid={invalid[field]}
                 aria-describedby={hintId}
-                onChange={(event) => onSettingChange(field, event.target.value)}
+                onChange={(event) => {
+                  onSettingChange(field, event.target.value);
+                }}
               />
               <span id={hintId} className="control__hint">
                 {range.min}–{range.max}
@@ -213,7 +223,9 @@ export function SettingsPanel({
             type="text"
             placeholder="現在の設定を保存"
             value={newPresetName}
-            onChange={(event) => setNewPresetName(event.target.value)}
+            onChange={(event) => {
+              setNewPresetName(event.target.value);
+            }}
           />
           <button
             type="button"
@@ -234,7 +246,9 @@ export function SettingsPanel({
                 <button
                   type="button"
                   aria-label={`プリセット「${preset.name}」を削除`}
-                  onClick={() => onDeletePreset(preset.name)}
+                  onClick={() => {
+                    onDeletePreset(preset.name);
+                  }}
                 >
                   削除
                 </button>

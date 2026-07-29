@@ -40,6 +40,11 @@ const NO_INVALID: Record<SettingField, boolean> = {
 
 const BUILTIN_PRESET_NAME = `${paperSize(DEFAULT_APPEARANCE.paperSize).label} / ${DEFAULT_APPEARANCE.marginMm}mm / ${fontPreset(DEFAULT_APPEARANCE.fontPreset).label} / ${DEFAULT_SETTINGS.charsPerLine}字 × ${DEFAULT_SETTINGS.linesPerStage}行 × ${DEFAULT_SETTINGS.stagesPerPage}段`;
 
+interface LoadedContent {
+  id: string;
+  text: string;
+}
+
 function initialDrafts(settings: GridSettings): Record<SettingField, string> {
   return {
     charsPerLine: String(settings.charsPerLine),
@@ -123,17 +128,31 @@ function MobileZoomControls({ zoom, effectivePercent, onChange }: MobileZoomCont
     <fieldset className="mobile-zoom">
       <legend>表示倍率</legend>
       <div role="group" aria-label="表示倍率">
-        <button type="button" disabled={zoomOut === null} onClick={() => applyFixed(zoomOut)}>
+        <button
+          type="button"
+          disabled={zoomOut === null}
+          onClick={() => {
+            applyFixed(zoomOut);
+          }}
+        >
           縮小
         </button>
         <output>{Math.round(effectivePercent)}%</output>
-        <button type="button" disabled={zoomIn === null} onClick={() => applyFixed(zoomIn)}>
+        <button
+          type="button"
+          disabled={zoomIn === null}
+          onClick={() => {
+            applyFixed(zoomIn);
+          }}
+        >
           拡大
         </button>
         <button
           type="button"
           aria-pressed={zoom.mode === "fit"}
-          onClick={() => onChange({ mode: "fit" })}
+          onClick={() => {
+            onChange({ mode: "fit" });
+          }}
         >
           全体表示
         </button>
@@ -145,7 +164,7 @@ function MobileZoomControls({ zoom, effectivePercent, onChange }: MobileZoomCont
 export function App() {
   const [state, setState] = useState<ViewerState>(loadState);
   const [files, setFiles] = useState<FileEntry[]>([]);
-  const [content, setContent] = useState<string | null>(null);
+  const [loadedContent, setLoadedContent] = useState<LoadedContent | null>(null);
   const [status, setStatus] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
   const [drafts, setDrafts] = useState(() => initialDrafts(state.settings));
@@ -158,17 +177,32 @@ export function App() {
   const [filesSheetOpen, setFilesSheetOpen] = useState(false);
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
   const [diagnosticsSheetOpen, setDiagnosticsSheetOpen] = useState(false);
-  const stateRef = useRef(state);
-  stateRef.current = state;
 
   const { appearance, settings, zoom } = state;
   const selectedFile = files.find((file) => file.path === state.selectedPath) ?? files[0] ?? null;
   const selectedId = selectedFile?.id ?? null;
   const selectedPath = selectedFile?.path ?? null;
+  const content =
+    selectedId !== null && loadedContent?.id === selectedId ? loadedContent.text : null;
+  const [previousSelectedPath, setPreviousSelectedPath] = useState<string | null>(selectedPath);
+  if (selectedPath !== previousSelectedPath) {
+    setPreviousSelectedPath(selectedPath);
+    setCurrentPage(selectedPath === null ? 0 : loadPage(selectedPath));
+    setActiveDiagnosticId(null);
+  }
 
   const refreshFiles = useCallback(async () => {
     try {
-      setFiles(await fetchFiles());
+      const nextFiles = await fetchFiles();
+      setFiles(nextFiles);
+      setState((current) => {
+        const selected =
+          nextFiles.find((file) => file.path === current.selectedPath) ?? nextFiles[0] ?? null;
+
+        return selected === null || selected.path === current.selectedPath
+          ? current
+          : { ...current, selectedPath: selected.path };
+      });
     } catch {
       setStatus("ファイル一覧の取得に失敗しました");
     }
@@ -176,41 +210,78 @@ export function App() {
 
   const loadContent = useCallback(async (id: string) => {
     try {
-      setContent(await fetchContent(id));
+      setLoadedContent({ id, text: await fetchContent(id) });
     } catch {
       setStatus("本文の取得に失敗しました");
     }
   }, []);
 
   useEffect(() => {
-    void refreshFiles();
-  }, [refreshFiles]);
+    let ignore = false;
+    void fetchFiles().then(
+      (nextFiles) => {
+        if (ignore) {
+          return;
+        }
+        setFiles(nextFiles);
+        setState((current) => {
+          const selected =
+            nextFiles.find((file) => file.path === current.selectedPath) ?? nextFiles[0] ?? null;
 
-  useEffect(() => {
-    if (selectedFile !== null && selectedFile.path !== state.selectedPath) {
-      setState((current) => ({ ...current, selectedPath: selectedFile.path }));
-    }
-  }, [selectedFile, state.selectedPath]);
+          return selected === null || selected.path === current.selectedPath
+            ? current
+            : { ...current, selectedPath: selected.path };
+        });
+      },
+      () => {
+        if (!ignore) {
+          setStatus("ファイル一覧の取得に失敗しました");
+        }
+      },
+    );
 
-  useEffect(() => {
-    setCurrentPage(selectedPath === null ? 0 : loadPage(selectedPath));
-    setActiveDiagnosticId(null);
-  }, [selectedPath]);
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (selectedId === null) {
-      setContent(null);
-
       return;
     }
-    setContent(null);
-    void loadContent(selectedId);
-  }, [loadContent, selectedId]);
+    let ignore = false;
+    void fetchContent(selectedId).then(
+      (text) => {
+        if (!ignore) {
+          setLoadedContent({ id: selectedId, text });
+        }
+      },
+      () => {
+        if (!ignore) {
+          setStatus("本文の取得に失敗しました");
+        }
+      },
+    );
+
+    return () => {
+      ignore = true;
+    };
+  }, [selectedId]);
 
   useEffect(() => {
-    if (!saveState(state)) {
-      setStatus("設定を保存できませんでした");
+    if (saveState(state)) {
+      return;
     }
+    let active = true;
+    queueMicrotask(() => {
+      if (active) {
+        setStatus("設定を保存できませんでした");
+      }
+    });
+
+    return () => {
+      active = false;
+    };
   }, [state]);
 
   useServerEvents({
@@ -240,67 +311,74 @@ export function App() {
     }
   }, []);
 
-  const onSelect = useCallback((id: string) => {
-    setFiles((current) => {
-      const found = current.find((file) => file.id === id);
+  const onSelect = useCallback(
+    (id: string) => {
+      const found = files.find((file) => file.id === id);
       if (found !== undefined) {
         setState((viewer) => ({ ...viewer, selectedPath: found.path }));
       }
+      setFilesSheetOpen(false);
+    },
+    [files],
+  );
 
-      return current;
-    });
-    setFilesSheetOpen(false);
-  }, []);
+  const onVisiblePageChange = useCallback(
+    (index: number) => {
+      setCurrentPage(index);
+      if (selectedPath !== null) {
+        savePage(selectedPath, index);
+      }
+    },
+    [selectedPath],
+  );
 
-  const onVisiblePageChange = useCallback((index: number) => {
-    setCurrentPage(index);
-    const path = stateRef.current.selectedPath;
-    if (path !== null) {
-      savePage(path, index);
-    }
-  }, []);
+  const applyPreset = useCallback(
+    (name: string) => {
+      const preset =
+        name === BUILTIN_PRESET_NAME
+          ? { name, settings: DEFAULT_SETTINGS, appearance: DEFAULT_APPEARANCE }
+          : state.presets.find((candidate) => candidate.name === name);
+      if (preset === undefined) {
+        return;
+      }
+      setState((current) => ({
+        ...current,
+        settings: preset.settings,
+        appearance: preset.appearance,
+      }));
+      setDrafts(initialDrafts(preset.settings));
+      setInvalid(NO_INVALID);
+      setStatus(`プリセット「${name}」を適用しました`);
+    },
+    [state.presets],
+  );
 
-  const applyPreset = useCallback((name: string) => {
-    const preset =
-      name === BUILTIN_PRESET_NAME
-        ? { name, settings: DEFAULT_SETTINGS, appearance: DEFAULT_APPEARANCE }
-        : stateRef.current.presets.find((candidate) => candidate.name === name);
-    if (preset === undefined) {
-      return;
-    }
-    setState((current) => ({
-      ...current,
-      settings: preset.settings,
-      appearance: preset.appearance,
-    }));
-    setDrafts(initialDrafts(preset.settings));
-    setInvalid(NO_INVALID);
-    setStatus(`プリセット「${name}」を適用しました`);
-  }, []);
+  const savePreset = useCallback(
+    (rawName: string) => {
+      const name = rawName.trim();
+      if (name === "") {
+        return;
+      }
+      if (name === BUILTIN_PRESET_NAME) {
+        setStatus("組み込みプリセットは上書きできません");
 
-  const savePreset = useCallback((rawName: string) => {
-    const name = rawName.trim();
-    if (name === "") {
-      return;
-    }
-    if (name === BUILTIN_PRESET_NAME) {
-      setStatus("組み込みプリセットは上書きできません");
-
-      return;
-    }
-    const exists = stateRef.current.presets.some((preset) => preset.name === name);
-    if (exists && !window.confirm(`プリセット「${name}」を上書きしますか？`)) {
-      return;
-    }
-    setState((current) => ({
-      ...current,
-      presets: [
-        ...current.presets.filter((preset) => preset.name !== name),
-        { name, settings: current.settings, appearance: current.appearance },
-      ],
-    }));
-    setStatus(`プリセット「${name}」を保存しました`);
-  }, []);
+        return;
+      }
+      const exists = state.presets.some((preset) => preset.name === name);
+      if (exists && !window.confirm(`プリセット「${name}」を上書きしますか？`)) {
+        return;
+      }
+      setState((current) => ({
+        ...current,
+        presets: [
+          ...current.presets.filter((preset) => preset.name !== name),
+          { name, settings: current.settings, appearance: current.appearance },
+        ],
+      }));
+      setStatus(`プリセット「${name}」を保存しました`);
+    },
+    [state.presets],
+  );
 
   const deletePreset = useCallback((name: string) => {
     if (!window.confirm(`プリセット「${name}」を削除しますか？`)) {
@@ -334,21 +412,24 @@ export function App() {
     invalid,
     onSettingChange,
     appearance,
-    onPaperSizeChange: (paperSizeId: PaperSizeId) =>
+    onPaperSizeChange: (paperSizeId: PaperSizeId) => {
       setState((current) => ({
         ...current,
         appearance: { ...current.appearance, paperSize: paperSizeId },
-      })),
-    onMarginChange: (marginMm: MarginMm) =>
+      }));
+    },
+    onMarginChange: (marginMm: MarginMm) => {
       setState((current) => ({
         ...current,
         appearance: { ...current.appearance, marginMm },
-      })),
-    onFontPresetChange: (fontPresetId: FontPresetId) =>
+      }));
+    },
+    onFontPresetChange: (fontPresetId: FontPresetId) => {
       setState((current) => ({
         ...current,
         appearance: { ...current.appearance, fontPreset: fontPresetId },
-      })),
+      }));
+    },
     presets: state.presets,
     builtinPresetName: BUILTIN_PRESET_NAME,
     onApplyPreset: applyPreset,
@@ -382,22 +463,38 @@ export function App() {
               zoom={zoom}
               effectiveZoomPercent={effectiveZoomPercent}
               diagnosticCount={diagnostics.length}
-              onZoomChange={(nextZoom) => setState((current) => ({ ...current, zoom: nextZoom }))}
-              onDiagnosticsOpen={() => setDiagnosticDrawerOpen((open) => !open)}
+              onZoomChange={(nextZoom) => {
+                setState((current) => ({ ...current, zoom: nextZoom }));
+              }}
+              onDiagnosticsOpen={() => {
+                setDiagnosticDrawerOpen((open) => !open);
+              }}
             />
             <header className="mobile-toolbar">
-              <button type="button" onClick={() => setFilesSheetOpen(true)}>
+              <button
+                type="button"
+                onClick={() => {
+                  setFilesSheetOpen(true);
+                }}
+              >
                 ファイル
               </button>
               <strong title={selectedFile.path}>{selectedFile.path}</strong>
               <button
                 type="button"
                 aria-label={`校正エラー ${diagnostics.length}件`}
-                onClick={() => setDiagnosticsSheetOpen(true)}
+                onClick={() => {
+                  setDiagnosticsSheetOpen(true);
+                }}
               >
                 校正 <span>{diagnostics.length}</span>
               </button>
-              <button type="button" onClick={() => setSettingsSheetOpen(true)}>
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsSheetOpen(true);
+                }}
+              >
                 設定
               </button>
             </header>
@@ -435,7 +532,9 @@ export function App() {
             <button
               type="button"
               aria-label="校正エラーを閉じる"
-              onClick={() => setDiagnosticDrawerOpen(false)}
+              onClick={() => {
+                setDiagnosticDrawerOpen(false);
+              }}
             >
               閉じる
             </button>
@@ -448,21 +547,37 @@ export function App() {
         </aside>
       )}
 
-      <Sheet open={filesSheetOpen} title="ファイル" onClose={() => setFilesSheetOpen(false)}>
+      <Sheet
+        open={filesSheetOpen}
+        title="ファイル"
+        onClose={() => {
+          setFilesSheetOpen(false);
+        }}
+      >
         <FilePanel files={files} selectedId={selectedId} onSelect={onSelect} />
       </Sheet>
-      <Sheet open={settingsSheetOpen} title="表示設定" onClose={() => setSettingsSheetOpen(false)}>
+      <Sheet
+        open={settingsSheetOpen}
+        title="表示設定"
+        onClose={() => {
+          setSettingsSheetOpen(false);
+        }}
+      >
         <MobileZoomControls
           zoom={zoom}
           effectivePercent={effectiveZoomPercent}
-          onChange={(nextZoom) => setState((current) => ({ ...current, zoom: nextZoom }))}
+          onChange={(nextZoom) => {
+            setState((current) => ({ ...current, zoom: nextZoom }));
+          }}
         />
         <SettingsPanel {...settingsPanelProps} idPrefix="mobile-" />
       </Sheet>
       <Sheet
         open={diagnosticsSheetOpen}
         title="校正エラー"
-        onClose={() => setDiagnosticsSheetOpen(false)}
+        onClose={() => {
+          setDiagnosticsSheetOpen(false);
+        }}
       >
         <DiagnosticList
           diagnostics={diagnostics}

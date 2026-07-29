@@ -23,6 +23,32 @@ export default defineConfig({
       },
     },
   ],
+  run: {
+    tasks: {
+      build: {
+        command: "vp pack",
+        dependsOn: [{ task: "build", from: "dependencies" }],
+      },
+      check: {
+        command: "vp check",
+        dependsOn: [{ task: "build", from: "dependencies" }],
+      },
+      "check:fix": {
+        command: "vp check --fix",
+        dependsOn: [{ task: "build", from: "dependencies" }],
+        cache: false,
+      },
+      dev: {
+        command: "vp pack --watch",
+        dependsOn: [{ task: "build", from: "dependencies" }],
+        cache: false,
+      },
+      test: {
+        command: "vp test",
+        dependsOn: [{ task: "build", from: "dependencies" }],
+      },
+    },
+  },
   test: {
     passWithNoTests: true,
     projects: [

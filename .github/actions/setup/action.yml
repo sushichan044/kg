@@ -75,9 +75,3 @@ runs:
       with:
         path: ${{ steps.pnpm-store.outputs.store_path }}
         key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-
-    - name: Build frontend
-      # The Go binary embeds internal/static/dist via go:embed, so the frontend
-      # must be built before any Go compile (lint, test, build).
-      shell: bash
-      run: pnpm --filter kg-frontend build

@@ -52,35 +52,27 @@
     "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
-    "prebuild": "pnpm --filter @sushichan044/kg-core build",
-    "build": "vp pack",
-    "precheck": "pnpm --filter @sushichan044/kg-core build",
-    "check": "vp check",
-    "dev": "vp pack --watch",
-    "prepublishOnly": "pnpm --filter @sushichan044/kg-core build && vp pack",
-    "pretest": "pnpm --filter @sushichan044/kg-core build",
-    "test": "vp test"
+    "prepublishOnly": "vp run build"
   },
   "dependencies": {
     "@sushichan044/kg-core": "workspace:*"
   },
   "devDependencies": {
-    "@arethetypeswrong/core": "0.18.5",
-    "@rolldown/plugin-babel": "0.2.3",
-    "@types/react": "19.2.17",
-    "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "6.0.3",
-    "@vitest/browser": "4.1.10",
-    "@vitest/browser-playwright": "4.1.10",
-    "playwright": "1.61.1",
-    "publint": "0.3.22",
-    "react": "19.2.7",
-    "react-dom": "19.2.7",
-    "typescript": "7.0.2",
-    "unplugin-unused": "0.5.7",
-    "vite": "8.1.5",
-    "vite-plus": "0.2.5",
-    "vitest": "4.1.10"
+    "@arethetypeswrong/core": "catalog:dev",
+    "@rolldown/plugin-babel": "catalog:dev",
+    "@types/react": "catalog:dev",
+    "@types/react-dom": "catalog:dev",
+    "@vitejs/plugin-react": "catalog:dev",
+    "@vitest/browser": "catalog:dev",
+    "@vitest/browser-playwright": "catalog:dev",
+    "playwright": "catalog:dev",
+    "publint": "catalog:dev",
+    "react": "catalog:prod",
+    "react-dom": "catalog:prod",
+    "typescript": "catalog:dev",
+    "unplugin-unused": "catalog:dev",
+    "vite": "catalog:dev",
+    "vite-plus": "catalog:dev"
   },
   "peerDependencies": {
     "react": "^18.3.1 || ^19.0.0",

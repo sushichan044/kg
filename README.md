@@ -8,19 +8,25 @@ The preview is an approximate visual check rather than print-ready typesetting.
 It intentionally leaves line-breaking and novel-style errors in place so the
 writer corrects the original manuscript.
 
+## Installation
+
+```sh
+go install github.com/sushichan044/kg@latest
+```
+
 ## Development
 
 ```sh
 pnpm install
-mise run build
-mise run test
+vp run build
+vp run test
 ```
 
 Frontend development uses the Go server on port 6280:
 
 ```sh
 go run . --foreground --no-open
-pnpm --filter kg-frontend dev
+vp run --filter kg-frontend dev
 ```
 
 ## Packages
