@@ -1,9 +1,3 @@
-/*
- * kg visual language: a quiet writing desk. Warm gray surface, cream paper,
- * dark brown-black text, a subdued tan grid. The paper grows from the selected
- * grid rather than scaling cells to fit the viewport.
- */
-
 :root {
   --surface: #d8d0c2;
   --sidebar: #eee8dc;
@@ -11,7 +5,6 @@
   --text: #2f2a24;
   --grid: #d8c7a6;
   --accent: #9b3f32;
-  --viewer-padding: 2rem;
 
   color-scheme: light;
 }
@@ -23,7 +16,7 @@
 html,
 body,
 #root {
-  height: 100%;
+  min-block-size: 100%;
   margin: 0;
 }
 
@@ -33,13 +26,18 @@ body {
   font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", system-ui, sans-serif;
 }
 
-/* Screen-reader-only utility; becomes visible when focused (skip link). */
+button,
+input,
+select {
+  font: inherit;
+}
+
 .visually-hidden:where(:not(:focus-within, :active)) {
   position: absolute !important;
   clip-path: inset(50%) !important;
-  overflow: hidden !important;
-  width: 1px !important;
-  height: 1px !important;
+  overflow: clip !important;
+  inline-size: 1px !important;
+  block-size: 1px !important;
   margin: -1px !important;
   padding: 0 !important;
   border: 0 !important;
@@ -62,28 +60,25 @@ body {
   outline-offset: 2px;
 }
 
-/* Layout: fixed sidebar + separately scrolling preview. */
 .app {
   display: grid;
-  grid-template-columns: minmax(15rem, 20rem) 1fr;
-  height: 100%;
+  grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr);
+  min-block-size: 100dvb;
+  block-size: 100dvb;
 }
 
-@media (max-width: 52rem) {
-  /* Place the sidebar above the preview instead of shrinking the cells. */
-  .app {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-  }
+.app--diagnostics {
+  grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr) minmax(17rem, 22rem);
 }
 
 .sidebar {
   display: flex;
+  min-block-size: 0;
   flex-direction: column;
   gap: 1.25rem;
   padding: 1rem;
-  background: var(--sidebar);
   overflow: auto;
+  background: var(--sidebar);
 }
 
 .brand {
@@ -103,41 +98,54 @@ body {
 }
 
 .file-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .file-list__item {
-  width: 100%;
+  inline-size: 100%;
   padding: 0.35rem 0.5rem;
-  text-align: start;
-  background: transparent;
   border: 0;
   border-inline-start: 4px solid transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
   border-radius: 2px;
+  background: transparent;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
 }
 
-.file-list__item:hover {
+.file-list__item:hover:not(:disabled) {
   background: rgb(0 0 0 / 5%);
 }
 
-/* Active file: accent bar + weight, so it does not rely on color alone. */
 .file-list__item[aria-current="page"] {
   border-inline-start-color: var(--accent);
-  font-weight: 700;
   background: rgb(155 63 50 / 8%);
+  font-weight: 700;
 }
 
 .files__empty,
 .preview__empty {
   opacity: 0.7;
+}
+
+.settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.controls,
+.paper-controls,
+.mobile-zoom {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
 .controls {
@@ -146,16 +154,7 @@ body {
   gap: 0.75rem;
 }
 
-.controls,
-.paper-controls {
-  min-inline-size: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.controls legend,
-.paper-controls legend {
+:where(.controls, .paper-controls, .mobile-zoom) legend {
   inline-size: 100%;
   margin-block-end: 0.65rem;
   padding: 0;
@@ -175,9 +174,8 @@ body {
 
 .control input {
   grid-column: 2;
-  width: 100%;
+  inline-size: 100%;
   padding: 0.25rem;
-  font: inherit;
 }
 
 .control input[aria-invalid="true"] {
@@ -206,7 +204,6 @@ body {
 .select-control select {
   inline-size: 100%;
   padding: 0.35rem;
-  font: inherit;
 }
 
 .paper-controls__note {
@@ -223,9 +220,8 @@ body {
 
 .presets select,
 .preset-save input {
-  width: 100%;
+  inline-size: 100%;
   padding: 0.25rem;
-  font: inherit;
 }
 
 .preset-save {
@@ -238,26 +234,26 @@ body {
 }
 
 .preset-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .preset-list li {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   gap: 0.5rem;
 }
 
 .stats {
-  margin: 0;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  margin: 0;
 }
 
 .stats__row {
@@ -273,183 +269,181 @@ body {
   margin: 0;
 }
 
-/* Numeric statistics use Mincho, matching the manuscript. */
 .stats__num {
   font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
   font-variant-numeric: tabular-nums;
 }
 
 .status {
+  min-block-size: 1.25rem;
   margin: 0;
-  min-height: 1.25rem;
   font-size: 0.85rem;
   opacity: 0.85;
 }
 
-/* Preview area */
 .preview {
   min-inline-size: 0;
   min-block-size: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  overflow: hidden;
+  overflow: clip;
 }
 
-.preview__header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: safe center;
-  gap: 0.75rem 1.5rem;
-  padding: 1rem var(--viewer-padding);
-  background: rgb(216 208 194 / 92%);
-  border-block-end: 1px solid rgb(47 42 36 / 14%);
+.preview__empty,
+.preview__loading {
+  place-self: center;
 }
 
-.preview__document {
-  min-inline-size: 0;
-  display: flex;
-  flex: 1 1 24rem;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.35rem 1rem;
+.desktop-viewer-toolbar {
+  --kgv-text: var(--text);
+  --kgv-controls-surface: var(--sidebar);
+  --kgv-accent: var(--accent);
 }
 
-.preview__path {
-  font-weight: 600;
+.mobile-toolbar {
+  display: none;
 }
 
-.preview__settings {
-  font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
-  opacity: 0.8;
-}
-
-.zoom-controls {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.zoom-controls button {
-  min-block-size: 2rem;
-  padding: 0.25rem 0.55rem;
-  border: 1px solid rgb(47 42 36 / 35%);
-  border-radius: 3px;
-  background: var(--sidebar);
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-
-.zoom-controls button[aria-pressed="true"] {
-  border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
-}
-
-.zoom-controls button:disabled {
-  cursor: default;
-  opacity: 0.45;
-}
-
-.zoom-controls__value {
-  min-inline-size: 3.5rem;
-  text-align: center;
-  font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
-  font-variant-numeric: tabular-nums;
-}
-
-.preview__viewport {
-  min-inline-size: 0;
+.diagnostic-drawer {
   min-block-size: 0;
+  padding: 1rem;
   overflow: auto;
-  padding: var(--viewer-padding);
+  border-inline-start: 1px solid rgb(47 42 36 / 18%);
+  background: var(--sidebar);
+}
+
+.diagnostic-drawer > header,
+.mobile-sheet__header {
+  display: flex;
+  align-items: safe center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block-end: 1rem;
+}
+
+:where(.diagnostic-drawer, .mobile-sheet__header) h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.mobile-sheet {
+  inline-size: 100%;
+  max-inline-size: none;
+  max-block-size: min(86dvb, 52rem);
+  margin: auto 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgb(47 42 36 / 25%);
+  border-radius: 1rem 1rem 0 0;
+  background: var(--sidebar);
+  color: var(--text);
+}
+
+.mobile-sheet::backdrop {
+  background: rgb(47 42 36 / 42%);
+}
+
+.mobile-sheet__header {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-block-end: 1px solid rgb(47 42 36 / 14%);
+  background: var(--sidebar);
+}
+
+.mobile-sheet__body {
+  min-block-size: 0;
+  padding: 1rem max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom))
+    max(1rem, env(safe-area-inset-left));
+  overflow: auto;
   overscroll-behavior: contain;
 }
 
-/* Continuous vertical stack of pages, centered when space permits. */
-.manuscript-stack {
+.mobile-zoom {
+  margin-block-end: 1.25rem;
+}
+
+.mobile-zoom > div {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  inline-size: max-content;
-  min-inline-size: 100%;
-  gap: 2rem;
+  gap: 0.4rem;
 }
 
-.manuscript-page {
-  display: grid;
-  place-items: center;
-  inline-size: var(--page-width);
-  block-size: var(--page-height);
-  flex: none;
-  background: var(--paper);
-  box-shadow: 0 1px 4px rgb(0 0 0 / 15%);
+.mobile-zoom output {
+  min-inline-size: 3.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
-@supports (content-visibility: auto) {
-  /* Defer rendering of pages below the fold; the first page is not deferred.
-     contain-intrinsic-size prevents scroll jumping and remembers actual size. */
-  .manuscript-page[data-offscreen] {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 60rem;
+@media (max-width: 52rem) {
+  .app,
+  .app--diagnostics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar,
+  .desktop-viewer-toolbar,
+  .diagnostic-drawer {
+    display: none;
+  }
+
+  .mobile-toolbar {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 3.5rem;
+    align-items: safe center;
+    gap: 0.35rem;
+    padding: 0.35rem max(0.5rem, env(safe-area-inset-right)) 0.35rem
+      max(0.5rem, env(safe-area-inset-left));
+    border-block-end: 1px solid rgb(47 42 36 / 14%);
+    background: rgb(216 208 194 / 94%);
+  }
+
+  .mobile-toolbar strong {
+    min-inline-size: 0;
+    flex: 1;
+    overflow: clip;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-toolbar button {
+    min-block-size: 2.75rem;
+    padding: 0.35rem 0.55rem;
+    border: 1px solid rgb(47 42 36 / 35%);
+    border-radius: 4px;
+    background: var(--sidebar);
+    color: inherit;
+  }
+
+  .mobile-toolbar button span {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .preview {
+    block-size: 100dvb;
+  }
+
+  .preview .kgv-viewer {
+    --kgv-padding: 1rem;
   }
 }
 
-.manuscript-page__grid {
-  display: flex;
-  flex-direction: column;
-  gap: calc(var(--cell-size) * 2);
-}
-
-/* A stage: lines fill right-to-left; the stage closes the right and bottom
-   edges that per-cell top/left borders do not cover. */
-.manuscript-stage {
-  display: flex;
-  flex-direction: row-reverse;
-  justify-content: flex-end;
-  border-inline-end: 1px solid var(--grid);
-  border-block-end: 1px solid var(--grid);
-}
-
-.manuscript-line {
-  display: flex;
-  flex-direction: column;
-}
-
-/* Physical dimensions and borders only — never writing-mode on the cell. */
-.manuscript-cell {
-  box-sizing: border-box;
-  width: var(--cell-size);
-  height: var(--cell-size);
-  border-top: 1px solid var(--grid);
-  border-left: 1px solid var(--grid);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* The glyph owns text orientation. mixed delegates each grapheme to Unicode's
-   vertical-orientation property and enables vertical font substitutions. */
-.manuscript-glyph {
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  font-family: var(--manuscript-font);
-  font-size: calc(var(--cell-size) * 0.82);
-  line-height: 1;
-}
-
-.manuscript-glyph--upright {
-  text-orientation: upright;
+@media (pointer: coarse) {
+  :where(.mobile-sheet, .diagnostic-drawer) button,
+  :where(.mobile-sheet, .diagnostic-drawer) input,
+  :where(.mobile-sheet, .diagnostic-drawer) select {
+    min-block-size: 2.75rem;
+  }
 }
 
 @media (forced-colors: active) {
-  .manuscript-cell,
-  .manuscript-stage {
-    border-color: CanvasText;
-  }
-
-  .zoom-controls button[aria-pressed="true"] {
+  .file-list__item[aria-current="page"],
+  .diagnostic-drawer,
+  .mobile-toolbar {
     border-color: Highlight;
-    box-shadow: inset 0 0 0 1px Highlight;
   }
 }

@@ -1,15 +1,15 @@
-import { useState } from "react";
-
-import type { FileEntry } from "../lib/api";
-import { FONT_PRESETS, MARGIN_OPTIONS, PAPER_SIZES } from "../lib/manuscriptAppearance";
+import { FONT_PRESETS, MARGIN_OPTIONS, PAPER_SIZES, SETTING_RANGES } from "@sushichan044/kg-core";
 import type {
   FontPresetId,
+  GridSettings,
   ManuscriptAppearanceSettings,
   MarginMm,
   PaperSizeId,
-} from "../lib/manuscriptAppearance";
-import { SETTING_RANGES } from "../lib/pagination";
-import type { GridSettings, Statistics } from "../lib/pagination";
+  Statistics,
+} from "@sushichan044/kg-core";
+import { useState } from "react";
+
+import type { FileEntry } from "../lib/api";
 import type { Preset } from "../lib/storage";
 
 type SettingField = keyof GridSettings;
@@ -32,7 +32,13 @@ function SelectControl({ id, label, value, options, onChange }: SelectControlPro
   return (
     <div className="select-control">
       <label htmlFor={id}>{label}</label>
-      <select id={id} value={value} onChange={(event) => onChange(event.target.value)}>
+      <select
+        id={id}
+        value={value}
+        onChange={(event) => {
+          onChange(event.target.value);
+        }}
+      >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -43,10 +49,41 @@ function SelectControl({ id, label, value, options, onChange }: SelectControlPro
   );
 }
 
-export interface SidebarProps {
+export interface FilePanelProps {
   files: FileEntry[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+}
+
+export function FilePanel({ files, selectedId, onSelect }: FilePanelProps) {
+  return (
+    <nav className="files" aria-label="ファイル">
+      {files.length === 0 ? (
+        <p className="files__empty">.txt ファイルがありません</p>
+      ) : (
+        <ul className="file-list">
+          {files.map((file) => (
+            <li key={file.id}>
+              <button
+                type="button"
+                className="file-list__item"
+                aria-current={file.id === selectedId ? "page" : undefined}
+                onClick={() => {
+                  onSelect(file.id);
+                }}
+              >
+                {file.path}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </nav>
+  );
+}
+
+export interface SettingsPanelProps {
+  idPrefix?: string;
   drafts: Record<SettingField, string>;
   invalid: Record<SettingField, boolean>;
   onSettingChange: (field: SettingField, raw: string) => void;
@@ -63,73 +100,40 @@ export interface SidebarProps {
   status: string;
 }
 
-export function Sidebar(props: SidebarProps) {
-  const {
-    files,
-    selectedId,
-    onSelect,
-    drafts,
-    invalid,
-    onSettingChange,
-    appearance,
-    onPaperSizeChange,
-    onMarginChange,
-    onFontPresetChange,
-    presets,
-    builtinPresetName,
-    onApplyPreset,
-    onSavePreset,
-    onDeletePreset,
-    stats,
-    status,
-  } = props;
-
+export function SettingsPanel({
+  idPrefix = "",
+  drafts,
+  invalid,
+  onSettingChange,
+  appearance,
+  onPaperSizeChange,
+  onMarginChange,
+  onFontPresetChange,
+  presets,
+  builtinPresetName,
+  onApplyPreset,
+  onSavePreset,
+  onDeletePreset,
+  stats,
+  status,
+}: SettingsPanelProps) {
   const [newPresetName, setNewPresetName] = useState("");
-
-  const handleSave = () => {
-    onSavePreset(newPresetName);
-    setNewPresetName("");
-  };
+  const id = (value: string) => `${idPrefix}${value}`;
 
   return (
-    <aside className="sidebar">
-      <div className="brand">
-        <span className="brand__name">kg</span>
-        <span className="brand__mode">原稿用紙</span>
-      </div>
-
-      <nav className="files" aria-label="ファイル">
-        {files.length === 0 ? (
-          <p className="files__empty">.txt ファイルがありません</p>
-        ) : (
-          <ul className="file-list">
-            {files.map((file) => (
-              <li key={file.id}>
-                <button
-                  type="button"
-                  className="file-list__item"
-                  aria-current={file.id === selectedId ? "page" : undefined}
-                  onClick={() => onSelect(file.id)}
-                >
-                  {file.path}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </nav>
-
+    <div className="settings-panel">
       <fieldset className="controls">
         <legend>組版</legend>
         {CONTROLS.map(({ field, label }) => {
           const range = SETTING_RANGES[field];
-          const hintId = `hint-${field}`;
+          const inputId = id(`input-${field}`);
+          const hintId = id(`hint-${field}`);
 
           return (
             <div className="control" key={field}>
-              <label htmlFor={`input-${field}`}>{label}</label>
+              <label htmlFor={inputId}>{label}</label>
               <input
-                id={`input-${field}`}
+                id={inputId}
                 type="number"
                 inputMode="numeric"
                 min={range.min}
@@ -138,7 +142,9 @@ export function Sidebar(props: SidebarProps) {
                 value={drafts[field]}
                 aria-invalid={invalid[field]}
                 aria-describedby={hintId}
-                onChange={(e) => onSettingChange(field, e.target.value)}
+                onChange={(event) => {
+                  onSettingChange(field, event.target.value);
+                }}
               />
               <span id={hintId} className="control__hint">
                 {range.min}–{range.max}
@@ -150,22 +156,20 @@ export function Sidebar(props: SidebarProps) {
 
       <fieldset className="paper-controls">
         <legend>紙面</legend>
-
         <SelectControl
-          id="paper-size"
+          id={id("paper-size")}
           label="用紙"
           value={appearance.paperSize}
           options={PAPER_SIZES.map((paper) => ({ value: paper.id, label: paper.label }))}
           onChange={(value) => {
             const selected = PAPER_SIZES.find((paper) => paper.id === value);
-            if (selected) {
+            if (selected !== undefined) {
               onPaperSizeChange(selected.id);
             }
           }}
         />
-
         <SelectControl
-          id="paper-margin"
+          id={id("paper-margin")}
           label="最低余白"
           value={appearance.marginMm}
           options={MARGIN_OPTIONS.map((margin) => ({ value: margin, label: `${margin}mm` }))}
@@ -176,31 +180,29 @@ export function Sidebar(props: SidebarProps) {
             }
           }}
         />
-
         <SelectControl
-          id="manuscript-font"
+          id={id("manuscript-font")}
           label="書体"
           value={appearance.fontPreset}
           options={FONT_PRESETS.map((font) => ({ value: font.id, label: font.label }))}
           onChange={(value) => {
             const selected = FONT_PRESETS.find((font) => font.id === value);
-            if (selected) {
+            if (selected !== undefined) {
               onFontPresetChange(selected.id);
             }
           }}
         />
-
         <p className="paper-controls__note">紙面と文字サイズは概算です。</p>
       </fieldset>
 
       <div className="presets">
-        <label htmlFor="preset-apply">プリセット</label>
+        <label htmlFor={id("preset-apply")}>プリセット</label>
         <select
-          id="preset-apply"
+          id={id("preset-apply")}
           value=""
-          onChange={(e) => {
-            if (e.target.value !== "") {
-              onApplyPreset(e.target.value);
+          onChange={(event) => {
+            if (event.target.value !== "") {
+              onApplyPreset(event.target.value);
             }
           }}
         >
@@ -212,23 +214,30 @@ export function Sidebar(props: SidebarProps) {
             </option>
           ))}
         </select>
-
         <div className="preset-save">
-          <label htmlFor="preset-name" className="visually-hidden">
+          <label htmlFor={id("preset-name")} className="visually-hidden">
             新しいプリセット名
           </label>
           <input
-            id="preset-name"
+            id={id("preset-name")}
             type="text"
             placeholder="現在の設定を保存"
             value={newPresetName}
-            onChange={(e) => setNewPresetName(e.target.value)}
+            onChange={(event) => {
+              setNewPresetName(event.target.value);
+            }}
           />
-          <button type="button" onClick={handleSave} disabled={newPresetName.trim() === ""}>
+          <button
+            type="button"
+            disabled={newPresetName.trim() === ""}
+            onClick={() => {
+              onSavePreset(newPresetName);
+              setNewPresetName("");
+            }}
+          >
             保存
           </button>
         </div>
-
         {presets.length > 0 && (
           <ul className="preset-list">
             {presets.map((preset) => (
@@ -237,7 +246,9 @@ export function Sidebar(props: SidebarProps) {
                 <button
                   type="button"
                   aria-label={`プリセット「${preset.name}」を削除`}
-                  onClick={() => onDeletePreset(preset.name)}
+                  onClick={() => {
+                    onDeletePreset(preset.name);
+                  }}
                 >
                   削除
                 </button>
@@ -261,10 +272,24 @@ export function Sidebar(props: SidebarProps) {
           <dd className="stats__num">{stats.pages}</dd>
         </div>
       </dl>
-
       <p className="status" aria-live="polite">
         {status}
       </p>
+    </div>
+  );
+}
+
+export interface SidebarProps extends FilePanelProps, SettingsPanelProps {}
+
+export function Sidebar(props: SidebarProps) {
+  return (
+    <aside className="sidebar">
+      <div className="brand">
+        <span className="brand__name">kg</span>
+        <span className="brand__mode">原稿用紙</span>
+      </div>
+      <FilePanel files={props.files} selectedId={props.selectedId} onSelect={props.onSelect} />
+      <SettingsPanel {...props} idPrefix="desktop-" />
     </aside>
   );
 }

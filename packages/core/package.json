@@ -1,0 +1,60 @@
+{
+  "name": "@sushichan044/kg-core",
+  "version": "0.0.0",
+  "description": "Framework-independent manuscript pagination and Japanese novel-style diagnostics",
+  "keywords": [
+    "japanese",
+    "manuscript",
+    "novel",
+    "pagination",
+    "proofreading"
+  ],
+  "homepage": "https://github.com/sushichan044/kg#readme",
+  "bugs": {
+    "url": "https://github.com/sushichan044/kg/issues"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "sushichan044",
+    "url": "https://github.com/sushichan044"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sushichan044/kg.git",
+    "directory": "packages/core"
+  },
+  "funding": "https://github.com/sponsors/sushichan044",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "prepublishOnly": "vp run build"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/core": "catalog:dev",
+    "publint": "catalog:dev",
+    "typescript": "catalog:dev",
+    "unplugin-unused": "catalog:dev",
+    "vite": "catalog:dev",
+    "vite-plus": "catalog:dev"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

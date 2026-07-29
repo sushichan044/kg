@@ -1,66 +1,10 @@
 [tools]
 "golangci-lint" = "2.12.2"
 go = "1.26.4"
-vite-plus = { version = "0.2.5", postinstall = "vp env off" } # do not manage nodejs with vite-plus
+vite-plus = { version = "0.2.6", postinstall = "vp env off" } # do not manage nodejs with vite-plus
 
 [plugins]
 vite-plus = "https://github.com/markmals/mise-vite-plus"
 
 [deps.go]
 auto = true
-
-
-[tasks."lint"]
-run = [{ tasks = ["lint:golangci", "lint:deadcode", "lint:gofix"] }]
-
-[tasks."lint:golangci"]
-description = "Run golangci-lint"
-run = "golangci-lint run"
-hide = true
-
-[tasks."lint:golangci:fix"]
-description = "Run golangci-lint with --fix"
-run = "golangci-lint run --fix"
-hide = true
-
-[tasks."lint:deadcode"]
-description = "Run deadcode"
-run = """
-out=$(go run golang.org/x/tools/cmd/deadcode@latest -test ./...)
-if [ -n "$out" ]; then
-  echo "$out"
-  exit 1
-fi
-"""
-hide = true
-
-[tasks."lint:gofix"]
-run = "go fix ./..."
-hide = true
-
-[tasks."lint:fix"]
-run = [{ tasks = ["lint:golangci:fix", "lint:deadcode", "lint:gofix"] }]
-
-[tasks.fmt]
-description = "Format code"
-run = "golangci-lint fmt"
-
-[tasks.test]
-description = "Run tests"
-run = "go test ./... -cover -json | go tool tparse -all"
-
-[tasks."build:frontend"]
-description = "Build the embedded frontend into internal/static/dist"
-run = "pnpm --filter kg-frontend build"
-
-[tasks.build]
-description = "Build the kg binary with the embedded frontend"
-depends = ["build:frontend"]
-run = "go build -o bin/kg ."
-
-[tasks.clean]
-description = "Remove generated files"
-run = """
-rm -rf bin/ internal/static/dist/
-go clean
-"""

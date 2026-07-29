@@ -1,24 +1,32 @@
-import babel from "@rolldown/plugin-babel";
-import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { defineConfig } from "vite-plus";
 import { playwright } from "vite-plus/test/browser-playwright";
 
-// The Go server owns the port; during frontend development Vite proxies the API
-// and SSE stream (everything under /_/) to it. Vite must not watch paths outside
-// this frontend root.
-const GO_SERVER = "http://localhost:6280";
-
 export default defineConfig({
-  optimizeDeps: {
-    include: ["react", "react-dom", "react-dom/client"],
-  },
-  resolve: {
-    dedupe: ["react", "react-dom"],
-  },
+  pack: [
+    {
+      attw: { level: "error", profile: "esm-only" },
+      clean: true,
+      dts: {
+        tsgo: true,
+      },
+      entry: ["src/index.ts", "src/styles.css"],
+      fixedExtension: true,
+      format: "esm",
+      fromVite: true,
+      minify: "dce-only",
+      nodeProtocol: true,
+      publint: true,
+      sourcemap: false,
+      treeshake: true,
+      unused: {
+        ignore: ["react-dom"],
+      },
+    },
+  ],
   run: {
     tasks: {
       build: {
-        command: "vp build",
+        command: "vp pack",
         dependsOn: [{ task: "build", from: "dependencies" }],
       },
       check: {
@@ -31,13 +39,8 @@ export default defineConfig({
         cache: false,
       },
       dev: {
-        command: "vp dev",
+        command: "vp pack --watch",
         dependsOn: [{ task: "build", from: "dependencies" }],
-        cache: false,
-      },
-      preview: {
-        command: "vp preview",
-        dependsOn: ["build"],
         cache: false,
       },
       test: {
@@ -71,25 +74,5 @@ export default defineConfig({
         },
       },
     ],
-  },
-
-  plugins: [
-    react(),
-    babel({
-      presets: [reactCompilerPreset()],
-    }),
-  ],
-  build: {
-    // Build straight into the Go embed.FS source directory.
-    outDir: "../static/dist",
-    emptyOutDir: true,
-  },
-  server: {
-    proxy: {
-      "/_/": {
-        target: GO_SERVER,
-        changeOrigin: true,
-      },
-    },
   },
 });

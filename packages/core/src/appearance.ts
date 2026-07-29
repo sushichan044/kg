@@ -3,8 +3,8 @@ import type { GridSettings } from "./pagination";
 export const PAPER_SIZES = [
   { id: "a4", label: "A4", widthMm: 210, heightMm: 297 },
   { id: "a5", label: "A5", widthMm: 148, heightMm: 210 },
-  { id: "b5", label: "B5（JIS）", widthMm: 182, heightMm: 257 },
-  { id: "b6", label: "B6（JIS）", widthMm: 128, heightMm: 182 },
+  { id: "jis-b5", label: "B5（JIS）", widthMm: 182, heightMm: 257 },
+  { id: "jis-b6", label: "B6（JIS）", widthMm: 128, heightMm: 182 },
 ] as const;
 
 export type PaperSizeId = (typeof PAPER_SIZES)[number]["id"];
@@ -44,9 +44,7 @@ const DEFAULT_PAPER_SIZE =
 
 export const ZOOM_LEVELS = [50, 75, 100, 125, 150] as const;
 export type FixedZoomPercent = (typeof ZOOM_LEVELS)[number];
-
 export type ZoomMode = { mode: "fixed"; percent: FixedZoomPercent } | { mode: "fit" };
-
 export const DEFAULT_ZOOM: ZoomMode = { mode: "fixed", percent: 100 };
 
 const STAGE_GAP_CELLS = 2;

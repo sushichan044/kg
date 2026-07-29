@@ -28,14 +28,23 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Install golangci-lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.12.2
+          install-only: true
+
+      - name: Verify Go install
+        run: go install .
+        env:
+          GOBIN: ${{ runner.temp }}/bin
+
       - run: |
           go mod verify
           git diff --exit-code go.mod go.sum
 
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
-        with:
-          version: latest
+      - name: Go checks
+        run: vp run lint
 
   test:
     runs-on: ubuntu-24.04
@@ -47,9 +56,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Test
-        run: |
-          set -o pipefail
-          go test ./... -json | tee ./go-test.out | go tool tparse -all
+        run: vp run test:ci
 
       - name: Add job summary
         if: always()
@@ -66,9 +73,13 @@ jobs:
           go-version-file: go.mod
 
       - name: Check
-        run: pnpm --filter kg-frontend check
+        run: vp run -r check
 
-      - run: pnpm --filter kg-frontend test --project unit
+      - name: Check generated frontend
+        run: vp run check:generated
+
+      - name: Unit tests
+        run: vp run --filter @sushichan044/kg-core --filter @sushichan044/kg-viewer --filter kg-frontend test --project unit
 
   browser-test:
     name: Run browser tests
@@ -103,12 +114,15 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: pnpm --filter kg-frontend exec playwright install-deps chromium-headless-shell
 
-      - run: pnpm --filter kg-frontend test --project browser
+      - name: Browser tests
+        run: vp run --filter @sushichan044/kg-viewer --filter kg-frontend test --project browser
 
       - name: Upload test screenshots on failure
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: test-screenshots
-          path: app/components/__screenshots__/
+          path: |
+            internal/frontend/src/**/__screenshots__/
+            packages/viewer/src/**/__screenshots__/
           retention-days: 7

@@ -3,9 +3,10 @@ import { createRoot } from "react-dom/client";
 
 import { App } from "./App";
 
+import "@sushichan044/kg-viewer/styles.css";
 import "./styles/index.css";
 
-const root = document.getElementById("root");
+const root = document.querySelector("#root");
 if (root !== null) {
   createRoot(root).render(
     <StrictMode>

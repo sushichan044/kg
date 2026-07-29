@@ -11,20 +11,23 @@ This file provides guidance to Coding Agents when working with code in this repo
 
 ## Commands
 
-You must check `mise run fmt`, `mise run lint:fix`, and `mise run test` before ending your work. And use `vp check` or `vp check --fix` to check and fix frontend code.
+You must check `vp run fmt`, `vp run lint:fix`, `vp run test`, and
+`vp run -r check` before ending your work.
 
 ```bash
-mise run test               # Run tests with coverage
-mise run lint               # Run golangci-lint for code quality checks
-mise run lint:fix           # Run golangci-lint and Auto-fix linting issues
-mise run fmt                # Format code
-mise run clean              # Remove generated files
+vp run test                 # Run Go tests with coverage
+vp run lint                 # Run Go code quality checks
+vp run lint:fix             # Run and auto-fix Go code quality checks
+vp run fmt                  # Format Go code
+vp run build                # Build the kg binary and embedded frontend
+vp run clean                # Remove Go build outputs
 
 # Standard Go commands
 go test ./...               # Run all tests
 go mod tidy                 # Clean up dependencies
 
 # Frontend commands
-vp check                    # Check frontend code quality
-vp check --fix               # Check and fix frontend code quality issues
+vp run -r check             # Check all frontend packages
+vp run -r check:fix         # Check and fix all frontend packages
+vp run check:generated      # Verify the checked-in frontend build
 ```

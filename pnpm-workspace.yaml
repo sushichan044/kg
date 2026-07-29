@@ -1,2 +1,25 @@
+catalogs:
+  dev:
+    "@arethetypeswrong/core": 0.18.5
+    "@rolldown/plugin-babel": 0.2.3
+    "@types/react": 19.2.17
+    "@types/react-dom": 19.2.3
+    "@vitejs/plugin-react": 6.0.3
+    "@vitest/browser": 4.1.10
+    "@vitest/browser-playwright": 4.1.10
+    playwright: 1.61.1
+    publint: 0.3.22
+    typescript: 7.0.2
+    unplugin-unused: 0.5.7
+    vite: "npm:@voidzero-dev/vite-plus-core@0.2.6"
+    vite-plus: 0.2.6
+  prod:
+    react: 19.2.7
+    react-dom: 19.2.7
+
+overrides:
+  vite: "npm:@voidzero-dev/vite-plus-core@0.2.6"
+
 packages:
   - "internal/frontend"
+  - "packages/**"

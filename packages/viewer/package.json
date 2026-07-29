@@ -1,0 +1,84 @@
+{
+  "name": "@sushichan044/kg-viewer",
+  "version": "0.0.0",
+  "description": "Reusable React components for manuscript-grid preview and diagnostic feedback",
+  "keywords": [
+    "japanese",
+    "manuscript",
+    "novel",
+    "proofreading",
+    "react",
+    "viewer"
+  ],
+  "homepage": "https://github.com/sushichan044/kg#readme",
+  "bugs": {
+    "url": "https://github.com/sushichan044/kg/issues"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "sushichan044",
+    "url": "https://github.com/sushichan044"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sushichan044/kg.git",
+    "directory": "packages/viewer"
+  },
+  "funding": "https://github.com/sponsors/sushichan044",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "styles.d.ts"
+  ],
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./styles.css": {
+      "types": "./styles.d.ts",
+      "default": "./dist/style.css"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "prepublishOnly": "vp run build"
+  },
+  "dependencies": {
+    "@sushichan044/kg-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/core": "catalog:dev",
+    "@rolldown/plugin-babel": "catalog:dev",
+    "@types/react": "catalog:dev",
+    "@types/react-dom": "catalog:dev",
+    "@vitejs/plugin-react": "catalog:dev",
+    "@vitest/browser": "catalog:dev",
+    "@vitest/browser-playwright": "catalog:dev",
+    "playwright": "catalog:dev",
+    "publint": "catalog:dev",
+    "react": "catalog:prod",
+    "react-dom": "catalog:prod",
+    "typescript": "catalog:dev",
+    "unplugin-unused": "catalog:dev",
+    "vite": "catalog:dev",
+    "vite-plus": "catalog:dev"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1 || ^19.0.0",
+    "react-dom": "^18.3.1 || ^19.0.0"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}
