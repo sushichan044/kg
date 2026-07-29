@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.5](https://github.com/sushichan044/kg/compare/v0.0.4...v0.0.5) (2026-07-29)
+
+
+### Bug Fixes
+
+* **daemon:** replace outdated background process ([#18](https://github.com/sushichan044/kg/issues/18)) ([2c1488c](https://github.com/sushichan044/kg/commit/2c1488c376b083d0dda62e9d51d72177460643db))
+
 ## [0.0.4](https://github.com/sushichan044/kg/compare/v0.0.3...v0.0.4) (2026-07-28)
 
 
