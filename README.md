@@ -11,12 +11,21 @@
 
 ## インストール
 
+> [!CAUTION]
+> バイナリをビルドする際にプレビュー画面もビルドする必要があるので、現状 `go install` には対応していません
+
 [GitHub Releases](https://github.com/sushichan044/kg/releases/latest) から、利用する OS とアーキテクチャに合うアーカイブをダウンロードします。
 アーカイブを展開し、`kg`（Windows では `kg.exe`）を `PATH` の通ったディレクトリへ配置してください。
 
 リリースには macOS、Linux、Windows 用の実行ファイルが含まれます。
 
-公開されているモジュールのソースには生成済みのフロントエンドが含まれないため、`go install github.com/sushichan044/kg@latest` には対応していません。
+### mise を利用している場合
+
+<https://mise.jdx.dev/>
+
+```bash
+mise install github:sushichan044/kg
+```
 
 ## 原稿を表示する
 
