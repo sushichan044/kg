@@ -244,7 +244,9 @@ export function ManuscriptViewer({
                             return <span key={cellId} className="kgv-cell" />;
                           }
                           const cellDiagnostics = diagnosticsForCell(cell, diagnostics);
-                          const first = cellDiagnostics[0];
+                          const first = cellDiagnostics.find((diagnostic) =>
+                            startsInCell(cell, diagnostic),
+                          );
                           const active = cellDiagnostics.some(
                             (diagnostic) => diagnostic.id === activeDiagnosticId,
                           );
@@ -267,7 +269,7 @@ export function ManuscriptViewer({
                               >
                                 {cell.grapheme}
                               </span>
-                              {first !== undefined && startsInCell(cell, first) && (
+                              {first !== undefined && (
                                 <button
                                   ref={(element) => {
                                     for (const diagnostic of cellDiagnostics) {

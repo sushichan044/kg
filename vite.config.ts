@@ -121,11 +121,7 @@ if [ -n "$out" ]; then
   echo "$out"
   exit 1
 fi`,
-        dependsOn: ["kg-frontend#build", "lint:gofix"],
-        cache: false,
-      },
-      "lint:gofix": {
-        command: "go fix ./...",
+        dependsOn: ["kg-frontend#build"],
         cache: false,
       },
       "lint:fix": {

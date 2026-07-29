@@ -191,22 +191,26 @@ export function App() {
     setActiveDiagnosticId(null);
   }
 
+  const reconcileFiles = useCallback((nextFiles: FileEntry[]) => {
+    setFiles(nextFiles);
+    setState((current) => {
+      const selected =
+        nextFiles.find((file) => file.path === current.selectedPath) ?? nextFiles[0] ?? null;
+
+      return selected === null || selected.path === current.selectedPath
+        ? current
+        : { ...current, selectedPath: selected.path };
+    });
+  }, []);
+
   const refreshFiles = useCallback(async () => {
     try {
       const nextFiles = await fetchFiles();
-      setFiles(nextFiles);
-      setState((current) => {
-        const selected =
-          nextFiles.find((file) => file.path === current.selectedPath) ?? nextFiles[0] ?? null;
-
-        return selected === null || selected.path === current.selectedPath
-          ? current
-          : { ...current, selectedPath: selected.path };
-      });
+      reconcileFiles(nextFiles);
     } catch {
       setStatus("ファイル一覧の取得に失敗しました");
     }
-  }, []);
+  }, [reconcileFiles]);
 
   const loadContent = useCallback(async (id: string) => {
     try {
@@ -223,15 +227,7 @@ export function App() {
         if (ignore) {
           return;
         }
-        setFiles(nextFiles);
-        setState((current) => {
-          const selected =
-            nextFiles.find((file) => file.path === current.selectedPath) ?? nextFiles[0] ?? null;
-
-          return selected === null || selected.path === current.selectedPath
-            ? current
-            : { ...current, selectedPath: selected.path };
-        });
+        reconcileFiles(nextFiles);
       },
       () => {
         if (!ignore) {
@@ -243,7 +239,7 @@ export function App() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [reconcileFiles]);
 
   useEffect(() => {
     if (selectedId === null) {

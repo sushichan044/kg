@@ -332,6 +332,8 @@ select {
   max-block-size: min(86dvb, 52rem);
   margin: auto 0 0;
   padding: 0;
+  display: flex;
+  flex-direction: column;
   border: 1px solid rgb(47 42 36 / 25%);
   border-radius: 1rem 1rem 0 0;
   background: var(--sidebar);
@@ -353,7 +355,7 @@ select {
 }
 
 .mobile-sheet__body {
-  max-block-size: calc(86dvb - 3.75rem);
+  min-block-size: 0;
   padding: 1rem max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom))
     max(1rem, env(safe-area-inset-left));
   overflow: auto;

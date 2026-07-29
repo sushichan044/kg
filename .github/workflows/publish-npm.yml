@@ -7,7 +7,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -30,7 +30,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Use npm with trusted publishing support
-        run: npm install --global npm@latest
+        run: npm install --global npm@11.5.1
 
       - name: Create release pull request or publish
         uses: changesets/action@63a615b9cd06ba9a3e6d13796c7fbcb080a60a0b # v1.8.0

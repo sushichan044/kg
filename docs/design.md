@@ -117,9 +117,9 @@ The preview does not move opening or closing punctuation between lines, combine 
 
 Each occupied cell also retains the zero-based, end-exclusive UTF-16 range of
 its grapheme in the original source. Line-ending normalization affects layout
-only: ranges continue to refer to the unmodified input, including CRLF byte
-positions. This mapping connects proofreading diagnostics to rendered cells
-and editor selections.
+only: ranges continue to refer to the unmodified input, where CR and LF remain
+distinct UTF-16 code units. This mapping connects proofreading diagnostics to
+rendered cells and editor selections.
 
 ## Proofreading
 

@@ -158,10 +158,62 @@ export function proofreadManuscript(
 ): ManuscriptDiagnostic[] {
   const settings = { ...DEFAULT_PROOFREADING_OPTIONS, ...options };
   const diagnostics: ManuscriptDiagnostic[] = [];
+  const maxArabicNumeralDigits =
+    typeof settings.maxArabicNumeralDigits === "number" ? settings.maxArabicNumeralDigits : null;
+  const rules: Array<MatchRule | false> = [
+    settings.noPunctuationBeforeClosingQuote && {
+      id: "punctuation-before-closing-quote",
+      pattern: /[。、]+(?=[」』〗〉》）)”"’'］\]〕｝}＞>])/gu,
+      message: "閉じ括弧の直前に句読点を置くことはできません",
+    },
+    settings.spaceAfterQuestionOrExclamation && {
+      id: "space-after-question-or-exclamation",
+      pattern: /[？！](?![ 　？！」』〗〉》）)”"’'］\]〕｝}＞>]|$)/gu,
+      message: "感嘆符・疑問符の直後には空白または閉じ括弧が必要です",
+    },
+    settings.evenEllipsis && {
+      id: "even-ellipsis",
+      pattern: /…+/gu,
+      test: (match) => match[0].length % 2 === 1,
+      message: "連続する三点リーダーの数は偶数にしてください",
+    },
+    settings.evenDash && {
+      id: "even-dash",
+      pattern: /―+/gu,
+      test: (match) => match[0].length % 2 === 1,
+      message: "連続するダッシュの数は偶数にしてください",
+    },
+    settings.noConsecutivePunctuation && {
+      id: "no-consecutive-punctuation",
+      pattern: /。。+|、、+/gu,
+      message: "句読点が連続しています",
+    },
+    settings.noConsecutiveInterpunct && {
+      id: "no-consecutive-interpunct",
+      pattern: /・・+/gu,
+      message: "中黒が連続しています",
+    },
+    settings.noConsecutiveChoonpu && {
+      id: "no-consecutive-choonpu",
+      pattern: /ーー+/gu,
+      message: "長音符が連続しています",
+    },
+    settings.minusBeforeNumber && {
+      id: "minus-before-number",
+      pattern: /−(?![0-9０-９〇一二三四五六七八九十])/gu,
+      message: "マイナス記号の直後には数字が必要です",
+    },
+    maxArabicNumeralDigits !== null && {
+      id: "max-arabic-numeral-digits",
+      pattern: /([0-9０-９]+)(?:[.．]([0-9０-９]+))?/gu,
+      test: (match) =>
+        (match[1]?.length ?? 0) > maxArabicNumeralDigits ||
+        (match[2]?.length ?? 0) > maxArabicNumeralDigits,
+      message: `${maxArabicNumeralDigits}桁を超えるアラビア数字が使われています`,
+    },
+  ];
 
   for (const line of splitSourceLines(text)) {
-    const maxArabicNumeralDigits =
-      typeof settings.maxArabicNumeralDigits === "number" ? settings.maxArabicNumeralDigits : null;
     if (
       line.text !== "" &&
       settings.paragraphLeadingCharacters !== false &&
@@ -176,59 +228,6 @@ export function proofreadManuscript(
         ),
       );
     }
-
-    const rules: Array<MatchRule | false> = [
-      settings.noPunctuationBeforeClosingQuote && {
-        id: "punctuation-before-closing-quote",
-        pattern: /[。、]+(?=[」』〗〉》）)”"’'］\]〕｝}＞>])/gu,
-        message: "閉じ括弧の直前に句読点を置くことはできません",
-      },
-      settings.spaceAfterQuestionOrExclamation && {
-        id: "space-after-question-or-exclamation",
-        pattern: /[？！](?![ 　？！」』〗〉》）)”"’'］\]〕｝}＞>]|$)/gu,
-        message: "感嘆符・疑問符の直後には空白または閉じ括弧が必要です",
-      },
-      settings.evenEllipsis && {
-        id: "even-ellipsis",
-        pattern: /…+/gu,
-        test: (match) => match[0].length % 2 === 1,
-        message: "連続する三点リーダーの数は偶数にしてください",
-      },
-      settings.evenDash && {
-        id: "even-dash",
-        pattern: /―+/gu,
-        test: (match) => match[0].length % 2 === 1,
-        message: "連続するダッシュの数は偶数にしてください",
-      },
-      settings.noConsecutivePunctuation && {
-        id: "no-consecutive-punctuation",
-        pattern: /。。+|、、+/gu,
-        message: "句読点が連続しています",
-      },
-      settings.noConsecutiveInterpunct && {
-        id: "no-consecutive-interpunct",
-        pattern: /・・+/gu,
-        message: "中黒が連続しています",
-      },
-      settings.noConsecutiveChoonpu && {
-        id: "no-consecutive-choonpu",
-        pattern: /ーー+/gu,
-        message: "長音符が連続しています",
-      },
-      settings.minusBeforeNumber && {
-        id: "minus-before-number",
-        pattern: /−(?![0-9０-９〇一二三四五六七八九十])/gu,
-        message: "マイナス記号の直後には数字が必要です",
-      },
-      maxArabicNumeralDigits !== null && {
-        id: "max-arabic-numeral-digits",
-        pattern: /([0-9０-９]+)(?:[.．]([0-9０-９]+))?/gu,
-        test: (match) =>
-          (match[1]?.length ?? 0) > maxArabicNumeralDigits ||
-          (match[2]?.length ?? 0) > maxArabicNumeralDigits,
-        message: `${maxArabicNumeralDigits}桁を超えるアラビア数字が使われています`,
-      },
-    ];
 
     for (const rule of rules) {
       if (rule !== false) {

@@ -1,5 +1,5 @@
 import { DEFAULT_APPEARANCE, proofreadManuscript } from "@sushichan044/kg-core";
-import type { GridSettings } from "@sushichan044/kg-core";
+import type { GridSettings, ManuscriptDiagnostic } from "@sushichan044/kg-core";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
@@ -76,4 +76,50 @@ test("marks diagnostics and selects them without changing the manuscript", () =>
   marker?.click();
   expect(selected).toBe(diagnostics[0]?.id);
   expect(host.textContent).toContain(text);
+});
+
+test("renders a marker for a diagnostic that starts inside another diagnostic range", () => {
+  const diagnostics: ManuscriptDiagnostic[] = [
+    {
+      id: "outer",
+      ruleId: "no-consecutive-punctuation",
+      message: "outer",
+      severity: "error",
+      range: { start: 0, end: 2 },
+      location: {
+        start: { offset: 0, line: 1, column: 1 },
+        end: { offset: 2, line: 1, column: 3 },
+      },
+    },
+    {
+      id: "inner",
+      ruleId: "punctuation-before-closing-quote",
+      message: "inner",
+      severity: "error",
+      range: { start: 1, end: 2 },
+      location: {
+        start: { offset: 1, line: 1, column: 2 },
+        end: { offset: 2, line: 1, column: 3 },
+      },
+    },
+  ];
+  const selected: string[] = [];
+
+  flushSync(() => {
+    root.render(
+      <ManuscriptViewer
+        text="。。"
+        settings={settings}
+        diagnostics={diagnostics}
+        onDiagnosticSelect={(diagnostic) => {
+          selected.push(diagnostic.id);
+        }}
+      />,
+    );
+  });
+
+  const markers = host.querySelectorAll<HTMLButtonElement>(".kgv-diagnostic-marker");
+  expect(markers).toHaveLength(2);
+  markers[1]?.click();
+  expect(selected).toEqual(["inner"]);
 });
