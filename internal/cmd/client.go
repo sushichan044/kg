@@ -16,10 +16,10 @@ const (
 )
 
 type daemonStatus struct {
-	Version string            `json:"version"`
-	PID     int               `json:"pid"`
-	Files   []json.RawMessage `json:"files"`
-	Roots   []string          `json:"roots"`
+	Version   string   `json:"version"`
+	PID       int      `json:"pid"`
+	FileCount int      `json:"file_count"`
+	Roots     []string `json:"roots"`
 }
 
 func baseURL(port int) string {

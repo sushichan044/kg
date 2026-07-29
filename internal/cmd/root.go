@@ -175,9 +175,11 @@ func printStatus(opts options) error {
 	}
 	fmt.Fprintf(
 		os.Stdout,
-		"kg is running (pid %d, %d files) on %s\n",
+		"kg is running (pid %d, version %s, %d files, %d roots) on %s\n",
 		status.PID,
-		len(status.Files),
+		status.Version,
+		status.FileCount,
+		len(status.Roots),
 		baseURL(opts.port),
 	)
 

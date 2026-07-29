@@ -42,10 +42,12 @@ func TestHandler_AddRootsExtendsCatalog(t *testing.T) {
 	assert.Equal(t, []string{"b.txt"}, relPaths(srv.Files()))
 }
 
-func TestHandler_StatusReportsVersionAndRoots(t *testing.T) {
+func TestHandler_StatusReportsVersionRootsAndFileCount(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "a.txt"), "x")
+
 	srv := server.New(discardLogger())
 	w, err := server.NewWatcher(srv, []string{root}, root, discardLogger())
 	require.NoError(t, err)
@@ -62,12 +64,34 @@ func TestHandler_StatusReportsVersionAndRoots(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 
 	var status struct {
-		Version string   `json:"version"`
-		Roots   []string `json:"roots"`
+		Version   string   `json:"version"`
+		FileCount int      `json:"file_count"`
+		Roots     []string `json:"roots"`
 	}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &status))
 	assert.Equal(t, version.Get(), status.Version)
 	assert.Equal(t, []string{root}, status.Roots)
+	assert.Equal(t, 1, status.FileCount)
+}
+
+func TestHandler_StatusReportsRootsAsArrayWhenNoneWatched(t *testing.T) {
+	t.Parallel()
+
+	srv := server.New(discardLogger())
+	w, err := server.NewWatcher(srv, nil, t.TempDir(), discardLogger())
+	require.NoError(t, err)
+	srv.AttachRoots(w)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go w.Run(ctx)
+
+	req := httptest.NewRequest(http.MethodGet, "/_/api/status", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler(dummySPA()).ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"roots":[]`)
 }
 
 func TestHandler_ShutdownRequestSignals(t *testing.T) {

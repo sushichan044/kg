@@ -173,16 +173,18 @@ func (s *Server) handleListFiles(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) handleStatus(w http.ResponseWriter, _ *http.Request) {
+	// Roots is always an array in the response, so a client never has to tell
+	// "no roots" apart from "unknown roots".
 	roots := []string{}
 	if s.roots != nil {
-		roots = s.roots.Roots()
+		roots = append(roots, s.roots.Roots()...)
 	}
 
 	writeJSON(w, statusResponse{
-		Version: version.Get(),
-		PID:     s.pid,
-		Files:   s.Files(),
-		Roots:   roots,
+		Version:   version.Get(),
+		PID:       s.pid,
+		FileCount: len(s.Files()),
+		Roots:     roots,
 	})
 }
 
@@ -208,11 +210,14 @@ func (s *Server) handleFileContent(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// statusResponse describes the daemon itself, not its catalog: the CLI polls it
+// while starting or replacing a daemon, so it stays small. The catalog is served
+// by /_/api/files.
 type statusResponse struct {
-	Version string   `json:"version"`
-	PID     int      `json:"pid"`
-	Files   []File   `json:"files"`
-	Roots   []string `json:"roots"`
+	Version   string   `json:"version"`
+	PID       int      `json:"pid"`
+	FileCount int      `json:"file_count"`
+	Roots     []string `json:"roots"`
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
