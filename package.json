@@ -2,7 +2,17 @@
   "name": "@repo/root",
   "private": true,
   "type": "module",
+  "scripts": {
+    "build": "vp run -r build",
+    "changeset": "changeset",
+    "dev": "vp run -r --parallel dev",
+    "pkg-pr-new": "pkg-pr-new publish --compact --comment=update --pnpm",
+    "release:npm": "vp run -r build && changeset publish"
+  },
   "devDependencies": {
+    "@changesets/changelog-github": "0.7.0",
+    "@changesets/cli": "2.31.1",
+    "pkg-pr-new": "0.0.80",
     "vite-plus": "0.2.5"
   },
   "packageManager": "pnpm@11.13.1"
