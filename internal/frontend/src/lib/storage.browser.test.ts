@@ -1,10 +1,9 @@
+import { DEFAULT_APPEARANCE, DEFAULT_SETTINGS, DEFAULT_ZOOM } from "@sushichan044/kg-core";
 // Runs in the browser project for a real localStorage. Imports the runner from
 // "vitest" directly; the "vite-plus/test" re-export does not resolve it.
 // oxlint-disable-next-line vite-plus/prefer-vite-plus-imports
 import { beforeEach, expect, test } from "vitest";
 
-import { DEFAULT_APPEARANCE, DEFAULT_ZOOM } from "./manuscriptAppearance";
-import { DEFAULT_SETTINGS } from "./pagination";
 import { loadState, saveState } from "./storage";
 import type { ViewerState } from "./storage";
 
@@ -28,7 +27,7 @@ test("round-trips settings, selection, and presets", () => {
   const state: ViewerState = {
     selectedPath: "a.txt",
     settings: { charsPerLine: 20, linesPerStage: 30, stagesPerPage: 1 },
-    appearance: { paperSize: "b6", marginMm: 15, fontPreset: "gothic" },
+    appearance: { paperSize: "jis-b6", marginMm: 15, fontPreset: "gothic" },
     zoom: { mode: "fit" },
     presets: [
       {

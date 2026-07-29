@@ -3,13 +3,19 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "pnpm --filter @sushichan044/kg-viewer build",
     "dev": "vp dev",
+    "prebuild": "pnpm --filter @sushichan044/kg-viewer build",
     "build": "vp build",
     "preview": "vp preview",
+    "precheck": "pnpm --filter @sushichan044/kg-viewer build",
     "check": "vp check",
+    "pretest": "pnpm --filter @sushichan044/kg-viewer build",
     "test": "vp test"
   },
   "dependencies": {
+    "@sushichan044/kg-core": "workspace:*",
+    "@sushichan044/kg-viewer": "workspace:*",
     "react": "19.2.7",
     "react-dom": "19.2.7"
   },

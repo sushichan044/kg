@@ -9,6 +9,12 @@ import { playwright } from "vite-plus/test/browser-playwright";
 const GO_SERVER = "http://localhost:6280";
 
 export default defineConfig({
+  optimizeDeps: {
+    include: ["react", "react-dom", "react-dom/client"],
+  },
+  resolve: {
+    dedupe: ["react", "react-dom"],
+  },
   lint: {
     categories: {
       correctness: "error",
@@ -60,6 +66,7 @@ export default defineConfig({
   },
 
   test: {
+    passWithNoTests: true,
     projects: [
       {
         extends: true,

@@ -6,14 +6,14 @@
 import {
   DEFAULT_APPEARANCE,
   DEFAULT_ZOOM,
+  DEFAULT_SETTINGS,
+  SETTING_RANGES,
   isFixedZoomPercent,
   isFontPresetId,
   isMarginMm,
   isPaperSizeId,
-} from "./manuscriptAppearance";
-import type { ManuscriptAppearanceSettings, ZoomMode } from "./manuscriptAppearance";
-import { DEFAULT_SETTINGS, SETTING_RANGES } from "./pagination";
-import type { GridSettings } from "./pagination";
+} from "@sushichan044/kg-core";
+import type { GridSettings, ManuscriptAppearanceSettings, ZoomMode } from "@sushichan044/kg-core";
 
 const STORAGE_KEY = "kg.viewer.state.v2";
 const LEGACY_STORAGE_KEY = "kg.viewer.state.v1";
