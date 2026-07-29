@@ -22,7 +22,7 @@
 
 ファイルまたはディレクトリを指定して `kg` を実行します。
 
-```console
+```bash
 kg manuscript.txt
 kg novel/
 ```
@@ -30,7 +30,7 @@ kg novel/
 ディレクトリを指定すると、その配下にある `.txt` ファイルを再帰的に監視します。
 引数を省略した場合は、現在のディレクトリが監視対象です。
 
-```console
+```bash
 cd path/to/novel
 kg
 ```
@@ -62,7 +62,7 @@ kg
 
 実行中のサーバーはコマンドから確認、再起動、停止できます。
 
-```console
+```bash
 kg -help
 
 kg -status
