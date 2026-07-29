@@ -15,26 +15,52 @@ const (
 	requestTimeout = 2 * time.Second
 )
 
+type daemonStatus struct {
+	Version   string   `json:"version"`
+	PID       int      `json:"pid"`
+	FileCount int      `json:"file_count"`
+	Roots     []string `json:"roots"`
+}
+
 func baseURL(port int) string {
 	return fmt.Sprintf("http://127.0.0.1:%d", port)
 }
 
 // probeRunning reports whether a kg server is already listening on port.
 func probeRunning(port int) bool {
-	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
+	_, err := fetchStatusWithTimeout(port, probeTimeout)
+
+	return err == nil
+}
+
+func fetchStatus(port int) (daemonStatus, error) {
+	return fetchStatusWithTimeout(port, requestTimeout)
+}
+
+func fetchStatusWithTimeout(port int, timeout time.Duration) (daemonStatus, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL(port)+"/_/api/status", nil)
 	if err != nil {
-		return false
+		return daemonStatus{}, fmt.Errorf("build status request: %w", err)
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return false
+		return daemonStatus{}, fmt.Errorf("request status: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	return resp.StatusCode == http.StatusOK
+	if resp.StatusCode != http.StatusOK {
+		return daemonStatus{}, fmt.Errorf("request status returned status %d", resp.StatusCode)
+	}
+
+	var status daemonStatus
+	if err = json.NewDecoder(resp.Body).Decode(&status); err != nil {
+		return daemonStatus{}, fmt.Errorf("decode status: %w", err)
+	}
+
+	return status, nil
 }
 
 func postJSON(port int, path string, body any) error {
@@ -79,21 +105,4 @@ func requestShutdown(port int) error {
 
 func requestRestart(port int) error {
 	return postJSON(port, "/_/api/restart", nil)
-}
-
-func fetchStatus(port int) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL(port)+"/_/api/status", nil)
-	if err != nil {
-		return nil, fmt.Errorf("build request: %w", err)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request status: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	return io.ReadAll(resp.Body)
 }

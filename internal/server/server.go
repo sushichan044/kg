@@ -11,12 +11,15 @@ import (
 	"net/http"
 	"os"
 	"sync"
+
+	"github.com/sushichan044/kg/internal/version"
 )
 
 // rootAdder lets the HTTP layer add watch roots to the running watcher, so a
 // second `kg <path>` invocation can extend an already-running server.
 type rootAdder interface {
 	AddRoots(paths []string)
+	Roots() []string
 }
 
 // Server holds the watched file catalog and the SSE hub. It is safe for
@@ -170,7 +173,19 @@ func (s *Server) handleListFiles(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) handleStatus(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, statusResponse{PID: s.pid, Files: s.Files()})
+	// Roots is always an array in the response, so a client never has to tell
+	// "no roots" apart from "unknown roots".
+	roots := []string{}
+	if s.roots != nil {
+		roots = append(roots, s.roots.Roots()...)
+	}
+
+	writeJSON(w, statusResponse{
+		Version:   version.Get(),
+		PID:       s.pid,
+		FileCount: len(s.Files()),
+		Roots:     roots,
+	})
 }
 
 func (s *Server) handleFileContent(w http.ResponseWriter, r *http.Request) {
@@ -195,9 +210,14 @@ func (s *Server) handleFileContent(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// statusResponse describes the daemon itself, not its catalog: the CLI polls it
+// while starting or replacing a daemon, so it stays small. The catalog is served
+// by /_/api/files.
 type statusResponse struct {
-	PID   int    `json:"pid"`
-	Files []File `json:"files"`
+	Version   string   `json:"version"`
+	PID       int      `json:"pid"`
+	FileCount int      `json:"file_count"`
+	Roots     []string `json:"roots"`
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

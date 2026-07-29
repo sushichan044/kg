@@ -24,6 +24,7 @@ import (
 	"github.com/sushichan044/kg/internal/logfile"
 	"github.com/sushichan044/kg/internal/server"
 	"github.com/sushichan044/kg/internal/static"
+	"github.com/sushichan044/kg/internal/version"
 	"github.com/sushichan044/kg/internal/xdg"
 )
 
@@ -158,7 +159,7 @@ func dispatch(opts options, logger *slog.Logger) error {
 }
 
 func printStatus(opts options) error {
-	body, err := fetchStatus(opts.port)
+	status, err := fetchStatus(opts.port)
 	if err != nil {
 		fmt.Fprintln(os.Stdout, "kg: not running")
 
@@ -166,19 +167,21 @@ func printStatus(opts options) error {
 	}
 
 	if opts.jsonOut {
-		fmt.Fprintln(os.Stdout, string(body))
+		if err = json.NewEncoder(os.Stdout).Encode(status); err != nil {
+			return fmt.Errorf("write status: %w", err)
+		}
 
 		return nil
 	}
-
-	var s struct {
-		PID   int               `json:"pid"`
-		Files []json.RawMessage `json:"files"`
-	}
-	if err = json.Unmarshal(body, &s); err != nil {
-		return fmt.Errorf("parse status: %w", err)
-	}
-	fmt.Fprintf(os.Stdout, "kg is running (pid %d, %d files) on %s\n", s.PID, len(s.Files), baseURL(opts.port))
+	fmt.Fprintf(
+		os.Stdout,
+		"kg is running (pid %d, version %s, %d files, %d roots) on %s\n",
+		status.PID,
+		status.Version,
+		status.FileCount,
+		len(status.Roots),
+		baseURL(opts.port),
+	)
 
 	return nil
 }
@@ -294,12 +297,20 @@ func shutdownServer(httpSrv *http.Server) error {
 	return nil
 }
 
-// startDaemon forwards paths to a running server, or spawns a detached one.
+type daemonSpawner func(options, []string, *slog.Logger) error
+
+// startDaemon forwards paths to a matching server, replaces an outdated
+// server, or spawns a detached one.
 func startDaemon(opts options, logger *slog.Logger) error {
-	if probeRunning(opts.port) {
+	return startDaemonWith(opts, logger, spawnFromState)
+}
+
+func startDaemonWith(opts options, logger *slog.Logger, spawn daemonSpawner) error {
+	status, err := fetchStatusWithTimeout(opts.port, probeTimeout)
+	if err == nil && status.Version == version.Get() {
 		if len(opts.roots) > 0 {
-			if err := addRoots(opts.port, opts.roots); err != nil {
-				return err
+			if addErr := addRoots(opts.port, opts.roots); addErr != nil {
+				return addErr
 			}
 		}
 		openIfWanted(opts)
@@ -308,18 +319,104 @@ func startDaemon(opts options, logger *slog.Logger) error {
 		return nil
 	}
 
-	if err := spawnFromState(opts, opts.roots, logger); err != nil {
+	if err == nil {
+		return replaceDaemon(opts, status, logger, spawn)
+	}
+
+	if err = spawn(opts, opts.roots, logger); err != nil {
 		return err
 	}
 
-	if !waitUntilRunning(opts.port) {
-		return fmt.Errorf("kg did not start listening on port %d; check the log", opts.port)
+	if !waitUntilVersion(opts.port, version.Get()) {
+		return fmt.Errorf(
+			"kg did not start version %q on port %d; check the log",
+			version.Get(),
+			opts.port,
+		)
 	}
 
 	openIfWanted(opts)
 	fmt.Fprintf(os.Stdout, "kg is running on %s\n", baseURL(opts.port))
 
 	return nil
+}
+
+func replaceDaemon(
+	opts options,
+	status daemonStatus,
+	logger *slog.Logger,
+	spawn daemonSpawner,
+) error {
+	// A daemon that reports roots always reports an array, so nil means it is old
+	// enough to predate the field and its roots have to come from the backup.
+	// An empty array is an answer, not a gap: reading it as one would resurrect
+	// paths the user stopped watching.
+	roots := status.Roots
+	if roots == nil {
+		roots = loadBackupRoots(logger)
+	}
+	roots = mergeRoots(roots, opts.roots)
+
+	if err := requestShutdown(opts.port); err != nil {
+		return fmt.Errorf("stop outdated kg version %q: %w", status.Version, err)
+	}
+	if !waitUntilStopped(opts.port) {
+		return fmt.Errorf("outdated kg on port %d did not stop", opts.port)
+	}
+	if err := spawn(opts, roots, logger); err != nil {
+		return err
+	}
+	if !waitUntilVersion(opts.port, version.Get()) {
+		return fmt.Errorf(
+			"kg did not restart with version %q on port %d; check the log",
+			version.Get(),
+			opts.port,
+		)
+	}
+
+	openIfWanted(opts)
+	fmt.Fprintf(os.Stdout, "kg restarted on %s\n", baseURL(opts.port))
+
+	return nil
+}
+
+func loadBackupRoots(logger *slog.Logger) []string {
+	stateDir, err := xdg.StateHome()
+	if err != nil {
+		logger.WarnContext(context.Background(), "resolve state dir for daemon replacement", "error", err)
+
+		return nil
+	}
+
+	roots, err := backup.Load(backup.Path(stateDir))
+	if err != nil {
+		logger.WarnContext(context.Background(), "load roots for daemon replacement", "error", err)
+
+		return nil
+	}
+
+	return roots
+}
+
+func mergeRoots(existing, added []string) []string {
+	roots := make([]string, 0, len(existing)+len(added))
+	seen := make(map[string]struct{}, len(existing)+len(added))
+	for _, root := range existing {
+		if _, ok := seen[root]; ok {
+			continue
+		}
+		seen[root] = struct{}{}
+		roots = append(roots, root)
+	}
+	for _, root := range added {
+		if _, ok := seen[root]; ok {
+			continue
+		}
+		seen[root] = struct{}{}
+		roots = append(roots, root)
+	}
+
+	return roots
 }
 
 // restartDaemon exports the current roots and spawns a fresh detached server.
@@ -359,9 +456,21 @@ func spawnFromState(opts options, roots []string, logger *slog.Logger) error {
 	return nil
 }
 
-func waitUntilRunning(port int) bool {
+func waitUntilStopped(port int) bool {
 	for range daemonPollAttempts {
-		if probeRunning(port) {
+		if !probeRunning(port) {
+			return true
+		}
+		time.Sleep(daemonPollInterval)
+	}
+
+	return false
+}
+
+func waitUntilVersion(port int, expected string) bool {
+	for range daemonPollAttempts {
+		status, err := fetchStatusWithTimeout(port, probeTimeout)
+		if err == nil && status.Version == expected {
 			return true
 		}
 		time.Sleep(daemonPollInterval)
