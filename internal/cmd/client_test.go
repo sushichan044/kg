@@ -99,6 +99,34 @@ func TestStartDaemon_ReplacesLegacyDaemonUsingBackedUpRoots(t *testing.T) {
 	assert.Equal(t, 1, daemon.shutdownCount())
 }
 
+func TestStartDaemon_ReplacesRootlessDaemonWithoutRestoringBackup(t *testing.T) {
+	stateHome := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", stateHome)
+	require.NoError(t, backup.Save(backup.Path(stateHome), []string{"/stale"}))
+
+	daemon := newFakeDaemon(t, "v0.0.3", []string{})
+	var spawnedRoots []string
+
+	err := startDaemonWith(
+		options{
+			port:   daemon.port(t),
+			noOpen: true,
+			roots:  []string{"/new"},
+		},
+		slog.New(slog.DiscardHandler),
+		func(_ options, roots []string, _ *slog.Logger) error {
+			spawnedRoots = roots
+			daemon.start(version.Get())
+
+			return nil
+		},
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"/new"}, spawnedRoots)
+	assert.Equal(t, 1, daemon.shutdownCount())
+}
+
 type fakeDaemon struct {
 	mu sync.Mutex
 

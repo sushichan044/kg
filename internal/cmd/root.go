@@ -347,8 +347,12 @@ func replaceDaemon(
 	logger *slog.Logger,
 	spawn daemonSpawner,
 ) error {
+	// A daemon that reports roots always reports an array, so nil means it is old
+	// enough to predate the field and its roots have to come from the backup.
+	// An empty array is an answer, not a gap: reading it as one would resurrect
+	// paths the user stopped watching.
 	roots := status.Roots
-	if len(roots) == 0 {
+	if roots == nil {
 		roots = loadBackupRoots(logger)
 	}
 	roots = mergeRoots(roots, opts.roots)
