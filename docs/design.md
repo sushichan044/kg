@@ -44,6 +44,32 @@ Use mo's event semantics where practical:
 The server is the only filesystem watcher.
 Vite must not watch paths outside the frontend root, because that behavior differs across platforms and Vite versions.
 
+## Reusable packages
+
+Framework-independent manuscript behavior is published from `packages/core` as
+`@sushichan044/kg-core`. It provides pagination, appearance calculations,
+source mapping, and proofreading diagnostics without React or browser
+application state.
+
+The manuscript renderer is published from `packages/viewer` as
+`@sushichan044/kg-viewer`. It depends on core and provides controlled React
+components for the manuscript viewport, viewer toolbar, and diagnostic list.
+`@sushichan044/kg-viewer/styles.css` provides explicitly imported, scoped
+component styles.
+
+Neither package contains file loading, server events, browser storage, document
+selection, or application-shell state.
+
+React is a peer dependency and is not bundled. CSS tokens and selectors are
+scoped below the viewer components so embedding the package does not reset or
+restyle the consuming application. Browser support follows Baseline Widely
+Available features without polyfills.
+
+The `kg` frontend consumes the same public workspace packages that external
+browser editors use. An editor produces diagnostics with core, passes its
+current source text and diagnostics into the viewer, and uses diagnostic source
+ranges to move its own cursor. Building an editor is outside this repository.
+
 ## Command line and discovery
 
 `kg [PATH ...]` watches the given files and directories; a directory is scanned recursively for `.txt` files, and with no path the current directory is watched.
@@ -88,6 +114,36 @@ Source-line statistics count lines after line-ending normalization and terminal-
 
 These rules intentionally omit Japanese line-breaking corrections.
 The preview does not move opening or closing punctuation between lines, combine digits, synthesize tate-chu-yoko, render ruby, hang punctuation, or apply optical spacing.
+
+Each occupied cell also retains the zero-based, end-exclusive UTF-16 range of
+its grapheme in the original source. Line-ending normalization affects layout
+only: ranges continue to refer to the unmodified input, including CRLF byte
+positions. This mapping connects proofreading diagnostics to rendered cells
+and editor selections.
+
+## Proofreading
+
+Proofreading is a deterministic, synchronous analysis of the original plain
+text. It reports these common Japanese novel-style errors:
+
+1. a paragraph without a full-width indent or opening bracket;
+2. punctuation immediately before a closing quote;
+3. missing whitespace after a question or exclamation mark;
+4. an odd number of consecutive ellipses;
+5. an odd number of consecutive dashes;
+6. repeated punctuation;
+7. repeated interpuncts;
+8. repeated prolonged sound marks;
+9. a minus sign not followed by a number; and
+10. Arabic numerals exceeding the configured digit count.
+
+Every diagnostic contains a stable rule ID, Japanese message, severity, raw
+source range, and line and column. Rules can be configured through the core API;
+`kg` enables all defaults and does not add configuration controls.
+
+The checker must never mutate text, synthesize corrected layout, return
+replacement text, or expose automatic fixes. Diagnostic feedback highlights
+the source graphemes on the preview and lists the reason and source position.
 
 ## DOM structure
 
@@ -233,8 +289,21 @@ The paper stack begins below that header.
 Use the relative path as the stable file label when duplicate basenames exist.
 The selected file is marked with `aria-current="page"` and a visible accent that does not rely on color alone.
 
-On viewports narrower than 52rem, place the sidebar above the preview instead of reducing the manuscript cells.
-The preview remains scrollable in both axes.
+On viewports narrower than 52rem, hide the desktop sidebar and metadata-heavy
+viewer header. Show one compact toolbar containing file access, the truncated
+document path, the proofreading error count, and settings access. File,
+settings, and diagnostic controls open as modal bottom sheets. Zoom controls
+move into the settings sheet.
+
+The mobile preview uses the dynamic viewport height and remains scrollable in
+both axes. Touch targets are at least 44 CSS pixels on coarse pointers. Sheets
+restore focus when closed and support Escape, an explicit close button, and
+backdrop dismissal.
+
+On desktop, diagnostics open in a right-side drawer within the preview shell.
+Selecting a diagnostic scrolls its first mapped cell into view. The same
+selection emits the complete diagnostic so an embedding editor can select the
+original range.
 
 ## State and controls
 
@@ -305,6 +374,8 @@ The initial `kg` release does not provide:
 - glyph-level kerning or optical alignment;
 - print-accurate color management;
 - document editing;
+- automatic proofreading fixes or source rewriting;
+- a bundled browser editor;
 - Markdown parsing; or
 - a promise that page breaks match another application.
 
@@ -339,6 +410,12 @@ Browser tests must verify:
 - adding, editing, renaming, and deleting a watched `.txt` file updates the browser;
 - deleting the selected file chooses a valid fallback; and
 - no browser-console errors occur in a fresh session.
+- diagnostic ranges highlight the corresponding cells and list selections
+  scroll those cells into view;
+- the mobile toolbar remains one compact row and opens file, settings, and
+  diagnostic bottom sheets; and
+- published package entry points and the exported stylesheet resolve from a
+  packed consumer.
 
 Use a visual fixture containing Japanese brackets, commas, periods, long vowel marks, paired dashes, ellipses, `⁉︎`, Latin text, emoji, blank lines, and an overlong source line.
 Capture the default view at 1440 × 1000 for regression review, but assert geometry and behavior in tests rather than relying only on screenshot comparison.

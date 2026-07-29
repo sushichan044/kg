@@ -66,9 +66,16 @@ jobs:
           go-version-file: go.mod
 
       - name: Check
-        run: pnpm --filter kg-frontend check
+        run: |
+          pnpm --filter @sushichan044/kg-core check
+          pnpm --filter @sushichan044/kg-viewer check
+          pnpm --filter kg-frontend check
 
-      - run: pnpm --filter kg-frontend test --project unit
+      - name: Unit tests
+        run: |
+          pnpm --filter @sushichan044/kg-core test --project unit
+          pnpm --filter @sushichan044/kg-viewer test --project unit
+          pnpm --filter kg-frontend test --project unit
 
   browser-test:
     name: Run browser tests
@@ -103,12 +110,17 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: pnpm --filter kg-frontend exec playwright install-deps chromium-headless-shell
 
-      - run: pnpm --filter kg-frontend test --project browser
+      - name: Browser tests
+        run: |
+          pnpm --filter @sushichan044/kg-viewer test --project browser
+          pnpm --filter kg-frontend test --project browser
 
       - name: Upload test screenshots on failure
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: test-screenshots
-          path: app/components/__screenshots__/
+          path: |
+            internal/frontend/src/**/__screenshots__/
+            packages/viewer/src/**/__screenshots__/
           retention-days: 7

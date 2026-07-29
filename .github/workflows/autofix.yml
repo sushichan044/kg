@@ -35,6 +35,9 @@ jobs:
           args: --fix
 
       - name: vite-plus autofix
-        run: pnpm --filter kg-frontend exec vp check --fix
+        run: |
+          pnpm --filter @sushichan044/kg-core exec vp check --fix
+          pnpm --filter @sushichan044/kg-viewer exec vp check --fix
+          pnpm --filter kg-frontend exec vp check --fix
 
       - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4
