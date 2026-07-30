@@ -85,10 +85,6 @@ export default defineConfig({
         output: ["bin/kg"],
       },
       "build:packages": 'vp run --filter "./packages/**" build',
-      changeset: {
-        command: "changeset",
-        cache: false,
-      },
       "check:generated": {
         command: [
           "git diff --exit-code -- internal/static/dist",
@@ -139,11 +135,6 @@ fi`,
       },
       "pkg-pr-new": {
         command: "pkg-pr-new publish --compact --comment=update --pnpm",
-        cache: false,
-      },
-      "release:npm": {
-        command: "changeset publish",
-        dependsOn: ["build:packages"],
         cache: false,
       },
       test: {

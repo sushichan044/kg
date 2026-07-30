@@ -1,4 +1,4 @@
-name: Publish npm packages
+name: release-please
 
 on:
   push:
@@ -7,34 +7,56 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  release:
-    if: github.repository == 'sushichan044/kg'
+  release-please:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
     permissions:
       contents: write
       id-token: write
-      issues: read
+      issues: write
       pull-requests: write
     steps:
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        id: release
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        if: >-
+          steps.release.outputs['packages/core--release_created'] == 'true' ||
+          steps.release.outputs['packages/viewer--release_created'] == 'true'
 
       - uses: ./.github/actions/setup
+        if: >-
+          steps.release.outputs['packages/core--release_created'] == 'true' ||
+          steps.release.outputs['packages/viewer--release_created'] == 'true'
         with:
           go-version-file: go.mod
 
       - name: Use npm with trusted publishing support
+        if: >-
+          steps.release.outputs['packages/core--release_created'] == 'true' ||
+          steps.release.outputs['packages/viewer--release_created'] == 'true'
         run: npm install --global npm@11.5.1
 
-      - name: Create release pull request or publish
-        uses: changesets/action@63a615b9cd06ba9a3e6d13796c7fbcb080a60a0b # v1.8.0
-        with:
-          publish: vp run release:npm
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish @sushichan044/kg-core
+        if: steps.release.outputs['packages/core--release_created'] == 'true'
+        run: pnpm --filter @sushichan044/kg-core publish --no-git-checks
+
+      - name: Publish @sushichan044/kg-viewer
+        if: steps.release.outputs['packages/viewer--release_created'] == 'true'
+        run: pnpm --filter @sushichan044/kg-viewer publish --no-git-checks
