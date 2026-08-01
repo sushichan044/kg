@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"log/slog"
 	"net"
@@ -19,6 +18,7 @@ import (
 	"time"
 
 	"github.com/pkg/browser"
+	"github.com/spf13/pflag"
 
 	"github.com/sushichan044/kg/internal/backup"
 	"github.com/sushichan044/kg/internal/logfile"
@@ -62,7 +62,7 @@ type options struct {
 func Execute() int {
 	opts, err := parseArgs(os.Args[1:])
 	if err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+		if errors.Is(err, pflag.ErrHelp) {
 			return exitOK
 		}
 		fmt.Fprintln(os.Stderr, "kg:", err)
@@ -82,7 +82,8 @@ func Execute() int {
 }
 
 func parseArgs(args []string) (options, error) {
-	fs := flag.NewFlagSet("kg", flag.ContinueOnError)
+	fs := pflag.NewFlagSet("kg", pflag.ContinueOnError)
+	fs.SetInterspersed(false)
 	fs.Usage = func() {
 		fmt.Fprintln(fs.Output(), "Usage: kg [flags] [PATH ...]")
 		fmt.Fprintln(fs.Output(), "\nPreview .txt files as a vertical manuscript grid.")
@@ -91,8 +92,8 @@ func parseArgs(args []string) (options, error) {
 	}
 
 	var opts options
-	fs.IntVar(&opts.port, "port", defaultPort, "port to listen on")
-	fs.IntVar(&opts.port, "p", defaultPort, "port to listen on (shorthand)")
+	var help bool
+	fs.IntVarP(&opts.port, "port", "p", defaultPort, "port to listen on")
 	fs.BoolVar(&opts.noOpen, "no-open", false, "do not open the browser on start")
 	fs.BoolVar(&opts.foreground, "foreground", false, "run the server in the foreground instead of daemonizing")
 	fs.BoolVar(&opts.shutdown, "shutdown", false, "stop the running server")
@@ -100,9 +101,15 @@ func parseArgs(args []string) (options, error) {
 	fs.BoolVar(&opts.status, "status", false, "print the running server status")
 	fs.BoolVar(&opts.jsonOut, "json", false, "with --status, print raw JSON")
 	fs.StringVar(&opts.restore, "restore", "", "internal: restore watched roots from this file")
+	fs.BoolVarP(&help, "help", "h", false, "show help")
 
 	if err := fs.Parse(args); err != nil {
 		return options{}, err
+	}
+	if help {
+		fs.Usage()
+
+		return options{}, pflag.ErrHelp
 	}
 
 	baseDir, err := os.Getwd()

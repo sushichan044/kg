@@ -6,7 +6,12 @@ import { viewerTestProjects } from "./packages/viewer/vite.config";
 
 export default defineConfig({
   fmt: {
-    ignorePatterns: ["pnpm-lock.yaml", "CHANGELOG.md", ".release-please-manifest.json"],
+    ignorePatterns: [
+      "pnpm-lock.yaml",
+      "CHANGELOG.md",
+      ".release-please-manifest.json",
+      "**/dist/**",
+    ],
     jsdoc: {
       commentLineStrategy: "multiline",
     },
