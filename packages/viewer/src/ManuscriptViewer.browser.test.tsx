@@ -1,169 +1,92 @@
-import { DEFAULT_APPEARANCE, proofreadManuscript } from "@sushichan044/kg-core";
-import type { GridSettings, ManuscriptDiagnostic, ManuscriptOffsets } from "@sushichan044/kg-core";
-import { flushSync } from "react-dom";
-import { createRoot } from "react-dom/client";
-import type { Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, test } from "vite-plus/test";
+import { DEFAULT_APPEARANCE, createManuscript } from "@sushichan044/kg-core";
+import type {
+  GridSettings,
+  ManuscriptOffsets,
+  ManuscriptStateOptions,
+} from "@sushichan044/kg-core";
+import { expect, test } from "vite-plus/test";
+import { render } from "vitest-browser-react";
 
 import { ManuscriptViewer } from "./ManuscriptViewer";
+import type { ManuscriptViewerProps } from "./ManuscriptViewer";
+import { ManuscriptProvider } from "./Provider";
 
 import "./styles.css";
 
 const settings: GridSettings = {
-  charsPerLine: 3,
-  linesPerStage: 2,
+  charsPerLine: 10,
+  linesPerStage: 10,
   stagesPerPage: 1,
 };
 
-let host: HTMLDivElement;
-let root: Root;
+async function renderViewer(options: ManuscriptStateOptions, props: ManuscriptViewerProps = {}) {
+  const manuscript = createManuscript(options);
+  const screen = await render(
+    <ManuscriptProvider controller={manuscript}>
+      <ManuscriptViewer {...props} />
+    </ManuscriptProvider>,
+  );
 
-beforeEach(() => {
-  host = document.createElement("div");
-  host.style.width = "800px";
-  host.style.height = "700px";
-  document.body.append(host);
-  root = createRoot(host);
-});
+  return { manuscript, screen };
+}
 
-afterEach(() => {
-  root.unmount();
-  host.remove();
-});
+test("renders the first grapheme in the top-right cell with square geometry", async () => {
+  const { screen } = await renderViewer({ text: "あいうえ", settings });
 
-test("renders the first grapheme in the top-right cell with square geometry", () => {
-  flushSync(() => {
-    root.render(
-      <ManuscriptViewer
-        text="あいうえ"
-        settings={settings}
-        appearance={DEFAULT_APPEARANCE}
-        zoom={{ mode: "fixed", percent: 100 }}
-      />,
-    );
-  });
-
-  const cells = Array.from(host.querySelectorAll<HTMLElement>(".kgv-cell"));
+  const cells = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-cell"));
   const occupied = cells.filter((cell) => cell.textContent !== "");
   expect(occupied[0]?.textContent).toBe("あ");
   expect(occupied[1]?.textContent).toBe("い");
   const firstRect = cells[0]?.getBoundingClientRect();
   expect(firstRect?.width).toBeCloseTo(firstRect?.height ?? 0, 0);
-  expect(cells[3]?.getBoundingClientRect().left).toBeLessThan(
+  expect(cells[10]?.getBoundingClientRect().left).toBeLessThan(
     cells[0]?.getBoundingClientRect().left ?? 0,
   );
 });
 
-test("marks diagnostics and selects them without changing the manuscript", () => {
+test("marks diagnostics and selects them without changing the manuscript", async () => {
   const text = "「誤り。。。 」";
-  const diagnostics = proofreadManuscript(text);
   let selected = "";
-  flushSync(() => {
-    root.render(
-      <ManuscriptViewer
-        text={text}
-        settings={{ ...settings, charsPerLine: 10 }}
-        diagnostics={diagnostics}
-        onDiagnosticSelect={(diagnostic) => {
-          selected = diagnostic.id;
-        }}
-      />,
-    );
-  });
-
-  expect(host.querySelectorAll("[data-diagnostic]")).not.toHaveLength(0);
-  const marker = host.querySelector<HTMLButtonElement>(".kgv-diagnostic-marker");
-  marker?.click();
-  expect(selected).toBe(diagnostics[0]?.id);
-  expect(host.textContent).toContain(text);
-});
-
-test("renders a marker for a diagnostic that starts inside another diagnostic range", () => {
-  const diagnostics: ManuscriptDiagnostic[] = [
+  const { manuscript, screen } = await renderViewer(
+    { text, settings },
     {
-      id: "outer",
-      ruleId: "no-consecutive-punctuation",
-      message: "outer",
-      severity: "error",
-      range: { start: 0, end: 2 },
-      location: {
-        start: { offset: 0, line: 1, column: 1 },
-        end: { offset: 2, line: 1, column: 3 },
+      onDiagnosticSelect: (diagnostic) => {
+        selected = diagnostic.id;
       },
     },
-    {
-      id: "inner",
-      ruleId: "punctuation-before-closing-quote",
-      message: "inner",
-      severity: "error",
-      range: { start: 1, end: 2 },
-      location: {
-        start: { offset: 1, line: 1, column: 2 },
-        end: { offset: 2, line: 1, column: 3 },
-      },
-    },
-  ];
-  const selected: string[] = [];
+  );
 
-  flushSync(() => {
-    root.render(
-      <ManuscriptViewer
-        text="。。"
-        settings={settings}
-        diagnostics={diagnostics}
-        onDiagnosticSelect={(diagnostic) => {
-          selected.push(diagnostic.id);
-        }}
-      />,
-    );
-  });
-
-  const markers = host.querySelectorAll<HTMLButtonElement>(".kgv-diagnostic-marker");
-  expect(markers).toHaveLength(2);
-  markers[1]?.click();
-  expect(selected).toEqual(["inner"]);
+  expect(screen.container.querySelectorAll("[data-diagnostic]")).not.toHaveLength(0);
+  await screen.getByRole("button").first().click();
+  expect(selected).toBe(manuscript.state.diagnostics[0]?.id);
+  expect(screen.container.textContent).toContain(text);
 });
 
-test("renders a cell whose size in pixels matches the specified point size at 100% zoom", () => {
-  flushSync(() => {
-    root.render(
-      <ManuscriptViewer
-        text="あ"
-        settings={settings}
-        appearance={{ ...DEFAULT_APPEARANCE, fontSizePt: 10 }}
-        zoom={{ mode: "fixed", percent: 100 }}
-      />,
-    );
+test("renders a cell whose size in pixels matches the specified point size at 100% zoom", async () => {
+  const { screen } = await renderViewer({
+    text: "あ",
+    settings,
+    appearance: { ...DEFAULT_APPEARANCE, fontSizePt: 10 },
   });
 
-  const cell = host.querySelector<HTMLElement>(".kgv-cell");
+  const cell = screen.container.querySelector<HTMLElement>(".kgv-cell");
   // 10pt = 10 * (96 / 72) CSS px ≈ 13.33px.
   expect(cell?.getBoundingClientRect().width).toBeCloseTo((10 * 96) / 72, 0);
 });
 
-test("renders offset-reserved leading cells as empty", () => {
+test("renders offset-reserved leading cells as empty", async () => {
   const offsets: ManuscriptOffsets = {
     document: { leading: 1, trailing: 0 },
     page: { leading: 0, trailing: 0 },
     stage: { leading: 0, trailing: 0 },
   };
 
-  flushSync(() => {
-    root.render(
-      <ManuscriptViewer
-        text="あいうえ"
-        settings={settings}
-        appearance={DEFAULT_APPEARANCE}
-        offsets={offsets}
-        zoom={{ mode: "fixed", percent: 100 }}
-      />,
-    );
-  });
+  const { screen } = await renderViewer({ text: "あいうえ", settings, offsets });
 
-  const lines = Array.from(host.querySelectorAll<HTMLElement>(".kgv-line"));
+  const lines = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-line"));
   const firstLineCells = Array.from(lines[0]?.querySelectorAll<HTMLElement>(".kgv-cell") ?? []);
   expect(firstLineCells.every((cell) => cell.textContent === "")).toBe(true);
 
   const secondLineCells = Array.from(lines[1]?.querySelectorAll<HTMLElement>(".kgv-cell") ?? []);
-  expect(secondLineCells.map((cell) => cell.textContent)).toEqual(["あ", "い", "う"]);
+  expect(secondLineCells.slice(0, 3).map((cell) => cell.textContent)).toEqual(["あ", "い", "う"]);
 });

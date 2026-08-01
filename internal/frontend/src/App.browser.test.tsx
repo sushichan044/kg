@@ -1,7 +1,6 @@
-import { flushSync } from "react-dom";
-import { createRoot } from "react-dom/client";
-import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vite-plus/test";
+import { page } from "vite-plus/test/browser";
+import { render } from "vitest-browser-react";
 
 import { App } from "./App";
 
@@ -22,9 +21,6 @@ class FakeEventSource {
   close() {}
 }
 
-let host: HTMLDivElement;
-let root: Root;
-
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
@@ -42,72 +38,56 @@ beforeEach(() => {
       return new Response(source);
     }),
   );
-  host = document.createElement("div");
-  document.body.append(host);
-  root = createRoot(host);
 });
 
 afterEach(() => {
-  root.unmount();
-  host.remove();
   vi.unstubAllGlobals();
 });
 
+// The mobile toolbar only becomes visible below the 52rem (832px) breakpoint;
+// a narrower viewport is required so the click lands on a real, on-screen control.
 test("connects proofreading feedback to the drawer and manuscript cells", async () => {
-  flushSync(() => {
-    root.render(<App />);
-  });
+  await page.viewport(1280, 800);
+  const screen = await render(<App />);
 
-  await vi.waitFor(() => {
-    expect(host.querySelector('[aria-label="校正エラー 4件"]')).not.toBeNull();
-  });
+  const diagnosticsTrigger = screen.getByRole("button", { name: "校正エラー 4件" });
+  await expect.element(diagnosticsTrigger).toBeVisible();
+  await diagnosticsTrigger.click();
 
-  const desktopTrigger = host.querySelector<HTMLButtonElement>(
-    ".desktop-viewer-toolbar .kgv-diagnostics-trigger",
-  );
-  desktopTrigger?.click();
-  await vi.waitFor(() => {
-    expect(host.querySelector(".diagnostic-drawer")).not.toBeNull();
-  });
+  const drawer = screen.getByRole("complementary", { name: "校正エラー" });
+  await expect.element(drawer).toBeVisible();
 
-  const diagnostics = host.querySelectorAll<HTMLButtonElement>(
-    ".diagnostic-drawer .kgv-diagnostics button",
-  );
-  diagnostics[3]?.click();
+  await drawer.getByRole("list").getByRole("button").nth(3).click();
   await vi.waitFor(() => {
-    expect(host.querySelectorAll("[data-diagnostic-active]")).toHaveLength(4);
+    expect(screen.container.querySelectorAll("[data-diagnostic-active]")).toHaveLength(4);
   });
 });
 
 test("opens compact file, settings, and diagnostics sheets", async () => {
-  flushSync(() => {
-    root.render(<App />);
-  });
+  await page.viewport(600, 900);
+  const screen = await render(<App />);
 
   await vi.waitFor(() => {
-    expect(host.querySelector(".mobile-toolbar strong")?.textContent).toBe("testdata/novel.txt");
+    expect(screen.container.querySelector(".mobile-toolbar strong")?.textContent).toBe(
+      "testdata/novel.txt",
+    );
   });
 
-  const buttons = Array.from(host.querySelectorAll<HTMLButtonElement>(".mobile-toolbar button"));
+  const buttons = Array.from(
+    screen.container.querySelectorAll<HTMLButtonElement>(".mobile-toolbar button"),
+  );
   expect(buttons.map((button) => button.textContent.trim())).toEqual([
     "ファイル",
     "校正 4",
     "設定",
   ]);
 
-  buttons[2]?.click();
-  await vi.waitFor(() => {
-    expect(document.querySelector<HTMLDialogElement>('dialog[aria-label="表示設定"]')?.open).toBe(
-      true,
-    );
-  });
-  const settings = document.querySelector<HTMLDialogElement>('dialog[aria-label="表示設定"]');
-  settings?.close();
+  await screen.getByRole("button", { name: "設定" }).click();
+  const settingsDialog = screen.getByRole("dialog", { name: "表示設定" });
+  await expect.element(settingsDialog).toBeVisible();
+  await settingsDialog.getByRole("button", { name: "表示設定を閉じる" }).click();
 
-  buttons[1]?.click();
-  await vi.waitFor(() => {
-    expect(document.querySelector<HTMLDialogElement>('dialog[aria-label="校正エラー"]')?.open).toBe(
-      true,
-    );
-  });
+  await screen.getByRole("button", { name: "校正エラー 4件" }).click();
+  const diagnosticsDialog = screen.getByRole("dialog", { name: "校正エラー" });
+  await expect.element(diagnosticsDialog).toBeVisible();
 });
