@@ -79,7 +79,7 @@ jobs:
         run: vp run check:generated
 
       - name: Unit tests
-        run: vp run --filter @sushichan044/kg-core --filter @sushichan044/kg-viewer --filter kg-frontend test --project unit
+        run: vp run --filter @sushichan044/kg-core --filter @sushichan044/kg-viewer --filter kg-frontend test --project '*-unit'
 
   browser-test:
     name: Run browser tests
@@ -115,7 +115,7 @@ jobs:
         run: pnpm --filter kg-frontend exec playwright install-deps chromium-headless-shell
 
       - name: Browser tests
-        run: vp run --filter @sushichan044/kg-viewer --filter kg-frontend test --project browser
+        run: vp run --filter @sushichan044/kg-viewer --filter kg-frontend test --project '*-browser'
 
       - name: Upload test screenshots on failure
         if: failure()
