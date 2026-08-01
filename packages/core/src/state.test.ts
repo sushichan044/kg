@@ -1,7 +1,8 @@
 import { describe, expect, test, vi } from "vite-plus/test";
 
 import { DEFAULT_APPEARANCE, DEFAULT_ZOOM } from "./appearance";
-import { DEFAULT_SETTINGS } from "./pagination";
+import { DEFAULT_OFFSETS, DEFAULT_SETTINGS } from "./pagination";
+import { DEFAULT_PROOFREADING_OPTIONS } from "./proofreading";
 import {
   DEFAULT_MANUSCRIPT_PRESET,
   createManuscript,
@@ -117,6 +118,16 @@ describe("ManuscriptState", () => {
         ?.code,
     ).toBe("preset-readonly");
   });
+
+  test("saves a preset with the configuration at save time, not later in the batch", () => {
+    const saved = createManuscriptState().update(
+      { type: "preset.save", name: "文庫", overwrite: false },
+      { type: "config.patch", patch: { settings: { charsPerLine: 40 } } },
+    );
+
+    expect(saved.state.settings.charsPerLine).toBe(40);
+    expect(saved.state.presets[0]?.settings.charsPerLine).toBe(DEFAULT_SETTINGS.charsPerLine);
+  });
 });
 
 describe("manuscript preferences codec", () => {
@@ -134,21 +145,31 @@ describe("manuscript preferences codec", () => {
     expect(preferences.settings).toEqual(DEFAULT_SETTINGS);
   });
 
+  // Each rejection test mutates exactly one field of this payload, so a failing decode
+  // can only be caused by the constraint under test.
+  const validPayload = {
+    version: 1,
+    settings: DEFAULT_SETTINGS,
+    appearance: DEFAULT_APPEARANCE,
+    offsets: DEFAULT_OFFSETS,
+    proofreading: DEFAULT_PROOFREADING_OPTIONS,
+    zoom: DEFAULT_ZOOM,
+    presets: [],
+  };
+
+  test("accepts a complete payload of the current version", () => {
+    expect(decodeManuscriptPreferences(validPayload).ok).toBe(true);
+  });
+
   test("rejects preferences from older versions", () => {
-    const decoded = decodeManuscriptPreferences({
-      version: 2,
-      settings: { charsPerLine: 30, linesPerStage: 20, stagesPerPage: 1 },
-      appearance: { paperSize: "jis-b6", marginMm: 10, fontPreset: "gothic" },
-      zoom: { mode: "fit" },
-      presets: [],
-    });
+    const decoded = decodeManuscriptPreferences({ ...validPayload, version: 2 });
 
     expect(decoded.ok).toBe(false);
   });
 
   test("rejects a payload with invalid settings", () => {
     const decoded = decodeManuscriptPreferences({
-      version: 1,
+      ...validPayload,
       settings: { ...DEFAULT_SETTINGS, charsPerLine: 0 },
     });
 

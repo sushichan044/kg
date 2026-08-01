@@ -277,7 +277,8 @@ export class ManuscriptState {
       options.proofreading ?? DEFAULT_PROOFREADING_OPTIONS,
     );
     const zoom = parsed(ZoomModeSchema, options.zoom ?? DEFAULT_ZOOM);
-    if (config === null || zoom === null) {
+    const presets = parsed(v.array(manuscriptPresetSchema), options.presets ?? []);
+    if (config === null || zoom === null || presets === null) {
       throw new TypeError("invalid manuscript configuration");
     }
     this.settings = copySettings(config.settings);
@@ -285,7 +286,7 @@ export class ManuscriptState {
     this.offsets = copyOffsets(config.offsets);
     this.proofreading = copyProofreading(config.proofreading);
     this.zoom = zoom;
-    this.presets = (options.presets ?? []).map((preset) => v.parse(manuscriptPresetSchema, preset));
+    this.presets = presets;
     this.pagination = paginateManuscript(this.text, this.settings, this.offsets);
     this.geometry = calculateManuscriptGeometry(this.settings, this.appearance);
     this.diagnostics = proofreadManuscript(this.text, this.proofreading);
@@ -385,7 +386,14 @@ export class ManuscriptState {
           }
           presets = [
             ...presets.filter((preset) => preset.name !== name),
-            { name, settings, appearance, offsets },
+            // Later actions in this batch keep mutating the loop-local config, so the
+            // preset has to capture the values as they are at save time.
+            {
+              name,
+              settings: copySettings(settings),
+              appearance: copyAppearance(appearance),
+              offsets: copyOffsets(offsets),
+            },
           ];
           break;
         }
