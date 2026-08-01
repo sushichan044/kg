@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import { paginateManuscript } from "./pagination";
-import type { GridSettings, Line } from "./pagination";
+import { DEFAULT_OFFSETS, MAX_DOCUMENT_OFFSET, paginateManuscript } from "./pagination";
+import type { GridSettings, Line, ManuscriptOffsets } from "./pagination";
 
 const small: GridSettings = { charsPerLine: 3, linesPerStage: 2, stagesPerPage: 1 };
 
@@ -58,5 +58,138 @@ describe("paginateManuscript", () => {
     const { pages } = paginateManuscript("あい、", { ...small, charsPerLine: 2 });
     expect(filled(pages[0]![0]![0]!)).toEqual(["あ", "い"]);
     expect(filled(pages[0]![0]![1]!)).toEqual(["、"]);
+  });
+});
+
+describe("paginateManuscript with offsets", () => {
+  test("reserves N leading document lines before the first body line", () => {
+    const settings: GridSettings = { charsPerLine: 3, linesPerStage: 6, stagesPerPage: 1 };
+    const offsets: ManuscriptOffsets = {
+      ...DEFAULT_OFFSETS,
+      document: { leading: 2, trailing: 0 },
+    };
+    const { pages } = paginateManuscript("あいうえお", settings, offsets);
+    const stage = pages[0]![0]!;
+
+    expect(filled(stage[0]!)).toEqual([]);
+    expect(filled(stage[1]!)).toEqual([]);
+    expect(filled(stage[2]!)).toEqual(["あ", "い", "う"]);
+    expect(filled(stage[3]!)).toEqual(["え", "お"]);
+    expect(filled(stage[4]!)).toEqual([]);
+    expect(filled(stage[5]!)).toEqual([]);
+  });
+
+  test("reserves a trailing document line after the last body line", () => {
+    const settings: GridSettings = { charsPerLine: 3, linesPerStage: 4, stagesPerPage: 1 };
+    const offsets: ManuscriptOffsets = {
+      ...DEFAULT_OFFSETS,
+      document: { leading: 0, trailing: 1 },
+    };
+    const { pages } = paginateManuscript("あい", settings, offsets);
+    const stage = pages[0]![0]!;
+
+    expect(filled(stage[0]!)).toEqual(["あ", "い"]);
+    expect(filled(stage[1]!)).toEqual([]);
+  });
+
+  test("reserves stage-level leading and trailing lines at each stage boundary", () => {
+    const settings: GridSettings = { charsPerLine: 3, linesPerStage: 6, stagesPerPage: 1 };
+    const offsets: ManuscriptOffsets = { ...DEFAULT_OFFSETS, stage: { leading: 1, trailing: 1 } };
+    const { pages } = paginateManuscript("あ\nい\nう\nえ", settings, offsets);
+    const stage = pages[0]![0]!;
+
+    expect(filled(stage[0]!)).toEqual([]);
+    expect(filled(stage[1]!)).toEqual(["あ"]);
+    expect(filled(stage[2]!)).toEqual(["い"]);
+    expect(filled(stage[3]!)).toEqual(["う"]);
+    expect(filled(stage[4]!)).toEqual(["え"]);
+    expect(filled(stage[5]!)).toEqual([]);
+  });
+
+  test("reserves page-level leading and trailing lines across the page's stages without double counting", () => {
+    const settings: GridSettings = { charsPerLine: 3, linesPerStage: 4, stagesPerPage: 2 };
+    const offsets: ManuscriptOffsets = { ...DEFAULT_OFFSETS, page: { leading: 1, trailing: 1 } };
+    const { pages } = paginateManuscript("あ\nい\nう\nえ\nお\nか", settings, offsets);
+    const [stage0, stage1] = pages[0]!;
+
+    expect(filled(stage0![0]!)).toEqual([]);
+    expect(filled(stage0![1]!)).toEqual(["あ"]);
+    expect(filled(stage0![2]!)).toEqual(["い"]);
+    expect(filled(stage0![3]!)).toEqual(["う"]);
+    expect(filled(stage1![0]!)).toEqual(["え"]);
+    expect(filled(stage1![1]!)).toEqual(["お"]);
+    expect(filled(stage1![2]!)).toEqual(["か"]);
+    expect(filled(stage1![3]!)).toEqual([]);
+  });
+
+  test("combines document, stage, and page offsets without double-counting reserved lines", () => {
+    const settings: GridSettings = { charsPerLine: 3, linesPerStage: 6, stagesPerPage: 2 };
+    const offsets: ManuscriptOffsets = {
+      document: { leading: 1, trailing: 1 },
+      stage: { leading: 1, trailing: 1 },
+      page: { leading: 1, trailing: 1 },
+    };
+    const { pages } = paginateManuscript("あ\nい\nう\nえ", settings, offsets);
+    expect(pages).toHaveLength(1);
+    const [stage0, stage1] = pages[0]!;
+
+    // Stage boundaries stay reserved regardless of the page- and document-level offsets.
+    expect(filled(stage0![0]!)).toEqual([]);
+    expect(filled(stage0![5]!)).toEqual([]);
+    expect(filled(stage1![0]!)).toEqual([]);
+    expect(filled(stage1![5]!)).toEqual([]);
+
+    // All four source lines appear exactly once, in order: nothing is dropped or duplicated.
+    const bodyContent = [
+      stage0![1]!,
+      stage0![2]!,
+      stage0![3]!,
+      stage0![4]!,
+      stage1![1]!,
+      stage1![2]!,
+      stage1![3]!,
+      stage1![4]!,
+    ].flatMap((line) => filled(line));
+    expect(bodyContent).toEqual(["あ", "い", "う", "え"]);
+  });
+
+  test("clamps a pathologically large offset and still produces a finite number of pages", () => {
+    const settings: GridSettings = { charsPerLine: 3, linesPerStage: 2, stagesPerPage: 1 };
+    const offsets: ManuscriptOffsets = {
+      document: { leading: 0, trailing: 0 },
+      stage: { leading: 1000, trailing: 1000 },
+      page: { leading: 1000, trailing: 1000 },
+    };
+    const { pages, stats } = paginateManuscript("あいうえおかきくけこ", settings, offsets);
+
+    expect(pages).toHaveLength(4);
+    expect(Number.isFinite(pages.length)).toBe(true);
+    expect(stats.pages).toBe(pages.length);
+  });
+
+  test("clamps a pathologically large document offset to MAX_DOCUMENT_OFFSET without throwing", () => {
+    const settings: GridSettings = { charsPerLine: 3, linesPerStage: 2, stagesPerPage: 1 };
+    const offsets: ManuscriptOffsets = {
+      document: { leading: Number.MAX_SAFE_INTEGER, trailing: 4_294_967_296 },
+      stage: { leading: 0, trailing: 0 },
+      page: { leading: 0, trailing: 0 },
+    };
+
+    expect(() => paginateManuscript("あいうえおかきくけこ", settings, offsets)).not.toThrow();
+
+    const { pages, stats } = paginateManuscript("あいうえおかきくけこ", settings, offsets);
+    expect(Number.isFinite(pages.length)).toBe(true);
+    expect(stats.pages).toBe(pages.length);
+    // The resolved document offset is bounded by MAX_DOCUMENT_OFFSET lines on each side, plus
+    // the 10 characters of body content wrapped into 4 lines at charsPerLine 3.
+    const expectedTotalLines = MAX_DOCUMENT_OFFSET + 4 + MAX_DOCUMENT_OFFSET;
+    const expectedPages = Math.ceil(expectedTotalLines / settings.linesPerStage);
+    expect(pages).toHaveLength(expectedPages);
+  });
+
+  test("keeps existing default-offset behavior unchanged when offsets are omitted", () => {
+    const withDefault = paginateManuscript("あいうえお", small);
+    const withExplicitDefault = paginateManuscript("あいうえお", small, DEFAULT_OFFSETS);
+    expect(withDefault).toEqual(withExplicitDefault);
   });
 });

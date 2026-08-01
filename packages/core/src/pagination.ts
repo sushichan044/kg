@@ -42,6 +42,31 @@ export interface Pagination {
   stats: Statistics;
 }
 
+/**
+ * Blank lines reserved (or added) at the start/end of a scope, counted in lines.
+ */
+export interface LineOffset {
+  leading: number;
+  trailing: number;
+}
+
+/**
+ * Line-offset reservations at three independent scopes: - `document`: blank lines
+ * prepended/appended to the manuscript's content itself. - `page`: blank lines reserved at the
+ * start/end of every page. - `stage`: blank lines reserved at the start/end of every stage.
+ */
+export interface ManuscriptOffsets {
+  document: LineOffset;
+  page: LineOffset;
+  stage: LineOffset;
+}
+
+export const DEFAULT_OFFSETS: ManuscriptOffsets = {
+  document: { leading: 0, trailing: 0 },
+  page: { leading: 0, trailing: 0 },
+  stage: { leading: 0, trailing: 0 },
+};
+
 interface SourceLine {
   text: string;
   start: number;
@@ -102,43 +127,134 @@ function padLine(items: Cell[], charsPerLine: number): Line {
   return line;
 }
 
-function emptyStage(linesPerStage: number, charsPerLine: number): Stage {
-  return Array.from({ length: linesPerStage }, () => padLine([], charsPerLine));
+function blankLines(count: number, charsPerLine: number): Line[] {
+  return Array.from({ length: count }, () => padLine([], charsPerLine));
 }
 
-function chunkStages(lines: Line[], linesPerStage: number, charsPerLine: number): Stage[] {
-  const stages: Stage[] = [];
-  for (let index = 0; index < lines.length; index += linesPerStage) {
-    const stage = lines.slice(index, index + linesPerStage);
-    while (stage.length < linesPerStage) {
-      stage.push(padLine([], charsPerLine));
-    }
-    stages.push(stage);
+function nonNegativeInt(value: number): number {
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+}
+
+/**
+ * Hard upper bound for a single document-level leading/trailing offset. Unlike stage/page offsets
+ * (bounded by `maxStageOffsetTotal`/`maxPageOffsetTotal` so at least one content line per
+ * stage/page remains), the document offset has no such natural ceiling and is folded directly into
+ * `blankLines(count, ...)`. This is a manuscript-preview tool, not a print pipeline, so a
+ * leading/trailing reservation in the thousands of lines has no legitimate use case; capping it
+ * here keeps `Array.from({ length: count }, ...)` cheap and finite regardless of caller input (e.g.
+ * a huge value written directly to localStorage).
+ */
+export const MAX_DOCUMENT_OFFSET = 10_000;
+
+function clampNonNegativeInt(value: number, max: number): number {
+  return Math.min(nonNegativeInt(value), max);
+}
+
+function clampOffsetTotal(offset: LineOffset, maxTotal: number): LineOffset {
+  const leading = nonNegativeInt(offset.leading);
+  const trailing = nonNegativeInt(offset.trailing);
+  if (leading + trailing <= maxTotal) {
+    return { leading, trailing };
   }
+  const clampedLeading = Math.min(leading, maxTotal);
 
-  return stages;
+  return { leading: clampedLeading, trailing: Math.max(0, maxTotal - clampedLeading) };
 }
 
-function chunkPages(
-  stages: Stage[],
-  stagesPerPage: number,
-  linesPerStage: number,
-  charsPerLine: number,
+/**
+ * The largest stage leading+trailing total that still leaves at least one usable line per stage.
+ */
+export function maxStageOffsetTotal(settings: GridSettings): number {
+  return Math.max(0, settings.linesPerStage - 1);
+}
+
+/**
+ * The largest page leading+trailing total that still leaves at least one usable line per page,
+ * given a (already clamped) stage offset.
+ */
+export function maxPageOffsetTotal(settings: GridSettings, stageOffset: LineOffset): number {
+  const resolvedStage = clampOffsetTotal(stageOffset, maxStageOffsetTotal(settings));
+  const usablePerStage = settings.linesPerStage - resolvedStage.leading - resolvedStage.trailing;
+
+  return Math.max(0, usablePerStage * settings.stagesPerPage - 1);
+}
+
+/**
+ * Clamps offsets so every page keeps at least one available content line, preventing an infinite
+ * loop when reserved lines would otherwise consume every slot. `paginateManuscript` only ever uses
+ * the resolved values.
+ */
+export function resolveOffsets(
+  settings: GridSettings,
+  offsets: ManuscriptOffsets,
+): ManuscriptOffsets {
+  const stage = clampOffsetTotal(offsets.stage, maxStageOffsetTotal(settings));
+  const page = clampOffsetTotal(offsets.page, maxPageOffsetTotal(settings, stage));
+  const document = {
+    leading: clampNonNegativeInt(offsets.document.leading, MAX_DOCUMENT_OFFSET),
+    trailing: clampNonNegativeInt(offsets.document.trailing, MAX_DOCUMENT_OFFSET),
+  };
+
+  return { document, page, stage };
+}
+
+/**
+ * Builds pages by filling one page's slots at a time from `contentLines`, reserving blank lines at
+ * each stage's and page's leading/trailing edges. The document-level offset is not a reservation:
+ * it is folded into `contentLines` itself before this function runs, so it flows through whatever
+ * slots remain exactly like ordinary content.
+ */
+function buildPages(
+  contentLines: Line[],
+  settings: GridSettings,
+  resolvedOffsets: ManuscriptOffsets,
 ): Page[] {
+  const { charsPerLine, linesPerStage, stagesPerPage } = settings;
+  const { stage: stageOffset, page: pageOffset } = resolvedOffsets;
+  const usablePerStage = linesPerStage - stageOffset.leading - stageOffset.trailing;
+  const totalUsablePerPage = usablePerStage * stagesPerPage;
+
   const pages: Page[] = [];
-  for (let index = 0; index < stages.length; index += stagesPerPage) {
-    const page = stages.slice(index, index + stagesPerPage);
-    while (page.length < stagesPerPage) {
-      page.push(emptyStage(linesPerStage, charsPerLine));
+  let contentIndex = 0;
+
+  while (contentIndex < contentLines.length || pages.length === 0) {
+    const stages: Stage[] = [];
+    for (let stageIndex = 0; stageIndex < stagesPerPage; stageIndex += 1) {
+      const lines: Line[] = [];
+      for (let pos = 0; pos < linesPerStage; pos += 1) {
+        const inStageBody =
+          pos >= stageOffset.leading && pos < linesPerStage - stageOffset.trailing;
+        if (!inStageBody) {
+          lines.push(padLine([], charsPerLine));
+
+          continue;
+        }
+        const usableIndex = stageIndex * usablePerStage + (pos - stageOffset.leading);
+        const inPageBody =
+          usableIndex >= pageOffset.leading &&
+          usableIndex < totalUsablePerPage - pageOffset.trailing;
+        if (!inPageBody || contentIndex >= contentLines.length) {
+          lines.push(padLine([], charsPerLine));
+
+          continue;
+        }
+        lines.push(contentLines[contentIndex]!);
+        contentIndex += 1;
+      }
+      stages.push(lines);
     }
-    pages.push(page);
+    pages.push(stages);
   }
 
   return pages;
 }
 
-export function paginateManuscript(text: string, settings: GridSettings): Pagination {
-  const { charsPerLine, linesPerStage, stagesPerPage } = settings;
+export function paginateManuscript(
+  text: string,
+  settings: GridSettings,
+  offsets: ManuscriptOffsets = DEFAULT_OFFSETS,
+): Pagination {
+  const { charsPerLine } = settings;
   const lines = sourceLines(text);
   const manuscriptLines: Line[] = [];
   let chars = 0;
@@ -156,8 +272,13 @@ export function paginateManuscript(text: string, settings: GridSettings): Pagina
     }
   }
 
-  const stages = chunkStages(manuscriptLines, linesPerStage, charsPerLine);
-  const pages = chunkPages(stages, stagesPerPage, linesPerStage, charsPerLine);
+  const resolvedOffsets = resolveOffsets(settings, offsets);
+  const contentLines: Line[] = [
+    ...blankLines(resolvedOffsets.document.leading, charsPerLine),
+    ...manuscriptLines,
+    ...blankLines(resolvedOffsets.document.trailing, charsPerLine),
+  ];
+  const pages = buildPages(contentLines, settings, resolvedOffsets);
 
   return {
     pages,
