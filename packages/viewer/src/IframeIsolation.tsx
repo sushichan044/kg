@@ -29,14 +29,13 @@ export function IframeIsolation({
         "<style>",
         viewerStyles,
         "</style>",
-        styleOverrides !== undefined ? "<style>" + styleOverrides + "</style>" : "",
         "<style>html,body{margin:0;padding:0;height:100%;overflow:hidden}",
         "#root{height:100%}</style>",
         "</head>",
         '<body><div id="root"></div></body>',
         "</html>",
       ].join(""),
-    [styleOverrides],
+    [],
   );
 
   const handleLoad = useCallback(() => {
@@ -49,6 +48,12 @@ export function IframeIsolation({
   useEffect(() => {
     const iframe = iframeRef.current;
     if (iframe === null) return;
+
+    const mount = iframe.contentDocument?.getElementById("root");
+    if (mount !== null && mount !== undefined) {
+      setMountNode(mount);
+      return;
+    }
 
     iframe.addEventListener("load", handleLoad);
     return () => {
@@ -65,7 +70,14 @@ export function IframeIsolation({
 
   return (
     <iframe ref={iframeRef} className={className} title={title} srcDoc={srcdoc} style={iframeStyle}>
-      {mountNode !== null && createPortal(children, mountNode)}
+      {mountNode !== null &&
+        createPortal(
+          <>
+            {styleOverrides !== undefined && <style>{styleOverrides}</style>}
+            {children}
+          </>,
+          mountNode,
+        )}
     </iframe>
   );
 }
