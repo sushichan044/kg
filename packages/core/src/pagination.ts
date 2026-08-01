@@ -285,5 +285,3 @@ export function paginateManuscript(
     stats: { chars, sourceLines: lines.length, pages: pages.length },
   };
 }
-
-export const paginate = paginateManuscript;
