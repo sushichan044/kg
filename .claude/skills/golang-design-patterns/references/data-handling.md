@@ -1,1 +1,1 @@
-/Users/sushichan044/workspace/github.com/sushichan044/go-template/.agents/skills/golang-design-patterns/references/data-handling.md
+/Users/sushichan044/workspace/github.com/sushichan044/kg/.agents/skills/golang-design-patterns/references/data-handling.md

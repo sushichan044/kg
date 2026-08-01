@@ -1,1 +1,1 @@
-/Users/sushichan044/workspace/github.com/sushichan044/go-template/.agents/skills/golang-security/references/cookies.md
+/Users/sushichan044/workspace/github.com/sushichan044/kg/.agents/skills/golang-security/references/cookies.md

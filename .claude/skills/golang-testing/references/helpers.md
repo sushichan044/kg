@@ -1,1 +1,1 @@
-/Users/sushichan044/workspace/github.com/sushichan044/go-template/.agents/skills/golang-testing/references/helpers.md
+/Users/sushichan044/workspace/github.com/sushichan044/kg/.agents/skills/golang-testing/references/helpers.md

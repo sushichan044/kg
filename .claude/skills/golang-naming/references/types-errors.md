@@ -1,1 +1,1 @@
-/Users/sushichan044/workspace/github.com/sushichan044/go-template/.agents/skills/golang-naming/references/types-errors.md
+/Users/sushichan044/workspace/github.com/sushichan044/kg/.agents/skills/golang-naming/references/types-errors.md
