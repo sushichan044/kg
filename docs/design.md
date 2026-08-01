@@ -233,7 +233,7 @@ A page stacks the configured stages vertically with a gap of two cell sizes.
 The writer selects A4, A5, JIS B5, or JIS B6 paper in portrait orientation and a font size in points, from 6 to 24 in 0.5-point steps.
 The default is A5 at 9pt.
 
-The font size is the input; the margin is a derived output. This is solid typesetting (ベタ組み): the specified point size is the cell size, with no shrinking ratio applied.
+The font size is the input; the margin is a derived output. This is solid typesetting (ベタ組み): the specified point size is the cell pitch — the page/margin geometry below is derived from it directly, with no shrinking ratio applied. The rendered glyph is drawn at 82 percent of the cell so characters keep breathing room instead of touching every cell edge; this is a visual-only rendering detail and does not affect the cell pitch or any of the geometry math.
 
 ```text
 cell size = the specified point size, converted to millimeters using 72pt = 25.4mm
@@ -251,7 +251,7 @@ margin block  (top/bottom) = (paper height - grid height) / 2
 Center the grid on the paper; the two margins on each axis are therefore always equal.
 Report the derived margins so the writer can see the effect of a chosen point size.
 
-The requested point size is never silently shrunk to fit. When a margin would be negative, report it as negative and mark the geometry as not fitting the paper (`fitsPaper: false`); the UI must show a warning rather than resize the grid. A `maxFontSizePt` calculation reports the largest point size, in 0.5pt steps, whose grid still fits the selected paper and grid settings, so the input can offer that as a hint or an upper bound.
+The requested point size is never silently shrunk to fit. When a margin would be negative, report it as negative and mark the geometry as not fitting the paper (`fitsPaper: false`); the UI must show a warning rather than resize the grid. A `maxFontSizePt` calculation reports the largest point size, in 0.5pt steps, whose grid still fits the selected paper and grid settings, clamped to the configured 6–24pt range, so the input can offer that as a hint or an upper bound.
 
 Center pages when space permits.
 Allow horizontal and vertical scrolling when pages exceed the viewport.

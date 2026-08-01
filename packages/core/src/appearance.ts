@@ -123,8 +123,9 @@ export function maxFontSizePt(settings: GridSettings, paperSizeId: PaperSizeId):
   );
   const maxPt = mmToPt(maxCellSizeMm);
   const steps = Math.floor(maxPt / FONT_SIZE_PT_RANGE.step + 1e-9);
+  const aligned = Math.round(steps * FONT_SIZE_PT_RANGE.step * 1000) / 1000;
 
-  return Math.round(steps * FONT_SIZE_PT_RANGE.step * 1000) / 1000;
+  return Math.min(FONT_SIZE_PT_RANGE.max, Math.max(FONT_SIZE_PT_RANGE.min, aligned));
 }
 
 export function fitPagePercent(

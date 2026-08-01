@@ -6,6 +6,7 @@ import {
   DEFAULT_SETTINGS,
   fontPreset,
   isFontSizePt,
+  MAX_DOCUMENT_OFFSET,
   paginateManuscript,
   paperSize,
   proofreadManuscript,
@@ -351,7 +352,8 @@ export function App() {
   const onOffsetChange = useCallback((field: OffsetField, raw: string) => {
     setOffsetDrafts((current) => ({ ...current, [field]: raw }));
     const value = Number(raw);
-    const valid = raw.trim() !== "" && Number.isInteger(value) && value >= 0;
+    const maxValue = field.startsWith("document.") ? MAX_DOCUMENT_OFFSET : Number.POSITIVE_INFINITY;
+    const valid = raw.trim() !== "" && Number.isInteger(value) && value >= 0 && value <= maxValue;
     setOffsetInvalid((current) => ({ ...current, [field]: !valid }));
     if (valid) {
       const [scope, edge] = field.split(".") as [keyof ManuscriptOffsets, keyof LineOffset];

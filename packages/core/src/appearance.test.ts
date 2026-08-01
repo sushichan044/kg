@@ -85,6 +85,22 @@ describe("maxFontSizePt", () => {
 
     expect(steps).toBeCloseTo(Math.round(steps), 9);
   });
+
+  test("clamps to FONT_SIZE_PT_RANGE.max when a sparse grid would otherwise fit an oversized font", () => {
+    const sparse: GridSettings = { charsPerLine: 10, linesPerStage: 10, stagesPerPage: 1 };
+    const maxPt = maxFontSizePt(sparse, "a4");
+
+    expect(maxPt).toBe(FONT_SIZE_PT_RANGE.max);
+    expect(isFontSizePt(maxPt)).toBe(true);
+  });
+
+  test("clamps to FONT_SIZE_PT_RANGE.min when a dense grid would otherwise compute below it", () => {
+    const dense: GridSettings = { charsPerLine: 60, linesPerStage: 60, stagesPerPage: 3 };
+    const maxPt = maxFontSizePt(dense, "jis-b6");
+
+    expect(maxPt).toBe(FONT_SIZE_PT_RANGE.min);
+    expect(isFontSizePt(maxPt)).toBe(true);
+  });
 });
 
 describe("isFontSizePt", () => {
