@@ -62,3 +62,13 @@ test("round-trips the visible page per document for the current session", () => 
   expect(loadPage("draft.txt")).toBe(3);
   expect(loadPage("other.txt")).toBe(0);
 });
+
+test("keeps the stored page when asked to save a value that is not a page index", () => {
+  savePage("draft.txt", 3);
+  savePage("draft.txt", -1);
+  savePage("draft.txt", 1.5);
+  expect(loadPage("draft.txt")).toBe(3);
+
+  savePage("other.txt", -1);
+  expect(loadPage("other.txt")).toBe(0);
+});

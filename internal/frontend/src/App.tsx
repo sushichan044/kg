@@ -25,6 +25,7 @@ import {
   saveManuscriptPreferences,
   savePage,
 } from "./lib/storage";
+import type { AppState } from "./lib/storage";
 
 interface SheetProps {
   open: boolean;
@@ -78,51 +79,47 @@ interface WorkspaceProps {
 }
 
 function Workspace({ controller }: WorkspaceProps) {
-  const manuscript = useManuscriptState((state) => state);
+  const diagnosticCount = useManuscriptState((state) => state.diagnostics.length);
   const [appState, setAppState] = useState(loadAppState);
   const [files, setFiles] = useState<FileEntry[]>([]);
-  const [loadedId, setLoadedId] = useState<string | null>(null);
+  // A new object per successful load, so page restoration also runs when the same
+  // document is reloaded after a file-change event.
+  const [loadedDocument, setLoadedDocument] = useState<{ id: string } | null>(null);
   const [status, setStatus] = useState("");
   const [diagnosticDrawerOpen, setDiagnosticDrawerOpen] = useState(false);
   const [filesSheetOpen, setFilesSheetOpen] = useState(false);
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
   const [diagnosticsSheetOpen, setDiagnosticsSheetOpen] = useState(false);
   const viewRef = useRef<ManuscriptViewHandle>(null);
+  // Identifies the newest content request so a late response cannot overwrite a newer one.
+  const contentRequestRef = useRef(0);
 
   const selectedFile =
     files.find((file) => file.path === appState.selectedPath) ?? files[0] ?? null;
   const selectedId = selectedFile?.id ?? null;
   const selectedPath = selectedFile?.path ?? null;
 
-  const reconcileFiles = useCallback((nextFiles: FileEntry[]) => {
-    setFiles(nextFiles);
-    setAppState((current) => {
-      const selected =
-        nextFiles.find((file) => file.path === current.selectedPath) ?? nextFiles[0] ?? null;
-      return selected === null || selected.path === current.selectedPath
-        ? current
-        : { ...current, selectedPath: selected.path };
-    });
-  }, []);
-
   const refreshFiles = useCallback(async () => {
     try {
-      reconcileFiles(await fetchFiles());
+      setFiles(await fetchFiles());
     } catch {
       setStatus("ファイル一覧の取得に失敗しました");
     }
-  }, [reconcileFiles]);
+  }, []);
 
   const loadContent = useCallback(
-    async (id: string, path: string) => {
-      try {
-        const text = await fetchContent(id);
-        controller.dispatch({ type: "document.replace", text });
-        setLoadedId(id);
-        requestAnimationFrame(() => viewRef.current?.scrollToPage(loadPage(path)));
-      } catch {
-        setStatus("本文の取得に失敗しました");
-      }
+    (id: string) => {
+      const request = ++contentRequestRef.current;
+      return fetchContent(id).then(
+        (text) => {
+          if (request !== contentRequestRef.current) return;
+          controller.dispatch({ type: "document.replace", text });
+          setLoadedDocument({ id });
+        },
+        () => {
+          if (request === contentRequestRef.current) setStatus("本文の取得に失敗しました");
+        },
+      );
     },
     [controller],
   );
@@ -131,7 +128,7 @@ function Workspace({ controller }: WorkspaceProps) {
     let ignore = false;
     void fetchFiles().then(
       (nextFiles) => {
-        if (!ignore) reconcileFiles(nextFiles);
+        if (!ignore) setFiles(nextFiles);
       },
       () => {
         if (!ignore) setStatus("ファイル一覧の取得に失敗しました");
@@ -140,40 +137,24 @@ function Workspace({ controller }: WorkspaceProps) {
     return () => {
       ignore = true;
     };
-  }, [reconcileFiles]);
+  }, []);
 
   useEffect(() => {
-    if (selectedId === null || selectedPath === null) {
+    if (selectedId === null) {
+      contentRequestRef.current += 1;
       controller.dispatch({ type: "document.replace", text: "" });
       return;
     }
-    let ignore = false;
-    void fetchContent(selectedId).then(
-      (text) => {
-        if (ignore) return;
-        controller.dispatch({ type: "document.replace", text });
-        setLoadedId(selectedId);
-        requestAnimationFrame(() => viewRef.current?.scrollToPage(loadPage(selectedPath)));
-      },
-      () => {
-        if (!ignore) setStatus("本文の取得に失敗しました");
-      },
-    );
-    return () => {
-      ignore = true;
-    };
-  }, [controller, selectedId, selectedPath]);
+    void loadContent(selectedId);
+  }, [controller, loadContent, selectedId]);
 
+  // Restoration runs after the viewer commits, so viewRef is bound by the time it scrolls.
   useEffect(() => {
-    if (saveAppState(appState)) return;
-    let active = true;
-    queueMicrotask(() => {
-      if (active) setStatus("選択状態を保存できませんでした");
-    });
-    return () => {
-      active = false;
-    };
-  }, [appState]);
+    if (loadedDocument === null || loadedDocument.id !== selectedId || selectedPath === null) {
+      return;
+    }
+    viewRef.current?.scrollToPage(loadPage(selectedPath));
+  }, [loadedDocument, selectedId, selectedPath]);
 
   useEffect(
     () =>
@@ -191,14 +172,18 @@ function Workspace({ controller }: WorkspaceProps) {
       setStatus("ファイル一覧を更新しました");
     },
     onFileChanged: (id) => {
-      if (id === selectedId && selectedPath !== null) void loadContent(id, selectedPath);
+      if (id === selectedId) void loadContent(id);
     },
   });
 
   const onSelect = useCallback(
     (id: string) => {
       const found = files.find((file) => file.id === id);
-      if (found !== undefined) setAppState((current) => ({ ...current, selectedPath: found.path }));
+      if (found !== undefined) {
+        const next: AppState = { version: 1, selectedPath: found.path };
+        setAppState(next);
+        if (!saveAppState(next)) setStatus("選択状態を保存できませんでした");
+      }
       setFilesSheetOpen(false);
     },
     [files],
@@ -248,12 +233,12 @@ function Workspace({ controller }: WorkspaceProps) {
               <strong title={selectedFile.path}>{selectedFile.path}</strong>
               <button
                 type="button"
-                aria-label={`校正エラー ${manuscript.diagnostics.length}件`}
+                aria-label={`校正エラー ${diagnosticCount}件`}
                 onClick={() => {
                   setDiagnosticsSheetOpen(true);
                 }}
               >
-                校正 <span>{manuscript.diagnostics.length}</span>
+                校正 <span>{diagnosticCount}</span>
               </button>
               <button
                 type="button"
@@ -264,7 +249,7 @@ function Workspace({ controller }: WorkspaceProps) {
                 設定
               </button>
             </header>
-            {loadedId !== selectedId ? (
+            {loadedDocument?.id !== selectedId ? (
               <p className="preview__loading">読み込み中…</p>
             ) : (
               <ManuscriptViewer

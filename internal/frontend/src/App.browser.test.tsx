@@ -44,8 +44,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-// The mobile toolbar only becomes visible below the 52rem (832px) breakpoint;
-// a narrower viewport is required so the click lands on a real, on-screen control.
 test("connects proofreading feedback to the drawer and manuscript cells", async () => {
   await page.viewport(1280, 800);
   const screen = await render(<App />);
@@ -63,6 +61,8 @@ test("connects proofreading feedback to the drawer and manuscript cells", async 
   });
 });
 
+// The mobile toolbar only becomes visible below the 52rem (832px) breakpoint;
+// a narrower viewport is required so the click lands on a real, on-screen control.
 test("opens compact file, settings, and diagnostics sheets", async () => {
   await page.viewport(600, 900);
   const screen = await render(<App />);

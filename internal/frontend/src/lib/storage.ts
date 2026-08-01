@@ -19,6 +19,8 @@ const AppStateSchema = v.object({
   selectedPath: v.nullable(v.string()),
 });
 
+const PageSchema = v.pipe(v.number(), v.integer(), v.minValue(0));
+
 export type AppState = v.InferOutput<typeof AppStateSchema>;
 
 export const DEFAULT_APP_STATE: AppState = { version: 1, selectedPath: null };
@@ -77,7 +79,7 @@ export function loadPage(path: string): number {
   try {
     const raw = sessionStorage.getItem(PAGE_KEY_PREFIX + path);
     if (raw === null) return 0;
-    const result = v.safeParse(v.pipe(v.number(), v.integer(), v.minValue(0)), Number(raw));
+    const result = v.safeParse(PageSchema, Number(raw));
     return result.success ? result.output : 0;
   } catch {
     return 0;
@@ -85,11 +87,10 @@ export function loadPage(path: string): number {
 }
 
 export function savePage(path: string, page: number): void {
+  const result = v.safeParse(PageSchema, page);
+  if (!result.success) return;
   try {
-    sessionStorage.setItem(
-      PAGE_KEY_PREFIX + path,
-      String(v.parse(v.pipe(v.number(), v.integer(), v.minValue(0)), page)),
-    );
+    sessionStorage.setItem(PAGE_KEY_PREFIX + path, String(result.output));
   } catch {
     // Page restoration is best-effort session state.
   }
