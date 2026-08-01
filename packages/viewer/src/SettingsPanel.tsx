@@ -238,13 +238,17 @@ export function SettingsPanel({ idPrefix = "", status = "" }: SettingsPanelProps
                 name: newPresetName,
                 overwrite: false,
               });
-              if (
-                result.issues[0]?.code === "preset-exists" &&
-                window.confirm("同名のプリセットを上書きしますか？")
-              ) {
-                dispatch({ type: "preset.save", name: newPresetName, overwrite: true });
+              if (result.issues[0]?.code !== "preset-exists") {
+                if (result.accepted) setNewPresetName("");
+                return;
               }
-              setNewPresetName("");
+              if (!window.confirm("同名のプリセットを上書きしますか？")) return;
+              const overwritten = dispatch({
+                type: "preset.save",
+                name: newPresetName,
+                overwrite: true,
+              });
+              if (overwritten.accepted) setNewPresetName("");
             }}
           >
             保存

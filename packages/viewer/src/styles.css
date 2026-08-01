@@ -3,6 +3,9 @@
     --kgv-surface: #d8d0c2;
     --kgv-paper: #f7efd8;
     --kgv-text: #2f2a24;
+    /* Secondary text. Kept above 4.5:1 on both --kgv-surface and --kgv-controls-surface,
+       which opacity-based dimming cannot guarantee. */
+    --kgv-text-muted: #57504a;
     --kgv-grid: #d8c7a6;
     --kgv-accent: #9b3f32;
     --kgv-controls-surface: #eee8dc;
@@ -306,7 +309,7 @@
   .kgv-control-hint {
     grid-column: 2;
     font-size: 0.75rem;
-    opacity: 0.7;
+    color: var(--kgv-text-muted);
   }
 
   .kgv-select-control {
@@ -324,7 +327,7 @@
   :where(.kgv-paper-note, .kgv-offset-note, .kgv-status) {
     margin: 0;
     font-size: 0.8rem;
-    opacity: 0.75;
+    color: var(--kgv-text-muted);
   }
 
   .kgv-paper-warning {

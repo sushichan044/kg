@@ -62,6 +62,30 @@ test("marks diagnostics and selects them without changing the manuscript", async
   expect(screen.container.textContent).toContain(text);
 });
 
+test("selects the diagnostic that starts in the clicked cell when ranges are nested", async () => {
+  // 「あ、。。」 raises a closing-quote diagnostic over 、。。 and a consecutive-punctuation
+  // diagnostic over 。。 nested inside it, each starting in a different cell.
+  let selected = "";
+  const { manuscript, screen } = await renderViewer(
+    { text: "「あ、。。」", settings },
+    {
+      onDiagnosticSelect: (diagnostic) => {
+        selected = diagnostic.id;
+      },
+    },
+  );
+
+  const nested = manuscript.state.diagnostics.find(
+    ({ ruleId }) => ruleId === "no-consecutive-punctuation",
+  );
+  expect(manuscript.state.diagnostics).toHaveLength(2);
+
+  const markers = screen.container.querySelectorAll<HTMLButtonElement>(".kgv-diagnostic-marker");
+  expect(markers).toHaveLength(2);
+  markers[1]?.click();
+  expect(selected).toBe(nested?.id);
+});
+
 test("renders a cell whose size in pixels matches the specified point size at 100% zoom", async () => {
   const { screen } = await renderViewer({
     text: "あ",
