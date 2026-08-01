@@ -11,5 +11,429 @@ Error generating stack: `+e.message+`
 `?r+=2:r+=1,n=r}return t.push({text:e.slice(n),start:n}),t.length>1&&t.at(-1)?.text===``&&(e.endsWith(`
 `)||e.endsWith(`\r`))&&t.pop(),t.length===0?[{text:``,start:0}]:t}function He(e){return Array.from(Be.segment(e.text),({index:t,segment:n})=>({grapheme:n,sourceRange:{start:e.start+t,end:e.start+t+n.length}}))}function Ue(e,t){let n=e.slice();for(;n.length<t;)n.push(null);return n}function We(e,t){return Array.from({length:e},()=>Ue([],t))}function Ge(e){return Number.isFinite(e)&&e>0?Math.floor(e):0}var Ke=1e4;function qe(e,t){return Math.min(Ge(e),t)}function Je(e,t){let n=Ge(e.leading),r=Ge(e.trailing);if(n+r<=t)return{leading:n,trailing:r};let i=Math.min(n,t);return{leading:i,trailing:Math.max(0,t-i)}}function Ye(e){return Math.max(0,e.linesPerStage-1)}function Xe(e,t){let n=Je(t,Ye(e)),r=e.linesPerStage-n.leading-n.trailing;return Math.max(0,r*e.stagesPerPage-1)}function Ze(e,t){let n=Je(t.stage,Ye(e)),r=Je(t.page,Xe(e,n));return{document:{leading:qe(t.document.leading,Ke),trailing:qe(t.document.trailing,Ke)},page:r,stage:n}}function Qe(e,t,n){let{charsPerLine:r,linesPerStage:i,stagesPerPage:a}=t,{stage:o,page:s}=n,c=i-o.leading-o.trailing,l=c*a,u=[],d=0;for(;d<e.length||u.length===0;){let t=[];for(let n=0;n<a;n+=1){let a=[];for(let t=0;t<i;t+=1){if(!(t>=o.leading&&t<i-o.trailing)){a.push(Ue([],r));continue}let u=n*c+(t-o.leading);if(!(u>=s.leading&&u<l-s.trailing)||d>=e.length){a.push(Ue([],r));continue}a.push(e[d]),d+=1}t.push(a)}u.push(t)}return u}function $e(e,t,n=ze){let{charsPerLine:r}=t,i=Ve(e),a=[],o=0;for(let e of i){let t=He(e);if(o+=t.length,t.length===0){a.push(Ue([],r));continue}for(let e=0;e<t.length;e+=r)a.push(Ue(t.slice(e,e+r),r))}let s=Ze(t,n),c=Qe([...We(s.document.leading,r),...a,...We(s.document.trailing,r)],t,s);return{pages:c,stats:{chars:o,sourceLines:i.length,pages:c.length}}}var et={paragraphLeadingCharacters:`　「『〖〈《（(“"‘'［[〔｛{＜<`,noPunctuationBeforeClosingQuote:!0,spaceAfterQuestionOrExclamation:!0,evenEllipsis:!0,evenDash:!0,noConsecutivePunctuation:!0,noConsecutiveInterpunct:!0,noConsecutiveChoonpu:!0,minusBeforeNumber:!0,maxArabicNumeralDigits:2};function tt(e){let t=[],n=0,r=1,i=0;for(;i<e.length;){let a=e[i];if(a!==`
 `&&a!==`\r`){i+=1;continue}t.push({text:e.slice(n,i),start:n,number:r}),a===`\r`&&e[i+1]===`
-`?i+=2:i+=1,n=i,r+=1}return t.push({text:e.slice(n),start:n,number:r}),t}function nt(e,t,n,r){let i={start:e.start+r.start,end:e.start+r.end};return{id:`${t}:${i.start}:${i.end}`,ruleId:t,message:n,severity:`error`,range:i,location:{start:{offset:i.start,line:e.number,column:r.start+1},end:{offset:i.end,line:e.number,column:r.end+1}}}}function rt(e,t){let n=[];t.pattern.lastIndex=0;let r=t.pattern.exec(e.text);for(;r!==null;)(t.test?.(r)??!0)&&n.push(nt(e,t.id,typeof t.message==`function`?t.message(r):t.message,{start:r.index,end:r.index+r[0].length})),r=t.pattern.exec(e.text);return n}function it(e,t={}){let n={...et,...t},r=[],i=typeof n.maxArabicNumeralDigits==`number`?n.maxArabicNumeralDigits:null,a=[n.noPunctuationBeforeClosingQuote&&{id:`punctuation-before-closing-quote`,pattern:/[。、]+(?=[」』〗〉》）)”"’'］\]〕｝}＞>])/gu,message:`閉じ括弧の直前に句読点を置くことはできません`},n.spaceAfterQuestionOrExclamation&&{id:`space-after-question-or-exclamation`,pattern:/[？！](?![ 　？！」』〗〉》）)”"’'］\]〕｝}＞>]|$)/gu,message:`感嘆符・疑問符の直後には空白または閉じ括弧が必要です`},n.evenEllipsis&&{id:`even-ellipsis`,pattern:/…+/gu,test:e=>e[0].length%2==1,message:`連続する三点リーダーの数は偶数にしてください`},n.evenDash&&{id:`even-dash`,pattern:/―+/gu,test:e=>e[0].length%2==1,message:`連続するダッシュの数は偶数にしてください`},n.noConsecutivePunctuation&&{id:`no-consecutive-punctuation`,pattern:/。。+|、、+/gu,message:`句読点が連続しています`},n.noConsecutiveInterpunct&&{id:`no-consecutive-interpunct`,pattern:/・・+/gu,message:`中黒が連続しています`},n.noConsecutiveChoonpu&&{id:`no-consecutive-choonpu`,pattern:/ーー+/gu,message:`長音符が連続しています`},n.minusBeforeNumber&&{id:`minus-before-number`,pattern:/−(?![0-9０-９〇一二三四五六七八九十])/gu,message:`マイナス記号の直後には数字が必要です`},i!==null&&{id:`max-arabic-numeral-digits`,pattern:/([0-9０-９]+)(?:[.．]([0-9０-９]+))?/gu,test:e=>(e[1]?.length??0)>i||(e[2]?.length??0)>i,message:`${i}桁を超えるアラビア数字が使われています`}];for(let t of tt(e)){t.text!==``&&n.paragraphLeadingCharacters!==!1&&!n.paragraphLeadingCharacters.includes(t.text[0]??``)&&r.push(nt(t,`paragraph-leading-character`,`段落の先頭には全角スペースまたは開き括弧が必要です`,{start:0,end:(t.text.codePointAt(0)??0)>65535?2:1}));for(let e of a)e!==!1&&r.push(...rt(t,e))}return r.sort((e,t)=>e.range.start-t.range.start||e.range.end-t.range.end||e.ruleId.localeCompare(t.ruleId))}var at={name:`${Oe(be.paperSize).label} / ${be.fontSizePt}pt / ${ke(be.fontPreset).label} / ${Le.charsPerLine}字 × ${Le.linesPerStage}行 × ${Le.stagesPerPage}段`,settings:Le,appearance:be,offsets:ze};function ot(e){return{...e}}function st(e){return{...e}}function ct(e){return{document:{...e.document},page:{...e.page},stage:{...e.stage}}}function lt(e){return{...e}}function ut(e){return{name:e.name,settings:ot(e.settings),appearance:st(e.appearance),offsets:ct(e.offsets)}}var dt=(e,t=1/0)=>ge(N(),te(),ne(),ie(e),re(t)),ft=P({charsPerLine:dt(Re.charsPerLine.min,Re.charsPerLine.max),linesPerStage:dt(Re.linesPerStage.min,Re.linesPerStage.max),stagesPerPage:dt(Re.stagesPerPage.min,Re.stagesPerPage.max)}),pt=P({paperSize:ue([`a4`,`a5`,`jis-b5`,`jis-b6`]),fontSizePt:ge(N(),te(),ie(F.min),re(F.max),ae(F.step)),fontPreset:ue([`mincho`,`gothic`])}),mt=P({leading:dt(0,Ke),trailing:dt(0,Ke)}),ht=P({leading:dt(0),trailing:dt(0)}),gt=P({document:mt,page:ht,stage:ht}),_t=P({paragraphLeadingCharacters:pe([de(),j(!1)]),noPunctuationBeforeClosingQuote:A(),spaceAfterQuestionOrExclamation:A(),evenEllipsis:A(),evenDash:A(),noConsecutivePunctuation:A(),noConsecutiveInterpunct:A(),noConsecutiveChoonpu:A(),minusBeforeNumber:A(),maxArabicNumeralDigits:pe([dt(1),j(!1)])}),vt=me(`mode`,[P({mode:j(`fit`)}),P({mode:j(`fixed`),percent:ue([50,75,100,125,150])})]),yt=P({name:ge(de(),se(),oe()),settings:ft,appearance:pt,offsets:gt}),bt=P({version:j(1),settings:ft,appearance:pt,offsets:gt,proofreading:_t,zoom:vt,presets:le(yt)}),xt=P({settings:ft,appearance:pt,offsets:gt,proofreading:_t});function I(e,t){let n=_e(e,t);return n.success?n.output:null}function St(e,t){if(t.trim()===``)return null;let n=Re[e];return I(dt(n.min,n.max),Number(t))}function Ct(e){return e.trim()===``?null:I(pt.entries.fontSizePt,Number(e))}function wt(e,t=!1){return e.trim()===``?null:I(dt(0,t?Ke:void 0),Number(e))}function Tt(e,t,n,r){return I(xt,{settings:e,appearance:t,offsets:n,proofreading:r})}function Et(e,t,n){return{previousState:e,state:e,actions:t,accepted:!1,issues:[n],documentChanged:!1,configChanged:!1,preferencesChanged:!1,selectionChanged:!1}}var Dt=class e{text;settings;appearance;offsets;proofreading;zoom;presets;activeDiagnosticId;pagination;geometry;diagnostics;constructor(e={}){this.text=e.text??``;let t=Tt(e.settings??Le,e.appearance??be,e.offsets??ze,e.proofreading??et),n=I(vt,e.zoom??Ce),r=I(le(yt),e.presets??[]);if(t===null||n===null||r===null)throw TypeError(`invalid manuscript configuration`);this.settings=ot(t.settings),this.appearance=st(t.appearance),this.offsets=ct(t.offsets),this.proofreading=lt(t.proofreading),this.zoom=n,this.presets=r,this.pagination=$e(this.text,this.settings,this.offsets),this.geometry=Ne(this.settings,this.appearance),this.diagnostics=it(this.text,this.proofreading),this.activeDiagnosticId=this.diagnostics.some(({id:t})=>t===e.activeDiagnosticId)?e.activeDiagnosticId??null:null}update(...t){let n=this.text,r=ot(this.settings),i=st(this.appearance),a=ct(this.offsets),o=lt(this.proofreading),s=this.zoom,c=[...this.presets],l=this.activeDiagnosticId;for(let e of t)switch(e.type){case`document.replace`:n=e.text;break;case`config.patch`:{Object.assign(r,e.patch.settings),Object.assign(i,e.patch.appearance),Object.assign(a.document,e.patch.offsets?.document),Object.assign(a.page,e.patch.offsets?.page),Object.assign(a.stage,e.patch.offsets?.stage),Object.assign(o,e.patch.proofreading);let n=Tt(r,i,a,o);if(n===null)return Et(this,t,{code:`invalid-config`,message:`invalid manuscript configuration`});Object.assign(r,n.settings),Object.assign(i,n.appearance),Object.assign(a.document,n.offsets.document),Object.assign(a.page,n.offsets.page),Object.assign(a.stage,n.offsets.stage),Object.assign(o,n.proofreading);break}case`zoom.set`:{let n=I(vt,e.zoom);if(n===null)return Et(this,t,{code:`invalid-config`,message:`invalid zoom`});s=n;break}case`diagnostic.select`:l=e.id;break;case`preset.apply`:{let n=e.name===at.name?at:c.find(({name:t})=>t===e.name);if(n===void 0)return Et(this,t,{code:`preset-not-found`,message:`preset not found`});Object.assign(r,n.settings),Object.assign(i,n.appearance),Object.assign(a.document,n.offsets.document),Object.assign(a.page,n.offsets.page),Object.assign(a.stage,n.offsets.stage);break}case`preset.save`:{let n=e.name.trim();if(n===``)return Et(this,t,{code:`invalid-preset-name`,message:`preset name is empty`});if(n===at.name)return Et(this,t,{code:`preset-readonly`,message:`built-in preset is read-only`});if(c.some(e=>e.name===n)&&!e.overwrite)return Et(this,t,{code:`preset-exists`,message:`preset already exists`});c=[...c.filter(e=>e.name!==n),{name:n,settings:ot(r),appearance:st(i),offsets:ct(a)}];break}case`preset.delete`:if(e.name===at.name)return Et(this,t,{code:`preset-readonly`,message:`built-in preset is read-only`});if(!c.some(({name:t})=>t===e.name))return Et(this,t,{code:`preset-not-found`,message:`preset not found`});c=c.filter(({name:t})=>t!==e.name);break}let u=new e({text:n,settings:r,appearance:i,offsets:a,proofreading:o,zoom:s,presets:c,activeDiagnosticId:l});if(l!==null&&!u.diagnostics.some(({id:e})=>e===l)&&t.some(({type:e})=>e===`diagnostic.select`))return Et(this,t,{code:`diagnostic-not-found`,message:`diagnostic not found`});let d=u.text!==this.text,f=JSON.stringify([u.settings,u.appearance,u.offsets,u.proofreading])!==JSON.stringify([this.settings,this.appearance,this.offsets,this.proofreading]),p=f||JSON.stringify(u.zoom)!==JSON.stringify(this.zoom)||JSON.stringify(u.presets)!==JSON.stringify(this.presets),m=u.activeDiagnosticId!==this.activeDiagnosticId,h=d||p||m;return{previousState:this,state:h?u:this,actions:t,accepted:!0,issues:[],documentChanged:d,configChanged:f,preferencesChanged:p,selectionChanged:m}}};function Ot(e={}){return new Dt(e)}var kt=class{#e;#t=new Set;constructor(e={}){this.#e=Ot(e)}get state(){return this.#e}dispatch(e,...t){let n=`previousState`in e?e:this.#e.update(e,...t);if(n.previousState!==this.#e)return Et(this.#e,n.actions,{code:`stale-transaction`,message:`transaction does not start from the current state`});if(!n.accepted||n.state===this.#e)return n;this.#e=n.state;for(let e of this.#t)e(n);return n}subscribe(e){return this.#t.add(e),()=>{this.#t.delete(e)}}};function At(e={}){return new kt(e)}function jt(e){return{version:1,settings:ot(e.settings),appearance:st(e.appearance),offsets:ct(e.offsets),proofreading:lt(e.proofreading),zoom:e.zoom,presets:e.presets.map(ut)}}function Mt(e){let t=_e(bt,e);if(!t.success)return{ok:!1,issues:[{code:`invalid-config`,message:`invalid manuscript preferences`}]};let n=t.output;return{ok:!0,value:{settings:ot(n.settings),appearance:st(n.appearance),offsets:ct(n.offsets),proofreading:lt(n.proofreading),zoom:n.zoom,presets:n.presets.map(ut)}}}var Nt=e((e=>{var t=Symbol.for(`react.transitional.element`),n=Symbol.for(`react.fragment`);function r(e,n,r){var i=null;if(r!==void 0&&(i=``+r),n.key!==void 0&&(i=``+n.key),`key`in n)for(var a in r={},n)a!==`key`&&(r[a]=n[a]);else r=n;return n=r.ref,{$$typeof:t,type:e,key:i,ref:n===void 0?null:n,props:r}}e.Fragment=n,e.jsx=r,e.jsxs=r})),L=e(((e,t)=>{t.exports=Nt()}))(),Pt=(0,d.createContext)(null);function Ft(e){return{charsPerLine:String(e.charsPerLine),linesPerStage:String(e.linesPerStage),stagesPerPage:String(e.stagesPerPage)}}function It(e){return{"document.leading":String(e.document.leading),"document.trailing":String(e.document.trailing),"page.leading":String(e.page.leading),"page.trailing":String(e.page.trailing),"stage.leading":String(e.stage.leading),"stage.trailing":String(e.stage.trailing)}}function Lt(e){let t=(0,p.c)(4),n;t[0]===e?n=t[1]:(n=t=>e.subscribe(()=>{t()}),t[0]=e,t[1]=n);let r=n,i;t[2]===e.state?i=t[3]:(i=()=>e.state,t[2]=e.state,t[3]=i);let a=i;return(0,d.useSyncExternalStore)(r,a,a)}function Rt(e){let t=(0,p.c)(51),{controller:n,children:r}=e,i=Lt(n),a;t[0]===Symbol.for(`react.memo_cache_sentinel`)?(a={},t[0]=a):a=t[0];let[o,s]=(0,d.useState)(a),[c,l]=(0,d.useState)(null),u;t[1]===Symbol.for(`react.memo_cache_sentinel`)?(u={},t[1]=u):u=t[1];let[f,m]=(0,d.useState)(u),[h,g]=(0,d.useState)(i.zoom.mode===`fixed`?i.zoom.percent:100),_;t[2]===n?_=t[3]:(_=(e,t)=>{let r=St(e,t);if(r===null){s(n=>({...n,[e]:t}));return}s(t=>({...t,[e]:void 0})),n.dispatch({type:`config.patch`,patch:{settings:{[e]:r}}})},t[2]=n,t[3]=_);let v=_,y;t[4]===n?y=t[5]:(y=e=>{let t=Ct(e);if(t===null){l(e);return}l(null),n.dispatch({type:`config.patch`,patch:{appearance:{fontSizePt:t}}})},t[4]=n,t[5]=y);let b=y,x;t[6]===n?x=t[7]:(x=(e,t)=>{let r=wt(t,e.startsWith(`document.`));if(r===null){m(n=>({...n,[e]:t}));return}m(t=>({...t,[e]:void 0}));let[i,a]=e.split(`.`);n.dispatch({type:`config.patch`,patch:{offsets:{[i]:{[a]:r}}}})},t[6]=n,t[7]=x);let S=x,C;t[8]===i.settings?C=t[9]:(C=Ft(i.settings),t[8]=i.settings,t[9]=C);let w=C,ee;t[10]===i.offsets?ee=t[11]:(ee=It(i.offsets),t[10]=i.offsets,t[11]=ee);let T=ee,E=o.charsPerLine??w.charsPerLine,D=o.linesPerStage??w.linesPerStage,te=o.stagesPerPage??w.stagesPerPage,ne;t[12]!==te||t[13]!==E||t[14]!==D?(ne={charsPerLine:E,linesPerStage:D,stagesPerPage:te},t[12]=te,t[13]=E,t[14]=D,t[15]=ne):ne=t[15];let re=o.charsPerLine!==void 0,ie=o.linesPerStage!==void 0,ae=o.stagesPerPage!==void 0,oe;t[16]!==re||t[17]!==ie||t[18]!==ae?(oe={charsPerLine:re,linesPerStage:ie,stagesPerPage:ae},t[16]=re,t[17]=ie,t[18]=ae,t[19]=oe):oe=t[19];let se=c??String(i.appearance.fontSizePt),O=c!==null,k=f[`document.leading`]??T[`document.leading`],ce=f[`document.trailing`]??T[`document.trailing`],le=f[`page.leading`]??T[`page.leading`],A=f[`page.trailing`]??T[`page.trailing`],j=f[`stage.leading`]??T[`stage.leading`],M=f[`stage.trailing`]??T[`stage.trailing`],N;t[20]!==k||t[21]!==ce||t[22]!==le||t[23]!==A||t[24]!==j||t[25]!==M?(N={"document.leading":k,"document.trailing":ce,"page.leading":le,"page.trailing":A,"stage.leading":j,"stage.trailing":M},t[20]=k,t[21]=ce,t[22]=le,t[23]=A,t[24]=j,t[25]=M,t[26]=N):N=t[26];let P=f[`document.leading`]!==void 0,ue=f[`document.trailing`]!==void 0,de=f[`page.leading`]!==void 0,fe=f[`page.trailing`]!==void 0,pe=f[`stage.leading`]!==void 0,me=f[`stage.trailing`]!==void 0,he;t[27]!==P||t[28]!==ue||t[29]!==de||t[30]!==fe||t[31]!==pe||t[32]!==me?(he={"document.leading":P,"document.trailing":ue,"page.leading":de,"page.trailing":fe,"stage.leading":pe,"stage.trailing":me},t[27]=P,t[28]=ue,t[29]=de,t[30]=fe,t[31]=pe,t[32]=me,t[33]=he):he=t[33];let ge;t[34]!==b||t[35]!==S||t[36]!==v||t[37]!==ne||t[38]!==oe||t[39]!==se||t[40]!==O||t[41]!==N||t[42]!==he?(ge={settings:ne,invalidSettings:oe,fontSizePt:se,isFontSizePtInvalid:O,offsets:N,invalidOffsets:he,setSetting:v,setFontSizePt:b,setOffset:S},t[34]=b,t[35]=S,t[36]=v,t[37]=ne,t[38]=oe,t[39]=se,t[40]=O,t[41]=N,t[42]=he,t[43]=ge):ge=t[43];let _e=ge,ve;t[44]!==n||t[45]!==_e||t[46]!==h?(ve={controller:n,drafts:_e,effectiveZoomPercent:h,setEffectiveZoomPercent:g},t[44]=n,t[45]=_e,t[46]=h,t[47]=ve):ve=t[47];let ye=ve,F;return t[48]!==r||t[49]!==ye?(F=(0,L.jsx)(Pt.Provider,{value:ye,children:r}),t[48]=r,t[49]=ye,t[50]=F):F=t[50],F}function zt(){let e=(0,d.useContext)(Pt);if(e===null)throw Error(`viewer components must be rendered inside ManuscriptProvider`);return e}function Bt(e){let t=(0,p.c)(3),{controller:n}=zt(),r=Lt(n),i;return t[0]!==e||t[1]!==r?(i=e(r),t[0]=e,t[1]=r,t[2]=i):i=t[2],i}function Vt(){let e=(0,p.c)(2),{controller:t}=zt(),n;return e[0]===t?n=e[1]:(n=(...e)=>{let n=e;return t.dispatch(...n)},e[0]=t,e[1]=n),n}function Ht(){return zt().drafts}function Ut(){let e=(0,p.c)(3),{effectiveZoomPercent:t,setEffectiveZoomPercent:n}=zt(),r;return e[0]!==t||e[1]!==n?(r=[t,n],e[0]=t,e[1]=n,e[2]=r):r=e[2],r}function Wt({onSelect:e,emptyMessage:t=`校正エラーはありません。`,className:n}){let{activeDiagnosticId:r,diagnostics:i}=Bt(e=>e),a=Vt();return i.length===0?(0,L.jsx)(`p`,{className:[`kgv-diagnostics-empty`,n].filter(Boolean).join(` `),children:t}):(0,L.jsx)(`ol`,{className:[`kgv-diagnostics`,n].filter(Boolean).join(` `),children:i.map(t=>(0,L.jsx)(`li`,{children:(0,L.jsxs)(`button`,{type:`button`,"aria-current":t.id===r?`true`:void 0,onClick:()=>{a({type:`diagnostic.select`,id:t.id}),e?.(t)},children:[(0,L.jsxs)(`span`,{className:`kgv-diagnostic-location`,children:[t.location.start.line,`行 `,t.location.start.column,`列`]}),(0,L.jsx)(`span`,{children:t.message})]})},t.id))})}var Gt=/^(?:\p{Script=Latin}|[0-9])/u;function Kt(e){return e.flatMap(e=>e.map(e=>e.flatMap(e=>e===null?[]:[e.grapheme]).join(``))).join(`
-`)}function qt(e,t){return t.filter(({range:t})=>t.start<e.sourceRange.end&&t.end>e.sourceRange.start)}function Jt(e,t){return t.range.start>=e.sourceRange.start&&t.range.start<e.sourceRange.end}function Yt(...e){return e.filter(e=>e!==void 0&&e!==``).join(` `)}function Xt({ariaLabel:e=`原稿プレビュー`,className:t,onViewEvent:n,onDiagnosticSelect:r},i){let{appearance:a,activeDiagnosticId:o,diagnostics:s,geometry:c,pagination:l,zoom:u}=Bt(e=>e),f=Vt(),[,p]=Ut(),m=(0,d.useRef)(null),h=(0,d.useRef)([]),g=(0,d.useRef)(new Map),_=(0,d.useRef)(null),v=(0,d.useRef)(0),y=(0,d.useRef)(u.mode===`fixed`?u.percent:100),[b,x]=(0,d.useState)(100),S=u.mode===`fixed`?u.percent:b,C=ke(a.fontPreset),w=(0,d.useCallback)(e=>{let t=Math.min(Math.max(Math.trunc(e),0),l.pages.length-1);v.current=t;let n=h.current[t];n==null?_.current=t:(_.current=null,n.scrollIntoView({block:`start`}))},[l.pages.length]),ee=(0,d.useCallback)(e=>{g.current.get(e)?.scrollIntoView({block:`center`,inline:`center`})},[]);(0,d.useImperativeHandle)(i,()=>({scrollToPage:w,scrollToDiagnostic:ee,getVisiblePage:()=>v.current,getEffectiveZoomPercent:()=>y.current}),[ee,w]);let T=(0,d.useMemo)(()=>l.pages.map((e,t)=>({id:`page:${t}`,index:t,page:e,stages:e.map((e,n)=>({id:`page:${t}:stage:${n}`,lines:e.map((e,r)=>({id:`page:${t}:stage:${n}:line:${r}`,cells:e.map((e,i)=>({id:`page:${t}:stage:${n}:line:${r}:cell:${i}`,cell:e}))}))}))})),[l.pages]);(0,d.useEffect)(()=>{if(u.mode!==`fit`)return;let e=m.current;if(e===null)return;let t=()=>{let t=getComputedStyle(e),n=e.clientWidth-Number.parseFloat(t.paddingInlineStart)-Number.parseFloat(t.paddingInlineEnd),r=e.clientHeight-Number.parseFloat(t.paddingBlockStart)-Number.parseFloat(t.paddingBlockEnd);x(Fe(n,r,c.paperWidthMm,c.paperHeightMm))};t();let n=new ResizeObserver(t);return n.observe(e),()=>{n.disconnect()}},[c.paperHeightMm,c.paperWidthMm,u.mode]),(0,d.useEffect)(()=>{y.current=S,p(S),n?.({type:`effective-zoom.change`,percent:S})},[S,n,p]),(0,d.useEffect)(()=>{_.current!==null&&w(_.current)},[l.pages,w]),(0,d.useEffect)(()=>{let e=m.current;if(e===null)return;let t=new IntersectionObserver(e=>{let t=e.filter(e=>e.isIntersecting).sort((e,t)=>t.intersectionRatio-e.intersectionRatio)[0];if(t!==void 0){let e=Number(t.target.getAttribute(`data-page-index`));v.current=e,n?.({type:`visible-page.change`,page:e})}},{root:e,threshold:[.25,.5,.75]});for(let e of h.current)e!==null&&t.observe(e);return()=>{t.disconnect()}},[n,l.pages]),(0,d.useEffect)(()=>{o!==null&&ee(o)},[o,l.pages,ee]);let E=(0,d.useMemo)(()=>({"--kgv-cell-size":`${c.cellSizeMm*(S/100)}mm`,"--kgv-manuscript-font":C.family,"--kgv-page-height":`${c.paperHeightMm*(S/100)}mm`,"--kgv-page-width":`${c.paperWidthMm*(S/100)}mm`}),[c.cellSizeMm,c.paperHeightMm,c.paperWidthMm,S,C.family]);return(0,L.jsx)(`div`,{className:Yt(`kgv-viewer`,t),"aria-label":e,children:(0,L.jsx)(`div`,{ref:m,className:`kgv-viewport`,children:(0,L.jsx)(`div`,{className:`kgv-stack`,style:E,children:T.map(({id:e,index:t,page:n,stages:i})=>(0,L.jsxs)(`section`,{ref:e=>{h.current[t]=e},"data-page-index":t,className:`kgv-page`,"aria-label":`${t+1}ページ目、全${l.pages.length}ページ`,"data-offscreen":t>0?``:void 0,"data-overflow":c.fitsPaper?void 0:``,children:[(0,L.jsx)(`p`,{className:`kgv-visually-hidden`,children:Kt(n)}),(0,L.jsx)(`div`,{className:`kgv-page-grid`,children:i.map(({id:e,lines:t})=>(0,L.jsx)(`div`,{className:`kgv-stage`,children:t.map(({id:e,cells:t})=>(0,L.jsx)(`div`,{className:`kgv-line`,children:t.map(({id:e,cell:t})=>{if(t===null)return(0,L.jsx)(`span`,{className:`kgv-cell`},e);let n=qt(t,s),i=n.find(e=>Jt(t,e)),a=n.some(e=>e.id===o);return(0,L.jsxs)(`span`,{className:`kgv-cell`,"data-diagnostic":n.length>0?``:void 0,"data-diagnostic-active":a?``:void 0,children:[(0,L.jsx)(`span`,{className:Yt(`kgv-glyph`,Gt.test(t.grapheme)?`kgv-glyph-upright`:void 0),"aria-hidden":`true`,children:t.grapheme}),i!==void 0&&(0,L.jsx)(`button`,{ref:e=>{for(let r of n)Jt(t,r)&&(e===null?g.current.delete(r.id):g.current.set(r.id,e))},type:`button`,className:`kgv-diagnostic-marker`,"aria-label":`${i.location.start.line}行${i.location.start.column}列: ${i.message}`,onClick:()=>{f({type:`diagnostic.select`,id:i.id}),r?.(i)}})]},e)})},e))},e))})]},e))})})})}var Zt=(0,d.forwardRef)(Xt),Qt=[{field:`charsPerLine`,label:`字数`},{field:`linesPerStage`,label:`行数`},{field:`stagesPerPage`,label:`段数`}],$t=[{field:`document.leading`,label:`原稿全体（前）`},{field:`document.trailing`,label:`原稿全体（後）`},{field:`page.leading`,label:`ページ（前）`},{field:`page.trailing`,label:`ページ（後）`},{field:`stage.leading`,label:`段（前）`},{field:`stage.trailing`,label:`段（後）`}];function en({id:e,label:t,value:n,options:r,onChange:i}){return(0,L.jsxs)(`div`,{className:`kgv-select-control`,children:[(0,L.jsx)(`label`,{htmlFor:e,children:t}),(0,L.jsx)(`select`,{id:e,value:n,onChange:e=>{i(e.target.value)},children:r.map(e=>(0,L.jsx)(`option`,{value:e.value,children:e.label},e.value))})]})}function tn({idPrefix:e=``,status:t=``}){let{settings:n,appearance:r,geometry:i,pagination:a,presets:o}=Bt(e=>e),s=Ht(),c=Vt(),[l,u]=(0,d.useState)(``),f=t=>`${e}${t}`,p=Pe(n,r.paperSize);return(0,L.jsxs)(`div`,{className:`kgv-settings-panel`,children:[(0,L.jsxs)(`fieldset`,{className:`kgv-controls`,children:[(0,L.jsx)(`legend`,{children:`組版`}),Qt.map(({field:e,label:t})=>{let n=Re[e],r=f(`input-${e}`),i=f(`hint-${e}`);return(0,L.jsxs)(`div`,{className:`kgv-control`,children:[(0,L.jsx)(`label`,{htmlFor:r,children:t}),(0,L.jsx)(`input`,{id:r,type:`number`,inputMode:`numeric`,min:n.min,max:n.max,step:1,value:s.settings[e],"aria-invalid":s.invalidSettings[e],"aria-describedby":i,onChange:t=>{s.setSetting(e,t.target.value)}}),(0,L.jsxs)(`span`,{id:i,className:`kgv-control-hint`,children:[n.min,`–`,n.max]})]},e)})]}),(0,L.jsxs)(`fieldset`,{className:`kgv-paper-controls`,children:[(0,L.jsx)(`legend`,{children:`紙面`}),(0,L.jsx)(en,{id:f(`paper-size`),label:`用紙`,value:r.paperSize,options:ve.map(e=>({value:e.id,label:e.label})),onChange:e=>{let t=ve.find(t=>t.id===e);t!==void 0&&c({type:`config.patch`,patch:{appearance:{paperSize:t.id}}})}}),(0,L.jsxs)(`div`,{className:`kgv-control`,children:[(0,L.jsx)(`label`,{htmlFor:f(`font-size-pt`),children:`文字サイズ (pt)`}),(0,L.jsx)(`input`,{id:f(`font-size-pt`),type:`number`,inputMode:`decimal`,min:F.min,max:F.max,step:F.step,value:s.fontSizePt,"aria-invalid":s.isFontSizePtInvalid,"aria-describedby":f(`font-size-pt-hint`),onChange:e=>{s.setFontSizePt(e.target.value)}}),(0,L.jsxs)(`span`,{id:f(`font-size-pt-hint`),className:`kgv-control-hint`,children:[F.min,`–`,F.max,`pt（この用紙・組版なら最大約`,p,`pt） ・ 余白 天地`,i.marginBlockMm.toFixed(1),`mm / 左右`,i.marginInlineMm.toFixed(1),`mm`]}),!i.fitsPaper&&(0,L.jsx)(`p`,{className:`kgv-paper-warning`,role:`alert`,children:`指定した文字サイズが用紙からはみ出しています。文字サイズを小さくしてください。`})]}),(0,L.jsx)(en,{id:f(`manuscript-font`),label:`書体`,value:r.fontPreset,options:ye.map(e=>({value:e.id,label:e.label})),onChange:e=>{let t=ye.find(t=>t.id===e);t!==void 0&&c({type:`config.patch`,patch:{appearance:{fontPreset:t.id}}})}}),(0,L.jsx)(`p`,{className:`kgv-paper-note`,children:`余白は文字サイズと組版設定から自動計算されます。`})]}),(0,L.jsxs)(`fieldset`,{className:`kgv-offset-controls`,children:[(0,L.jsx)(`legend`,{children:`オフセット（行）`}),$t.map(({field:e,label:t})=>{let n=f(`offset-${e}`),r=f(`offset-hint-${e}`),i=e.startsWith(`document.`);return(0,L.jsxs)(`div`,{className:`kgv-control`,children:[(0,L.jsx)(`label`,{htmlFor:n,children:t}),(0,L.jsx)(`input`,{id:n,type:`number`,inputMode:`numeric`,min:0,max:i?Ke:void 0,step:1,value:s.offsets[e],"aria-invalid":s.invalidOffsets[e],"aria-describedby":r,onChange:t=>{s.setOffset(e,t.target.value)}}),(0,L.jsx)(`span`,{id:r,className:`kgv-control-hint`,children:i?`0–${Ke}の整数`:`0以上の整数`})]},e)}),(0,L.jsx)(`p`,{className:`kgv-offset-note`,children:`大きすぎる値は、各ページ・各段に最低1行残るよう自動的に調整されます。`})]}),(0,L.jsxs)(`div`,{className:`kgv-presets`,children:[(0,L.jsx)(`label`,{htmlFor:f(`preset-apply`),children:`プリセット`}),(0,L.jsxs)(`select`,{id:f(`preset-apply`),value:``,onChange:e=>{e.target.value!==``&&c({type:`preset.apply`,name:e.target.value})},children:[(0,L.jsx)(`option`,{value:``,children:`適用するプリセットを選択…`}),(0,L.jsx)(`option`,{value:at.name,children:at.name}),o.map(e=>(0,L.jsx)(`option`,{value:e.name,children:e.name},e.name))]}),(0,L.jsxs)(`div`,{className:`kgv-preset-save`,children:[(0,L.jsx)(`label`,{htmlFor:f(`preset-name`),className:`kgv-visually-hidden`,children:`新しいプリセット名`}),(0,L.jsx)(`input`,{id:f(`preset-name`),type:`text`,placeholder:`現在の設定を保存`,value:l,onChange:e=>{u(e.target.value)}}),(0,L.jsx)(`button`,{type:`button`,disabled:l.trim()===``,onClick:()=>{let e=c({type:`preset.save`,name:l,overwrite:!1});if(e.issues[0]?.code!==`preset-exists`){e.accepted&&u(``);return}window.confirm(`同名のプリセットを上書きしますか？`)&&c({type:`preset.save`,name:l,overwrite:!0}).accepted&&u(``)},children:`保存`})]}),o.length>0&&(0,L.jsx)(`ul`,{className:`kgv-preset-list`,children:o.map(e=>(0,L.jsxs)(`li`,{children:[(0,L.jsx)(`span`,{children:e.name}),(0,L.jsx)(`button`,{type:`button`,"aria-label":`プリセット「${e.name}」を削除`,onClick:()=>{window.confirm(`プリセット「${e.name}」を削除しますか？`)&&c({type:`preset.delete`,name:e.name})},children:`削除`})]},e.name))})]}),(0,L.jsxs)(`dl`,{className:`kgv-stats`,children:[(0,L.jsxs)(`div`,{children:[(0,L.jsx)(`dt`,{children:`文字数`}),(0,L.jsx)(`dd`,{children:a.stats.chars})]}),(0,L.jsxs)(`div`,{children:[(0,L.jsx)(`dt`,{children:`行数`}),(0,L.jsx)(`dd`,{children:a.stats.sourceLines})]}),(0,L.jsxs)(`div`,{children:[(0,L.jsx)(`dt`,{children:`ページ`}),(0,L.jsx)(`dd`,{children:a.stats.pages})]})]}),(0,L.jsx)(`p`,{className:`kgv-status`,"aria-live":`polite`,children:t})]})}function nn({verbose:e=!1,className:t}){let n=Bt(e=>e.zoom),r=Vt(),[i]=Ut(),a=Ie(i,`out`),o=Ie(i,`in`);return(0,L.jsxs)(`div`,{className:[`kgv-zoom-controls`,e?`kgv-zoom-controls--verbose`:void 0,t].filter(Boolean).join(` `),role:`group`,"aria-label":`表示倍率`,children:[(0,L.jsx)(`button`,{type:`button`,"aria-label":`縮小`,disabled:a===null,onClick:()=>{a!==null&&r({type:`zoom.set`,zoom:{mode:`fixed`,percent:a}})},children:e?`縮小`:`−`}),(0,L.jsxs)(`output`,{children:[Math.round(i),`%`]}),(0,L.jsx)(`button`,{type:`button`,"aria-label":`拡大`,disabled:o===null,onClick:()=>{o!==null&&r({type:`zoom.set`,zoom:{mode:`fixed`,percent:o}})},children:e?`拡大`:`+`}),(0,L.jsx)(`button`,{type:`button`,"aria-pressed":n.mode===`fit`,onClick:()=>{r({type:`zoom.set`,zoom:{mode:`fit`}})},children:`全体表示`})]})}function rn(e){let t=(0,p.c)(12),{documentLabel:n,documentSummary:r,onDiagnosticsOpen:i,className:a}=e,o=Bt(an),s=o.diagnostics.length,c;t[0]!==r||t[1]!==o.appearance||t[2]!==o.settings?(c=r??`${Oe(o.appearance.paperSize).label} / ${o.appearance.fontSizePt}pt / ${ke(o.appearance.fontPreset).label} / ${o.settings.charsPerLine}字 × ${o.settings.linesPerStage}行 × ${o.settings.stagesPerPage}段`,t[0]=r,t[1]=o.appearance,t[2]=o.settings,t[3]=c):c=t[3];let l=c,u;t[4]===a?u=t[5]:(u=[`kgv-toolbar-container`,a].filter(Boolean),t[4]=a,t[5]=u);let d=u.join(` `),f;return t[6]!==s||t[7]!==n||t[8]!==i||t[9]!==l||t[10]!==d?(f=(0,L.jsx)(`div`,{className:d,children:(0,L.jsxs)(`div`,{className:`kgv-toolbar`,children:[(0,L.jsxs)(`div`,{className:`kgv-toolbar-document`,children:[(0,L.jsx)(`strong`,{className:`kgv-toolbar-label`,title:n,children:n}),(0,L.jsx)(`span`,{className:`kgv-toolbar-summary`,children:l})]}),(0,L.jsxs)(`div`,{className:`kgv-toolbar-actions`,children:[(0,L.jsx)(nn,{}),(0,L.jsxs)(`button`,{type:`button`,className:`kgv-diagnostics-trigger`,"aria-label":`校正エラー ${s}件`,onClick:i,children:[`校正 `,(0,L.jsx)(`span`,{"aria-hidden":`true`,children:s})]})]})]})}),t[6]=s,t[7]=n,t[8]=i,t[9]=l,t[10]=d,t[11]=f):f=t[11],f}function an(e){return e}function on(e){let t=(0,p.c)(4),{files:n,selectedId:r,onSelect:i}=e,a;return t[0]!==n||t[1]!==i||t[2]!==r?(a=(0,L.jsx)(`nav`,{className:`files`,"aria-label":`ファイル`,children:n.length===0?(0,L.jsx)(`p`,{className:`files__empty`,children:`.txt ファイルがありません`}):(0,L.jsx)(`ul`,{className:`file-list`,children:n.map(e=>(0,L.jsx)(`li`,{children:(0,L.jsx)(`button`,{type:`button`,className:`file-list__item`,"aria-current":e.id===r?`page`:void 0,onClick:()=>{i(e.id)},children:e.path})},e.id))})}),t[0]=n,t[1]=i,t[2]=r,t[3]=a):a=t[3],a}function sn(e){let t=(0,p.c)(10),{files:n,selectedId:r,onSelect:i,status:a}=e,o;t[0]===Symbol.for(`react.memo_cache_sentinel`)?(o=(0,L.jsxs)(`div`,{className:`brand`,children:[(0,L.jsx)(`span`,{className:`brand__name`,children:`kg`}),(0,L.jsx)(`span`,{className:`brand__mode`,children:`原稿用紙`})]}),t[0]=o):o=t[0];let s;t[1]!==n||t[2]!==i||t[3]!==r?(s=(0,L.jsx)(on,{files:n,selectedId:r,onSelect:i}),t[1]=n,t[2]=i,t[3]=r,t[4]=s):s=t[4];let c;t[5]===a?c=t[6]:(c=(0,L.jsx)(tn,{idPrefix:`desktop-`,status:a}),t[5]=a,t[6]=c);let l;return t[7]!==s||t[8]!==c?(l=(0,L.jsxs)(`aside`,{className:`sidebar`,children:[o,s,c]}),t[7]=s,t[8]=c,t[9]=l):l=t[9],l}function cn(e){let t=(0,p.c)(4),n=(0,d.useRef)(e),r;t[0]===e?r=t[1]:(r=()=>{n.current=e},t[0]=e,t[1]=r),(0,d.useEffect)(r);let i,a;t[2]===Symbol.for(`react.memo_cache_sentinel`)?(i=()=>{let e=new EventSource(`/_/events`),t=null;return e.addEventListener(`started`,e=>{let{pid:n}=JSON.parse(e.data),r=String(n);if(t!==null&&t!==r){window.location.reload();return}t=r}),e.addEventListener(`update`,()=>{n.current.onCatalogChanged()}),e.addEventListener(`file-changed`,e=>{let{id:t}=JSON.parse(e.data);n.current.onFileChanged(t)}),()=>{e.close()}},a=[],t[2]=i,t[3]=a):(i=t[2],a=t[3]),(0,d.useEffect)(i,a)}async function ln(){let e=await fetch(`/_/api/files`);if(!e.ok)throw Error(`failed to list files: ${e.status}`);return await e.json()}async function un(e){let t=await fetch(`/_/api/files/${encodeURIComponent(e)}/content`);if(!t.ok)throw Error(`failed to read file: ${t.status}`);return t.text()}var dn=`kg.app.state.v1`,fn=`kg.manuscript.preferences.v1`,pn=`kg.app.page.v1:`,mn=P({version:j(1),selectedPath:M(de())}),hn=ge(N(),ne(),ie(0)),gn={version:1,selectedPath:null},_n={settings:Le,appearance:be,offsets:ze,proofreading:et,zoom:Ce,presets:[]};function vn(e){let t=localStorage.getItem(e);return t===null?null:JSON.parse(t)}function yn(){try{let e=_e(mn,vn(dn));return e.success?e.output:gn}catch{return gn}}function bn(e){try{return localStorage.setItem(dn,JSON.stringify(he(mn,e))),!0}catch{return!1}}function xn(){try{let e=Mt(vn(fn));return e.ok?e.value:_n}catch{return _n}}function Sn(e){try{return localStorage.setItem(fn,JSON.stringify(jt(e))),!0}catch{return!1}}function Cn(e){try{let t=sessionStorage.getItem(pn+e);if(t===null)return 0;let n=_e(hn,Number(t));return n.success?n.output:0}catch{return 0}}function wn(e,t){let n=_e(hn,t);if(n.success)try{sessionStorage.setItem(pn+e,String(n.output))}catch{}}function Tn(e){let t=(0,p.c)(18),{open:n,title:r,children:i,onClose:a}=e,o=(0,d.useRef)(null),s,c;t[0]===n?(s=t[1],c=t[2]):(s=()=>{let e=o.current;e!==null&&(n&&!e.open&&e.showModal(),!n&&e.open&&e.close())},c=[n],t[0]=n,t[1]=s,t[2]=c),(0,d.useEffect)(s,c);let l=En,u;t[3]===r?u=t[4]:(u=(0,L.jsx)(`h2`,{children:r}),t[3]=r,t[4]=u);let f=`${r}を閉じる`,m;t[5]===Symbol.for(`react.memo_cache_sentinel`)?(m=()=>o.current?.close(),t[5]=m):m=t[5];let h;t[6]===f?h=t[7]:(h=(0,L.jsx)(`button`,{type:`button`,"aria-label":f,onClick:m,children:`閉じる`}),t[6]=f,t[7]=h);let g;t[8]!==u||t[9]!==h?(g=(0,L.jsxs)(`header`,{className:`mobile-sheet__header`,children:[u,h]}),t[8]=u,t[9]=h,t[10]=g):g=t[10];let _;t[11]===i?_=t[12]:(_=(0,L.jsx)(`div`,{className:`mobile-sheet__body`,children:i}),t[11]=i,t[12]=_);let v;return t[13]!==a||t[14]!==g||t[15]!==_||t[16]!==r?(v=(0,L.jsxs)(`dialog`,{ref:o,className:`mobile-sheet`,"aria-label":r,onClose:a,onClick:l,children:[g,_]}),t[13]=a,t[14]=g,t[15]=_,t[16]=r,t[17]=v):v=t[17],v}function En(e){if(e.target!==e.currentTarget)return;let t=e.currentTarget.getBoundingClientRect();e.clientX>=t.left&&e.clientX<=t.right&&e.clientY>=t.top&&e.clientY<=t.bottom||e.currentTarget.close()}function Dn(e){let t=(0,p.c)(72),{controller:n}=e,r=Bt(kn),[i,a]=(0,d.useState)(yn),o;t[0]===Symbol.for(`react.memo_cache_sentinel`)?(o=[],t[0]=o):o=t[0];let[s,c]=(0,d.useState)(o),[l,u]=(0,d.useState)(null),[f,m]=(0,d.useState)(``),[h,g]=(0,d.useState)(!1),[_,v]=(0,d.useState)(!1),[y,b]=(0,d.useState)(!1),[x,S]=(0,d.useState)(!1),C=(0,d.useRef)(null),w=(0,d.useRef)(0),ee;t[1]!==i||t[2]!==s?(ee=s.find(e=>e.path===i.selectedPath)??s[0]??null,t[1]=i,t[2]=s,t[3]=ee):ee=t[3];let T=ee,E=T?.id??null,D=T?.path??null,te;t[4]===Symbol.for(`react.memo_cache_sentinel`)?(te=async()=>{try{c(await ln())}catch{m(`ファイル一覧の取得に失敗しました`)}},t[4]=te):te=t[4];let ne=te,re;t[5]===n?re=t[6]:(re=e=>{let t=w.current+=1;return un(e).then(r=>{t===w.current&&(n.dispatch({type:`document.replace`,text:r}),u({id:e}))},()=>{t===w.current&&m(`本文の取得に失敗しました`)})},t[5]=n,t[6]=re);let ie=re,ae,oe;t[7]===Symbol.for(`react.memo_cache_sentinel`)?(ae=()=>{let e=!1;return ln().then(t=>{e||c(t)},()=>{e||m(`ファイル一覧の取得に失敗しました`)}),()=>{e=!0}},oe=[],t[7]=ae,t[8]=oe):(ae=t[7],oe=t[8]),(0,d.useEffect)(ae,oe);let se,O;t[9]!==n||t[10]!==ie||t[11]!==E?(se=()=>{if(E===null){w.current+=1,n.dispatch({type:`document.replace`,text:``});return}ie(E)},O=[n,ie,E],t[9]=n,t[10]=ie,t[11]=E,t[12]=se,t[13]=O):(se=t[12],O=t[13]),(0,d.useEffect)(se,O);let k,ce;t[14]!==l||t[15]!==E||t[16]!==D?(ce=()=>{l!==null&&l.id===E&&D!==null&&C.current?.scrollToPage(Cn(D))},k=[l,E,D],t[14]=l,t[15]=E,t[16]=D,t[17]=k,t[18]=ce):(k=t[17],ce=t[18]),(0,d.useEffect)(ce,k);let le,A;t[19]===n?(le=t[20],A=t[21]):(le=()=>n.subscribe(e=>{e.preferencesChanged&&!Sn(e.state)&&m(`設定を保存できませんでした`)}),A=[n],t[19]=n,t[20]=le,t[21]=A),(0,d.useEffect)(le,A);let j;t[22]===Symbol.for(`react.memo_cache_sentinel`)?(j=()=>{ne(),m(`ファイル一覧を更新しました`)},t[22]=j):j=t[22];let M;t[23]!==ie||t[24]!==E?(M={onCatalogChanged:j,onFileChanged:e=>{e===E&&ie(e)}},t[23]=ie,t[24]=E,t[25]=M):M=t[25],cn(M);let N;t[26]===s?N=t[27]:(N=e=>{let t=s.find(t=>t.id===e);if(t!==void 0){let e={version:1,selectedPath:t.path};a(e),bn(e)||m(`選択状態を保存できませんでした`)}v(!1)},t[26]=s,t[27]=N);let P=N,ue;t[28]===D?ue=t[29]:(ue=e=>{e.type===`visible-page.change`&&D!==null&&wn(D,e.page)},t[28]=D,t[29]=ue);let de=ue,fe;t[30]===Symbol.for(`react.memo_cache_sentinel`)?(fe=e=>{S(!1)},t[30]=fe):fe=t[30];let pe=fe,me=h?`app app--diagnostics`:`app`,he;t[31]===Symbol.for(`react.memo_cache_sentinel`)?(he=(0,L.jsx)(`a`,{className:`skip-link visually-hidden`,href:`#preview`,children:`プレビューへスキップ`}),t[31]=he):he=t[31];let ge;t[32]!==s||t[33]!==P||t[34]!==E||t[35]!==f?(ge=(0,L.jsx)(sn,{files:s,selectedId:E,onSelect:P,status:f}),t[32]=s,t[33]=P,t[34]=E,t[35]=f,t[36]=ge):ge=t[36];let _e;t[37]!==r||t[38]!==l?.id||t[39]!==de||t[40]!==T||t[41]!==E?(_e=(0,L.jsx)(`main`,{id:`preview`,className:`preview`,tabIndex:-1,"aria-label":`プレビュー`,children:T===null?(0,L.jsx)(`p`,{className:`preview__empty`,children:`監視対象の .txt ファイルがありません。`}):(0,L.jsxs)(L.Fragment,{children:[(0,L.jsx)(rn,{className:`desktop-viewer-toolbar`,documentLabel:T.path,onDiagnosticsOpen:()=>{g(On)}}),(0,L.jsxs)(`header`,{className:`mobile-toolbar`,children:[(0,L.jsx)(`button`,{type:`button`,onClick:()=>{v(!0)},children:`ファイル`}),(0,L.jsx)(`strong`,{title:T.path,children:T.path}),(0,L.jsxs)(`button`,{type:`button`,"aria-label":`校正エラー ${r}件`,onClick:()=>{S(!0)},children:[`校正 `,(0,L.jsx)(`span`,{children:r})]}),(0,L.jsx)(`button`,{type:`button`,onClick:()=>{b(!0)},children:`設定`})]}),l?.id===E?(0,L.jsx)(Zt,{ref:C,onViewEvent:de,onDiagnosticSelect:()=>{window.matchMedia(`(max-width: 52rem)`).matches?S(!0):g(!0)}}):(0,L.jsx)(`p`,{className:`preview__loading`,children:`読み込み中…`})]})}),t[37]=r,t[38]=l?.id,t[39]=de,t[40]=T,t[41]=E,t[42]=_e):_e=t[42];let ve;t[43]===h?ve=t[44]:(ve=h&&(0,L.jsxs)(`aside`,{className:`diagnostic-drawer`,"aria-label":`校正エラー`,children:[(0,L.jsxs)(`header`,{children:[(0,L.jsx)(`h2`,{children:`校正エラー`}),(0,L.jsx)(`button`,{type:`button`,"aria-label":`校正エラーを閉じる`,onClick:()=>{g(!1)},children:`閉じる`})]}),(0,L.jsx)(Wt,{onSelect:pe})]}),t[43]=h,t[44]=ve);let ye;t[45]===Symbol.for(`react.memo_cache_sentinel`)?(ye=()=>{v(!1)},t[45]=ye):ye=t[45];let F;t[46]!==s||t[47]!==P||t[48]!==E?(F=(0,L.jsx)(on,{files:s,selectedId:E,onSelect:P}),t[46]=s,t[47]=P,t[48]=E,t[49]=F):F=t[49];let be;t[50]!==_||t[51]!==F?(be=(0,L.jsx)(Tn,{open:_,title:`ファイル`,onClose:ye,children:F}),t[50]=_,t[51]=F,t[52]=be):be=t[52];let xe,Se;t[53]===Symbol.for(`react.memo_cache_sentinel`)?(xe=()=>{b(!1)},Se=(0,L.jsx)(nn,{verbose:!0,className:`mobile-zoom`}),t[53]=xe,t[54]=Se):(xe=t[53],Se=t[54]);let Ce;t[55]===f?Ce=t[56]:(Ce=(0,L.jsx)(tn,{idPrefix:`mobile-`,status:f}),t[55]=f,t[56]=Ce);let we;t[57]!==y||t[58]!==Ce?(we=(0,L.jsxs)(Tn,{open:y,title:`表示設定`,onClose:xe,children:[Se,Ce]}),t[57]=y,t[58]=Ce,t[59]=we):we=t[59];let Te,Ee;t[60]===Symbol.for(`react.memo_cache_sentinel`)?(Te=()=>{S(!1)},Ee=(0,L.jsx)(Wt,{onSelect:pe}),t[60]=Te,t[61]=Ee):(Te=t[60],Ee=t[61]);let De;t[62]===x?De=t[63]:(De=(0,L.jsx)(Tn,{open:x,title:`校正エラー`,onClose:Te,children:Ee}),t[62]=x,t[63]=De);let Oe;return t[64]!==me||t[65]!==ge||t[66]!==_e||t[67]!==ve||t[68]!==be||t[69]!==we||t[70]!==De?(Oe=(0,L.jsxs)(`div`,{className:me,children:[he,ge,_e,ve,be,we,De]}),t[64]=me,t[65]=ge,t[66]=_e,t[67]=ve,t[68]=be,t[69]=we,t[70]=De,t[71]=Oe):Oe=t[71],Oe}function On(e){return!e}function kn(e){return e.diagnostics.length}function An(){let e=(0,p.c)(5),[t]=(0,d.useState)(jn),n;e[0]===t?n=e[1]:(n=(0,L.jsx)(Dn,{controller:t}),e[0]=t,e[1]=n);let r;return e[2]!==t||e[3]!==n?(r=(0,L.jsx)(Rt,{controller:t,children:n}),e[2]=t,e[3]=n,e[4]=r):r=e[4],r}function jn(){return At(xn())}var Mn=document.querySelector(`#root`);Mn!==null&&(0,f.createRoot)(Mn).render((0,L.jsx)(d.StrictMode,{children:(0,L.jsx)(An,{})}));
+`?i+=2:i+=1,n=i,r+=1}return t.push({text:e.slice(n),start:n,number:r}),t}function nt(e,t,n,r){let i={start:e.start+r.start,end:e.start+r.end};return{id:`${t}:${i.start}:${i.end}`,ruleId:t,message:n,severity:`error`,range:i,location:{start:{offset:i.start,line:e.number,column:r.start+1},end:{offset:i.end,line:e.number,column:r.end+1}}}}function rt(e,t){let n=[];t.pattern.lastIndex=0;let r=t.pattern.exec(e.text);for(;r!==null;)(t.test?.(r)??!0)&&n.push(nt(e,t.id,typeof t.message==`function`?t.message(r):t.message,{start:r.index,end:r.index+r[0].length})),r=t.pattern.exec(e.text);return n}function it(e,t={}){let n={...et,...t},r=[],i=typeof n.maxArabicNumeralDigits==`number`?n.maxArabicNumeralDigits:null,a=[n.noPunctuationBeforeClosingQuote&&{id:`punctuation-before-closing-quote`,pattern:/[。、]+(?=[」』〗〉》）)”"’'］\]〕｝}＞>])/gu,message:`閉じ括弧の直前に句読点を置くことはできません`},n.spaceAfterQuestionOrExclamation&&{id:`space-after-question-or-exclamation`,pattern:/[？！](?![ 　？！」』〗〉》）)”"’'］\]〕｝}＞>]|$)/gu,message:`感嘆符・疑問符の直後には空白または閉じ括弧が必要です`},n.evenEllipsis&&{id:`even-ellipsis`,pattern:/…+/gu,test:e=>e[0].length%2==1,message:`連続する三点リーダーの数は偶数にしてください`},n.evenDash&&{id:`even-dash`,pattern:/―+/gu,test:e=>e[0].length%2==1,message:`連続するダッシュの数は偶数にしてください`},n.noConsecutivePunctuation&&{id:`no-consecutive-punctuation`,pattern:/。。+|、、+/gu,message:`句読点が連続しています`},n.noConsecutiveInterpunct&&{id:`no-consecutive-interpunct`,pattern:/・・+/gu,message:`中黒が連続しています`},n.noConsecutiveChoonpu&&{id:`no-consecutive-choonpu`,pattern:/ーー+/gu,message:`長音符が連続しています`},n.minusBeforeNumber&&{id:`minus-before-number`,pattern:/−(?![0-9０-９〇一二三四五六七八九十])/gu,message:`マイナス記号の直後には数字が必要です`},i!==null&&{id:`max-arabic-numeral-digits`,pattern:/([0-9０-９]+)(?:[.．]([0-9０-９]+))?/gu,test:e=>(e[1]?.length??0)>i||(e[2]?.length??0)>i,message:`${i}桁を超えるアラビア数字が使われています`}];for(let t of tt(e)){t.text!==``&&n.paragraphLeadingCharacters!==!1&&!n.paragraphLeadingCharacters.includes(t.text[0]??``)&&r.push(nt(t,`paragraph-leading-character`,`段落の先頭には全角スペースまたは開き括弧が必要です`,{start:0,end:(t.text.codePointAt(0)??0)>65535?2:1}));for(let e of a)e!==!1&&r.push(...rt(t,e))}return r.sort((e,t)=>e.range.start-t.range.start||e.range.end-t.range.end||e.ruleId.localeCompare(t.ruleId))}var at={name:`${Oe(be.paperSize).label} / ${be.fontSizePt}pt / ${ke(be.fontPreset).label} / ${Le.charsPerLine}字 × ${Le.linesPerStage}行 × ${Le.stagesPerPage}段`,settings:Le,appearance:be,offsets:ze};function ot(e){return{...e}}function st(e){return{...e}}function ct(e){return{document:{...e.document},page:{...e.page},stage:{...e.stage}}}function lt(e){return{...e}}function ut(e){return{name:e.name,settings:ot(e.settings),appearance:st(e.appearance),offsets:ct(e.offsets)}}var dt=(e,t=1/0)=>ge(N(),te(),ne(),ie(e),re(t)),ft=P({charsPerLine:dt(Re.charsPerLine.min,Re.charsPerLine.max),linesPerStage:dt(Re.linesPerStage.min,Re.linesPerStage.max),stagesPerPage:dt(Re.stagesPerPage.min,Re.stagesPerPage.max)}),pt=P({paperSize:ue([`a4`,`a5`,`jis-b5`,`jis-b6`]),fontSizePt:ge(N(),te(),ie(F.min),re(F.max),ae(F.step)),fontPreset:ue([`mincho`,`gothic`])}),mt=P({leading:dt(0,Ke),trailing:dt(0,Ke)}),ht=P({leading:dt(0),trailing:dt(0)}),gt=P({document:mt,page:ht,stage:ht}),_t=P({paragraphLeadingCharacters:pe([de(),j(!1)]),noPunctuationBeforeClosingQuote:A(),spaceAfterQuestionOrExclamation:A(),evenEllipsis:A(),evenDash:A(),noConsecutivePunctuation:A(),noConsecutiveInterpunct:A(),noConsecutiveChoonpu:A(),minusBeforeNumber:A(),maxArabicNumeralDigits:pe([dt(1),j(!1)])}),vt=me(`mode`,[P({mode:j(`fit`)}),P({mode:j(`fixed`),percent:ue([50,75,100,125,150])})]),yt=P({name:ge(de(),se(),oe()),settings:ft,appearance:pt,offsets:gt}),bt=P({version:j(1),settings:ft,appearance:pt,offsets:gt,proofreading:_t,zoom:vt,presets:le(yt)}),xt=P({settings:ft,appearance:pt,offsets:gt,proofreading:_t});function I(e,t){let n=_e(e,t);return n.success?n.output:null}function St(e,t){if(t.trim()===``)return null;let n=Re[e];return I(dt(n.min,n.max),Number(t))}function Ct(e){return e.trim()===``?null:I(pt.entries.fontSizePt,Number(e))}function wt(e,t=!1){return e.trim()===``?null:I(dt(0,t?Ke:void 0),Number(e))}function Tt(e,t,n,r){return I(xt,{settings:e,appearance:t,offsets:n,proofreading:r})}function Et(e,t,n){return{previousState:e,state:e,actions:t,accepted:!1,issues:[n],documentChanged:!1,configChanged:!1,preferencesChanged:!1,selectionChanged:!1}}var Dt=class e{text;settings;appearance;offsets;proofreading;zoom;presets;activeDiagnosticId;pagination;geometry;diagnostics;constructor(e={}){this.text=e.text??``;let t=Tt(e.settings??Le,e.appearance??be,e.offsets??ze,e.proofreading??et),n=I(vt,e.zoom??Ce),r=I(le(yt),e.presets??[]);if(t===null||n===null||r===null)throw TypeError(`invalid manuscript configuration`);this.settings=ot(t.settings),this.appearance=st(t.appearance),this.offsets=ct(t.offsets),this.proofreading=lt(t.proofreading),this.zoom=n,this.presets=r,this.pagination=$e(this.text,this.settings,this.offsets),this.geometry=Ne(this.settings,this.appearance),this.diagnostics=it(this.text,this.proofreading),this.activeDiagnosticId=this.diagnostics.some(({id:t})=>t===e.activeDiagnosticId)?e.activeDiagnosticId??null:null}update(...t){let n=this.text,r=ot(this.settings),i=st(this.appearance),a=ct(this.offsets),o=lt(this.proofreading),s=this.zoom,c=[...this.presets],l=this.activeDiagnosticId;for(let e of t)switch(e.type){case`document.replace`:n=e.text;break;case`config.patch`:{Object.assign(r,e.patch.settings),Object.assign(i,e.patch.appearance),Object.assign(a.document,e.patch.offsets?.document),Object.assign(a.page,e.patch.offsets?.page),Object.assign(a.stage,e.patch.offsets?.stage),Object.assign(o,e.patch.proofreading);let n=Tt(r,i,a,o);if(n===null)return Et(this,t,{code:`invalid-config`,message:`invalid manuscript configuration`});Object.assign(r,n.settings),Object.assign(i,n.appearance),Object.assign(a.document,n.offsets.document),Object.assign(a.page,n.offsets.page),Object.assign(a.stage,n.offsets.stage),Object.assign(o,n.proofreading);break}case`zoom.set`:{let n=I(vt,e.zoom);if(n===null)return Et(this,t,{code:`invalid-config`,message:`invalid zoom`});s=n;break}case`diagnostic.select`:l=e.id;break;case`preset.apply`:{let n=e.name===at.name?at:c.find(({name:t})=>t===e.name);if(n===void 0)return Et(this,t,{code:`preset-not-found`,message:`preset not found`});Object.assign(r,n.settings),Object.assign(i,n.appearance),Object.assign(a.document,n.offsets.document),Object.assign(a.page,n.offsets.page),Object.assign(a.stage,n.offsets.stage);break}case`preset.save`:{let n=e.name.trim();if(n===``)return Et(this,t,{code:`invalid-preset-name`,message:`preset name is empty`});if(n===at.name)return Et(this,t,{code:`preset-readonly`,message:`built-in preset is read-only`});if(c.some(e=>e.name===n)&&!e.overwrite)return Et(this,t,{code:`preset-exists`,message:`preset already exists`});c=[...c.filter(e=>e.name!==n),{name:n,settings:ot(r),appearance:st(i),offsets:ct(a)}];break}case`preset.delete`:if(e.name===at.name)return Et(this,t,{code:`preset-readonly`,message:`built-in preset is read-only`});if(!c.some(({name:t})=>t===e.name))return Et(this,t,{code:`preset-not-found`,message:`preset not found`});c=c.filter(({name:t})=>t!==e.name);break}let u=new e({text:n,settings:r,appearance:i,offsets:a,proofreading:o,zoom:s,presets:c,activeDiagnosticId:l});if(l!==null&&!u.diagnostics.some(({id:e})=>e===l)&&t.some(({type:e})=>e===`diagnostic.select`))return Et(this,t,{code:`diagnostic-not-found`,message:`diagnostic not found`});let d=u.text!==this.text,f=JSON.stringify([u.settings,u.appearance,u.offsets,u.proofreading])!==JSON.stringify([this.settings,this.appearance,this.offsets,this.proofreading]),p=f||JSON.stringify(u.zoom)!==JSON.stringify(this.zoom)||JSON.stringify(u.presets)!==JSON.stringify(this.presets),m=u.activeDiagnosticId!==this.activeDiagnosticId,h=d||p||m;return{previousState:this,state:h?u:this,actions:t,accepted:!0,issues:[],documentChanged:d,configChanged:f,preferencesChanged:p,selectionChanged:m}}};function Ot(e={}){return new Dt(e)}var kt=class{#e;#t=new Set;constructor(e={}){this.#e=Ot(e)}get state(){return this.#e}dispatch(e,...t){let n=`previousState`in e?e:this.#e.update(e,...t);if(n.previousState!==this.#e)return Et(this.#e,n.actions,{code:`stale-transaction`,message:`transaction does not start from the current state`});if(!n.accepted||n.state===this.#e)return n;this.#e=n.state;for(let e of this.#t)e(n);return n}subscribe(e){return this.#t.add(e),()=>{this.#t.delete(e)}}};function At(e={}){return new kt(e)}function jt(e){return{version:1,settings:ot(e.settings),appearance:st(e.appearance),offsets:ct(e.offsets),proofreading:lt(e.proofreading),zoom:e.zoom,presets:e.presets.map(ut)}}function Mt(e){let t=_e(bt,e);if(!t.success)return{ok:!1,issues:[{code:`invalid-config`,message:`invalid manuscript preferences`}]};let n=t.output;return{ok:!0,value:{settings:ot(n.settings),appearance:st(n.appearance),offsets:ct(n.offsets),proofreading:lt(n.proofreading),zoom:n.zoom,presets:n.presets.map(ut)}}}var Nt=e((e=>{var t=Symbol.for(`react.transitional.element`),n=Symbol.for(`react.fragment`);function r(e,n,r){var i=null;if(r!==void 0&&(i=``+r),n.key!==void 0&&(i=``+n.key),`key`in n)for(var a in r={},n)a!==`key`&&(r[a]=n[a]);else r=n;return n=r.ref,{$$typeof:t,type:e,key:i,ref:n===void 0?null:n,props:r}}e.Fragment=n,e.jsx=r,e.jsxs=r})),L=e(((e,t)=>{t.exports=Nt()}))(),Pt=o(),Ft=(0,d.createContext)(null);function It(e){return{charsPerLine:String(e.charsPerLine),linesPerStage:String(e.linesPerStage),stagesPerPage:String(e.stagesPerPage)}}function Lt(e){return{"document.leading":String(e.document.leading),"document.trailing":String(e.document.trailing),"page.leading":String(e.page.leading),"page.trailing":String(e.page.trailing),"stage.leading":String(e.stage.leading),"stage.trailing":String(e.stage.trailing)}}function Rt(e){let t=(0,p.c)(4),n;t[0]===e?n=t[1]:(n=t=>e.subscribe(()=>{t()}),t[0]=e,t[1]=n);let r=n,i;t[2]===e.state?i=t[3]:(i=()=>e.state,t[2]=e.state,t[3]=i);let a=i;return(0,d.useSyncExternalStore)(r,a,a)}function zt(e){let t=(0,p.c)(51),{controller:n,children:r}=e,i=Rt(n),a;t[0]===Symbol.for(`react.memo_cache_sentinel`)?(a={},t[0]=a):a=t[0];let[o,s]=(0,d.useState)(a),[c,l]=(0,d.useState)(null),u;t[1]===Symbol.for(`react.memo_cache_sentinel`)?(u={},t[1]=u):u=t[1];let[f,m]=(0,d.useState)(u),[h,g]=(0,d.useState)(i.zoom.mode===`fixed`?i.zoom.percent:100),_;t[2]===n?_=t[3]:(_=(e,t)=>{let r=St(e,t);if(r===null){s(n=>({...n,[e]:t}));return}s(t=>({...t,[e]:void 0})),n.dispatch({type:`config.patch`,patch:{settings:{[e]:r}}})},t[2]=n,t[3]=_);let v=_,y;t[4]===n?y=t[5]:(y=e=>{let t=Ct(e);if(t===null){l(e);return}l(null),n.dispatch({type:`config.patch`,patch:{appearance:{fontSizePt:t}}})},t[4]=n,t[5]=y);let b=y,x;t[6]===n?x=t[7]:(x=(e,t)=>{let r=wt(t,e.startsWith(`document.`));if(r===null){m(n=>({...n,[e]:t}));return}m(t=>({...t,[e]:void 0}));let[i,a]=e.split(`.`);n.dispatch({type:`config.patch`,patch:{offsets:{[i]:{[a]:r}}}})},t[6]=n,t[7]=x);let S=x,C;t[8]===i.settings?C=t[9]:(C=It(i.settings),t[8]=i.settings,t[9]=C);let w=C,ee;t[10]===i.offsets?ee=t[11]:(ee=Lt(i.offsets),t[10]=i.offsets,t[11]=ee);let T=ee,E=o.charsPerLine??w.charsPerLine,D=o.linesPerStage??w.linesPerStage,te=o.stagesPerPage??w.stagesPerPage,ne;t[12]!==te||t[13]!==E||t[14]!==D?(ne={charsPerLine:E,linesPerStage:D,stagesPerPage:te},t[12]=te,t[13]=E,t[14]=D,t[15]=ne):ne=t[15];let re=o.charsPerLine!==void 0,ie=o.linesPerStage!==void 0,ae=o.stagesPerPage!==void 0,oe;t[16]!==re||t[17]!==ie||t[18]!==ae?(oe={charsPerLine:re,linesPerStage:ie,stagesPerPage:ae},t[16]=re,t[17]=ie,t[18]=ae,t[19]=oe):oe=t[19];let se=c??String(i.appearance.fontSizePt),O=c!==null,k=f[`document.leading`]??T[`document.leading`],ce=f[`document.trailing`]??T[`document.trailing`],le=f[`page.leading`]??T[`page.leading`],A=f[`page.trailing`]??T[`page.trailing`],j=f[`stage.leading`]??T[`stage.leading`],M=f[`stage.trailing`]??T[`stage.trailing`],N;t[20]!==k||t[21]!==ce||t[22]!==le||t[23]!==A||t[24]!==j||t[25]!==M?(N={"document.leading":k,"document.trailing":ce,"page.leading":le,"page.trailing":A,"stage.leading":j,"stage.trailing":M},t[20]=k,t[21]=ce,t[22]=le,t[23]=A,t[24]=j,t[25]=M,t[26]=N):N=t[26];let P=f[`document.leading`]!==void 0,ue=f[`document.trailing`]!==void 0,de=f[`page.leading`]!==void 0,fe=f[`page.trailing`]!==void 0,pe=f[`stage.leading`]!==void 0,me=f[`stage.trailing`]!==void 0,he;t[27]!==P||t[28]!==ue||t[29]!==de||t[30]!==fe||t[31]!==pe||t[32]!==me?(he={"document.leading":P,"document.trailing":ue,"page.leading":de,"page.trailing":fe,"stage.leading":pe,"stage.trailing":me},t[27]=P,t[28]=ue,t[29]=de,t[30]=fe,t[31]=pe,t[32]=me,t[33]=he):he=t[33];let ge;t[34]!==b||t[35]!==S||t[36]!==v||t[37]!==ne||t[38]!==oe||t[39]!==se||t[40]!==O||t[41]!==N||t[42]!==he?(ge={settings:ne,invalidSettings:oe,fontSizePt:se,isFontSizePtInvalid:O,offsets:N,invalidOffsets:he,setSetting:v,setFontSizePt:b,setOffset:S},t[34]=b,t[35]=S,t[36]=v,t[37]=ne,t[38]=oe,t[39]=se,t[40]=O,t[41]=N,t[42]=he,t[43]=ge):ge=t[43];let _e=ge,ve;t[44]!==n||t[45]!==_e||t[46]!==h?(ve={controller:n,drafts:_e,effectiveZoomPercent:h,setEffectiveZoomPercent:g},t[44]=n,t[45]=_e,t[46]=h,t[47]=ve):ve=t[47];let ye=ve,F;return t[48]!==r||t[49]!==ye?(F=(0,L.jsx)(Ft.Provider,{value:ye,children:r}),t[48]=r,t[49]=ye,t[50]=F):F=t[50],F}function Bt(){let e=(0,d.useContext)(Ft);if(e===null)throw Error(`viewer components must be rendered inside ManuscriptProvider`);return e}function Vt(e){let t=(0,p.c)(3),{controller:n}=Bt(),r=Rt(n),i;return t[0]!==e||t[1]!==r?(i=e(r),t[0]=e,t[1]=r,t[2]=i):i=t[2],i}function Ht(){let e=(0,p.c)(2),{controller:t}=Bt(),n;return e[0]===t?n=e[1]:(n=(...e)=>{let n=e;return t.dispatch(...n)},e[0]=t,e[1]=n),n}function Ut(){return Bt().drafts}function Wt(){let e=(0,p.c)(3),{effectiveZoomPercent:t,setEffectiveZoomPercent:n}=Bt(),r;return e[0]!==t||e[1]!==n?(r=[t,n],e[0]=t,e[1]=n,e[2]=r):r=e[2],r}function Gt({onSelect:e,emptyMessage:t=`校正エラーはありません。`,className:n}){let{activeDiagnosticId:r,diagnostics:i}=Vt(e=>e),a=Ht();return i.length===0?(0,L.jsx)(`p`,{className:[`kgv-diagnostics-empty`,n].filter(Boolean).join(` `),children:t}):(0,L.jsx)(`ol`,{className:[`kgv-diagnostics`,n].filter(Boolean).join(` `),children:i.map(t=>(0,L.jsx)(`li`,{children:(0,L.jsxs)(`button`,{type:`button`,"aria-current":t.id===r?`true`:void 0,onClick:()=>{a({type:`diagnostic.select`,id:t.id}),e?.(t)},children:[(0,L.jsxs)(`span`,{className:`kgv-diagnostic-location`,children:[t.location.start.line,`行 `,t.location.start.column,`列`]}),(0,L.jsx)(`span`,{children:t.message})]})},t.id))})}var Kt=`@layer kg-viewer {
+  .kgv-viewer {
+    --kgv-surface: #d8d0c2;
+    --kgv-paper: #f7efd8;
+    --kgv-text: #2f2a24;
+    /* Secondary text. Kept above 4.5:1 on both --kgv-surface and --kgv-controls-surface,
+       which opacity-based dimming cannot guarantee. */
+    --kgv-text-muted: #57504a;
+    --kgv-grid: #d8c7a6;
+    --kgv-accent: #9b3f32;
+    --kgv-controls-surface: #eee8dc;
+    --kgv-padding: 2rem;
+
+    min-inline-size: 0;
+    min-block-size: 0;
+    block-size: 100%;
+    color: var(--kgv-text);
+    background: var(--kgv-surface);
+  }
+
+  .kgv-visually-hidden {
+    position: absolute;
+    clip-path: inset(50%);
+    overflow: clip;
+    inline-size: 1px;
+    block-size: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    white-space: nowrap;
+  }
+
+  .kgv-viewport {
+    min-inline-size: 0;
+    min-block-size: 0;
+    block-size: 100%;
+    overflow: auto;
+    padding: var(--kgv-padding);
+    overscroll-behavior: contain;
+  }
+
+  .kgv-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    inline-size: max-content;
+    min-inline-size: 100%;
+    gap: 2rem;
+  }
+
+  .kgv-page {
+    display: grid;
+    place-items: center;
+    inline-size: var(--kgv-page-width);
+    block-size: var(--kgv-page-height);
+    flex: none;
+    background: var(--kgv-paper);
+    box-shadow: 0 1px 4px rgb(0 0 0 / 15%);
+  }
+
+  .kgv-page[data-overflow] {
+    outline: 2px dashed var(--kgv-accent);
+    outline-offset: 3px;
+  }
+
+  @supports (content-visibility: auto) {
+    .kgv-page[data-offscreen] {
+      content-visibility: auto;
+      contain-intrinsic-size: auto 60rem;
+    }
+  }
+
+  .kgv-page-grid {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--kgv-cell-size) * 2);
+  }
+
+  .kgv-stage {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    border-inline-end: 1px solid var(--kgv-grid);
+    border-block-end: 1px solid var(--kgv-grid);
+  }
+
+  .kgv-line {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .kgv-cell {
+    position: relative;
+    box-sizing: border-box;
+    display: grid;
+    place-items: center;
+    inline-size: var(--kgv-cell-size);
+    block-size: var(--kgv-cell-size);
+    border-block-start: 1px solid var(--kgv-grid);
+    border-inline-start: 1px solid var(--kgv-grid);
+  }
+
+  .kgv-cell[data-diagnostic] {
+    background: color-mix(in oklab, var(--kgv-accent) 16%, transparent);
+    box-shadow: inset 0 -0.13em 0 var(--kgv-accent);
+  }
+
+  .kgv-cell[data-diagnostic-active] {
+    outline: 2px solid var(--kgv-accent);
+    outline-offset: -2px;
+  }
+
+  .kgv-glyph {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    font-family: var(--kgv-manuscript-font);
+    /* --kgv-cell-size is the mass-me pitch (derived from the specified point
+       size) that drives the page/margin math; glyphs render smaller than the
+       full cell so characters keep breathing room instead of touching every
+       edge, matching how printed manuscript paper actually looks. */
+    font-size: calc(var(--kgv-cell-size) * 0.82);
+    line-height: 1;
+  }
+
+  .kgv-glyph-upright {
+    text-orientation: upright;
+  }
+
+  .kgv-diagnostic-marker {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .kgv-diagnostic-marker:focus-visible {
+    outline: 3px solid var(--kgv-accent);
+    outline-offset: 2px;
+  }
+
+  .kgv-toolbar-container {
+    container: kgv-toolbar / inline-size;
+    min-inline-size: 0;
+    color: var(--kgv-text, #2f2a24);
+    background: rgb(216 208 194 / 92%);
+    border-block-end: 1px solid rgb(47 42 36 / 14%);
+  }
+
+  .kgv-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: safe center;
+    gap: 0.75rem 1.5rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .kgv-toolbar-document {
+    min-inline-size: 0;
+    display: flex;
+    flex: 1 1 20rem;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 1rem;
+  }
+
+  .kgv-toolbar-label {
+    overflow: clip;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .kgv-toolbar-summary {
+    font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+    opacity: 0.8;
+  }
+
+  .kgv-toolbar-actions,
+  .kgv-zoom-controls {
+    display: flex;
+    align-items: safe center;
+    gap: 0.35rem;
+  }
+
+  :where(.kgv-toolbar, .kgv-diagnostics) button {
+    min-block-size: 2rem;
+    border: 1px solid rgb(47 42 36 / 35%);
+    border-radius: 3px;
+    background: var(--kgv-controls-surface, #eee8dc);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  :where(.kgv-toolbar, .kgv-diagnostics) button:focus-visible {
+    outline: 3px solid var(--kgv-accent, #9b3f32);
+    outline-offset: 2px;
+  }
+
+  .kgv-toolbar button {
+    padding: 0.25rem 0.55rem;
+  }
+
+  .kgv-toolbar button:disabled {
+    cursor: default;
+    opacity: 0.45;
+  }
+
+  .kgv-toolbar button[aria-pressed="true"],
+  .kgv-diagnostics button[aria-current="true"] {
+    border-color: var(--kgv-accent, #9b3f32);
+    outline: 1px solid var(--kgv-accent, #9b3f32);
+  }
+
+  .kgv-zoom-controls output {
+    min-inline-size: 3.5rem;
+    text-align: center;
+    font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .kgv-diagnostics-trigger span {
+    display: inline-grid;
+    place-items: center;
+    min-inline-size: 1.5em;
+    margin-inline-start: 0.25rem;
+    border-radius: 999px;
+    background: var(--kgv-accent, #9b3f32);
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .kgv-diagnostics {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .kgv-diagnostics button {
+    display: grid;
+    inline-size: 100%;
+    padding: 0.55rem;
+    text-align: start;
+  }
+
+  .kgv-diagnostic-location {
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.72;
+  }
+
+  .kgv-diagnostics-empty {
+    margin: 0;
+    opacity: 0.72;
+  }
+
+  .kgv-settings-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  :where(.kgv-controls, .kgv-paper-controls, .kgv-offset-controls) {
+    min-inline-size: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  :where(.kgv-controls, .kgv-paper-controls, .kgv-offset-controls) legend {
+    inline-size: 100%;
+    margin-block-end: 0.65rem;
+    padding: 0;
+    font-weight: 700;
+  }
+
+  .kgv-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  :where(.kgv-paper-controls, .kgv-offset-controls, .kgv-presets) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .kgv-control {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 4rem;
+    align-items: center;
+    gap: 0.25rem 0.5rem;
+  }
+
+  .kgv-control input {
+    inline-size: 100%;
+    padding: 0.25rem;
+  }
+
+  .kgv-control input[aria-invalid="true"] {
+    outline: 2px solid var(--kgv-accent);
+  }
+
+  .kgv-control-hint {
+    grid-column: 2;
+    font-size: 0.75rem;
+    color: var(--kgv-text-muted);
+  }
+
+  .kgv-select-control {
+    display: grid;
+    grid-template-columns: minmax(5rem, 1fr) minmax(7rem, 1.4fr);
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  :where(.kgv-select-control select, .kgv-presets select, .kgv-preset-save input) {
+    inline-size: 100%;
+    padding: 0.35rem;
+  }
+
+  :where(.kgv-paper-note, .kgv-offset-note, .kgv-status) {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--kgv-text-muted);
+  }
+
+  .kgv-paper-warning {
+    grid-column: 1 / -1;
+    margin: 0.25rem 0 0;
+    color: var(--kgv-accent);
+  }
+
+  .kgv-preset-save,
+  .kgv-preset-list li,
+  .kgv-stats div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .kgv-preset-save input {
+    flex: 1;
+  }
+
+  .kgv-preset-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .kgv-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin: 0;
+  }
+
+  .kgv-stats dd {
+    margin: 0;
+    font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .kgv-status {
+    min-block-size: 1.25rem;
+  }
+
+  .kgv-zoom-controls--verbose {
+    margin-block-end: 1.25rem;
+  }
+
+  @container kgv-toolbar (inline-size < 36rem) {
+    .kgv-toolbar-summary,
+    .kgv-zoom-controls {
+      display: none;
+    }
+
+    .kgv-toolbar {
+      flex-wrap: nowrap;
+      min-block-size: 3.25rem;
+      padding: 0.35rem 0.5rem;
+    }
+
+    .kgv-toolbar-document {
+      flex-basis: auto;
+      flex-wrap: nowrap;
+    }
+  }
+
+  @media (pointer: coarse) {
+    :where(.kgv-toolbar, .kgv-diagnostics) button {
+      min-inline-size: 2.75rem;
+      min-block-size: 2.75rem;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .kgv-cell,
+    .kgv-stage {
+      border-color: CanvasText;
+    }
+
+    .kgv-cell[data-diagnostic] {
+      outline: 2px dashed Highlight;
+      outline-offset: -2px;
+    }
+
+    .kgv-toolbar button[aria-pressed="true"],
+    .kgv-diagnostics button[aria-current="true"] {
+      border-color: Highlight;
+      outline-color: Highlight;
+    }
+  }
+}
+`;function qt({children:e,className:t,title:n=`viewer`,styleOverrides:r}){let i=(0,d.useRef)(null),[a,o]=(0,d.useState)(null),s=(0,d.useMemo)(()=>[`<!DOCTYPE html>`,`<html>`,`<head><meta charset="utf-8">`,`<style>`,Kt,`</style>`,r===void 0?``:`<style>`+r+`</style>`,`<style>html,body{margin:0;padding:0;height:100%;overflow:hidden}`,`#root{height:100%}</style>`,`</head>`,`<body><div id="root"></div></body>`,`</html>`].join(``),[r]),c=(0,d.useCallback)(()=>{let e=i.current?.contentDocument;e!=null&&o(e.getElementById(`root`))},[]);return(0,d.useEffect)(()=>{let e=i.current;if(e!==null)return e.addEventListener(`load`,c),()=>{e.removeEventListener(`load`,c)}},[c]),(0,L.jsx)(`iframe`,{ref:i,className:t,title:n,srcDoc:s,style:{width:`100%`,height:`100%`,border:`none`,display:`block`},children:a!==null&&(0,Pt.createPortal)(e,a)})}var Jt=/^(?:\p{Script=Latin}|[0-9])/u;function Yt(e){return e.flatMap(e=>e.map(e=>e.flatMap(e=>e===null?[]:[e.grapheme]).join(``))).join(`
+`)}function Xt(e,t){return t.filter(({range:t})=>t.start<e.sourceRange.end&&t.end>e.sourceRange.start)}function Zt(e,t){return t.range.start>=e.sourceRange.start&&t.range.start<e.sourceRange.end}function Qt(...e){return e.filter(e=>e!==void 0&&e!==``).join(` `)}function $t({ariaLabel:e=`原稿プレビュー`,className:t,onViewEvent:n,onDiagnosticSelect:r},i){let{appearance:a,activeDiagnosticId:o,diagnostics:s,geometry:c,pagination:l,zoom:u}=Vt(e=>e),f=Ht(),[,p]=Wt(),m=(0,d.useRef)(null),h=(0,d.useRef)([]),g=(0,d.useRef)(new Map),_=(0,d.useRef)(null),v=(0,d.useRef)(0),y=(0,d.useRef)(u.mode===`fixed`?u.percent:100),[b,x]=(0,d.useState)(100),S=u.mode===`fixed`?u.percent:b,C=ke(a.fontPreset),w=(0,d.useCallback)(e=>{let t=Math.min(Math.max(Math.trunc(e),0),l.pages.length-1);v.current=t;let n=h.current[t];n==null?_.current=t:(_.current=null,n.scrollIntoView({block:`start`}))},[l.pages.length]),ee=(0,d.useCallback)(e=>{g.current.get(e)?.scrollIntoView({block:`center`,inline:`center`})},[]);(0,d.useImperativeHandle)(i,()=>({scrollToPage:w,scrollToDiagnostic:ee,getVisiblePage:()=>v.current,getEffectiveZoomPercent:()=>y.current}),[ee,w]);let T=(0,d.useMemo)(()=>l.pages.map((e,t)=>({id:`page:${t}`,index:t,page:e,stages:e.map((e,n)=>({id:`page:${t}:stage:${n}`,lines:e.map((e,r)=>({id:`page:${t}:stage:${n}:line:${r}`,cells:e.map((e,i)=>({id:`page:${t}:stage:${n}:line:${r}:cell:${i}`,cell:e}))}))}))})),[l.pages]);(0,d.useEffect)(()=>{if(u.mode!==`fit`)return;let e=m.current;if(e===null)return;let t=()=>{let t=getComputedStyle(e),n=e.clientWidth-Number.parseFloat(t.paddingInlineStart)-Number.parseFloat(t.paddingInlineEnd),r=e.clientHeight-Number.parseFloat(t.paddingBlockStart)-Number.parseFloat(t.paddingBlockEnd);x(Fe(n,r,c.paperWidthMm,c.paperHeightMm))};t();let n=new ResizeObserver(t);return n.observe(e),()=>{n.disconnect()}},[c.paperHeightMm,c.paperWidthMm,u.mode]),(0,d.useEffect)(()=>{y.current=S,p(S),n?.({type:`effective-zoom.change`,percent:S})},[S,n,p]),(0,d.useEffect)(()=>{_.current!==null&&w(_.current)},[l.pages,w]),(0,d.useEffect)(()=>{let e=m.current;if(e===null)return;let t=new IntersectionObserver(e=>{let t=e.filter(e=>e.isIntersecting).sort((e,t)=>t.intersectionRatio-e.intersectionRatio)[0];if(t!==void 0){let e=Number(t.target.getAttribute(`data-page-index`));v.current=e,n?.({type:`visible-page.change`,page:e})}},{root:e,threshold:[.25,.5,.75]});for(let e of h.current)e!==null&&t.observe(e);return()=>{t.disconnect()}},[n,l.pages]),(0,d.useEffect)(()=>{o!==null&&ee(o)},[o,l.pages,ee]);let E=(0,d.useMemo)(()=>({"--kgv-cell-size":`${c.cellSizeMm*(S/100)}mm`,"--kgv-manuscript-font":C.family,"--kgv-page-height":`${c.paperHeightMm*(S/100)}mm`,"--kgv-page-width":`${c.paperWidthMm*(S/100)}mm`}),[c.cellSizeMm,c.paperHeightMm,c.paperWidthMm,S,C.family]);return(0,L.jsx)(`div`,{className:Qt(`kgv-viewer`,t),"aria-label":e,children:(0,L.jsx)(`div`,{ref:m,className:`kgv-viewport`,children:(0,L.jsx)(`div`,{className:`kgv-stack`,style:E,children:T.map(({id:e,index:t,page:n,stages:i})=>(0,L.jsxs)(`section`,{ref:e=>{h.current[t]=e},"data-page-index":t,className:`kgv-page`,"aria-label":`${t+1}ページ目、全${l.pages.length}ページ`,"data-offscreen":t>0?``:void 0,"data-overflow":c.fitsPaper?void 0:``,children:[(0,L.jsx)(`p`,{className:`kgv-visually-hidden`,children:Yt(n)}),(0,L.jsx)(`div`,{className:`kgv-page-grid`,children:i.map(({id:e,lines:t})=>(0,L.jsx)(`div`,{className:`kgv-stage`,children:t.map(({id:e,cells:t})=>(0,L.jsx)(`div`,{className:`kgv-line`,children:t.map(({id:e,cell:t})=>{if(t===null)return(0,L.jsx)(`span`,{className:`kgv-cell`},e);let n=Xt(t,s),i=n.find(e=>Zt(t,e)),a=n.some(e=>e.id===o);return(0,L.jsxs)(`span`,{className:`kgv-cell`,"data-diagnostic":n.length>0?``:void 0,"data-diagnostic-active":a?``:void 0,children:[(0,L.jsx)(`span`,{className:Qt(`kgv-glyph`,Jt.test(t.grapheme)?`kgv-glyph-upright`:void 0),"aria-hidden":`true`,children:t.grapheme}),i!==void 0&&(0,L.jsx)(`button`,{ref:e=>{for(let r of n)Zt(t,r)&&(e===null?g.current.delete(r.id):g.current.set(r.id,e))},type:`button`,className:`kgv-diagnostic-marker`,"aria-label":`${i.location.start.line}行${i.location.start.column}列: ${i.message}`,onClick:()=>{f({type:`diagnostic.select`,id:i.id}),r?.(i)}})]},e)})},e))},e))})]},e))})})})}var en=(0,d.forwardRef)($t),tn=[{field:`charsPerLine`,label:`字数`},{field:`linesPerStage`,label:`行数`},{field:`stagesPerPage`,label:`段数`}],nn=[{field:`document.leading`,label:`原稿全体（前）`},{field:`document.trailing`,label:`原稿全体（後）`},{field:`page.leading`,label:`ページ（前）`},{field:`page.trailing`,label:`ページ（後）`},{field:`stage.leading`,label:`段（前）`},{field:`stage.trailing`,label:`段（後）`}];function rn({id:e,label:t,value:n,options:r,onChange:i}){return(0,L.jsxs)(`div`,{className:`kgv-select-control`,children:[(0,L.jsx)(`label`,{htmlFor:e,children:t}),(0,L.jsx)(`select`,{id:e,value:n,onChange:e=>{i(e.target.value)},children:r.map(e=>(0,L.jsx)(`option`,{value:e.value,children:e.label},e.value))})]})}function an({idPrefix:e=``,status:t=``}){let{settings:n,appearance:r,geometry:i,pagination:a,presets:o}=Vt(e=>e),s=Ut(),c=Ht(),[l,u]=(0,d.useState)(``),f=t=>`${e}${t}`,p=Pe(n,r.paperSize);return(0,L.jsxs)(`div`,{className:`kgv-settings-panel`,children:[(0,L.jsxs)(`fieldset`,{className:`kgv-controls`,children:[(0,L.jsx)(`legend`,{children:`組版`}),tn.map(({field:e,label:t})=>{let n=Re[e],r=f(`input-${e}`),i=f(`hint-${e}`);return(0,L.jsxs)(`div`,{className:`kgv-control`,children:[(0,L.jsx)(`label`,{htmlFor:r,children:t}),(0,L.jsx)(`input`,{id:r,type:`number`,inputMode:`numeric`,min:n.min,max:n.max,step:1,value:s.settings[e],"aria-invalid":s.invalidSettings[e],"aria-describedby":i,onChange:t=>{s.setSetting(e,t.target.value)}}),(0,L.jsxs)(`span`,{id:i,className:`kgv-control-hint`,children:[n.min,`–`,n.max]})]},e)})]}),(0,L.jsxs)(`fieldset`,{className:`kgv-paper-controls`,children:[(0,L.jsx)(`legend`,{children:`紙面`}),(0,L.jsx)(rn,{id:f(`paper-size`),label:`用紙`,value:r.paperSize,options:ve.map(e=>({value:e.id,label:e.label})),onChange:e=>{let t=ve.find(t=>t.id===e);t!==void 0&&c({type:`config.patch`,patch:{appearance:{paperSize:t.id}}})}}),(0,L.jsxs)(`div`,{className:`kgv-control`,children:[(0,L.jsx)(`label`,{htmlFor:f(`font-size-pt`),children:`文字サイズ (pt)`}),(0,L.jsx)(`input`,{id:f(`font-size-pt`),type:`number`,inputMode:`decimal`,min:F.min,max:F.max,step:F.step,value:s.fontSizePt,"aria-invalid":s.isFontSizePtInvalid,"aria-describedby":f(`font-size-pt-hint`),onChange:e=>{s.setFontSizePt(e.target.value)}}),(0,L.jsxs)(`span`,{id:f(`font-size-pt-hint`),className:`kgv-control-hint`,children:[F.min,`–`,F.max,`pt（この用紙・組版なら最大約`,p,`pt） ・ 余白 天地`,i.marginBlockMm.toFixed(1),`mm / 左右`,i.marginInlineMm.toFixed(1),`mm`]}),!i.fitsPaper&&(0,L.jsx)(`p`,{className:`kgv-paper-warning`,role:`alert`,children:`指定した文字サイズが用紙からはみ出しています。文字サイズを小さくしてください。`})]}),(0,L.jsx)(rn,{id:f(`manuscript-font`),label:`書体`,value:r.fontPreset,options:ye.map(e=>({value:e.id,label:e.label})),onChange:e=>{let t=ye.find(t=>t.id===e);t!==void 0&&c({type:`config.patch`,patch:{appearance:{fontPreset:t.id}}})}}),(0,L.jsx)(`p`,{className:`kgv-paper-note`,children:`余白は文字サイズと組版設定から自動計算されます。`})]}),(0,L.jsxs)(`fieldset`,{className:`kgv-offset-controls`,children:[(0,L.jsx)(`legend`,{children:`オフセット（行）`}),nn.map(({field:e,label:t})=>{let n=f(`offset-${e}`),r=f(`offset-hint-${e}`),i=e.startsWith(`document.`);return(0,L.jsxs)(`div`,{className:`kgv-control`,children:[(0,L.jsx)(`label`,{htmlFor:n,children:t}),(0,L.jsx)(`input`,{id:n,type:`number`,inputMode:`numeric`,min:0,max:i?Ke:void 0,step:1,value:s.offsets[e],"aria-invalid":s.invalidOffsets[e],"aria-describedby":r,onChange:t=>{s.setOffset(e,t.target.value)}}),(0,L.jsx)(`span`,{id:r,className:`kgv-control-hint`,children:i?`0–${Ke}の整数`:`0以上の整数`})]},e)}),(0,L.jsx)(`p`,{className:`kgv-offset-note`,children:`大きすぎる値は、各ページ・各段に最低1行残るよう自動的に調整されます。`})]}),(0,L.jsxs)(`div`,{className:`kgv-presets`,children:[(0,L.jsx)(`label`,{htmlFor:f(`preset-apply`),children:`プリセット`}),(0,L.jsxs)(`select`,{id:f(`preset-apply`),value:``,onChange:e=>{e.target.value!==``&&c({type:`preset.apply`,name:e.target.value})},children:[(0,L.jsx)(`option`,{value:``,children:`適用するプリセットを選択…`}),(0,L.jsx)(`option`,{value:at.name,children:at.name}),o.map(e=>(0,L.jsx)(`option`,{value:e.name,children:e.name},e.name))]}),(0,L.jsxs)(`div`,{className:`kgv-preset-save`,children:[(0,L.jsx)(`label`,{htmlFor:f(`preset-name`),className:`kgv-visually-hidden`,children:`新しいプリセット名`}),(0,L.jsx)(`input`,{id:f(`preset-name`),type:`text`,placeholder:`現在の設定を保存`,value:l,onChange:e=>{u(e.target.value)}}),(0,L.jsx)(`button`,{type:`button`,disabled:l.trim()===``,onClick:()=>{let e=c({type:`preset.save`,name:l,overwrite:!1});if(e.issues[0]?.code!==`preset-exists`){e.accepted&&u(``);return}window.confirm(`同名のプリセットを上書きしますか？`)&&c({type:`preset.save`,name:l,overwrite:!0}).accepted&&u(``)},children:`保存`})]}),o.length>0&&(0,L.jsx)(`ul`,{className:`kgv-preset-list`,children:o.map(e=>(0,L.jsxs)(`li`,{children:[(0,L.jsx)(`span`,{children:e.name}),(0,L.jsx)(`button`,{type:`button`,"aria-label":`プリセット「${e.name}」を削除`,onClick:()=>{window.confirm(`プリセット「${e.name}」を削除しますか？`)&&c({type:`preset.delete`,name:e.name})},children:`削除`})]},e.name))})]}),(0,L.jsxs)(`dl`,{className:`kgv-stats`,children:[(0,L.jsxs)(`div`,{children:[(0,L.jsx)(`dt`,{children:`文字数`}),(0,L.jsx)(`dd`,{children:a.stats.chars})]}),(0,L.jsxs)(`div`,{children:[(0,L.jsx)(`dt`,{children:`行数`}),(0,L.jsx)(`dd`,{children:a.stats.sourceLines})]}),(0,L.jsxs)(`div`,{children:[(0,L.jsx)(`dt`,{children:`ページ`}),(0,L.jsx)(`dd`,{children:a.stats.pages})]})]}),(0,L.jsx)(`p`,{className:`kgv-status`,"aria-live":`polite`,children:t})]})}function on({verbose:e=!1,className:t}){let n=Vt(e=>e.zoom),r=Ht(),[i]=Wt(),a=Ie(i,`out`),o=Ie(i,`in`);return(0,L.jsxs)(`div`,{className:[`kgv-zoom-controls`,e?`kgv-zoom-controls--verbose`:void 0,t].filter(Boolean).join(` `),role:`group`,"aria-label":`表示倍率`,children:[(0,L.jsx)(`button`,{type:`button`,"aria-label":`縮小`,disabled:a===null,onClick:()=>{a!==null&&r({type:`zoom.set`,zoom:{mode:`fixed`,percent:a}})},children:e?`縮小`:`−`}),(0,L.jsxs)(`output`,{children:[Math.round(i),`%`]}),(0,L.jsx)(`button`,{type:`button`,"aria-label":`拡大`,disabled:o===null,onClick:()=>{o!==null&&r({type:`zoom.set`,zoom:{mode:`fixed`,percent:o}})},children:e?`拡大`:`+`}),(0,L.jsx)(`button`,{type:`button`,"aria-pressed":n.mode===`fit`,onClick:()=>{r({type:`zoom.set`,zoom:{mode:`fit`}})},children:`全体表示`})]})}function sn(e){let t=(0,p.c)(12),{documentLabel:n,documentSummary:r,onDiagnosticsOpen:i,className:a}=e,o=Vt(cn),s=o.diagnostics.length,c;t[0]!==r||t[1]!==o.appearance||t[2]!==o.settings?(c=r??`${Oe(o.appearance.paperSize).label} / ${o.appearance.fontSizePt}pt / ${ke(o.appearance.fontPreset).label} / ${o.settings.charsPerLine}字 × ${o.settings.linesPerStage}行 × ${o.settings.stagesPerPage}段`,t[0]=r,t[1]=o.appearance,t[2]=o.settings,t[3]=c):c=t[3];let l=c,u;t[4]===a?u=t[5]:(u=[`kgv-toolbar-container`,a].filter(Boolean),t[4]=a,t[5]=u);let d=u.join(` `),f;return t[6]!==s||t[7]!==n||t[8]!==i||t[9]!==l||t[10]!==d?(f=(0,L.jsx)(`div`,{className:d,children:(0,L.jsxs)(`div`,{className:`kgv-toolbar`,children:[(0,L.jsxs)(`div`,{className:`kgv-toolbar-document`,children:[(0,L.jsx)(`strong`,{className:`kgv-toolbar-label`,title:n,children:n}),(0,L.jsx)(`span`,{className:`kgv-toolbar-summary`,children:l})]}),(0,L.jsxs)(`div`,{className:`kgv-toolbar-actions`,children:[(0,L.jsx)(on,{}),(0,L.jsxs)(`button`,{type:`button`,className:`kgv-diagnostics-trigger`,"aria-label":`校正エラー ${s}件`,onClick:i,children:[`校正 `,(0,L.jsx)(`span`,{"aria-hidden":`true`,children:s})]})]})]})}),t[6]=s,t[7]=n,t[8]=i,t[9]=l,t[10]=d,t[11]=f):f=t[11],f}function cn(e){return e}function ln(e){let t=(0,p.c)(4),{files:n,selectedId:r,onSelect:i}=e,a;return t[0]!==n||t[1]!==i||t[2]!==r?(a=(0,L.jsx)(`nav`,{className:`files`,"aria-label":`ファイル`,children:n.length===0?(0,L.jsx)(`p`,{className:`files__empty`,children:`.txt ファイルがありません`}):(0,L.jsx)(`ul`,{className:`file-list`,children:n.map(e=>(0,L.jsx)(`li`,{children:(0,L.jsx)(`button`,{type:`button`,className:`file-list__item`,"aria-current":e.id===r?`page`:void 0,onClick:()=>{i(e.id)},children:e.path})},e.id))})}),t[0]=n,t[1]=i,t[2]=r,t[3]=a):a=t[3],a}function un(e){let t=(0,p.c)(10),{files:n,selectedId:r,onSelect:i,status:a}=e,o;t[0]===Symbol.for(`react.memo_cache_sentinel`)?(o=(0,L.jsxs)(`div`,{className:`brand`,children:[(0,L.jsx)(`span`,{className:`brand__name`,children:`kg`}),(0,L.jsx)(`span`,{className:`brand__mode`,children:`原稿用紙`})]}),t[0]=o):o=t[0];let s;t[1]!==n||t[2]!==i||t[3]!==r?(s=(0,L.jsx)(ln,{files:n,selectedId:r,onSelect:i}),t[1]=n,t[2]=i,t[3]=r,t[4]=s):s=t[4];let c;t[5]===a?c=t[6]:(c=(0,L.jsx)(an,{idPrefix:`desktop-`,status:a}),t[5]=a,t[6]=c);let l;return t[7]!==s||t[8]!==c?(l=(0,L.jsxs)(`aside`,{className:`sidebar`,children:[o,s,c]}),t[7]=s,t[8]=c,t[9]=l):l=t[9],l}function dn(e){let t=(0,p.c)(4),n=(0,d.useRef)(e),r;t[0]===e?r=t[1]:(r=()=>{n.current=e},t[0]=e,t[1]=r),(0,d.useEffect)(r);let i,a;t[2]===Symbol.for(`react.memo_cache_sentinel`)?(i=()=>{let e=new EventSource(`/_/events`),t=null;return e.addEventListener(`started`,e=>{let{pid:n}=JSON.parse(e.data),r=String(n);if(t!==null&&t!==r){window.location.reload();return}t=r}),e.addEventListener(`update`,()=>{n.current.onCatalogChanged()}),e.addEventListener(`file-changed`,e=>{let{id:t}=JSON.parse(e.data);n.current.onFileChanged(t)}),()=>{e.close()}},a=[],t[2]=i,t[3]=a):(i=t[2],a=t[3]),(0,d.useEffect)(i,a)}async function fn(){let e=await fetch(`/_/api/files`);if(!e.ok)throw Error(`failed to list files: ${e.status}`);return await e.json()}async function pn(e){let t=await fetch(`/_/api/files/${encodeURIComponent(e)}/content`);if(!t.ok)throw Error(`failed to read file: ${t.status}`);return t.text()}var mn=`kg.app.state.v1`,hn=`kg.manuscript.preferences.v1`,gn=`kg.app.page.v1:`,_n=P({version:j(1),selectedPath:M(de())}),vn=ge(N(),ne(),ie(0)),yn={version:1,selectedPath:null},bn={settings:Le,appearance:be,offsets:ze,proofreading:et,zoom:Ce,presets:[]};function xn(e){let t=localStorage.getItem(e);return t===null?null:JSON.parse(t)}function Sn(){try{let e=_e(_n,xn(mn));return e.success?e.output:yn}catch{return yn}}function Cn(e){try{return localStorage.setItem(mn,JSON.stringify(he(_n,e))),!0}catch{return!1}}function wn(){try{let e=Mt(xn(hn));return e.ok?e.value:bn}catch{return bn}}function Tn(e){try{return localStorage.setItem(hn,JSON.stringify(jt(e))),!0}catch{return!1}}function En(e){try{let t=sessionStorage.getItem(gn+e);if(t===null)return 0;let n=_e(vn,Number(t));return n.success?n.output:0}catch{return 0}}function Dn(e,t){let n=_e(vn,t);if(n.success)try{sessionStorage.setItem(gn+e,String(n.output))}catch{}}function On(e){let t=(0,p.c)(18),{open:n,title:r,children:i,onClose:a}=e,o=(0,d.useRef)(null),s,c;t[0]===n?(s=t[1],c=t[2]):(s=()=>{let e=o.current;e!==null&&(n&&!e.open&&e.showModal(),!n&&e.open&&e.close())},c=[n],t[0]=n,t[1]=s,t[2]=c),(0,d.useEffect)(s,c);let l=kn,u;t[3]===r?u=t[4]:(u=(0,L.jsx)(`h2`,{children:r}),t[3]=r,t[4]=u);let f=`${r}を閉じる`,m;t[5]===Symbol.for(`react.memo_cache_sentinel`)?(m=()=>o.current?.close(),t[5]=m):m=t[5];let h;t[6]===f?h=t[7]:(h=(0,L.jsx)(`button`,{type:`button`,"aria-label":f,onClick:m,children:`閉じる`}),t[6]=f,t[7]=h);let g;t[8]!==u||t[9]!==h?(g=(0,L.jsxs)(`header`,{className:`mobile-sheet__header`,children:[u,h]}),t[8]=u,t[9]=h,t[10]=g):g=t[10];let _;t[11]===i?_=t[12]:(_=(0,L.jsx)(`div`,{className:`mobile-sheet__body`,children:i}),t[11]=i,t[12]=_);let v;return t[13]!==a||t[14]!==g||t[15]!==_||t[16]!==r?(v=(0,L.jsxs)(`dialog`,{ref:o,className:`mobile-sheet`,"aria-label":r,onClose:a,onClick:l,children:[g,_]}),t[13]=a,t[14]=g,t[15]=_,t[16]=r,t[17]=v):v=t[17],v}function kn(e){if(e.target!==e.currentTarget)return;let t=e.currentTarget.getBoundingClientRect();e.clientX>=t.left&&e.clientX<=t.right&&e.clientY>=t.top&&e.clientY<=t.bottom||e.currentTarget.close()}function An(e){let t=(0,p.c)(72),{controller:n}=e,r=Vt(Mn),[i,a]=(0,d.useState)(Sn),o;t[0]===Symbol.for(`react.memo_cache_sentinel`)?(o=[],t[0]=o):o=t[0];let[s,c]=(0,d.useState)(o),[l,u]=(0,d.useState)(null),[f,m]=(0,d.useState)(``),[h,g]=(0,d.useState)(!1),[_,v]=(0,d.useState)(!1),[y,b]=(0,d.useState)(!1),[x,S]=(0,d.useState)(!1),C=(0,d.useRef)(null),w=(0,d.useRef)(0),ee;t[1]!==i||t[2]!==s?(ee=s.find(e=>e.path===i.selectedPath)??s[0]??null,t[1]=i,t[2]=s,t[3]=ee):ee=t[3];let T=ee,E=T?.id??null,D=T?.path??null,te;t[4]===Symbol.for(`react.memo_cache_sentinel`)?(te=async()=>{try{c(await fn())}catch{m(`ファイル一覧の取得に失敗しました`)}},t[4]=te):te=t[4];let ne=te,re;t[5]===n?re=t[6]:(re=e=>{let t=w.current+=1;return pn(e).then(r=>{t===w.current&&(n.dispatch({type:`document.replace`,text:r}),u({id:e}))},()=>{t===w.current&&m(`本文の取得に失敗しました`)})},t[5]=n,t[6]=re);let ie=re,ae,oe;t[7]===Symbol.for(`react.memo_cache_sentinel`)?(ae=()=>{let e=!1;return fn().then(t=>{e||c(t)},()=>{e||m(`ファイル一覧の取得に失敗しました`)}),()=>{e=!0}},oe=[],t[7]=ae,t[8]=oe):(ae=t[7],oe=t[8]),(0,d.useEffect)(ae,oe);let se,O;t[9]!==n||t[10]!==ie||t[11]!==E?(se=()=>{if(E===null){w.current+=1,n.dispatch({type:`document.replace`,text:``});return}ie(E)},O=[n,ie,E],t[9]=n,t[10]=ie,t[11]=E,t[12]=se,t[13]=O):(se=t[12],O=t[13]),(0,d.useEffect)(se,O);let k,ce;t[14]!==l||t[15]!==E||t[16]!==D?(ce=()=>{l!==null&&l.id===E&&D!==null&&C.current?.scrollToPage(En(D))},k=[l,E,D],t[14]=l,t[15]=E,t[16]=D,t[17]=k,t[18]=ce):(k=t[17],ce=t[18]),(0,d.useEffect)(ce,k);let le,A;t[19]===n?(le=t[20],A=t[21]):(le=()=>n.subscribe(e=>{e.preferencesChanged&&!Tn(e.state)&&m(`設定を保存できませんでした`)}),A=[n],t[19]=n,t[20]=le,t[21]=A),(0,d.useEffect)(le,A);let j;t[22]===Symbol.for(`react.memo_cache_sentinel`)?(j=()=>{ne(),m(`ファイル一覧を更新しました`)},t[22]=j):j=t[22];let M;t[23]!==ie||t[24]!==E?(M={onCatalogChanged:j,onFileChanged:e=>{e===E&&ie(e)}},t[23]=ie,t[24]=E,t[25]=M):M=t[25],dn(M);let N;t[26]===s?N=t[27]:(N=e=>{let t=s.find(t=>t.id===e);if(t!==void 0){let e={version:1,selectedPath:t.path};a(e),Cn(e)||m(`選択状態を保存できませんでした`)}v(!1)},t[26]=s,t[27]=N);let P=N,ue;t[28]===D?ue=t[29]:(ue=e=>{e.type===`visible-page.change`&&D!==null&&Dn(D,e.page)},t[28]=D,t[29]=ue);let de=ue,fe;t[30]===Symbol.for(`react.memo_cache_sentinel`)?(fe=e=>{S(!1)},t[30]=fe):fe=t[30];let pe=fe,me=h?`app app--diagnostics`:`app`,he;t[31]===Symbol.for(`react.memo_cache_sentinel`)?(he=(0,L.jsx)(`a`,{className:`skip-link visually-hidden`,href:`#preview`,children:`プレビューへスキップ`}),t[31]=he):he=t[31];let ge;t[32]!==s||t[33]!==P||t[34]!==E||t[35]!==f?(ge=(0,L.jsx)(un,{files:s,selectedId:E,onSelect:P,status:f}),t[32]=s,t[33]=P,t[34]=E,t[35]=f,t[36]=ge):ge=t[36];let _e;t[37]!==r||t[38]!==l?.id||t[39]!==de||t[40]!==T||t[41]!==E?(_e=(0,L.jsx)(`main`,{id:`preview`,className:`preview`,tabIndex:-1,"aria-label":`プレビュー`,children:T===null?(0,L.jsx)(`p`,{className:`preview__empty`,children:`監視対象の .txt ファイルがありません。`}):(0,L.jsxs)(L.Fragment,{children:[(0,L.jsx)(sn,{className:`desktop-viewer-toolbar`,documentLabel:T.path,onDiagnosticsOpen:()=>{g(jn)}}),(0,L.jsxs)(`header`,{className:`mobile-toolbar`,children:[(0,L.jsx)(`button`,{type:`button`,onClick:()=>{v(!0)},children:`ファイル`}),(0,L.jsx)(`strong`,{title:T.path,children:T.path}),(0,L.jsxs)(`button`,{type:`button`,"aria-label":`校正エラー ${r}件`,onClick:()=>{S(!0)},children:[`校正 `,(0,L.jsx)(`span`,{children:r})]}),(0,L.jsx)(`button`,{type:`button`,onClick:()=>{b(!0)},children:`設定`})]}),l?.id===E?(0,L.jsx)(qt,{children:(0,L.jsx)(en,{ref:C,onViewEvent:de,onDiagnosticSelect:()=>{window.matchMedia(`(max-width: 52rem)`).matches?S(!0):g(!0)}})}):(0,L.jsx)(`p`,{className:`preview__loading`,children:`読み込み中…`})]})}),t[37]=r,t[38]=l?.id,t[39]=de,t[40]=T,t[41]=E,t[42]=_e):_e=t[42];let ve;t[43]===h?ve=t[44]:(ve=h&&(0,L.jsxs)(`aside`,{className:`diagnostic-drawer`,"aria-label":`校正エラー`,children:[(0,L.jsxs)(`header`,{children:[(0,L.jsx)(`h2`,{children:`校正エラー`}),(0,L.jsx)(`button`,{type:`button`,"aria-label":`校正エラーを閉じる`,onClick:()=>{g(!1)},children:`閉じる`})]}),(0,L.jsx)(Gt,{onSelect:pe})]}),t[43]=h,t[44]=ve);let ye;t[45]===Symbol.for(`react.memo_cache_sentinel`)?(ye=()=>{v(!1)},t[45]=ye):ye=t[45];let F;t[46]!==s||t[47]!==P||t[48]!==E?(F=(0,L.jsx)(ln,{files:s,selectedId:E,onSelect:P}),t[46]=s,t[47]=P,t[48]=E,t[49]=F):F=t[49];let be;t[50]!==_||t[51]!==F?(be=(0,L.jsx)(On,{open:_,title:`ファイル`,onClose:ye,children:F}),t[50]=_,t[51]=F,t[52]=be):be=t[52];let xe,Se;t[53]===Symbol.for(`react.memo_cache_sentinel`)?(xe=()=>{b(!1)},Se=(0,L.jsx)(on,{verbose:!0,className:`mobile-zoom`}),t[53]=xe,t[54]=Se):(xe=t[53],Se=t[54]);let Ce;t[55]===f?Ce=t[56]:(Ce=(0,L.jsx)(an,{idPrefix:`mobile-`,status:f}),t[55]=f,t[56]=Ce);let we;t[57]!==y||t[58]!==Ce?(we=(0,L.jsxs)(On,{open:y,title:`表示設定`,onClose:xe,children:[Se,Ce]}),t[57]=y,t[58]=Ce,t[59]=we):we=t[59];let Te,Ee;t[60]===Symbol.for(`react.memo_cache_sentinel`)?(Te=()=>{S(!1)},Ee=(0,L.jsx)(Gt,{onSelect:pe}),t[60]=Te,t[61]=Ee):(Te=t[60],Ee=t[61]);let De;t[62]===x?De=t[63]:(De=(0,L.jsx)(On,{open:x,title:`校正エラー`,onClose:Te,children:Ee}),t[62]=x,t[63]=De);let Oe;return t[64]!==me||t[65]!==ge||t[66]!==_e||t[67]!==ve||t[68]!==be||t[69]!==we||t[70]!==De?(Oe=(0,L.jsxs)(`div`,{className:me,children:[he,ge,_e,ve,be,we,De]}),t[64]=me,t[65]=ge,t[66]=_e,t[67]=ve,t[68]=be,t[69]=we,t[70]=De,t[71]=Oe):Oe=t[71],Oe}function jn(e){return!e}function Mn(e){return e.diagnostics.length}function Nn(){let e=(0,p.c)(5),[t]=(0,d.useState)(Pn),n;e[0]===t?n=e[1]:(n=(0,L.jsx)(An,{controller:t}),e[0]=t,e[1]=n);let r;return e[2]!==t||e[3]!==n?(r=(0,L.jsx)(zt,{controller:t,children:n}),e[2]=t,e[3]=n,e[4]=r):r=e[4],r}function Pn(){return At(wn())}var Fn=document.querySelector(`#root`);Fn!==null&&(0,f.createRoot)(Fn).render((0,L.jsx)(d.StrictMode,{children:(0,L.jsx)(Nn,{})}));

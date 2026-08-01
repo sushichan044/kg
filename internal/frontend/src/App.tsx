@@ -2,6 +2,7 @@ import { createManuscript } from "@sushichan044/kg-core";
 import type { ManuscriptController, ManuscriptDiagnostic } from "@sushichan044/kg-core";
 import {
   DiagnosticList,
+  IframeIsolation,
   ManuscriptProvider,
   ManuscriptViewer,
   SettingsPanel,
@@ -252,17 +253,19 @@ function Workspace({ controller }: WorkspaceProps) {
             {loadedDocument?.id !== selectedId ? (
               <p className="preview__loading">読み込み中…</p>
             ) : (
-              <ManuscriptViewer
-                ref={viewRef}
-                onViewEvent={onViewEvent}
-                onDiagnosticSelect={() => {
-                  if (window.matchMedia("(max-width: 52rem)").matches) {
-                    setDiagnosticsSheetOpen(true);
-                  } else {
-                    setDiagnosticDrawerOpen(true);
-                  }
-                }}
-              />
+              <IframeIsolation>
+                <ManuscriptViewer
+                  ref={viewRef}
+                  onViewEvent={onViewEvent}
+                  onDiagnosticSelect={() => {
+                    if (window.matchMedia("(max-width: 52rem)").matches) {
+                      setDiagnosticsSheetOpen(true);
+                    } else {
+                      setDiagnosticDrawerOpen(true);
+                    }
+                  }}
+                />
+              </IframeIsolation>
             )}
           </>
         )}
