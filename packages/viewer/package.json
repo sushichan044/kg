@@ -62,17 +62,15 @@
     "@rolldown/plugin-babel": "catalog:dev",
     "@types/react": "catalog:dev",
     "@types/react-dom": "catalog:dev",
-    "@vitejs/plugin-react": "catalog:dev",
-    "@vitest/browser": "catalog:dev",
     "@vitest/browser-playwright": "catalog:dev",
-    "playwright": "catalog:dev",
     "publint": "catalog:dev",
     "react": "catalog:prod",
     "react-dom": "catalog:prod",
     "typescript": "catalog:dev",
     "unplugin-unused": "catalog:dev",
     "vite": "catalog:dev",
-    "vite-plus": "catalog:dev"
+    "vite-plus": "catalog:dev",
+    "vitest-browser-react": "catalog:dev"
   },
   "peerDependencies": {
     "react": "^18.3.1 || ^19.0.0",

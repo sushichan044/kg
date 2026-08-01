@@ -46,6 +46,9 @@
   "scripts": {
     "prepublishOnly": "vp run build"
   },
+  "dependencies": {
+    "valibot": "catalog:prod"
+  },
   "devDependencies": {
     "@arethetypeswrong/core": "catalog:dev",
     "publint": "catalog:dev",

@@ -6,20 +6,20 @@
     "@sushichan044/kg-core": "workspace:*",
     "@sushichan044/kg-viewer": "workspace:*",
     "react": "catalog:prod",
-    "react-dom": "catalog:prod"
+    "react-dom": "catalog:prod",
+    "valibot": "catalog:prod"
   },
   "devDependencies": {
     "@rolldown/plugin-babel": "catalog:dev",
     "@types/react": "catalog:dev",
     "@types/react-dom": "catalog:dev",
     "@vitejs/plugin-react": "catalog:dev",
-    "@vitest/browser": "catalog:dev",
     "@vitest/browser-playwright": "catalog:dev",
     "babel-plugin-react-compiler": "1.0.0",
     "oxlint": "1.74.0",
-    "playwright": "catalog:dev",
     "typescript": "catalog:dev",
     "vite": "catalog:dev",
-    "vite-plus": "catalog:dev"
+    "vite-plus": "catalog:dev",
+    "vitest-browser-react": "catalog:dev"
   }
 }

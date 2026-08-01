@@ -1,4 +1,14 @@
-import { defineConfig } from "vite-plus";
+import { defineConfig, defineProject } from "vite-plus";
+
+export const coreTestProjects = [
+  defineProject({
+    root: import.meta.dirname,
+    test: {
+      name: "core-unit",
+      include: ["src/**/*.test.ts"],
+    },
+  }),
+];
 
 export default defineConfig({
   pack: [
@@ -35,14 +45,6 @@ export default defineConfig({
     },
   },
   test: {
-    projects: [
-      {
-        extends: true,
-        test: {
-          name: "unit",
-          include: ["src/**/*.test.ts"],
-        },
-      },
-    ],
+    projects: coreTestProjects,
   },
 });
