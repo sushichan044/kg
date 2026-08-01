@@ -1,5 +1,9 @@
 import { defineConfig } from "vite-plus";
 
+import { frontendTestProjects } from "./internal/frontend/vite.config";
+import { coreTestProjects } from "./packages/core/vite.config";
+import { viewerTestProjects } from "./packages/viewer/vite.config";
+
 export default defineConfig({
   fmt: {
     ignorePatterns: ["pnpm-lock.yaml", "CHANGELOG.md", ".release-please-manifest.json"],
@@ -78,6 +82,11 @@ export default defineConfig({
       },
     ],
   },
+
+  test: {
+    projects: [...coreTestProjects, ...viewerTestProjects, ...frontendTestProjects],
+  },
+
   run: {
     tasks: {
       build: {

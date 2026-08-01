@@ -1,5 +1,29 @@
-import { defineConfig } from "vite-plus";
+import { defineConfig, defineProject } from "vite-plus";
 import { playwright } from "vite-plus/test/browser-playwright";
+
+export const viewerTestProjects = [
+  defineProject({
+    root: import.meta.dirname,
+    test: {
+      name: "viewer-unit",
+      include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+      exclude: ["src/**/*.browser.test.ts", "src/**/*.browser.test.tsx"],
+    },
+  }),
+  defineProject({
+    root: import.meta.dirname,
+    test: {
+      name: "viewer-browser",
+      include: ["src/**/*.browser.test.ts", "src/**/*.browser.test.tsx"],
+      browser: {
+        enabled: true,
+        provider: playwright(),
+        headless: true,
+        instances: [{ browser: "chromium" }],
+      },
+    },
+  }),
+];
 
 export default defineConfig({
   pack: [
@@ -50,29 +74,9 @@ export default defineConfig({
     },
   },
   test: {
+    // viewer-unit currently has no plain *.test.ts(x) files — everything here is
+    // browser-mode only — so an empty project shouldn't fail a filtered `--project` run.
     passWithNoTests: true,
-    projects: [
-      {
-        extends: true,
-        test: {
-          name: "unit",
-          include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
-          exclude: ["src/**/*.browser.test.ts", "src/**/*.browser.test.tsx"],
-        },
-      },
-      {
-        extends: true,
-        test: {
-          name: "browser",
-          include: ["src/**/*.browser.test.ts", "src/**/*.browser.test.tsx"],
-          browser: {
-            enabled: true,
-            provider: playwright(),
-            headless: true,
-            instances: [{ browser: "chromium" }],
-          },
-        },
-      },
-    ],
+    projects: viewerTestProjects,
   },
 });

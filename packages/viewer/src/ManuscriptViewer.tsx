@@ -1,40 +1,34 @@
+import { fitPagePercent, fontPreset } from "@sushichan044/kg-core";
+import type { ManuscriptDiagnostic, OccupiedCell, Page, Stage } from "@sushichan044/kg-core";
 import {
-  calculateManuscriptGeometry,
-  DEFAULT_APPEARANCE,
-  DEFAULT_SETTINGS,
-  DEFAULT_ZOOM,
-  fitPagePercent,
-  fontPreset,
-  paginateManuscript,
-} from "@sushichan044/kg-core";
-import type {
-  GridSettings,
-  ManuscriptAppearanceSettings,
-  ManuscriptDiagnostic,
-  ManuscriptGeometry,
-  ManuscriptOffsets,
-  OccupiedCell,
-  Page,
-  Stage,
-  ZoomMode,
-} from "@sushichan044/kg-core";
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties } from "react";
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { CSSProperties, ForwardedRef } from "react";
+
+import { useEffectiveZoom, useManuscriptDispatch, useManuscriptState } from "./Provider";
 
 export interface ManuscriptViewerProps {
-  text: string;
-  settings?: GridSettings;
-  appearance?: ManuscriptAppearanceSettings;
-  offsets?: ManuscriptOffsets;
-  zoom?: ZoomMode;
-  diagnostics?: ManuscriptDiagnostic[];
-  activeDiagnosticId?: string | null;
-  restoreToPage?: number;
   ariaLabel?: string;
   className?: string;
-  onVisiblePageChange?: (index: number) => void;
-  onEffectiveZoomChange?: (percent: number) => void;
+  onViewEvent?: (event: ManuscriptViewEvent) => void;
   onDiagnosticSelect?: (diagnostic: ManuscriptDiagnostic) => void;
+}
+
+export type ManuscriptViewEvent =
+  | { type: "visible-page.change"; page: number }
+  | { type: "effective-zoom.change"; percent: number };
+
+export interface ManuscriptViewHandle {
+  scrollToPage: (index: number) => void;
+  scrollToDiagnostic: (id: string) => void;
+  getVisiblePage: () => number;
+  getEffectiveZoomPercent: () => number;
 }
 
 type ManuscriptStyle = CSSProperties & {
@@ -45,8 +39,6 @@ type ManuscriptStyle = CSSProperties & {
 };
 
 const uprightGlyphPattern = /^(?:\p{Script=Latin}|[0-9])/u;
-const EMPTY_DIAGNOSTICS: ManuscriptDiagnostic[] = [];
-
 function pageText(page: Page): string {
   return page
     .flatMap((stage: Stage) =>
@@ -57,7 +49,7 @@ function pageText(page: Page): string {
 
 function diagnosticsForCell(
   cell: OccupiedCell,
-  diagnostics: ManuscriptDiagnostic[],
+  diagnostics: readonly ManuscriptDiagnostic[],
 ): ManuscriptDiagnostic[] {
   return diagnostics.filter(
     ({ range }) => range.start < cell.sourceRange.end && range.end > cell.sourceRange.start,
@@ -75,35 +67,56 @@ function joinClassNames(...names: Array<string | undefined>): string {
   return names.filter((name) => name !== undefined && name !== "").join(" ");
 }
 
-export function ManuscriptViewer({
-  text,
-  settings = DEFAULT_SETTINGS,
-  appearance = DEFAULT_APPEARANCE,
-  offsets,
-  zoom = DEFAULT_ZOOM,
-  diagnostics = EMPTY_DIAGNOSTICS,
-  activeDiagnosticId = null,
-  restoreToPage = 0,
-  ariaLabel = "原稿プレビュー",
-  className,
-  onVisiblePageChange,
-  onEffectiveZoomChange,
-  onDiagnosticSelect,
-}: ManuscriptViewerProps) {
-  const pagination = useMemo(
-    () => paginateManuscript(text, settings, offsets),
-    [settings, text, offsets],
-  );
-  const geometry = useMemo(
-    () => calculateManuscriptGeometry(settings, appearance),
-    [appearance, settings],
-  );
+function ManuscriptViewerComponent(
+  {
+    ariaLabel = "原稿プレビュー",
+    className,
+    onViewEvent,
+    onDiagnosticSelect,
+  }: ManuscriptViewerProps,
+  ref: ForwardedRef<ManuscriptViewHandle>,
+) {
+  const { appearance, activeDiagnosticId, diagnostics, geometry, pagination, zoom } =
+    useManuscriptState((state) => state);
+  const dispatch = useManuscriptDispatch();
+  const [, setSharedEffectiveZoom] = useEffectiveZoom();
   const viewportRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<Array<HTMLElement | null>>([]);
   const diagnosticRefs = useRef(new Map<string, HTMLElement>());
+  const pendingPageRef = useRef<number | null>(null);
+  const visiblePageRef = useRef(0);
+  const effectivePercentRef = useRef<number>(zoom.mode === "fixed" ? zoom.percent : 100);
   const [fitPercent, setFitPercent] = useState(100);
   const effectivePercent = zoom.mode === "fixed" ? zoom.percent : fitPercent;
   const selectedFont = fontPreset(appearance.fontPreset);
+  const scrollToPage = useCallback(
+    (index: number) => {
+      const target = Math.min(Math.max(Math.trunc(index), 0), pagination.pages.length - 1);
+      visiblePageRef.current = target;
+      const page = pageRefs.current[target];
+      if (page === null || page === undefined) {
+        pendingPageRef.current = target;
+      } else {
+        pendingPageRef.current = null;
+        page.scrollIntoView({ block: "start" });
+      }
+    },
+    [pagination.pages.length],
+  );
+  const scrollToDiagnostic = useCallback((id: string) => {
+    diagnosticRefs.current.get(id)?.scrollIntoView({ block: "center", inline: "center" });
+  }, []);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToPage,
+      scrollToDiagnostic,
+      getVisiblePage: () => visiblePageRef.current,
+      getEffectiveZoomPercent: () => effectivePercentRef.current,
+    }),
+    [scrollToDiagnostic, scrollToPage],
+  );
   const renderedPages = useMemo(
     () =>
       pagination.pages.map((page, pageIndex) => ({
@@ -163,17 +176,20 @@ export function ManuscriptViewer({
   }, [geometry.paperHeightMm, geometry.paperWidthMm, zoom.mode]);
 
   useEffect(() => {
-    onEffectiveZoomChange?.(effectivePercent);
-  }, [effectivePercent, onEffectiveZoomChange]);
+    effectivePercentRef.current = effectivePercent;
+    setSharedEffectiveZoom(effectivePercent);
+    onViewEvent?.({ type: "effective-zoom.change", percent: effectivePercent });
+  }, [effectivePercent, onViewEvent, setSharedEffectiveZoom]);
 
   useEffect(() => {
-    const target = Math.min(Math.max(restoreToPage, 0), pagination.pages.length - 1);
-    pageRefs.current[target]?.scrollIntoView({ block: "start" });
-  }, [pagination.pages, restoreToPage]);
+    if (pendingPageRef.current !== null) {
+      scrollToPage(pendingPageRef.current);
+    }
+  }, [pagination.pages, scrollToPage]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
-    if (viewport === null || onVisiblePageChange === undefined) {
+    if (viewport === null) {
       return;
     }
     const observer = new IntersectionObserver(
@@ -182,7 +198,9 @@ export function ManuscriptViewer({
           .filter((entry) => entry.isIntersecting)
           .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
         if (visible !== undefined) {
-          onVisiblePageChange(Number(visible.target.getAttribute("data-page-index")));
+          const page = Number(visible.target.getAttribute("data-page-index"));
+          visiblePageRef.current = page;
+          onViewEvent?.({ type: "visible-page.change", page });
         }
       },
       { root: viewport, threshold: [0.25, 0.5, 0.75] },
@@ -196,16 +214,13 @@ export function ManuscriptViewer({
     return () => {
       observer.disconnect();
     };
-  }, [onVisiblePageChange, pagination.pages]);
+  }, [onViewEvent, pagination.pages]);
 
   useEffect(() => {
     if (activeDiagnosticId !== null) {
-      diagnosticRefs.current.get(activeDiagnosticId)?.scrollIntoView({
-        block: "center",
-        inline: "center",
-      });
+      scrollToDiagnostic(activeDiagnosticId);
     }
-  }, [activeDiagnosticId, pagination.pages]);
+  }, [activeDiagnosticId, pagination.pages, scrollToDiagnostic]);
 
   const style: ManuscriptStyle = useMemo(() => {
     return {
@@ -233,8 +248,6 @@ export function ManuscriptViewer({
                 pageRefs.current[pageIndex] = element;
               }}
               data-page-index={pageIndex}
-              data-paper-width-mm={geometry.paperWidthMm}
-              data-paper-height-mm={geometry.paperHeightMm}
               className="kgv-page"
               aria-label={`${pageIndex + 1}ページ目、全${pagination.pages.length}ページ`}
               data-offscreen={pageIndex > 0 ? "" : undefined}
@@ -293,7 +306,10 @@ export function ManuscriptViewer({
                                   type="button"
                                   className="kgv-diagnostic-marker"
                                   aria-label={`${first.location.start.line}行${first.location.start.column}列: ${first.message}`}
-                                  onClick={() => onDiagnosticSelect?.(first)}
+                                  onClick={() => {
+                                    dispatch({ type: "diagnostic.select", id: first.id });
+                                    onDiagnosticSelect?.(first);
+                                  }}
                                 />
                               )}
                             </span>
@@ -312,9 +328,4 @@ export function ManuscriptViewer({
   );
 }
 
-export function manuscriptGeometry(
-  settings: GridSettings,
-  appearance: ManuscriptAppearanceSettings,
-): ManuscriptGeometry {
-  return calculateManuscriptGeometry(settings, appearance);
-}
+export const ManuscriptViewer = forwardRef(ManuscriptViewerComponent);
