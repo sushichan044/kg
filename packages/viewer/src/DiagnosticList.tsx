@@ -1,20 +1,21 @@
 import type { ManuscriptDiagnostic } from "@sushichan044/kg-core";
 
+import { useManuscriptDispatch, useManuscriptState } from "./Provider";
+
 export interface DiagnosticListProps {
-  diagnostics: ManuscriptDiagnostic[];
-  activeDiagnosticId?: string | null;
-  onSelect: (diagnostic: ManuscriptDiagnostic) => void;
+  onSelect?: (diagnostic: ManuscriptDiagnostic) => void;
   emptyMessage?: string;
   className?: string;
 }
 
 export function DiagnosticList({
-  diagnostics,
-  activeDiagnosticId = null,
   onSelect,
   emptyMessage = "校正エラーはありません。",
   className,
 }: DiagnosticListProps) {
+  const { activeDiagnosticId, diagnostics } = useManuscriptState((state) => state);
+  const dispatch = useManuscriptDispatch();
+
   if (diagnostics.length === 0) {
     return (
       <p className={["kgv-diagnostics-empty", className].filter(Boolean).join(" ")}>
@@ -31,7 +32,8 @@ export function DiagnosticList({
             type="button"
             aria-current={diagnostic.id === activeDiagnosticId ? "true" : undefined}
             onClick={() => {
-              onSelect(diagnostic);
+              dispatch({ type: "diagnostic.select", id: diagnostic.id });
+              onSelect?.(diagnostic);
             }}
           >
             <span className="kgv-diagnostic-location">

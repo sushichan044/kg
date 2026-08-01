@@ -15,34 +15,31 @@ pnpm add @sushichan044/kg-core @sushichan044/kg-viewer react react-dom
 Import the stylesheet explicitly:
 
 ```tsx
-import { proofreadManuscript } from "@sushichan044/kg-core";
-import { DiagnosticList, ManuscriptViewer } from "@sushichan044/kg-viewer";
+import { createManuscript } from "@sushichan044/kg-core";
+import {
+  DiagnosticList,
+  ManuscriptProvider,
+  ManuscriptViewer,
+  SettingsPanel,
+  ViewerToolbar,
+} from "@sushichan044/kg-viewer";
 import "@sushichan044/kg-viewer/styles.css";
 
-const diagnostics = proofreadManuscript(text);
+const manuscript = createManuscript({ text });
 
-<ManuscriptViewer
-  text={text}
-  diagnostics={diagnostics}
-  activeDiagnosticId={activeDiagnosticId}
-  onDiagnosticSelect={(diagnostic) => {
-    setActiveDiagnosticId(diagnostic.id);
-    editor.selectRange(diagnostic.range);
-  }}
-/>;
-
-<DiagnosticList
-  diagnostics={diagnostics}
-  activeDiagnosticId={activeDiagnosticId}
-  onSelect={(diagnostic) => {
-    setActiveDiagnosticId(diagnostic.id);
-    editor.selectRange(diagnostic.range);
-  }}
-/>;
+<ManuscriptProvider controller={manuscript}>
+  <ViewerToolbar documentLabel="draft.txt" onDiagnosticsOpen={openDiagnostics} />
+  <ManuscriptViewer onDiagnosticSelect={(diagnostic) => editor.selectRange(diagnostic.range)} />
+  <DiagnosticList onSelect={(diagnostic) => editor.selectRange(diagnostic.range)} />
+  <SettingsPanel />
+</ManuscriptProvider>;
 ```
 
-All React components are controlled. File loading, persistence, editor state,
-drawers, and dialogs stay in the consuming application.
+The provider connects the controller to the packaged viewport, toolbar,
+diagnostics, zoom, and settings components. `ManuscriptViewer` also exposes a
+ref handle for DOM-only operations such as scrolling to a page or diagnostic.
+File loading, persistence, editor state, drawers, and dialogs stay in the
+consuming application.
 
 See [`@sushichan044/kg-core`](../core/README.md) for the framework-independent
 pagination, appearance, source mapping, and proofreading APIs.
