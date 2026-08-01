@@ -1,81 +1,30 @@
+import { createManuscript } from "@sushichan044/kg-core";
+import type { ManuscriptController, ManuscriptDiagnostic } from "@sushichan044/kg-core";
 import {
-  adjacentZoomLevel,
-  calculateManuscriptGeometry,
-  DEFAULT_APPEARANCE,
-  DEFAULT_OFFSETS,
-  DEFAULT_SETTINGS,
-  fontPreset,
-  isFontSizePt,
-  MAX_DOCUMENT_OFFSET,
-  paginateManuscript,
-  paperSize,
-  proofreadManuscript,
-  SETTING_RANGES,
-} from "@sushichan044/kg-core";
-import type {
-  FixedZoomPercent,
-  FontPresetId,
-  GridSettings,
-  LineOffset,
-  ManuscriptDiagnostic,
-  ManuscriptOffsets,
-  PaperSizeId,
-  ZoomMode,
-} from "@sushichan044/kg-core";
-import { DiagnosticList, ManuscriptViewer, ViewerToolbar } from "@sushichan044/kg-viewer";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+  DiagnosticList,
+  ManuscriptProvider,
+  ManuscriptViewer,
+  SettingsPanel,
+  ViewerToolbar,
+  ZoomControls,
+  useManuscriptState,
+} from "@sushichan044/kg-viewer";
+import type { ManuscriptViewHandle, ManuscriptViewEvent } from "@sushichan044/kg-viewer";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
 
-import { FilePanel, SettingsPanel, Sidebar } from "./components/Sidebar";
-import type { OffsetField } from "./components/Sidebar";
+import { FilePanel, Sidebar } from "./components/Sidebar";
 import { useServerEvents } from "./hooks/useServerEvents";
 import { fetchContent, fetchFiles } from "./lib/api";
 import type { FileEntry } from "./lib/api";
-import { loadPage, loadState, savePage, saveState } from "./lib/storage";
-import type { ViewerState } from "./lib/storage";
-
-type SettingField = keyof GridSettings;
-
-const EMPTY_STATS = { chars: 0, sourceLines: 0, pages: 0 };
-const NO_INVALID: Record<SettingField, boolean> = {
-  charsPerLine: false,
-  linesPerStage: false,
-  stagesPerPage: false,
-};
-const NO_OFFSET_INVALID: Record<OffsetField, boolean> = {
-  "document.leading": false,
-  "document.trailing": false,
-  "page.leading": false,
-  "page.trailing": false,
-  "stage.leading": false,
-  "stage.trailing": false,
-};
-
-const BUILTIN_PRESET_NAME = `${paperSize(DEFAULT_APPEARANCE.paperSize).label} / ${DEFAULT_APPEARANCE.fontSizePt}pt / ${fontPreset(DEFAULT_APPEARANCE.fontPreset).label} / ${DEFAULT_SETTINGS.charsPerLine}字 × ${DEFAULT_SETTINGS.linesPerStage}行 × ${DEFAULT_SETTINGS.stagesPerPage}段`;
-
-interface LoadedContent {
-  id: string;
-  text: string;
-}
-
-function initialDrafts(settings: GridSettings): Record<SettingField, string> {
-  return {
-    charsPerLine: String(settings.charsPerLine),
-    linesPerStage: String(settings.linesPerStage),
-    stagesPerPage: String(settings.stagesPerPage),
-  };
-}
-
-function initialOffsetDrafts(offsets: ManuscriptOffsets): Record<OffsetField, string> {
-  return {
-    "document.leading": String(offsets.document.leading),
-    "document.trailing": String(offsets.document.trailing),
-    "page.leading": String(offsets.page.leading),
-    "page.trailing": String(offsets.page.trailing),
-    "stage.leading": String(offsets.stage.leading),
-    "stage.trailing": String(offsets.stage.trailing),
-  };
-}
+import {
+  loadAppState,
+  loadManuscriptPreferences,
+  loadPage,
+  saveAppState,
+  saveManuscriptPreferences,
+  savePage,
+} from "./lib/storage";
 
 interface SheetProps {
   open: boolean;
@@ -89,29 +38,20 @@ function Sheet({ open, title, children, onClose }: SheetProps) {
 
   useEffect(() => {
     const dialog = ref.current;
-    if (dialog === null) {
-      return;
-    }
-    if (open && !dialog.open) {
-      dialog.showModal();
-    } else if (!open && dialog.open) {
-      dialog.close();
-    }
+    if (dialog === null) return;
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) dialog.close();
   }, [open]);
 
   const dismissBackdrop = (event: MouseEvent<HTMLDialogElement>) => {
-    if (event.target !== event.currentTarget) {
-      return;
-    }
+    if (event.target !== event.currentTarget) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const inside =
       event.clientX >= rect.left &&
       event.clientX <= rect.right &&
       event.clientY >= rect.top &&
       event.clientY <= rect.bottom;
-    if (!inside) {
-      event.currentTarget.close();
-    }
+    if (!inside) event.currentTarget.close();
   };
 
   return (
@@ -133,99 +73,32 @@ function Sheet({ open, title, children, onClose }: SheetProps) {
   );
 }
 
-interface MobileZoomControlsProps {
-  zoom: ZoomMode;
-  effectivePercent: number;
-  onChange: (zoom: ZoomMode) => void;
+interface WorkspaceProps {
+  controller: ManuscriptController;
 }
 
-function MobileZoomControls({ zoom, effectivePercent, onChange }: MobileZoomControlsProps) {
-  const zoomOut = adjacentZoomLevel(effectivePercent, "out");
-  const zoomIn = adjacentZoomLevel(effectivePercent, "in");
-  const applyFixed = (percent: FixedZoomPercent | null) => {
-    if (percent !== null) {
-      onChange({ mode: "fixed", percent });
-    }
-  };
-
-  return (
-    <fieldset className="mobile-zoom">
-      <legend>表示倍率</legend>
-      <div role="group" aria-label="表示倍率">
-        <button
-          type="button"
-          disabled={zoomOut === null}
-          onClick={() => {
-            applyFixed(zoomOut);
-          }}
-        >
-          縮小
-        </button>
-        <output>{Math.round(effectivePercent)}%</output>
-        <button
-          type="button"
-          disabled={zoomIn === null}
-          onClick={() => {
-            applyFixed(zoomIn);
-          }}
-        >
-          拡大
-        </button>
-        <button
-          type="button"
-          aria-pressed={zoom.mode === "fit"}
-          onClick={() => {
-            onChange({ mode: "fit" });
-          }}
-        >
-          全体表示
-        </button>
-      </div>
-    </fieldset>
-  );
-}
-
-export function App() {
-  const [state, setState] = useState<ViewerState>(loadState);
+function Workspace({ controller }: WorkspaceProps) {
+  const manuscript = useManuscriptState((state) => state);
+  const [appState, setAppState] = useState(loadAppState);
   const [files, setFiles] = useState<FileEntry[]>([]);
-  const [loadedContent, setLoadedContent] = useState<LoadedContent | null>(null);
+  const [loadedId, setLoadedId] = useState<string | null>(null);
   const [status, setStatus] = useState("");
-  const [currentPage, setCurrentPage] = useState(0);
-  const [drafts, setDrafts] = useState(() => initialDrafts(state.settings));
-  const [invalid, setInvalid] = useState<Record<SettingField, boolean>>(NO_INVALID);
-  const [fontSizePtDraft, setFontSizePtDraft] = useState(() => String(state.appearance.fontSizePt));
-  const [fontSizePtInvalid, setFontSizePtInvalid] = useState(false);
-  const [offsetDrafts, setOffsetDrafts] = useState(() => initialOffsetDrafts(state.offsets));
-  const [offsetInvalid, setOffsetInvalid] =
-    useState<Record<OffsetField, boolean>>(NO_OFFSET_INVALID);
-  const [effectiveZoomPercent, setEffectiveZoomPercent] = useState<number>(
-    state.zoom.mode === "fixed" ? state.zoom.percent : 100,
-  );
-  const [activeDiagnosticId, setActiveDiagnosticId] = useState<string | null>(null);
   const [diagnosticDrawerOpen, setDiagnosticDrawerOpen] = useState(false);
   const [filesSheetOpen, setFilesSheetOpen] = useState(false);
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
   const [diagnosticsSheetOpen, setDiagnosticsSheetOpen] = useState(false);
+  const viewRef = useRef<ManuscriptViewHandle>(null);
 
-  const { appearance, settings, offsets, zoom } = state;
-  const selectedFile = files.find((file) => file.path === state.selectedPath) ?? files[0] ?? null;
+  const selectedFile =
+    files.find((file) => file.path === appState.selectedPath) ?? files[0] ?? null;
   const selectedId = selectedFile?.id ?? null;
   const selectedPath = selectedFile?.path ?? null;
-  const content =
-    selectedId !== null && loadedContent?.id === selectedId ? loadedContent.text : null;
-  const [previousSelectedPath, setPreviousSelectedPath] = useState<string | null>(selectedPath);
-  if (selectedPath !== previousSelectedPath) {
-    setPreviousSelectedPath(selectedPath);
-    setCurrentPage(selectedPath === null ? 0 : loadPage(selectedPath));
-    setActiveDiagnosticId(null);
-  }
 
   const reconcileFiles = useCallback((nextFiles: FileEntry[]) => {
     setFiles(nextFiles);
-    setState((current) => {
+    setAppState((current) => {
       const selected =
         nextFiles.find((file) => file.path === current.selectedPath) ?? nextFiles[0] ?? null;
-
       return selected === null || selected.path === current.selectedPath
         ? current
         : { ...current, selectedPath: selected.path };
@@ -234,80 +107,83 @@ export function App() {
 
   const refreshFiles = useCallback(async () => {
     try {
-      const nextFiles = await fetchFiles();
-      reconcileFiles(nextFiles);
+      reconcileFiles(await fetchFiles());
     } catch {
       setStatus("ファイル一覧の取得に失敗しました");
     }
   }, [reconcileFiles]);
 
-  const loadContent = useCallback(async (id: string) => {
-    try {
-      setLoadedContent({ id, text: await fetchContent(id) });
-    } catch {
-      setStatus("本文の取得に失敗しました");
-    }
-  }, []);
+  const loadContent = useCallback(
+    async (id: string, path: string) => {
+      try {
+        const text = await fetchContent(id);
+        controller.dispatch({ type: "document.replace", text });
+        setLoadedId(id);
+        requestAnimationFrame(() => viewRef.current?.scrollToPage(loadPage(path)));
+      } catch {
+        setStatus("本文の取得に失敗しました");
+      }
+    },
+    [controller],
+  );
 
   useEffect(() => {
     let ignore = false;
     void fetchFiles().then(
       (nextFiles) => {
-        if (ignore) {
-          return;
-        }
-        reconcileFiles(nextFiles);
+        if (!ignore) reconcileFiles(nextFiles);
       },
       () => {
-        if (!ignore) {
-          setStatus("ファイル一覧の取得に失敗しました");
-        }
+        if (!ignore) setStatus("ファイル一覧の取得に失敗しました");
       },
     );
-
     return () => {
       ignore = true;
     };
   }, [reconcileFiles]);
 
   useEffect(() => {
-    if (selectedId === null) {
+    if (selectedId === null || selectedPath === null) {
+      controller.dispatch({ type: "document.replace", text: "" });
       return;
     }
     let ignore = false;
     void fetchContent(selectedId).then(
       (text) => {
-        if (!ignore) {
-          setLoadedContent({ id: selectedId, text });
-        }
+        if (ignore) return;
+        controller.dispatch({ type: "document.replace", text });
+        setLoadedId(selectedId);
+        requestAnimationFrame(() => viewRef.current?.scrollToPage(loadPage(selectedPath)));
       },
       () => {
-        if (!ignore) {
-          setStatus("本文の取得に失敗しました");
-        }
+        if (!ignore) setStatus("本文の取得に失敗しました");
       },
     );
-
     return () => {
       ignore = true;
     };
-  }, [selectedId]);
+  }, [controller, selectedId, selectedPath]);
 
   useEffect(() => {
-    if (saveState(state)) {
-      return;
-    }
+    if (saveAppState(appState)) return;
     let active = true;
     queueMicrotask(() => {
-      if (active) {
-        setStatus("設定を保存できませんでした");
-      }
+      if (active) setStatus("選択状態を保存できませんでした");
     });
-
     return () => {
       active = false;
     };
-  }, [state]);
+  }, [appState]);
+
+  useEffect(
+    () =>
+      controller.subscribe((transaction) => {
+        if (transaction.preferencesChanged && !saveManuscriptPreferences(transaction.state)) {
+          setStatus("設定を保存できませんでした");
+        }
+      }),
+    [controller],
+  );
 
   useServerEvents({
     onCatalogChanged: () => {
@@ -315,205 +191,29 @@ export function App() {
       setStatus("ファイル一覧を更新しました");
     },
     onFileChanged: (id) => {
-      if (id === selectedId) {
-        void loadContent(id);
-      }
+      if (id === selectedId && selectedPath !== null) void loadContent(id, selectedPath);
     },
   });
-
-  const onSettingChange = useCallback((field: SettingField, raw: string) => {
-    setDrafts((current) => ({ ...current, [field]: raw }));
-    const value = Number(raw);
-    const range = SETTING_RANGES[field];
-    const valid =
-      raw.trim() !== "" && Number.isInteger(value) && value >= range.min && value <= range.max;
-    setInvalid((current) => ({ ...current, [field]: !valid }));
-    if (valid) {
-      setState((current) => ({
-        ...current,
-        settings: { ...current.settings, [field]: value },
-      }));
-    }
-  }, []);
-
-  const onFontSizePtChange = useCallback((raw: string) => {
-    setFontSizePtDraft(raw);
-    const value = Number(raw);
-    const valid = raw.trim() !== "" && isFontSizePt(value);
-    setFontSizePtInvalid(!valid);
-    if (valid) {
-      setState((current) => ({
-        ...current,
-        appearance: { ...current.appearance, fontSizePt: value },
-      }));
-    }
-  }, []);
-
-  const onOffsetChange = useCallback((field: OffsetField, raw: string) => {
-    setOffsetDrafts((current) => ({ ...current, [field]: raw }));
-    const value = Number(raw);
-    const maxValue = field.startsWith("document.") ? MAX_DOCUMENT_OFFSET : Number.POSITIVE_INFINITY;
-    const valid = raw.trim() !== "" && Number.isInteger(value) && value >= 0 && value <= maxValue;
-    setOffsetInvalid((current) => ({ ...current, [field]: !valid }));
-    if (valid) {
-      const [scope, edge] = field.split(".") as [keyof ManuscriptOffsets, keyof LineOffset];
-      setState((current) => ({
-        ...current,
-        offsets: {
-          ...current.offsets,
-          [scope]: { ...current.offsets[scope], [edge]: value },
-        },
-      }));
-    }
-  }, []);
 
   const onSelect = useCallback(
     (id: string) => {
       const found = files.find((file) => file.id === id);
-      if (found !== undefined) {
-        setState((viewer) => ({ ...viewer, selectedPath: found.path }));
-      }
+      if (found !== undefined) setAppState((current) => ({ ...current, selectedPath: found.path }));
       setFilesSheetOpen(false);
     },
     [files],
   );
 
-  const onVisiblePageChange = useCallback(
-    (index: number) => {
-      setCurrentPage(index);
-      if (selectedPath !== null) {
-        savePage(selectedPath, index);
+  const onViewEvent = useCallback(
+    (event: ManuscriptViewEvent) => {
+      if (event.type === "visible-page.change" && selectedPath !== null) {
+        savePage(selectedPath, event.page);
       }
     },
     [selectedPath],
   );
 
-  const applyPreset = useCallback(
-    (name: string) => {
-      const preset =
-        name === BUILTIN_PRESET_NAME
-          ? {
-              name,
-              settings: DEFAULT_SETTINGS,
-              appearance: DEFAULT_APPEARANCE,
-              offsets: DEFAULT_OFFSETS,
-            }
-          : state.presets.find((candidate) => candidate.name === name);
-      if (preset === undefined) {
-        return;
-      }
-      setState((current) => ({
-        ...current,
-        settings: preset.settings,
-        appearance: preset.appearance,
-        offsets: preset.offsets,
-      }));
-      setDrafts(initialDrafts(preset.settings));
-      setInvalid(NO_INVALID);
-      setFontSizePtDraft(String(preset.appearance.fontSizePt));
-      setFontSizePtInvalid(false);
-      setOffsetDrafts(initialOffsetDrafts(preset.offsets));
-      setOffsetInvalid(NO_OFFSET_INVALID);
-      setStatus(`プリセット「${name}」を適用しました`);
-    },
-    [state.presets],
-  );
-
-  const savePreset = useCallback(
-    (rawName: string) => {
-      const name = rawName.trim();
-      if (name === "") {
-        return;
-      }
-      if (name === BUILTIN_PRESET_NAME) {
-        setStatus("組み込みプリセットは上書きできません");
-
-        return;
-      }
-      const exists = state.presets.some((preset) => preset.name === name);
-      if (exists && !window.confirm(`プリセット「${name}」を上書きしますか？`)) {
-        return;
-      }
-      setState((current) => ({
-        ...current,
-        presets: [
-          ...current.presets.filter((preset) => preset.name !== name),
-          {
-            name,
-            settings: current.settings,
-            appearance: current.appearance,
-            offsets: current.offsets,
-          },
-        ],
-      }));
-      setStatus(`プリセット「${name}」を保存しました`);
-    },
-    [state.presets],
-  );
-
-  const deletePreset = useCallback((name: string) => {
-    if (!window.confirm(`プリセット「${name}」を削除しますか？`)) {
-      return;
-    }
-    setState((current) => ({
-      ...current,
-      presets: current.presets.filter((preset) => preset.name !== name),
-    }));
-    setStatus(`プリセット「${name}」を削除しました`);
-  }, []);
-
-  const pagination = useMemo(
-    () => (content === null ? null : paginateManuscript(content, settings, offsets)),
-    [content, settings, offsets],
-  );
-  const diagnostics = useMemo(
-    () => (content === null ? [] : proofreadManuscript(content)),
-    [content],
-  );
-  const geometry = useMemo(
-    () => calculateManuscriptGeometry(settings, appearance),
-    [appearance, settings],
-  );
-  const selectedPaper = paperSize(appearance.paperSize);
-  const selectedFont = fontPreset(appearance.fontPreset);
-  const summary = `${selectedPaper.label} / ${appearance.fontSizePt}pt / ${selectedFont.label} / ${settings.charsPerLine}字 × ${settings.linesPerStage}行 × ${settings.stagesPerPage}段`;
-
-  const settingsPanelProps = {
-    settings,
-    drafts,
-    invalid,
-    onSettingChange,
-    appearance,
-    geometry,
-    fontSizePtDraft,
-    fontSizePtInvalid,
-    onFontSizePtChange,
-    onPaperSizeChange: (paperSizeId: PaperSizeId) => {
-      setState((current) => ({
-        ...current,
-        appearance: { ...current.appearance, paperSize: paperSizeId },
-      }));
-    },
-    onFontPresetChange: (fontPresetId: FontPresetId) => {
-      setState((current) => ({
-        ...current,
-        appearance: { ...current.appearance, fontPreset: fontPresetId },
-      }));
-    },
-    offsetDrafts,
-    offsetInvalid,
-    onOffsetChange,
-    presets: state.presets,
-    builtinPresetName: BUILTIN_PRESET_NAME,
-    onApplyPreset: applyPreset,
-    onSavePreset: savePreset,
-    onDeletePreset: deletePreset,
-    stats: pagination?.stats ?? EMPTY_STATS,
-    status,
-  };
-
-  const selectDiagnostic = (diagnostic: ManuscriptDiagnostic) => {
-    setActiveDiagnosticId(diagnostic.id);
+  const selectDiagnostic = (_diagnostic: ManuscriptDiagnostic) => {
     setDiagnosticsSheetOpen(false);
   };
 
@@ -522,7 +222,7 @@ export function App() {
       <a className="skip-link visually-hidden" href="#preview">
         プレビューへスキップ
       </a>
-      <Sidebar files={files} selectedId={selectedId} onSelect={onSelect} {...settingsPanelProps} />
+      <Sidebar files={files} selectedId={selectedId} onSelect={onSelect} status={status} />
 
       <main id="preview" className="preview" tabIndex={-1} aria-label="プレビュー">
         {selectedFile === null ? (
@@ -532,13 +232,6 @@ export function App() {
             <ViewerToolbar
               className="desktop-viewer-toolbar"
               documentLabel={selectedFile.path}
-              documentSummary={summary}
-              zoom={zoom}
-              effectiveZoomPercent={effectiveZoomPercent}
-              diagnosticCount={diagnostics.length}
-              onZoomChange={(nextZoom) => {
-                setState((current) => ({ ...current, zoom: nextZoom }));
-              }}
               onDiagnosticsOpen={() => {
                 setDiagnosticDrawerOpen((open) => !open);
               }}
@@ -555,12 +248,12 @@ export function App() {
               <strong title={selectedFile.path}>{selectedFile.path}</strong>
               <button
                 type="button"
-                aria-label={`校正エラー ${diagnostics.length}件`}
+                aria-label={`校正エラー ${manuscript.diagnostics.length}件`}
                 onClick={() => {
                   setDiagnosticsSheetOpen(true);
                 }}
               >
-                校正 <span>{diagnostics.length}</span>
+                校正 <span>{manuscript.diagnostics.length}</span>
               </button>
               <button
                 type="button"
@@ -571,22 +264,13 @@ export function App() {
                 設定
               </button>
             </header>
-            {content === null ? (
+            {loadedId !== selectedId ? (
               <p className="preview__loading">読み込み中…</p>
             ) : (
               <ManuscriptViewer
-                text={content}
-                settings={settings}
-                appearance={appearance}
-                offsets={offsets}
-                zoom={zoom}
-                diagnostics={diagnostics}
-                activeDiagnosticId={activeDiagnosticId}
-                restoreToPage={currentPage}
-                onVisiblePageChange={onVisiblePageChange}
-                onEffectiveZoomChange={setEffectiveZoomPercent}
-                onDiagnosticSelect={(diagnostic) => {
-                  setActiveDiagnosticId(diagnostic.id);
+                ref={viewRef}
+                onViewEvent={onViewEvent}
+                onDiagnosticSelect={() => {
                   if (window.matchMedia("(max-width: 52rem)").matches) {
                     setDiagnosticsSheetOpen(true);
                   } else {
@@ -613,11 +297,7 @@ export function App() {
               閉じる
             </button>
           </header>
-          <DiagnosticList
-            diagnostics={diagnostics}
-            activeDiagnosticId={activeDiagnosticId}
-            onSelect={selectDiagnostic}
-          />
+          <DiagnosticList onSelect={selectDiagnostic} />
         </aside>
       )}
 
@@ -637,14 +317,8 @@ export function App() {
           setSettingsSheetOpen(false);
         }}
       >
-        <MobileZoomControls
-          zoom={zoom}
-          effectivePercent={effectiveZoomPercent}
-          onChange={(nextZoom) => {
-            setState((current) => ({ ...current, zoom: nextZoom }));
-          }}
-        />
-        <SettingsPanel {...settingsPanelProps} idPrefix="mobile-" />
+        <ZoomControls verbose className="mobile-zoom" />
+        <SettingsPanel idPrefix="mobile-" status={status} />
       </Sheet>
       <Sheet
         open={diagnosticsSheetOpen}
@@ -653,12 +327,18 @@ export function App() {
           setDiagnosticsSheetOpen(false);
         }}
       >
-        <DiagnosticList
-          diagnostics={diagnostics}
-          activeDiagnosticId={activeDiagnosticId}
-          onSelect={selectDiagnostic}
-        />
+        <DiagnosticList onSelect={selectDiagnostic} />
       </Sheet>
     </div>
+  );
+}
+
+export function App() {
+  const [controller] = useState(() => createManuscript(loadManuscriptPreferences()));
+
+  return (
+    <ManuscriptProvider controller={controller}>
+      <Workspace controller={controller} />
+    </ManuscriptProvider>
   );
 }
