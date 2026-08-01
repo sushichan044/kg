@@ -55,6 +55,11 @@
     box-shadow: 0 1px 4px rgb(0 0 0 / 15%);
   }
 
+  .kgv-page[data-overflow] {
+    outline: 2px dashed var(--kgv-accent);
+    outline-offset: 3px;
+  }
+
   @supports (content-visibility: auto) {
     .kgv-page[data-offscreen] {
       content-visibility: auto;
@@ -106,6 +111,10 @@
     writing-mode: vertical-rl;
     text-orientation: mixed;
     font-family: var(--kgv-manuscript-font);
+    /* --kgv-cell-size is the mass-me pitch (derived from the specified point
+       size) that drives the page/margin math; glyphs render smaller than the
+       full cell so characters keep breathing room instead of touching every
+       edge, matching how printed manuscript paper actually looks. */
     font-size: calc(var(--kgv-cell-size) * 0.82);
     line-height: 1;
   }

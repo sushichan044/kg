@@ -12,6 +12,7 @@ import type {
   ManuscriptAppearanceSettings,
   ManuscriptDiagnostic,
   ManuscriptGeometry,
+  ManuscriptOffsets,
   OccupiedCell,
   Page,
   Stage,
@@ -24,6 +25,7 @@ export interface ManuscriptViewerProps {
   text: string;
   settings?: GridSettings;
   appearance?: ManuscriptAppearanceSettings;
+  offsets?: ManuscriptOffsets;
   zoom?: ZoomMode;
   diagnostics?: ManuscriptDiagnostic[];
   activeDiagnosticId?: string | null;
@@ -77,6 +79,7 @@ export function ManuscriptViewer({
   text,
   settings = DEFAULT_SETTINGS,
   appearance = DEFAULT_APPEARANCE,
+  offsets,
   zoom = DEFAULT_ZOOM,
   diagnostics = EMPTY_DIAGNOSTICS,
   activeDiagnosticId = null,
@@ -87,7 +90,10 @@ export function ManuscriptViewer({
   onEffectiveZoomChange,
   onDiagnosticSelect,
 }: ManuscriptViewerProps) {
-  const pagination = useMemo(() => paginateManuscript(text, settings), [settings, text]);
+  const pagination = useMemo(
+    () => paginateManuscript(text, settings, offsets),
+    [settings, text, offsets],
+  );
   const geometry = useMemo(
     () => calculateManuscriptGeometry(settings, appearance),
     [appearance, settings],
@@ -232,6 +238,7 @@ export function ManuscriptViewer({
               className="kgv-page"
               aria-label={`${pageIndex + 1}ページ目、全${pagination.pages.length}ページ`}
               data-offscreen={pageIndex > 0 ? "" : undefined}
+              data-overflow={geometry.fitsPaper ? undefined : ""}
             >
               <p className="kgv-visually-hidden">{pageText(page)}</p>
               <div className="kgv-page-grid">

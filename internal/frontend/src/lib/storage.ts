@@ -5,30 +5,39 @@
 
 import {
   DEFAULT_APPEARANCE,
+  DEFAULT_OFFSETS,
   DEFAULT_ZOOM,
   DEFAULT_SETTINGS,
   SETTING_RANGES,
   isFixedZoomPercent,
   isFontPresetId,
-  isMarginMm,
+  isFontSizePt,
   isPaperSizeId,
 } from "@sushichan044/kg-core";
-import type { GridSettings, ManuscriptAppearanceSettings, ZoomMode } from "@sushichan044/kg-core";
+import type {
+  GridSettings,
+  LineOffset,
+  ManuscriptAppearanceSettings,
+  ManuscriptOffsets,
+  ZoomMode,
+} from "@sushichan044/kg-core";
 
-const STORAGE_KEY = "kg.viewer.state.v2";
-const LEGACY_STORAGE_KEY = "kg.viewer.state.v1";
-const STATE_VERSION = 2;
+const STORAGE_KEY = "kg.viewer.state.v3";
+const V2_STORAGE_KEY = "kg.viewer.state.v2";
+const STATE_VERSION = 3;
 
 export interface Preset {
   name: string;
   settings: GridSettings;
   appearance: ManuscriptAppearanceSettings;
+  offsets: ManuscriptOffsets;
 }
 
 export interface ViewerState {
   selectedPath: string | null;
   settings: GridSettings;
   appearance: ManuscriptAppearanceSettings;
+  offsets: ManuscriptOffsets;
   zoom: ZoomMode;
   presets: Preset[];
 }
@@ -37,6 +46,7 @@ const DEFAULT_STATE: ViewerState = {
   selectedPath: null,
   settings: DEFAULT_SETTINGS,
   appearance: DEFAULT_APPEARANCE,
+  offsets: DEFAULT_OFFSETS,
   zoom: DEFAULT_ZOOM,
   presets: [],
 };
@@ -62,7 +72,7 @@ function parseAppearance(value: unknown): ManuscriptAppearanceSettings | null {
   const record = value as Record<string, unknown>;
   if (
     !isPaperSizeId(record.paperSize) ||
-    !isMarginMm(record.marginMm) ||
+    !isFontSizePt(record.fontSizePt) ||
     !isFontPresetId(record.fontPreset)
   ) {
     return null;
@@ -70,9 +80,34 @@ function parseAppearance(value: unknown): ManuscriptAppearanceSettings | null {
 
   return {
     paperSize: record.paperSize,
-    marginMm: record.marginMm,
+    fontSizePt: record.fontSizePt,
     fontPreset: record.fontPreset,
   };
+}
+
+function isLineOffset(value: unknown): value is LineOffset {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+
+  return (["leading", "trailing"] as const).every((key) => {
+    const n = record[key];
+
+    return typeof n === "number" && Number.isInteger(n) && n >= 0;
+  });
+}
+
+function parseOffsets(value: unknown): ManuscriptOffsets | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  if (!isLineOffset(record.document) || !isLineOffset(record.page) || !isLineOffset(record.stage)) {
+    return null;
+  }
+
+  return { document: record.document, page: record.page, stage: record.stage };
 }
 
 function parseZoom(value: unknown): ZoomMode | null {
@@ -107,30 +142,50 @@ function migrateCurrent(parsed: unknown): ViewerState | null {
     selectedPath: typeof obj.selectedPath === "string" ? obj.selectedPath : null,
     settings: obj.settings,
     appearance: parseAppearance(obj.appearance) ?? DEFAULT_APPEARANCE,
+    offsets: parseOffsets(obj.offsets) ?? DEFAULT_OFFSETS,
     zoom: parseZoom(obj.zoom) ?? DEFAULT_ZOOM,
-    presets: parsePresets(obj.presets, false),
+    presets: parsePresets(obj.presets),
   };
 }
 
-function migrateLegacy(parsed: unknown): ViewerState | null {
+// v2 stored `marginMm` instead of `fontSizePt` and had no `offsets`. Carry
+// over paper size and font preset only; default the new fields rather than
+// back-converting a margin into a point size.
+function migrateV2Appearance(value: unknown): ManuscriptAppearanceSettings {
+  if (typeof value !== "object" || value === null) {
+    return DEFAULT_APPEARANCE;
+  }
+  const record = value as Record<string, unknown>;
+
+  return {
+    paperSize: isPaperSizeId(record.paperSize) ? record.paperSize : DEFAULT_APPEARANCE.paperSize,
+    fontSizePt: DEFAULT_APPEARANCE.fontSizePt,
+    fontPreset: isFontPresetId(record.fontPreset)
+      ? record.fontPreset
+      : DEFAULT_APPEARANCE.fontPreset,
+  };
+}
+
+function migrateV2(parsed: unknown): ViewerState | null {
   if (typeof parsed !== "object" || parsed === null) {
     return null;
   }
   const obj = parsed as Record<string, unknown>;
-  if (obj.version !== 1 || !isValidSettings(obj.settings)) {
+  if (obj.version !== 2 || !isValidSettings(obj.settings)) {
     return null;
   }
 
   return {
     selectedPath: typeof obj.selectedPath === "string" ? obj.selectedPath : null,
     settings: obj.settings,
-    appearance: DEFAULT_APPEARANCE,
-    zoom: DEFAULT_ZOOM,
-    presets: parsePresets(obj.presets, true),
+    appearance: migrateV2Appearance(obj.appearance),
+    offsets: DEFAULT_OFFSETS,
+    zoom: parseZoom(obj.zoom) ?? DEFAULT_ZOOM,
+    presets: migrateV2Presets(obj.presets),
   };
 }
 
-function parsePresets(value: unknown, legacy: boolean): Preset[] {
+function parsePresets(value: unknown): Preset[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -142,10 +197,36 @@ function parsePresets(value: unknown, legacy: boolean): Preset[] {
     }
     const rec = item as Record<string, unknown>;
     if (typeof rec.name === "string" && isValidSettings(rec.settings)) {
-      const appearance = legacy
-        ? DEFAULT_APPEARANCE
-        : (parseAppearance(rec.appearance) ?? DEFAULT_APPEARANCE);
-      presets.push({ name: rec.name, settings: rec.settings, appearance });
+      presets.push({
+        name: rec.name,
+        settings: rec.settings,
+        appearance: parseAppearance(rec.appearance) ?? DEFAULT_APPEARANCE,
+        offsets: parseOffsets(rec.offsets) ?? DEFAULT_OFFSETS,
+      });
+    }
+  }
+
+  return presets;
+}
+
+function migrateV2Presets(value: unknown): Preset[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const presets: Preset[] = [];
+  for (const item of value) {
+    if (typeof item !== "object" || item === null) {
+      continue;
+    }
+    const rec = item as Record<string, unknown>;
+    if (typeof rec.name === "string" && isValidSettings(rec.settings)) {
+      presets.push({
+        name: rec.name,
+        settings: rec.settings,
+        appearance: migrateV2Appearance(rec.appearance),
+        offsets: DEFAULT_OFFSETS,
+      });
     }
   }
 
@@ -161,14 +242,14 @@ export function loadState(): ViewerState {
         return current;
       }
     } catch {
-      // Continue to the legacy key so a partial v2 write does not hide valid v1 state.
+      // Continue to the v2 key so a partial v3 write does not hide valid v2 state.
     }
   }
 
   try {
-    const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+    const legacy = localStorage.getItem(V2_STORAGE_KEY);
 
-    return legacy === null ? DEFAULT_STATE : (migrateLegacy(JSON.parse(legacy)) ?? DEFAULT_STATE);
+    return legacy === null ? DEFAULT_STATE : (migrateV2(JSON.parse(legacy)) ?? DEFAULT_STATE);
   } catch {
     return DEFAULT_STATE;
   }

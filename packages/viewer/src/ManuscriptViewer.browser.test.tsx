@@ -1,5 +1,5 @@
 import { DEFAULT_APPEARANCE, proofreadManuscript } from "@sushichan044/kg-core";
-import type { GridSettings, ManuscriptDiagnostic } from "@sushichan044/kg-core";
+import type { GridSettings, ManuscriptDiagnostic, ManuscriptOffsets } from "@sushichan044/kg-core";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
@@ -122,4 +122,48 @@ test("renders a marker for a diagnostic that starts inside another diagnostic ra
   expect(markers).toHaveLength(2);
   markers[1]?.click();
   expect(selected).toEqual(["inner"]);
+});
+
+test("renders a cell whose size in pixels matches the specified point size at 100% zoom", () => {
+  flushSync(() => {
+    root.render(
+      <ManuscriptViewer
+        text="あ"
+        settings={settings}
+        appearance={{ ...DEFAULT_APPEARANCE, fontSizePt: 10 }}
+        zoom={{ mode: "fixed", percent: 100 }}
+      />,
+    );
+  });
+
+  const cell = host.querySelector<HTMLElement>(".kgv-cell");
+  // 10pt = 10 * (96 / 72) CSS px ≈ 13.33px.
+  expect(cell?.getBoundingClientRect().width).toBeCloseTo((10 * 96) / 72, 0);
+});
+
+test("renders offset-reserved leading cells as empty", () => {
+  const offsets: ManuscriptOffsets = {
+    document: { leading: 1, trailing: 0 },
+    page: { leading: 0, trailing: 0 },
+    stage: { leading: 0, trailing: 0 },
+  };
+
+  flushSync(() => {
+    root.render(
+      <ManuscriptViewer
+        text="あいうえ"
+        settings={settings}
+        appearance={DEFAULT_APPEARANCE}
+        offsets={offsets}
+        zoom={{ mode: "fixed", percent: 100 }}
+      />,
+    );
+  });
+
+  const lines = Array.from(host.querySelectorAll<HTMLElement>(".kgv-line"));
+  const firstLineCells = Array.from(lines[0]?.querySelectorAll<HTMLElement>(".kgv-cell") ?? []);
+  expect(firstLineCells.every((cell) => cell.textContent === "")).toBe(true);
+
+  const secondLineCells = Array.from(lines[1]?.querySelectorAll<HTMLElement>(".kgv-cell") ?? []);
+  expect(secondLineCells.map((cell) => cell.textContent)).toEqual(["あ", "い", "う"]);
 });

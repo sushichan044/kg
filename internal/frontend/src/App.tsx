@@ -2,8 +2,11 @@ import {
   adjacentZoomLevel,
   calculateManuscriptGeometry,
   DEFAULT_APPEARANCE,
+  DEFAULT_OFFSETS,
   DEFAULT_SETTINGS,
   fontPreset,
+  isFontSizePt,
+  MAX_DOCUMENT_OFFSET,
   paginateManuscript,
   paperSize,
   proofreadManuscript,
@@ -13,8 +16,9 @@ import type {
   FixedZoomPercent,
   FontPresetId,
   GridSettings,
+  LineOffset,
   ManuscriptDiagnostic,
-  MarginMm,
+  ManuscriptOffsets,
   PaperSizeId,
   ZoomMode,
 } from "@sushichan044/kg-core";
@@ -23,6 +27,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
 
 import { FilePanel, SettingsPanel, Sidebar } from "./components/Sidebar";
+import type { OffsetField } from "./components/Sidebar";
 import { useServerEvents } from "./hooks/useServerEvents";
 import { fetchContent, fetchFiles } from "./lib/api";
 import type { FileEntry } from "./lib/api";
@@ -37,8 +42,16 @@ const NO_INVALID: Record<SettingField, boolean> = {
   linesPerStage: false,
   stagesPerPage: false,
 };
+const NO_OFFSET_INVALID: Record<OffsetField, boolean> = {
+  "document.leading": false,
+  "document.trailing": false,
+  "page.leading": false,
+  "page.trailing": false,
+  "stage.leading": false,
+  "stage.trailing": false,
+};
 
-const BUILTIN_PRESET_NAME = `${paperSize(DEFAULT_APPEARANCE.paperSize).label} / ${DEFAULT_APPEARANCE.marginMm}mm / ${fontPreset(DEFAULT_APPEARANCE.fontPreset).label} / ${DEFAULT_SETTINGS.charsPerLine}字 × ${DEFAULT_SETTINGS.linesPerStage}行 × ${DEFAULT_SETTINGS.stagesPerPage}段`;
+const BUILTIN_PRESET_NAME = `${paperSize(DEFAULT_APPEARANCE.paperSize).label} / ${DEFAULT_APPEARANCE.fontSizePt}pt / ${fontPreset(DEFAULT_APPEARANCE.fontPreset).label} / ${DEFAULT_SETTINGS.charsPerLine}字 × ${DEFAULT_SETTINGS.linesPerStage}行 × ${DEFAULT_SETTINGS.stagesPerPage}段`;
 
 interface LoadedContent {
   id: string;
@@ -50,6 +63,17 @@ function initialDrafts(settings: GridSettings): Record<SettingField, string> {
     charsPerLine: String(settings.charsPerLine),
     linesPerStage: String(settings.linesPerStage),
     stagesPerPage: String(settings.stagesPerPage),
+  };
+}
+
+function initialOffsetDrafts(offsets: ManuscriptOffsets): Record<OffsetField, string> {
+  return {
+    "document.leading": String(offsets.document.leading),
+    "document.trailing": String(offsets.document.trailing),
+    "page.leading": String(offsets.page.leading),
+    "page.trailing": String(offsets.page.trailing),
+    "stage.leading": String(offsets.stage.leading),
+    "stage.trailing": String(offsets.stage.trailing),
   };
 }
 
@@ -169,6 +193,11 @@ export function App() {
   const [currentPage, setCurrentPage] = useState(0);
   const [drafts, setDrafts] = useState(() => initialDrafts(state.settings));
   const [invalid, setInvalid] = useState<Record<SettingField, boolean>>(NO_INVALID);
+  const [fontSizePtDraft, setFontSizePtDraft] = useState(() => String(state.appearance.fontSizePt));
+  const [fontSizePtInvalid, setFontSizePtInvalid] = useState(false);
+  const [offsetDrafts, setOffsetDrafts] = useState(() => initialOffsetDrafts(state.offsets));
+  const [offsetInvalid, setOffsetInvalid] =
+    useState<Record<OffsetField, boolean>>(NO_OFFSET_INVALID);
   const [effectiveZoomPercent, setEffectiveZoomPercent] = useState<number>(
     state.zoom.mode === "fixed" ? state.zoom.percent : 100,
   );
@@ -178,7 +207,7 @@ export function App() {
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
   const [diagnosticsSheetOpen, setDiagnosticsSheetOpen] = useState(false);
 
-  const { appearance, settings, zoom } = state;
+  const { appearance, settings, offsets, zoom } = state;
   const selectedFile = files.find((file) => file.path === state.selectedPath) ?? files[0] ?? null;
   const selectedId = selectedFile?.id ?? null;
   const selectedPath = selectedFile?.path ?? null;
@@ -307,6 +336,37 @@ export function App() {
     }
   }, []);
 
+  const onFontSizePtChange = useCallback((raw: string) => {
+    setFontSizePtDraft(raw);
+    const value = Number(raw);
+    const valid = raw.trim() !== "" && isFontSizePt(value);
+    setFontSizePtInvalid(!valid);
+    if (valid) {
+      setState((current) => ({
+        ...current,
+        appearance: { ...current.appearance, fontSizePt: value },
+      }));
+    }
+  }, []);
+
+  const onOffsetChange = useCallback((field: OffsetField, raw: string) => {
+    setOffsetDrafts((current) => ({ ...current, [field]: raw }));
+    const value = Number(raw);
+    const maxValue = field.startsWith("document.") ? MAX_DOCUMENT_OFFSET : Number.POSITIVE_INFINITY;
+    const valid = raw.trim() !== "" && Number.isInteger(value) && value >= 0 && value <= maxValue;
+    setOffsetInvalid((current) => ({ ...current, [field]: !valid }));
+    if (valid) {
+      const [scope, edge] = field.split(".") as [keyof ManuscriptOffsets, keyof LineOffset];
+      setState((current) => ({
+        ...current,
+        offsets: {
+          ...current.offsets,
+          [scope]: { ...current.offsets[scope], [edge]: value },
+        },
+      }));
+    }
+  }, []);
+
   const onSelect = useCallback(
     (id: string) => {
       const found = files.find((file) => file.id === id);
@@ -332,7 +392,12 @@ export function App() {
     (name: string) => {
       const preset =
         name === BUILTIN_PRESET_NAME
-          ? { name, settings: DEFAULT_SETTINGS, appearance: DEFAULT_APPEARANCE }
+          ? {
+              name,
+              settings: DEFAULT_SETTINGS,
+              appearance: DEFAULT_APPEARANCE,
+              offsets: DEFAULT_OFFSETS,
+            }
           : state.presets.find((candidate) => candidate.name === name);
       if (preset === undefined) {
         return;
@@ -341,9 +406,14 @@ export function App() {
         ...current,
         settings: preset.settings,
         appearance: preset.appearance,
+        offsets: preset.offsets,
       }));
       setDrafts(initialDrafts(preset.settings));
       setInvalid(NO_INVALID);
+      setFontSizePtDraft(String(preset.appearance.fontSizePt));
+      setFontSizePtInvalid(false);
+      setOffsetDrafts(initialOffsetDrafts(preset.offsets));
+      setOffsetInvalid(NO_OFFSET_INVALID);
       setStatus(`プリセット「${name}」を適用しました`);
     },
     [state.presets],
@@ -368,7 +438,12 @@ export function App() {
         ...current,
         presets: [
           ...current.presets.filter((preset) => preset.name !== name),
-          { name, settings: current.settings, appearance: current.appearance },
+          {
+            name,
+            settings: current.settings,
+            appearance: current.appearance,
+            offsets: current.offsets,
+          },
         ],
       }));
       setStatus(`プリセット「${name}」を保存しました`);
@@ -388,8 +463,8 @@ export function App() {
   }, []);
 
   const pagination = useMemo(
-    () => (content === null ? null : paginateManuscript(content, settings)),
-    [content, settings],
+    () => (content === null ? null : paginateManuscript(content, settings, offsets)),
+    [content, settings, offsets],
   );
   const diagnostics = useMemo(
     () => (content === null ? [] : proofreadManuscript(content)),
@@ -401,23 +476,22 @@ export function App() {
   );
   const selectedPaper = paperSize(appearance.paperSize);
   const selectedFont = fontPreset(appearance.fontPreset);
-  const summary = `${selectedPaper.label} / ${appearance.marginMm}mm / ${selectedFont.label} / 約${geometry.fontSizePt.toFixed(1)}pt / ${settings.charsPerLine}字 × ${settings.linesPerStage}行 × ${settings.stagesPerPage}段`;
+  const summary = `${selectedPaper.label} / ${appearance.fontSizePt}pt / ${selectedFont.label} / ${settings.charsPerLine}字 × ${settings.linesPerStage}行 × ${settings.stagesPerPage}段`;
 
   const settingsPanelProps = {
+    settings,
     drafts,
     invalid,
     onSettingChange,
     appearance,
+    geometry,
+    fontSizePtDraft,
+    fontSizePtInvalid,
+    onFontSizePtChange,
     onPaperSizeChange: (paperSizeId: PaperSizeId) => {
       setState((current) => ({
         ...current,
         appearance: { ...current.appearance, paperSize: paperSizeId },
-      }));
-    },
-    onMarginChange: (marginMm: MarginMm) => {
-      setState((current) => ({
-        ...current,
-        appearance: { ...current.appearance, marginMm },
       }));
     },
     onFontPresetChange: (fontPresetId: FontPresetId) => {
@@ -426,6 +500,9 @@ export function App() {
         appearance: { ...current.appearance, fontPreset: fontPresetId },
       }));
     },
+    offsetDrafts,
+    offsetInvalid,
+    onOffsetChange,
     presets: state.presets,
     builtinPresetName: BUILTIN_PRESET_NAME,
     onApplyPreset: applyPreset,
@@ -501,6 +578,7 @@ export function App() {
                 text={content}
                 settings={settings}
                 appearance={appearance}
+                offsets={offsets}
                 zoom={zoom}
                 diagnostics={diagnostics}
                 activeDiagnosticId={activeDiagnosticId}

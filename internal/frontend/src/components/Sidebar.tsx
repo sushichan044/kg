@@ -1,9 +1,16 @@
-import { FONT_PRESETS, MARGIN_OPTIONS, PAPER_SIZES, SETTING_RANGES } from "@sushichan044/kg-core";
+import {
+  FONT_PRESETS,
+  FONT_SIZE_PT_RANGE,
+  MAX_DOCUMENT_OFFSET,
+  maxFontSizePt,
+  PAPER_SIZES,
+  SETTING_RANGES,
+} from "@sushichan044/kg-core";
 import type {
   FontPresetId,
   GridSettings,
   ManuscriptAppearanceSettings,
-  MarginMm,
+  ManuscriptGeometry,
   PaperSizeId,
   Statistics,
 } from "@sushichan044/kg-core";
@@ -14,10 +21,27 @@ import type { Preset } from "../lib/storage";
 
 type SettingField = keyof GridSettings;
 
+export type OffsetField =
+  | "document.leading"
+  | "document.trailing"
+  | "page.leading"
+  | "page.trailing"
+  | "stage.leading"
+  | "stage.trailing";
+
 const CONTROLS: Array<{ field: SettingField; label: string }> = [
   { field: "charsPerLine", label: "字数" },
   { field: "linesPerStage", label: "行数" },
   { field: "stagesPerPage", label: "段数" },
+];
+
+const OFFSET_CONTROLS: Array<{ field: OffsetField; label: string }> = [
+  { field: "document.leading", label: "原稿全体（前）" },
+  { field: "document.trailing", label: "原稿全体（後）" },
+  { field: "page.leading", label: "ページ（前）" },
+  { field: "page.trailing", label: "ページ（後）" },
+  { field: "stage.leading", label: "段（前）" },
+  { field: "stage.trailing", label: "段（後）" },
 ];
 
 interface SelectControlProps {
@@ -84,13 +108,20 @@ export function FilePanel({ files, selectedId, onSelect }: FilePanelProps) {
 
 export interface SettingsPanelProps {
   idPrefix?: string;
+  settings: GridSettings;
   drafts: Record<SettingField, string>;
   invalid: Record<SettingField, boolean>;
   onSettingChange: (field: SettingField, raw: string) => void;
   appearance: ManuscriptAppearanceSettings;
+  geometry: ManuscriptGeometry;
+  fontSizePtDraft: string;
+  fontSizePtInvalid: boolean;
+  onFontSizePtChange: (raw: string) => void;
   onPaperSizeChange: (paperSize: PaperSizeId) => void;
-  onMarginChange: (marginMm: MarginMm) => void;
   onFontPresetChange: (fontPreset: FontPresetId) => void;
+  offsetDrafts: Record<OffsetField, string>;
+  offsetInvalid: Record<OffsetField, boolean>;
+  onOffsetChange: (field: OffsetField, raw: string) => void;
   presets: Preset[];
   builtinPresetName: string;
   onApplyPreset: (name: string) => void;
@@ -102,13 +133,20 @@ export interface SettingsPanelProps {
 
 export function SettingsPanel({
   idPrefix = "",
+  settings,
   drafts,
   invalid,
   onSettingChange,
   appearance,
+  geometry,
+  fontSizePtDraft,
+  fontSizePtInvalid,
+  onFontSizePtChange,
   onPaperSizeChange,
-  onMarginChange,
   onFontPresetChange,
+  offsetDrafts,
+  offsetInvalid,
+  onOffsetChange,
   presets,
   builtinPresetName,
   onApplyPreset,
@@ -119,6 +157,7 @@ export function SettingsPanel({
 }: SettingsPanelProps) {
   const [newPresetName, setNewPresetName] = useState("");
   const id = (value: string) => `${idPrefix}${value}`;
+  const fontSizeMax = maxFontSizePt(settings, appearance.paperSize);
 
   return (
     <div className="settings-panel">
@@ -168,18 +207,33 @@ export function SettingsPanel({
             }
           }}
         />
-        <SelectControl
-          id={id("paper-margin")}
-          label="最低余白"
-          value={appearance.marginMm}
-          options={MARGIN_OPTIONS.map((margin) => ({ value: margin, label: `${margin}mm` }))}
-          onChange={(value) => {
-            const selected = MARGIN_OPTIONS.find((margin) => margin === Number(value));
-            if (selected !== undefined) {
-              onMarginChange(selected);
-            }
-          }}
-        />
+        <div className="control">
+          <label htmlFor={id("font-size-pt")}>文字サイズ (pt)</label>
+          <input
+            id={id("font-size-pt")}
+            type="number"
+            inputMode="decimal"
+            min={FONT_SIZE_PT_RANGE.min}
+            max={FONT_SIZE_PT_RANGE.max}
+            step={FONT_SIZE_PT_RANGE.step}
+            value={fontSizePtDraft}
+            aria-invalid={fontSizePtInvalid}
+            aria-describedby={id("font-size-pt-hint")}
+            onChange={(event) => {
+              onFontSizePtChange(event.target.value);
+            }}
+          />
+          <span id={id("font-size-pt-hint")} className="control__hint">
+            {FONT_SIZE_PT_RANGE.min}–{FONT_SIZE_PT_RANGE.max}pt（この用紙・組版なら最大約
+            {fontSizeMax}pt） ・ 余白 天地{geometry.marginBlockMm.toFixed(1)}mm / 左右
+            {geometry.marginInlineMm.toFixed(1)}mm
+          </span>
+          {!geometry.fitsPaper && (
+            <p className="paper-controls__warning" role="alert">
+              指定した文字サイズが用紙からはみ出しています。文字サイズを小さくしてください。
+            </p>
+          )}
+        </div>
         <SelectControl
           id={id("manuscript-font")}
           label="書体"
@@ -192,7 +246,42 @@ export function SettingsPanel({
             }
           }}
         />
-        <p className="paper-controls__note">紙面と文字サイズは概算です。</p>
+        <p className="paper-controls__note">余白は文字サイズと組版設定から自動計算されます。</p>
+      </fieldset>
+
+      <fieldset className="offset-controls">
+        <legend>オフセット（行）</legend>
+        {OFFSET_CONTROLS.map(({ field, label }) => {
+          const inputId = id(`offset-${field}`);
+          const hintId = id(`offset-hint-${field}`);
+          const isDocumentScope = field.startsWith("document.");
+
+          return (
+            <div className="control" key={field}>
+              <label htmlFor={inputId}>{label}</label>
+              <input
+                id={inputId}
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={isDocumentScope ? MAX_DOCUMENT_OFFSET : undefined}
+                step={1}
+                value={offsetDrafts[field]}
+                aria-invalid={offsetInvalid[field]}
+                aria-describedby={hintId}
+                onChange={(event) => {
+                  onOffsetChange(field, event.target.value);
+                }}
+              />
+              <span id={hintId} className="control__hint">
+                {isDocumentScope ? `0–${MAX_DOCUMENT_OFFSET}の整数` : "0以上の整数"}
+              </span>
+            </div>
+          );
+        })}
+        <p className="offset-controls__note">
+          大きすぎる値は、各ページ・各段に最低1行残るよう自動的に調整されます。
+        </p>
       </fieldset>
 
       <div className="presets">

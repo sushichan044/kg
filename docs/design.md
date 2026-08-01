@@ -115,6 +115,18 @@ Source-line statistics count lines after line-ending normalization and terminal-
 These rules intentionally omit Japanese line-breaking corrections.
 The preview does not move opening or closing punctuation between lines, combine digits, synthesize tate-chu-yoko, render ruby, hang punctuation, or apply optical spacing.
 
+### Line offsets
+
+Independently of the grid settings, a writer can reserve blank lines at three scopes, each with a leading (before) and trailing (after) count:
+
+- **document**: blank lines added to the start and end of the manuscript's own content, ahead of pagination (for example, room for an anthology's title and author block before the story begins);
+- **page**: blank lines reserved at the start and end of every page (for example, room for a running header or folio); and
+- **stage**: blank lines reserved at the start and end of every stage (for example, room for a chapter mark).
+
+Stage-level reservations apply first, narrowing each stage to its usable lines. Page-level reservations then apply to the sequence of usable lines across the stages of one page, so the two scopes never reserve the same line twice. Document-level lines are not reservations: they are literal blank lines prepended and appended to the content itself, and they flow through whatever usable slots remain, across page boundaries, exactly like ordinary body text.
+
+Offsets are clamped so every page keeps at least one usable content line; an excessive offset narrows pagination rather than looping forever. The default offset is zero at every scope, which reproduces the original unoffset layout exactly.
+
 Each occupied cell also retains the zero-based, end-exclusive UTF-16 range of
 its grapheme in the original source. Line-ending normalization affects layout
 only: ranges continue to refer to the unmodified input, where CR and LF remain
@@ -218,24 +230,28 @@ height = characters per line × cell size
 ```
 
 A page stacks the configured stages vertically with a gap of two cell sizes.
-The writer selects A4, A5, JIS B5, or JIS B6 paper in portrait orientation and a minimum margin of 10, 15, 20, 25, or 30 millimeters.
-The default is A5 with a 20 millimeter minimum margin.
+The writer selects A4, A5, JIS B5, or JIS B6 paper in portrait orientation and a font size in points, from 6 to 24 in 0.5-point steps.
+The default is A5 at 9pt.
 
-Choose the largest square cell that fits the complete grid inside the selected paper and minimum margin:
+The font size is the input; the margin is a derived output. This is solid typesetting (ベタ組み): the specified point size is the cell pitch — the page/margin geometry below is derived from it directly, with no shrinking ratio applied. The rendered glyph is drawn at 82 percent of the cell so characters keep breathing room instead of touching every cell edge; this is a visual-only rendering detail and does not affect the cell pitch or any of the geometry math.
 
 ```text
+cell size = the specified point size, converted to millimeters using 72pt = 25.4mm
+
 grid height in cells = stages per page × characters per line
                      + 2 × (stages per page - 1)
 
-cell size = min(
-  (paper width - 2 × minimum margin) / lines per stage,
-  (paper height - 2 × minimum margin) / grid height in cells
-)
+grid width  = lines per stage × cell size
+grid height = grid height in cells × cell size
+
+margin inline (left/right) = (paper width  - grid width ) / 2
+margin block  (top/bottom) = (paper height - grid height) / 2
 ```
 
-Center the grid on the paper.
-The non-limiting axis may therefore have more than the selected minimum margin.
-Set the glyph size to 82 percent of the cell size and show its approximate point size using `72pt = 25.4mm`.
+Center the grid on the paper; the two margins on each axis are therefore always equal.
+Report the derived margins so the writer can see the effect of a chosen point size.
+
+The requested point size is never silently shrunk to fit. When a margin would be negative, report it as negative and mark the geometry as not fitting the paper (`fitsPaper: false`); the UI must show a warning rather than resize the grid. A `maxFontSizePt` calculation reports the largest point size, in 0.5pt steps, whose grid still fits the selected paper and grid settings, clamped to the configured 6–24pt range, so the input can offer that as a hint or an upper bound.
 
 Center pages when space permits.
 Allow horizontal and vertical scrolling when pages exceed the viewport.
@@ -277,12 +293,13 @@ The sidebar contains, in order:
 1. the `kg` product label and active preview-mode name;
 2. the watched text-file list;
 3. manuscript-grid controls;
-4. paper, margin, and font controls;
-5. preset controls;
-6. character, source-line, and page statistics; and
-7. a live status message.
+4. paper, font size (pt), and font controls, with the derived margins and a fitsPaper warning;
+5. line-offset controls (document, page, and stage, each leading and trailing);
+6. preset controls;
+7. character, source-line, and page statistics; and
+8. a live status message.
 
-The preview header shows the selected relative path, paper, margin, font, approximate point size, and grid settings.
+The preview header shows the selected relative path, paper, font size in points, font, and grid settings.
 It also contains zoom-out, zoom-in, and fit-page controls.
 The paper stack begins below that header.
 
@@ -310,18 +327,18 @@ original range.
 Apply a valid setting as soon as the numeric input changes.
 Keep an invalid draft value in the field, show the allowed range, and retain the last valid layout until the value becomes valid.
 
-Persist this state under the versioned localStorage key `kg.viewer.state.v2`:
+Persist this state under the versioned localStorage key `kg.viewer.state.v3`:
 
 - selected file path;
 - current preview mode;
 - current mode settings;
-- paper, minimum margin, font, and preview zoom; and
+- paper, font size (pt), font, line offsets, and preview zoom; and
 - named custom presets.
 
 The stored payload carries a top-level `version` field. On load, an incompatible version is discarded (falling back to defaults) or migrated, so fast-moving changes to the display requirements never load settings the current UI cannot honor.
 
-Presets include paper, margin, and font settings, but exclude preview zoom.
-The built-in `A5 / 20mm / 明朝 / 27字 × 23行 × 2段` preset cannot be overwritten or deleted.
+Presets include paper, font size, font, and line-offset settings, but exclude preview zoom.
+The built-in `A5 / 9pt / 明朝 / 27字 × 23行 × 2段` preset cannot be overwritten or deleted.
 Saving an existing custom-preset name requires confirmation.
 Deleting a custom preset requires confirmation.
 
@@ -399,7 +416,9 @@ Browser tests must verify:
 - the first character occupies the top-right cell;
 - characters advance top-to-bottom and lines advance right-to-left;
 - every measured cell has equal width and height within 0.5 CSS pixels;
-- paper dimensions, minimum margins, and centered grid geometry match the selected settings;
+- the rendered cell size in pixels matches the specified point size at 100% zoom;
+- paper dimensions, derived margins, and centered grid geometry match the selected settings;
+- offset-reserved lines render as empty cells;
 - empty cells retain all four grid edges when combined with adjacent cells;
 - Japanese brackets and punctuation use vertical glyph orientation;
 - font presets switch the manuscript font stack;
