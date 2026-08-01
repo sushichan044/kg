@@ -57,7 +57,8 @@ test("connects proofreading feedback to the drawer and manuscript cells", async 
 
   await drawer.getByRole("list").getByRole("button").nth(3).click();
   await vi.waitFor(() => {
-    expect(screen.container.querySelectorAll("[data-diagnostic-active]")).toHaveLength(4);
+    const iframe = screen.container.querySelector<HTMLIFrameElement>("iframe");
+    expect(iframe?.contentDocument?.querySelectorAll("[data-diagnostic-active]")).toHaveLength(4);
   });
 });
 

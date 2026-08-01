@@ -24,7 +24,7 @@ export default defineConfig({
       nursery: "error",
       perf: "error",
     },
-    ignorePatterns: ["**/dist/**"],
+    ignorePatterns: ["**/dist/**", "**/scripts/**"],
     options: {
       typeAware: true,
       typeCheck: true,

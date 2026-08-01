@@ -269,10 +269,6 @@ select {
   .preview {
     block-size: 100dvb;
   }
-
-  .preview .kgv-viewer {
-    --kgv-padding: 1rem;
-  }
 }
 
 @media (pointer: coarse) {
