@@ -50,7 +50,7 @@ export default defineConfig({
   run: {
     tasks: {
       build: {
-        command: "node scripts/generate-style-content.mjs && vp pack",
+        command: "node scripts/generate-style-content.mjs && vp fmt && vp pack",
         dependsOn: [{ task: "build", from: "dependencies" }],
       },
       check: {
