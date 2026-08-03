@@ -9,6 +9,8 @@ import {
 } from "./appearance";
 import type { ManuscriptAppearanceSettings, ManuscriptGeometry, ZoomMode } from "./appearance";
 import { calculateManuscriptGeometry } from "./appearance";
+import { plainTextNotation } from "./notation";
+import type { ManuscriptNotation } from "./notation";
 import {
   DEFAULT_OFFSETS,
   DEFAULT_SETTINGS,
@@ -46,6 +48,7 @@ export interface ManuscriptPreferences {
 export interface ManuscriptStateOptions extends Partial<ManuscriptPreferences> {
   text?: string;
   activeDiagnosticId?: string | null;
+  notation?: ManuscriptNotation;
 }
 
 export interface ManuscriptConfigPatch {
@@ -135,7 +138,7 @@ export const GridSettingsSchema = v.object({
 });
 
 export const ManuscriptAppearanceSchema = v.object({
-  paperSize: v.picklist(["a4", "a5", "jis-b5", "jis-b6"]),
+  paperSize: v.picklist(["a4", "a5", "a6", "jis-b5", "jis-b6", "shinsho"]),
   fontSizePt: v.pipe(
     v.number(),
     v.finite(),
@@ -169,6 +172,7 @@ export const ProofreadingOptionsSchema = v.object({
   noConsecutiveChoonpu: v.boolean(),
   minusBeforeNumber: v.boolean(),
   maxArabicNumeralDigits: v.union([integer(1), v.literal(false)]),
+  noVariantCharacters: v.boolean(),
 });
 
 export const ZoomModeSchema = v.variant("mode", [
@@ -184,7 +188,7 @@ const manuscriptPresetSchema = v.object({
 });
 
 export const PersistedManuscriptPreferencesSchema = v.object({
-  version: v.literal(1),
+  version: v.literal(2),
   settings: GridSettingsSchema,
   appearance: ManuscriptAppearanceSchema,
   offsets: ManuscriptOffsetsSchema,
@@ -264,6 +268,7 @@ export class ManuscriptState {
   readonly zoom: ZoomMode;
   readonly presets: readonly ManuscriptPreset[];
   readonly activeDiagnosticId: string | null;
+  readonly notation: ManuscriptNotation;
   readonly pagination: Pagination;
   readonly geometry: ManuscriptGeometry;
   readonly diagnostics: readonly ManuscriptDiagnostic[];
@@ -287,9 +292,10 @@ export class ManuscriptState {
     this.proofreading = copyProofreading(config.proofreading);
     this.zoom = zoom;
     this.presets = presets;
-    this.pagination = paginateManuscript(this.text, this.settings, this.offsets);
+    this.notation = options.notation ?? plainTextNotation;
+    this.pagination = paginateManuscript(this.text, this.settings, this.offsets, this.notation);
     this.geometry = calculateManuscriptGeometry(this.settings, this.appearance);
-    this.diagnostics = proofreadManuscript(this.text, this.proofreading);
+    this.diagnostics = proofreadManuscript(this.text, this.proofreading, this.notation);
     this.activeDiagnosticId = this.diagnostics.some(({ id }) => id === options.activeDiagnosticId)
       ? (options.activeDiagnosticId ?? null)
       : null;
@@ -425,6 +431,7 @@ export class ManuscriptState {
       zoom,
       presets,
       activeDiagnosticId: requestedDiagnosticId,
+      notation: this.notation,
     });
     if (
       requestedDiagnosticId !== null &&
@@ -515,8 +522,8 @@ export function createManuscript(options: ManuscriptStateOptions = {}): Manuscri
   return new ManuscriptController(options);
 }
 
-export interface PersistedManuscriptPreferencesV1 {
-  version: 1;
+export interface PersistedManuscriptPreferencesV2 {
+  version: 2;
   settings: GridSettings;
   appearance: ManuscriptAppearanceSettings;
   offsets: ManuscriptOffsets;
@@ -531,9 +538,9 @@ export type DecodeManuscriptPreferencesResult =
 
 export function encodeManuscriptPreferences(
   state: ManuscriptState,
-): PersistedManuscriptPreferencesV1 {
+): PersistedManuscriptPreferencesV2 {
   return {
-    version: 1,
+    version: 2,
     settings: copySettings(state.settings),
     appearance: copyAppearance(state.appearance),
     offsets: copyOffsets(state.offsets),

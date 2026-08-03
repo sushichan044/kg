@@ -96,7 +96,7 @@ Application state and manuscript preferences have separate ownership and
 storage keys:
 
 - `kg.app.state.v1` stores application selection.
-- `kg.manuscript.preferences.v1` stores core-owned manuscript preferences.
+- `kg.manuscript.preferences.v2` stores core-owned manuscript preferences.
 - per-document visible-page state is best-effort session storage.
 
 Each durable payload has its own versioned schema.

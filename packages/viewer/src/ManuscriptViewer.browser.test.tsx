@@ -1,4 +1,4 @@
-import { DEFAULT_APPEARANCE, createManuscript } from "@sushichan044/kg-core";
+import { DEFAULT_APPEARANCE, createManuscript, pixivNotation } from "@sushichan044/kg-core";
 import type {
   GridSettings,
   ManuscriptOffsets,
@@ -62,6 +62,21 @@ test("marks diagnostics and selects them without changing the manuscript", async
   expect(screen.container.textContent).toContain(text);
 });
 
+test("marks an entire emoji variation sequence as one diagnostic", async () => {
+  const { manuscript, screen } = await renderViewer({ text: "　⭐️", settings });
+
+  const diagnostic = manuscript.state.diagnostics.find(
+    ({ ruleId }) => ruleId === "variant-character",
+  );
+  expect(diagnostic?.range).toEqual({ start: 1, end: 3 });
+
+  const occupiedCells = Array.from(
+    screen.container.querySelectorAll<HTMLElement>(".kgv-cell"),
+  ).filter((cell) => cell.textContent !== "");
+  expect(occupiedCells.map((cell) => cell.textContent)).toEqual(["　", "⭐️"]);
+  expect(occupiedCells[1]).toHaveAttribute("data-diagnostic");
+});
+
 test("selects the diagnostic that starts in the clicked cell when ranges are nested", async () => {
   // 「あ、。。」 raises a closing-quote diagnostic over 、。。 and a consecutive-punctuation
   // diagnostic over 。。 nested inside it, each starting in a different cell.
@@ -86,6 +101,97 @@ test("selects the diagnostic that starts in the clicked cell when ranges are nes
   expect(selected).toBe(nested?.id);
 });
 
+test("renders the four supported pixiv notation forms without exposing their tags", async () => {
+  const source = "[[rb:漢字 > かんじ]][b:太字][i:斜体][[emphasismark:強調>・]]";
+  const { screen } = await renderViewer({ text: source, settings, notation: pixivNotation });
+
+  const ruby = screen.container.querySelector<HTMLElement>('[data-annotation="ruby"]');
+  const bold = screen.container.querySelector<HTMLElement>('[data-annotation="bold"]');
+  const italic = screen.container.querySelector<HTMLElement>('[data-annotation="italic"]');
+  const emphasis = screen.container.querySelector<HTMLElement>('[data-annotation="emphasis"]');
+  const rubyReading = ruby?.querySelector<HTMLElement>("rt");
+
+  expect(rubyReading?.textContent).toBe("かんじ");
+  expect(rubyReading?.getBoundingClientRect().top).toBeCloseTo(
+    ruby?.getBoundingClientRect().top ?? 0,
+    0,
+  );
+  expect(rubyReading?.getBoundingClientRect().left).toBeGreaterThanOrEqual(
+    ruby?.getBoundingClientRect().right ?? 0,
+  );
+  expect(getComputedStyle(bold!).fontWeight).toBe("700");
+  expect(getComputedStyle(italic!).fontStyle).toBe("italic");
+  expect(getComputedStyle(emphasis!).textEmphasisStyle).toContain("・");
+  expect(
+    screen.container.querySelector(".kgv-visually-hidden")?.textContent.replace(/\n+$/, ""),
+  ).toBe("漢字太字斜体強調");
+  expect(screen.container.textContent).not.toContain("[[rb:");
+  expect(screen.container.textContent).not.toContain("[b:");
+  expect(screen.container.textContent).not.toContain("[i:");
+  expect(screen.container.textContent).not.toContain("[[emphasismark:");
+});
+
+test("splits annotations at line boundaries and repeats ruby readings", async () => {
+  const { screen } = await renderViewer({
+    text: "[[rb:一二三四五六七八九十一二 > いちにさんしごろくしちはちきゅうじゅういちに]]",
+    settings,
+    notation: pixivNotation,
+  });
+
+  const rubyFragments = screen.container.querySelectorAll<HTMLElement>('[data-annotation="ruby"]');
+  expect(rubyFragments).toHaveLength(2);
+  expect(Array.from(rubyFragments, (ruby) => ruby.querySelector("rt")?.textContent)).toEqual([
+    "いちにさんしごろくしちはちきゅうじゅういちに",
+    "いちにさんしごろくしちはちきゅうじゅういちに",
+  ]);
+  expect(Array.from(rubyFragments, (ruby) => ruby.querySelectorAll(".kgv-cell").length)).toEqual([
+    10, 2,
+  ]);
+});
+
+test("escapes an emphasis mark before using it as a CSS string", async () => {
+  const { screen } = await renderViewer({
+    text: '[[emphasismark:引用>"]] ',
+    settings,
+    notation: pixivNotation,
+  });
+
+  const emphasis = screen.container.querySelector<HTMLElement>('[data-annotation="emphasis"]');
+  expect(getComputedStyle(emphasis!).textEmphasisStyle).toContain('"');
+  expect(emphasis?.textContent).toBe("引用");
+});
+
+test("keeps diagnostic selection working for decorated source ranges", async () => {
+  let selectedRange: { start: number; end: number } | undefined;
+  const { screen } = await renderViewer(
+    { text: "[b:「あ、。。」]", settings, notation: pixivNotation },
+    {
+      onDiagnosticSelect: (diagnostic) => {
+        selectedRange = diagnostic.range;
+      },
+    },
+  );
+
+  await screen.getByRole("button").first().click();
+  expect(selectedRange).toEqual({ start: 5, end: 8 });
+  expect(
+    screen.container.querySelector('[data-annotation="bold"] [data-diagnostic]'),
+  ).not.toBeNull();
+});
+
+test("renders HTML-looking notation content as text instead of DOM", async () => {
+  const source = "[b:<img src=x onerror=alert(1)>]";
+  const { screen } = await renderViewer({ text: source, settings, notation: pixivNotation });
+
+  expect(screen.container.querySelector("img")).toBeNull();
+  expect(
+    Array.from(
+      screen.container.querySelectorAll('[data-annotation="bold"]'),
+      (fragment) => fragment.textContent,
+    ).join(""),
+  ).toBe("<img src=x onerror=alert(1)>");
+});
+
 test("renders a cell whose size in pixels matches the specified point size at 100% zoom", async () => {
   const { screen } = await renderViewer({
     text: "あ",
@@ -96,6 +202,26 @@ test("renders a cell whose size in pixels matches the specified point size at 10
   const cell = screen.container.querySelector<HTMLElement>(".kgv-cell");
   // 10pt = 10 * (96 / 72) CSS px ≈ 13.33px.
   expect(cell?.getBoundingClientRect().width).toBeCloseTo((10 * 96) / 72, 0);
+});
+
+test("renders each vertical line as an independent grid with a half-em gap", async () => {
+  const { screen } = await renderViewer({
+    text: "あ",
+    settings,
+    appearance: { ...DEFAULT_APPEARANCE, fontSizePt: 12 },
+  });
+
+  const lines = screen.container.querySelectorAll<HTMLElement>(".kgv-line");
+  const first = lines[0]?.getBoundingClientRect();
+  const second = lines[1]?.getBoundingClientRect();
+  const cellSize = lines[0]?.querySelector<HTMLElement>(".kgv-cell")?.getBoundingClientRect().width;
+
+  expect(first?.right).toBeGreaterThan(second?.right ?? 0);
+  expect((first?.left ?? 0) - (second?.left ?? 0)).toBeCloseTo(
+    (first?.width ?? 0) + (cellSize ?? 0) * 0.5,
+    0,
+  );
+  expect(getComputedStyle(lines[0]!).borderInlineEndWidth).toBe("1px");
 });
 
 test("renders offset-reserved leading cells as empty", async () => {

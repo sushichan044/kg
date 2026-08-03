@@ -80,13 +80,14 @@
     display: flex;
     flex-direction: row-reverse;
     justify-content: flex-end;
-    border-inline-end: 1px solid var(--kgv-grid);
-    border-block-end: 1px solid var(--kgv-grid);
+    gap: var(--kgv-line-gap);
   }
 
   .kgv-line {
     display: flex;
     flex-direction: column;
+    border-inline-end: 1px solid var(--kgv-grid);
+    border-block-end: 1px solid var(--kgv-grid);
   }
 
   .kgv-cell {
@@ -108,6 +109,38 @@
   .kgv-cell[data-diagnostic-active] {
     outline: 2px solid var(--kgv-accent);
     outline-offset: -2px;
+  }
+
+  .kgv-annotation {
+    position: relative;
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    inline-size: var(--kgv-cell-size);
+  }
+
+  .kgv-annotation-bold {
+    font-weight: 700;
+  }
+
+  .kgv-annotation-italic {
+    font-style: italic;
+  }
+
+  .kgv-annotation-ruby rt {
+    position: absolute;
+    top: 0;
+    left: 100%;
+    block-size: 100%;
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    font-family: var(--kgv-manuscript-font);
+    font-size: calc(var(--kgv-cell-size) * 0.36);
+    line-height: 1;
+  }
+
+  .kgv-annotation-emphasis {
+    text-emphasis-position: over right;
   }
 
   .kgv-glyph {
@@ -406,7 +439,7 @@
 
   @media (forced-colors: active) {
     .kgv-cell,
-    .kgv-stage {
+    .kgv-line {
       border-color: CanvasText;
     }
 

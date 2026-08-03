@@ -11,7 +11,7 @@ import type { ManuscriptPreferences, ManuscriptState } from "@sushichan044/kg-co
 import * as v from "valibot";
 
 const APP_STATE_KEY = "kg.app.state.v1";
-const PREFERENCES_KEY = "kg.manuscript.preferences.v1";
+const PREFERENCES_KEY = "kg.manuscript.preferences.v2";
 const PAGE_KEY_PREFIX = "kg.app.page.v1:";
 
 const AppStateSchema = v.object({

@@ -1,4 +1,4 @@
-import { createManuscript } from "@sushichan044/kg-core";
+import { createManuscript, pixivNotation } from "@sushichan044/kg-core";
 import type { ManuscriptController, ManuscriptDiagnostic } from "@sushichan044/kg-core";
 import {
   DiagnosticList,
@@ -79,10 +79,37 @@ interface WorkspaceProps {
   controller: ManuscriptController;
 }
 
+const FILE_QUERY_PARAM = "file";
+
+function loadInitialAppState(): AppState {
+  const stored = loadAppState();
+  const selectedPath = new URL(window.location.href).searchParams.get(FILE_QUERY_PARAM);
+
+  return selectedPath === null || selectedPath === "" ? stored : { version: 1, selectedPath };
+}
+
+function replaceSelectedPathInURL(path: string | null): void {
+  const url = new URL(window.location.href);
+  if (path === null) {
+    url.searchParams.delete(FILE_QUERY_PARAM);
+  } else {
+    url.searchParams.set(FILE_QUERY_PARAM, path);
+  }
+  window.history.replaceState(window.history.state, "", url);
+}
+
+function resolveAppState(files: FileEntry[], current: AppState): AppState {
+  const selectedPath =
+    files.find((file) => file.path === current.selectedPath)?.path ?? files[0]?.path ?? null;
+
+  return selectedPath === current.selectedPath ? current : { version: 1, selectedPath };
+}
+
 function Workspace({ controller }: WorkspaceProps) {
   const diagnosticCount = useManuscriptState((state) => state.diagnostics.length);
-  const [appState, setAppState] = useState(loadAppState);
+  const [appState, setAppState] = useState(loadInitialAppState);
   const [files, setFiles] = useState<FileEntry[]>([]);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
   // A new object per successful load, so page restoration also runs when the same
   // document is reloaded after a file-change event.
   const [loadedDocument, setLoadedDocument] = useState<{ id: string } | null>(null);
@@ -92,6 +119,9 @@ function Workspace({ controller }: WorkspaceProps) {
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
   const [diagnosticsSheetOpen, setDiagnosticsSheetOpen] = useState(false);
   const viewRef = useRef<ManuscriptViewHandle>(null);
+  const appStateRef = useRef(appState);
+  // Identifies the newest catalog request so a late response cannot overwrite a newer one.
+  const catalogRequestRef = useRef(0);
   // Identifies the newest content request so a late response cannot overwrite a newer one.
   const contentRequestRef = useRef(0);
 
@@ -100,13 +130,33 @@ function Workspace({ controller }: WorkspaceProps) {
   const selectedId = selectedFile?.id ?? null;
   const selectedPath = selectedFile?.path ?? null;
 
-  const refreshFiles = useCallback(async () => {
-    try {
-      setFiles(await fetchFiles());
-    } catch {
-      setStatus("ファイル一覧の取得に失敗しました");
-    }
+  const commitAppState = useCallback((next: AppState) => {
+    appStateRef.current = next;
+    setAppState(next);
+    if (!saveAppState(next)) setStatus("選択状態を保存できませんでした");
   }, []);
+
+  const acceptCatalogResponse = useCallback(
+    (request: number, nextFiles: FileEntry[]) => {
+      if (request !== catalogRequestRef.current) return;
+      setFiles(nextFiles);
+      commitAppState(resolveAppState(nextFiles, appStateRef.current));
+      setCatalogLoaded(true);
+    },
+    [commitAppState],
+  );
+
+  const refreshFiles = useCallback(async () => {
+    const request = ++catalogRequestRef.current;
+    try {
+      const nextFiles = await fetchFiles();
+      acceptCatalogResponse(request, nextFiles);
+    } catch {
+      if (request === catalogRequestRef.current) {
+        setStatus("ファイル一覧の取得に失敗しました");
+      }
+    }
+  }, [acceptCatalogResponse]);
 
   const loadContent = useCallback(
     (id: string) => {
@@ -126,19 +176,27 @@ function Workspace({ controller }: WorkspaceProps) {
   );
 
   useEffect(() => {
-    let ignore = false;
+    const request = ++catalogRequestRef.current;
     void fetchFiles().then(
       (nextFiles) => {
-        if (!ignore) setFiles(nextFiles);
+        acceptCatalogResponse(request, nextFiles);
       },
       () => {
-        if (!ignore) setStatus("ファイル一覧の取得に失敗しました");
+        if (request === catalogRequestRef.current) {
+          setStatus("ファイル一覧の取得に失敗しました");
+        }
       },
     );
     return () => {
-      ignore = true;
+      catalogRequestRef.current += 1;
     };
-  }, []);
+  }, [acceptCatalogResponse]);
+
+  useEffect(() => {
+    if (!catalogLoaded) return;
+
+    replaceSelectedPathInURL(selectedPath);
+  }, [catalogLoaded, selectedPath]);
 
   useEffect(() => {
     if (selectedId === null) {
@@ -182,12 +240,11 @@ function Workspace({ controller }: WorkspaceProps) {
       const found = files.find((file) => file.id === id);
       if (found !== undefined) {
         const next: AppState = { version: 1, selectedPath: found.path };
-        setAppState(next);
-        if (!saveAppState(next)) setStatus("選択状態を保存できませんでした");
+        commitAppState(next);
       }
       setFilesSheetOpen(false);
     },
-    [files],
+    [commitAppState, files],
   );
 
   const onViewEvent = useCallback(
@@ -322,7 +379,9 @@ function Workspace({ controller }: WorkspaceProps) {
 }
 
 export function App() {
-  const [controller] = useState(() => createManuscript(loadManuscriptPreferences()));
+  const [controller] = useState(() =>
+    createManuscript({ ...loadManuscriptPreferences(), notation: pixivNotation }),
+  );
 
   return (
     <ManuscriptProvider controller={controller}>

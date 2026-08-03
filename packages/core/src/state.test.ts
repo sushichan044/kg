@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from "vite-plus/test";
 
 import { DEFAULT_APPEARANCE, DEFAULT_ZOOM } from "./appearance";
+import { pixivNotation } from "./notation";
 import { DEFAULT_OFFSETS, DEFAULT_SETTINGS } from "./pagination";
 import { DEFAULT_PROOFREADING_OPTIONS } from "./proofreading";
 import {
@@ -93,6 +94,20 @@ describe("ManuscriptState", () => {
     expect(replaced.activeDiagnosticId).toBeNull();
   });
 
+  test("retains notation while replacing a document through state and controller", () => {
+    const state = createManuscriptState({ text: "[b:本文]", notation: pixivNotation });
+    const updated = state.update({ type: "document.replace", text: "[i:次]" }).state;
+
+    expect(updated.notation).toBe(pixivNotation);
+    expect(updated.pagination.stats.chars).toBe(1);
+    expect(updated.pagination.pages[0]![0]![0]![0]).toMatchObject({ grapheme: "次" });
+
+    const manuscript = createManuscript({ text: "[b:本文]", notation: pixivNotation });
+    manuscript.dispatch({ type: "document.replace", text: "[i:次]" });
+    expect(manuscript.state.notation).toBe(pixivNotation);
+    expect(manuscript.state.pagination.stats.chars).toBe(1);
+  });
+
   test("applies and protects built-in and custom presets", () => {
     const initial = createManuscriptState();
     const configured = initial.update({
@@ -148,7 +163,7 @@ describe("manuscript preferences codec", () => {
   // Each rejection test mutates exactly one field of this payload, so a failing decode
   // can only be caused by the constraint under test.
   const validPayload = {
-    version: 1,
+    version: 2,
     settings: DEFAULT_SETTINGS,
     appearance: DEFAULT_APPEARANCE,
     offsets: DEFAULT_OFFSETS,
@@ -161,8 +176,23 @@ describe("manuscript preferences codec", () => {
     expect(decodeManuscriptPreferences(validPayload).ok).toBe(true);
   });
 
+  test.each([
+    ["a6", 105, 148],
+    ["shinsho", 106, 173],
+  ] as const)(
+    "round-trips the %s paper size and applies its geometry",
+    (paperSize, width, height) => {
+      const state = createManuscriptState({ appearance: { ...DEFAULT_APPEARANCE, paperSize } });
+
+      const decoded = decodedValue(decodeManuscriptPreferences(encodeManuscriptPreferences(state)));
+
+      expect(decoded.appearance.paperSize).toBe(paperSize);
+      expect(state.geometry).toMatchObject({ paperWidthMm: width, paperHeightMm: height });
+    },
+  );
+
   test("rejects preferences from older versions", () => {
-    const decoded = decodeManuscriptPreferences({ ...validPayload, version: 2 });
+    const decoded = decodeManuscriptPreferences({ ...validPayload, version: 1 });
 
     expect(decoded.ok).toBe(false);
   });

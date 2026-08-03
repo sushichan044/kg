@@ -1,5 +1,12 @@
 import { fitPagePercent, fontPreset } from "@sushichan044/kg-core";
-import type { ManuscriptDiagnostic, OccupiedCell, Page, Stage } from "@sushichan044/kg-core";
+import type {
+  Cell,
+  ManuscriptDiagnostic,
+  NotationAnnotation,
+  OccupiedCell,
+  Page,
+  Stage,
+} from "@sushichan044/kg-core";
 import {
   forwardRef,
   useCallback,
@@ -9,7 +16,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { CSSProperties, ForwardedRef } from "react";
+import type { CSSProperties, ForwardedRef, ReactNode } from "react";
 
 import { useEffectiveZoom, useManuscriptDispatch, useManuscriptState } from "./Provider";
 
@@ -33,6 +40,7 @@ export interface ManuscriptViewHandle {
 
 type ManuscriptStyle = CSSProperties & {
   "--kgv-cell-size": string;
+  "--kgv-line-gap": string;
   "--kgv-manuscript-font": string;
   "--kgv-page-height": string;
   "--kgv-page-width": string;
@@ -65,6 +73,96 @@ function startsInCell(cell: OccupiedCell, diagnostic: ManuscriptDiagnostic): boo
 
 function joinClassNames(...names: Array<string | undefined>): string {
   return names.filter((name) => name !== undefined && name !== "").join(" ");
+}
+
+interface RenderedCell {
+  id: string;
+  cell: Cell;
+}
+
+interface CellFragment {
+  id: string;
+  annotation?: NotationAnnotation;
+  cells: RenderedCell[];
+}
+
+function annotationKey(annotation: NotationAnnotation | undefined): string | undefined {
+  if (annotation === undefined) {
+    return undefined;
+  }
+
+  return `${annotation.kind}:${annotation.sourceRange.start}:${annotation.sourceRange.end}`;
+}
+
+function cellAnnotation(cell: Cell): NotationAnnotation | undefined {
+  return cell?.annotations?.[0];
+}
+
+function cssString(value: string): string {
+  return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+}
+
+function fragmentCells(cells: RenderedCell[]): CellFragment[] {
+  const fragments: CellFragment[] = [];
+
+  for (const item of cells) {
+    const annotation = cellAnnotation(item.cell);
+    const previous = fragments.at(-1);
+    if (
+      annotation !== undefined &&
+      previous !== undefined &&
+      annotationKey(previous.annotation) === annotationKey(annotation)
+    ) {
+      previous.cells.push(item);
+    } else {
+      fragments.push({ id: item.id, annotation, cells: [item] });
+    }
+  }
+
+  return fragments;
+}
+
+interface AnnotationFragmentProps {
+  annotation: NotationAnnotation;
+  children: ReactNode;
+}
+
+function AnnotationFragment({ annotation, children }: AnnotationFragmentProps) {
+  switch (annotation.kind) {
+    case "bold": {
+      return (
+        <strong className="kgv-annotation kgv-annotation-bold" data-annotation="bold">
+          {children}
+        </strong>
+      );
+    }
+    case "italic": {
+      return (
+        <em className="kgv-annotation kgv-annotation-italic" data-annotation="italic">
+          {children}
+        </em>
+      );
+    }
+    case "ruby": {
+      return (
+        <ruby className="kgv-annotation kgv-annotation-ruby" data-annotation="ruby">
+          {children}
+          <rt aria-hidden="true">{annotation.reading}</rt>
+        </ruby>
+      );
+    }
+    case "emphasis": {
+      return (
+        <span
+          className="kgv-annotation kgv-annotation-emphasis"
+          data-annotation="emphasis"
+          style={{ textEmphasis: cssString(annotation.mark) }}
+        >
+          {children}
+        </span>
+      );
+    }
+  }
 }
 
 function ManuscriptViewerComponent(
@@ -225,17 +323,70 @@ function ManuscriptViewerComponent(
   const style: ManuscriptStyle = useMemo(() => {
     return {
       "--kgv-cell-size": `${geometry.cellSizeMm * (effectivePercent / 100)}mm`,
+      "--kgv-line-gap": `${geometry.lineGapMm * (effectivePercent / 100)}mm`,
       "--kgv-manuscript-font": selectedFont.family,
       "--kgv-page-height": `${geometry.paperHeightMm * (effectivePercent / 100)}mm`,
       "--kgv-page-width": `${geometry.paperWidthMm * (effectivePercent / 100)}mm`,
     };
   }, [
     geometry.cellSizeMm,
+    geometry.lineGapMm,
     geometry.paperHeightMm,
     geometry.paperWidthMm,
     effectivePercent,
     selectedFont.family,
   ]);
+
+  const renderCell = (cellId: string, cell: Cell) => {
+    if (cell === null) {
+      return <span key={cellId} className="kgv-cell" />;
+    }
+    const cellDiagnostics = diagnosticsForCell(cell, diagnostics);
+    const first = cellDiagnostics.find((diagnostic) => startsInCell(cell, diagnostic));
+    const active = cellDiagnostics.some((diagnostic) => diagnostic.id === activeDiagnosticId);
+
+    return (
+      <span
+        key={cellId}
+        className="kgv-cell"
+        data-diagnostic={cellDiagnostics.length > 0 ? "" : undefined}
+        data-diagnostic-active={active ? "" : undefined}
+      >
+        <span
+          className={joinClassNames(
+            "kgv-glyph",
+            uprightGlyphPattern.test(cell.grapheme) ? "kgv-glyph-upright" : undefined,
+          )}
+          aria-hidden="true"
+        >
+          {cell.grapheme}
+        </span>
+        {first !== undefined && (
+          <button
+            ref={(element) => {
+              for (const diagnostic of cellDiagnostics) {
+                if (!startsInCell(cell, diagnostic)) {
+                  continue;
+                }
+                if (element === null) {
+                  diagnosticRefs.current.delete(diagnostic.id);
+                } else {
+                  diagnosticRefs.current.set(diagnostic.id, element);
+                }
+              }
+            }}
+            type="button"
+            className="kgv-diagnostic-marker"
+            aria-label={`${first.location.start.line}行${first.location.start.column}列: ${first.message}`}
+            onClick={() => {
+              dispatch({ type: "diagnostic.select", id: first.id });
+              onDiagnosticSelect?.(first);
+            }}
+          />
+        )}
+      </span>
+    );
+  };
 
   return (
     <div className={joinClassNames("kgv-viewer", className)} aria-label={ariaLabel}>
@@ -259,60 +410,16 @@ function ManuscriptViewerComponent(
                   <div key={stageId} className="kgv-stage">
                     {lines.map(({ id: lineId, cells }) => (
                       <div key={lineId} className="kgv-line">
-                        {cells.map(({ id: cellId, cell }) => {
-                          if (cell === null) {
-                            return <span key={cellId} className="kgv-cell" />;
-                          }
-                          const cellDiagnostics = diagnosticsForCell(cell, diagnostics);
-                          const first = cellDiagnostics.find((diagnostic) =>
-                            startsInCell(cell, diagnostic),
+                        {fragmentCells(cells).map((fragment) => {
+                          const renderedCells = fragment.cells.map(({ id: cellId, cell }) =>
+                            renderCell(cellId, cell),
                           );
-                          const active = cellDiagnostics.some(
-                            (diagnostic) => diagnostic.id === activeDiagnosticId,
-                          );
-
-                          return (
-                            <span
-                              key={cellId}
-                              className="kgv-cell"
-                              data-diagnostic={cellDiagnostics.length > 0 ? "" : undefined}
-                              data-diagnostic-active={active ? "" : undefined}
-                            >
-                              <span
-                                className={joinClassNames(
-                                  "kgv-glyph",
-                                  uprightGlyphPattern.test(cell.grapheme)
-                                    ? "kgv-glyph-upright"
-                                    : undefined,
-                                )}
-                                aria-hidden="true"
-                              >
-                                {cell.grapheme}
-                              </span>
-                              {first !== undefined && (
-                                <button
-                                  ref={(element) => {
-                                    for (const diagnostic of cellDiagnostics) {
-                                      if (!startsInCell(cell, diagnostic)) {
-                                        continue;
-                                      }
-                                      if (element === null) {
-                                        diagnosticRefs.current.delete(diagnostic.id);
-                                      } else {
-                                        diagnosticRefs.current.set(diagnostic.id, element);
-                                      }
-                                    }
-                                  }}
-                                  type="button"
-                                  className="kgv-diagnostic-marker"
-                                  aria-label={`${first.location.start.line}行${first.location.start.column}列: ${first.message}`}
-                                  onClick={() => {
-                                    dispatch({ type: "diagnostic.select", id: first.id });
-                                    onDiagnosticSelect?.(first);
-                                  }}
-                                />
-                              )}
-                            </span>
+                          return fragment.annotation === undefined ? (
+                            renderedCells
+                          ) : (
+                            <AnnotationFragment key={fragment.id} annotation={fragment.annotation}>
+                              {renderedCells}
+                            </AnnotationFragment>
                           );
                         })}
                       </div>

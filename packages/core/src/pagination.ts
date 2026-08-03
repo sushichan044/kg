@@ -1,3 +1,6 @@
+import { plainTextNotation } from "./notation";
+import type { ManuscriptNotation, NotationAnnotation, NotationGrapheme } from "./notation";
+
 export interface GridSettings {
   charsPerLine: number;
   linesPerStage: number;
@@ -24,6 +27,7 @@ export interface SourceRange {
 export interface OccupiedCell {
   grapheme: string;
   sourceRange: SourceRange;
+  annotations?: readonly NotationAnnotation[];
 }
 
 export type Cell = OccupiedCell | null;
@@ -67,55 +71,46 @@ export const DEFAULT_OFFSETS: ManuscriptOffsets = {
   stage: { leading: 0, trailing: 0 },
 };
 
-interface SourceLine {
-  text: string;
-  start: number;
-}
+function displayedLines(graphemes: readonly NotationGrapheme[]): NotationGrapheme[][] {
+  const lines: NotationGrapheme[][] = [[]];
+  let endedWithLineBreak = false;
 
-const segmenter = new Intl.Segmenter("ja", { granularity: "grapheme" });
-
-function sourceLines(text: string): SourceLine[] {
-  const lines: SourceLine[] = [];
-  let lineStart = 0;
-  let index = 0;
-
-  while (index < text.length) {
-    const character = text[index];
-    if (character !== "\n" && character !== "\r") {
-      index += 1;
+  for (const grapheme of graphemes) {
+    if (grapheme.grapheme === "\n" || grapheme.grapheme === "\r" || grapheme.grapheme === "\r\n") {
+      lines.push([]);
+      endedWithLineBreak = true;
 
       continue;
     }
-
-    lines.push({ text: text.slice(lineStart, index), start: lineStart });
-    if (character === "\r" && text[index + 1] === "\n") {
-      index += 2;
-    } else {
-      index += 1;
-    }
-    lineStart = index;
+    lines.at(-1)!.push(grapheme);
+    endedWithLineBreak = false;
   }
 
-  lines.push({ text: text.slice(lineStart), start: lineStart });
-  if (
-    lines.length > 1 &&
-    lines.at(-1)?.text === "" &&
-    (text.endsWith("\n") || text.endsWith("\r"))
-  ) {
+  if (lines.length > 1 && endedWithLineBreak) {
     lines.pop();
   }
 
-  return lines.length === 0 ? [{ text: "", start: 0 }] : lines;
+  return lines;
 }
 
-function cells(line: SourceLine): OccupiedCell[] {
-  return Array.from(segmenter.segment(line.text), ({ index, segment }) => ({
-    grapheme: segment,
-    sourceRange: {
-      start: line.start + index,
-      end: line.start + index + segment.length,
-    },
-  }));
+function annotationMap(
+  graphemeCount: number,
+  annotations: readonly NotationAnnotation[],
+): Array<readonly NotationAnnotation[] | undefined> {
+  const byGrapheme: Array<NotationAnnotation[] | undefined> = Array.from({
+    length: graphemeCount,
+  });
+  for (const annotation of annotations) {
+    for (
+      let index = annotation.graphemeRange.start;
+      index < annotation.graphemeRange.end;
+      index += 1
+    ) {
+      (byGrapheme[index] ??= []).push(annotation);
+    }
+  }
+
+  return byGrapheme;
 }
 
 function padLine(items: Cell[], charsPerLine: number): Line {
@@ -253,14 +248,30 @@ export function paginateManuscript(
   text: string,
   settings: GridSettings,
   offsets: ManuscriptOffsets = DEFAULT_OFFSETS,
+  notation: ManuscriptNotation = plainTextNotation,
 ): Pagination {
   const { charsPerLine } = settings;
-  const lines = sourceLines(text);
+  const parsed = notation.parse(text);
+  const lines = displayedLines(parsed.graphemes);
+  const annotations = annotationMap(parsed.graphemes.length, parsed.annotations);
+  const graphemeIndexes = new Map(parsed.graphemes.map((grapheme, index) => [grapheme, index]));
   const manuscriptLines: Line[] = [];
   let chars = 0;
 
   for (const sourceLine of lines) {
-    const occupied = cells(sourceLine);
+    const occupied = sourceLine.map((grapheme) => {
+      const graphemeIndex = graphemeIndexes.get(grapheme)!;
+      const applicable = annotations[graphemeIndex];
+      const cell: OccupiedCell = {
+        grapheme: grapheme.grapheme,
+        sourceRange: grapheme.sourceRange,
+      };
+      if (applicable !== undefined) {
+        cell.annotations = applicable;
+      }
+
+      return cell;
+    });
     chars += occupied.length;
     if (occupied.length === 0) {
       manuscriptLines.push(padLine([], charsPerLine));
