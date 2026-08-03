@@ -131,7 +131,7 @@ test("opens the file selected by the URL and preserves unrelated URL state", asy
   const screen = await render(<App />);
 
   await vi.waitFor(() => {
-    expect(screen.container.querySelector(".kgv-toolbar-label")?.textContent).toBe("共有 原稿.txt");
+    expect(screen.container.querySelector(".toolbar-label")?.textContent).toBe("共有 原稿.txt");
   });
   expect(new URL(window.location.href).searchParams.get("file")).toBe("共有 原稿.txt");
   expect(new URL(window.location.href).searchParams.get("mode")).toBe("preview");
@@ -147,7 +147,7 @@ test("updates the shared URL when another file is selected", async () => {
   const screen = await render(<App />);
 
   await vi.waitFor(() => {
-    expect(screen.container.querySelector(".kgv-toolbar-label")?.textContent).toBe("共有 原稿.txt");
+    expect(screen.container.querySelector(".toolbar-label")?.textContent).toBe("共有 原稿.txt");
   });
   screen.container.querySelector<HTMLButtonElement>(".sidebar .file-list__item")?.click();
 
@@ -164,7 +164,7 @@ test("normalizes an unknown URL file to the first available file", async () => {
   const screen = await render(<App />);
 
   await vi.waitFor(() => {
-    expect(screen.container.querySelector(".kgv-toolbar-label")?.textContent).toBe(
+    expect(screen.container.querySelector(".toolbar-label")?.textContent).toBe(
       "testdata/novel.txt",
     );
     expect(new URL(window.location.href).searchParams.get("file")).toBe("testdata/novel.txt");
@@ -196,7 +196,7 @@ test("synchronizes the URL after a failed initial catalog load is refreshed", as
   FakeEventSource.latest?.emit("update", "{}");
 
   await vi.waitFor(() => {
-    expect(screen.container.querySelector(".kgv-toolbar-label")?.textContent).toBe("共有 原稿.txt");
+    expect(screen.container.querySelector(".toolbar-label")?.textContent).toBe("共有 原稿.txt");
     expect(new URL(window.location.href).searchParams.get("file")).toBe("共有 原稿.txt");
   });
 });
@@ -232,7 +232,7 @@ test("keeps the newest catalog when an older request finishes last", async () =>
   });
   FakeEventSource.latest?.emit("update", "{}");
   await vi.waitFor(() => {
-    expect(screen.container.querySelector(".kgv-toolbar-label")?.textContent).toBe("共有 原稿.txt");
+    expect(screen.container.querySelector(".toolbar-label")?.textContent).toBe("共有 原稿.txt");
   });
 
   resolveInitialCatalog(
@@ -242,7 +242,7 @@ test("keeps the newest catalog when an older request finishes last", async () =>
   );
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  expect(screen.container.querySelector(".kgv-toolbar-label")?.textContent).toBe("共有 原稿.txt");
+  expect(screen.container.querySelector(".toolbar-label")?.textContent).toBe("共有 原稿.txt");
   expect(new URL(window.location.href).searchParams.get("file")).toBe("共有 原稿.txt");
 });
 

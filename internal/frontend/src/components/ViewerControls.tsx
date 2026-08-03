@@ -38,8 +38,8 @@ export function ZoomControls({
   return (
     <div
       className={classNames(
-        "kgv-zoom-controls",
-        verbose ? "kgv-zoom-controls--verbose" : undefined,
+        "zoom-controls",
+        verbose ? "zoom-controls--verbose" : undefined,
         className,
       )}
       aria-label="ズーム"
@@ -94,21 +94,21 @@ export function ViewerToolbar({
   ...zoomProps
 }: ViewerToolbarProps) {
   return (
-    <div className={classNames("kgv-toolbar-container", zoomProps.className)}>
-      <div className="kgv-toolbar">
-        <div className="kgv-toolbar-document">
-          <strong className="kgv-toolbar-label" title={documentLabel}>
+    <div className={classNames("toolbar-container", zoomProps.className)}>
+      <div className="toolbar">
+        <div className="toolbar-document">
+          <strong className="toolbar-label" title={documentLabel}>
             {documentLabel}
           </strong>
-          <span className="kgv-toolbar-summary">
+          <span className="toolbar-summary">
             {composed.layout.stats.chars}字・{composed.layout.stats.pages}ページ
           </span>
         </div>
-        <div className="kgv-toolbar-actions">
+        <div className="toolbar-actions">
           <ZoomControls {...zoomProps} className={undefined} />
           <button
             type="button"
-            className="kgv-diagnostics-trigger"
+            className="diagnostics-trigger"
             aria-label={`診断 ${diagnosticCount}件`}
             onClick={onDiagnosticsOpen}
           >
@@ -183,8 +183,8 @@ export function SettingsPanel({
   );
 
   return (
-    <div className="kgv-settings-panel">
-      <fieldset className="kgv-controls">
+    <div className="settings-panel">
+      <fieldset className="controls">
         <legend>原稿用紙</legend>
         {(
           [
@@ -193,7 +193,7 @@ export function SettingsPanel({
             ["stagesPerPage", "一頁の段数"],
           ] as const
         ).map(([key, label]) => (
-          <label key={key} className="kgv-control" htmlFor={`${idPrefix}${key}`}>
+          <label key={key} className="control" htmlFor={`${idPrefix}${key}`}>
             <span>{label}</span>
             <input
               id={`${idPrefix}${key}`}
@@ -209,9 +209,9 @@ export function SettingsPanel({
         ))}
       </fieldset>
 
-      <fieldset className="kgv-paper-controls">
+      <fieldset className="paper-controls">
         <legend>用紙と書体</legend>
-        <label className="kgv-select-control">
+        <label className="select-control">
           <span>用紙</span>
           <select
             value={composition.appearance.paperSize}
@@ -231,7 +231,7 @@ export function SettingsPanel({
             ))}
           </select>
         </label>
-        <label className="kgv-control">
+        <label className="control">
           <span>文字サイズ</span>
           <input
             type="number"
@@ -246,9 +246,9 @@ export function SettingsPanel({
               }
             }}
           />
-          <small className="kgv-control-hint">pt（推奨上限 {maximumFontSize}）</small>
+          <small className="control-hint">pt（推奨上限 {maximumFontSize}）</small>
         </label>
-        <label className="kgv-select-control">
+        <label className="select-control">
           <span>書体</span>
           <select
             value={composition.appearance.fontPreset}
@@ -269,11 +269,11 @@ export function SettingsPanel({
           </select>
         </label>
         {!composed.layout.geometry.fitsPaper && (
-          <p className="kgv-paper-warning">この設定では原稿用紙が用紙に収まりません。</p>
+          <p className="paper-warning">この設定では原稿用紙が用紙に収まりません。</p>
         )}
       </fieldset>
 
-      <fieldset className="kgv-offset-controls">
+      <fieldset className="offset-controls">
         <legend>空き行</legend>
         {(
           [
@@ -283,7 +283,7 @@ export function SettingsPanel({
           ] as const
         ).flatMap(([scope, scopeLabel]) =>
           (["leading", "trailing"] as const).map((edge) => (
-            <label key={`${scope}-${edge}`} className="kgv-control">
+            <label key={`${scope}-${edge}`} className="control">
               <span>
                 {scopeLabel}
                 {edge === "leading" ? "先頭" : "末尾"}
@@ -301,9 +301,9 @@ export function SettingsPanel({
         )}
       </fieldset>
 
-      <section className="kgv-presets" aria-labelledby={`${idPrefix}presets-heading`}>
+      <section className="presets" aria-labelledby={`${idPrefix}presets-heading`}>
         <strong id={`${idPrefix}presets-heading`}>プリセット</strong>
-        <div className="kgv-preset-save">
+        <div className="preset-save">
           <input
             aria-label="プリセット名"
             value={presetName}
@@ -324,7 +324,7 @@ export function SettingsPanel({
             保存
           </button>
         </div>
-        <ul className="kgv-preset-list">
+        <ul className="preset-list">
           {presets.map((preset) => (
             <li key={preset.name}>
               <button
@@ -349,7 +349,7 @@ export function SettingsPanel({
         </ul>
       </section>
 
-      <dl className="kgv-stats">
+      <dl className="stats">
         <div>
           <dt>文字数</dt>
           <dd>{composed.layout.stats.chars}</dd>
@@ -359,7 +359,7 @@ export function SettingsPanel({
           <dd>{composed.layout.stats.pages}</dd>
         </div>
       </dl>
-      <p className="kgv-status" role="status">
+      <p className="status" role="status">
         {status}
       </p>
     </div>

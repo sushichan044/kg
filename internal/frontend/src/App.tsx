@@ -1,5 +1,10 @@
 import type { ManuscriptDiagnostic } from "@sushichan044/kg-core";
-import { DiagnosticList, IframeIsolation, ManuscriptViewer } from "@sushichan044/kg-viewer";
+import {
+  DiagnosticList,
+  IframeIsolation,
+  ManuscriptViewer,
+  themeStyles,
+} from "@sushichan044/kg-viewer";
 import type { ManuscriptViewEvent, ManuscriptViewHandle } from "@sushichan044/kg-viewer";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
@@ -352,7 +357,7 @@ function Workspace() {
             {loadedDocument?.id !== selectedId ? (
               <p className="preview__loading">読み込み中…</p>
             ) : processed.ok ? (
-              <IframeIsolation>
+              <IframeIsolation styles={{ kind: "structural", css: themeStyles }}>
                 <ManuscriptViewer
                   ref={viewRef}
                   composed={processed.value.composed}

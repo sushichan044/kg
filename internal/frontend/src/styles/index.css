@@ -146,21 +146,15 @@ select {
   place-self: center;
 }
 
-.desktop-viewer-toolbar {
-  --kgv-text: var(--text);
-  --kgv-controls-surface: var(--sidebar);
-  --kgv-accent: var(--accent);
-}
-
-.kgv-toolbar-container {
-  container: kgv-toolbar / inline-size;
+.toolbar-container {
+  container: toolbar / inline-size;
   min-inline-size: 0;
   color: var(--text);
   background: rgb(216 208 194 / 92%);
   border-block-end: 1px solid rgb(47 42 36 / 14%);
 }
 
-.kgv-toolbar {
+.toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: safe center;
@@ -168,7 +162,7 @@ select {
   padding: 0.75rem 1rem;
 }
 
-.kgv-toolbar-document {
+.toolbar-document {
   min-inline-size: 0;
   display: flex;
   flex: 1 1 20rem;
@@ -177,25 +171,25 @@ select {
   gap: 0.35rem 1rem;
 }
 
-.kgv-toolbar-label {
+.toolbar-label {
   overflow: clip;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.kgv-toolbar-summary {
+.toolbar-summary {
   font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
   opacity: 0.8;
 }
 
-.kgv-toolbar-actions,
-.kgv-zoom-controls {
+.toolbar-actions,
+.zoom-controls {
   display: flex;
   align-items: safe center;
   gap: 0.35rem;
 }
 
-.kgv-toolbar button {
+.toolbar button {
   min-block-size: 2rem;
   padding: 0.25rem 0.55rem;
   border: 1px solid rgb(47 42 36 / 35%);
@@ -205,24 +199,24 @@ select {
   cursor: pointer;
 }
 
-.kgv-toolbar button:disabled {
+.toolbar button:disabled {
   cursor: default;
   opacity: 0.45;
 }
 
-.kgv-toolbar button[aria-pressed="true"] {
+.toolbar button[aria-pressed="true"] {
   border-color: var(--accent);
   outline: 1px solid var(--accent);
 }
 
-.kgv-zoom-controls output {
+.zoom-controls output {
   min-inline-size: 3.5rem;
   text-align: center;
   font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
   font-variant-numeric: tabular-nums;
 }
 
-.kgv-diagnostics-trigger span {
+.diagnostics-trigger span {
   display: inline-grid;
   place-items: center;
   min-inline-size: 1.5em;
@@ -233,84 +227,84 @@ select {
   font-variant-numeric: tabular-nums;
 }
 
-.kgv-settings-panel {
+.settings-panel {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
 }
 
-:where(.kgv-controls, .kgv-paper-controls, .kgv-offset-controls) {
+:where(.controls, .paper-controls, .offset-controls) {
   min-inline-size: 0;
   margin: 0;
   padding: 0;
   border: 0;
 }
 
-:where(.kgv-controls, .kgv-paper-controls, .kgv-offset-controls) legend {
+:where(.controls, .paper-controls, .offset-controls) legend {
   inline-size: 100%;
   margin-block-end: 0.65rem;
   padding: 0;
   font-weight: 700;
 }
 
-.kgv-controls {
+.controls {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
 }
 
-:where(.kgv-paper-controls, .kgv-offset-controls, .kgv-presets) {
+:where(.paper-controls, .offset-controls, .presets) {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
 }
 
-.kgv-control {
+.control {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 4rem;
   align-items: center;
   gap: 0.25rem 0.5rem;
 }
 
-.kgv-control input,
-:where(.kgv-select-control select, .kgv-preset-save input) {
+.control input,
+:where(.select-control select, .preset-save input) {
   inline-size: 100%;
   padding: 0.35rem;
 }
 
-.kgv-control-hint {
+.control-hint {
   grid-column: 2;
   font-size: 0.75rem;
   opacity: 0.75;
 }
 
-.kgv-select-control {
+.select-control {
   display: grid;
   grid-template-columns: minmax(5rem, 1fr) minmax(7rem, 1.4fr);
   align-items: center;
   gap: 0.5rem;
 }
 
-.kgv-paper-warning {
+.paper-warning {
   grid-column: 1 / -1;
   margin: 0.25rem 0 0;
   color: var(--accent);
 }
 
-.kgv-preset-save,
-.kgv-preset-list li,
-.kgv-stats div {
+.preset-save,
+.preset-list li,
+.stats div {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
 }
 
-.kgv-preset-save input {
+.preset-save input {
   flex: 1;
 }
 
-.kgv-preset-list {
+.preset-list {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
@@ -319,27 +313,27 @@ select {
   list-style: none;
 }
 
-.kgv-stats {
+.stats {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
   margin: 0;
 }
 
-.kgv-stats dd {
+.stats dd {
   margin: 0;
   font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
   font-variant-numeric: tabular-nums;
 }
 
-.kgv-status {
+.status {
   min-block-size: 1.25rem;
   margin: 0;
   font-size: 0.8rem;
   opacity: 0.75;
 }
 
-.kgv-zoom-controls--verbose {
+.zoom-controls--verbose {
   margin-block-end: 1.25rem;
 }
 
@@ -350,19 +344,19 @@ select {
   color: var(--accent);
 }
 
-@container kgv-toolbar (inline-size < 36rem) {
-  .kgv-toolbar-summary,
-  .kgv-zoom-controls {
+@container toolbar (inline-size < 36rem) {
+  .toolbar-summary,
+  .zoom-controls {
     display: none;
   }
 
-  .kgv-toolbar {
+  .toolbar {
     flex-wrap: nowrap;
     min-block-size: 3.25rem;
     padding: 0.35rem 0.5rem;
   }
 
-  .kgv-toolbar-document {
+  .toolbar-document {
     flex-basis: auto;
     flex-wrap: nowrap;
   }
