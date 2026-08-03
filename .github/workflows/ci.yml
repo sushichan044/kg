@@ -116,13 +116,6 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: pnpm --filter kg-frontend exec playwright install-deps chromium-headless-shell webkit
 
-      # Ubuntu does not include the Japanese fonts named by the viewer. Without a CJK fallback,
-      # Chromium lays out ruby using a different font's metrics than WebKit.
-      - name: Install CJK fonts
-        run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends --yes fonts-noto-cjk
-
       - name: Browser tests
         run: vp run --filter @sushichan044/kg-viewer --filter kg-frontend test --project '*-browser'
 

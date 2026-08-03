@@ -214,19 +214,22 @@ test("spreads a ruby reading across exactly the characters it annotates", async 
     parser: pixivParser,
   });
 
-  // Character boxes rather than the ink inside them: a box is font-size times line-height, which
-  // holds wherever this runs, while ink depends on whichever font the machine happens to have.
+  // The group reading is inset from its first and last cells by the same margin that makes glyphs
+  // smaller than their cells. Cell geometry is stable across font fallbacks; glyph rectangles are
+  // not, even with identical font-size and line-height declarations.
   const base = screen.container.querySelector<HTMLElement>('[data-annotation="ruby"]')!;
   const baseGlyphs = Array.from(base.querySelectorAll<HTMLElement>(".kgv-glyph"));
-  const first = baseGlyphs[0]!.getBoundingClientRect();
-  const last = baseGlyphs.at(-1)!.getBoundingClientRect();
+  const first = baseGlyphs[0]!.closest<HTMLElement>(".kgv-cell")!.getBoundingClientRect();
+  const last = baseGlyphs.at(-1)!.closest<HTMLElement>(".kgv-cell")!.getBoundingClientRect();
   const reading = screen.container.querySelector<HTMLElement>(".kgv-ruby")!;
+  const viewer = screen.container.querySelector<HTMLElement>(".kgv-viewer")!;
+  const glyphScale = Number.parseFloat(
+    getComputedStyle(viewer).getPropertyValue("--kgv-glyph-scale"),
+  );
+  const inset = (first.height * (1 - glyphScale)) / 2;
 
-  // The reading brackets the base characters, not the cells they sit in. Within a pixel: the inset
-  // is figured from the cell size, while the theme loaded here also draws a 1px rule inside each
-  // cell, which centres the characters half a pixel lower than the inset accounts for.
-  expect(Math.abs(reading.getBoundingClientRect().top - first.top)).toBeLessThan(1);
-  expect(Math.abs(reading.getBoundingClientRect().bottom - last.bottom)).toBeLessThan(1);
+  expect(Math.abs(reading.getBoundingClientRect().top - first.top - inset)).toBeLessThan(1);
+  expect(Math.abs(reading.getBoundingClientRect().bottom - last.bottom + inset)).toBeLessThan(1);
 });
 
 test("sets a ruby reading at half the size of the characters it annotates", async () => {
