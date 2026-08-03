@@ -125,6 +125,17 @@ test("selects the diagnostic that starts in the clicked cell when ranges are nes
   expect(selected).toBe(nested?.id);
 });
 
+test("names the diagnostic each marker stands for", async () => {
+  const { diagnostics, screen } = await renderViewer({ text: "「あ、。。」", settings });
+
+  const markers = Array.from(
+    screen.container.querySelectorAll<HTMLButtonElement>(".kgv-diagnostic-marker"),
+  );
+  expect(markers.map((marker) => marker.dataset.diagnosticId)).toEqual(
+    diagnostics.map(({ id }) => id),
+  );
+});
+
 test("renders the four supported pixiv notation forms without exposing their tags", async () => {
   const source = "[[rb:漢字 > かんじ]][b:太字][i:斜体][[emphasismark:強調>・]]";
   const { screen } = await renderViewer({ text: source, settings, parser: pixivParser });

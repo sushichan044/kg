@@ -128,7 +128,13 @@ State is exposed as attributes rather than modifier classes:
 | `data-diagnostic-active`   | `.kgv-cell`               | present when that diagnostic is selected        |
 | `data-diagnostic-severity` | `.kgv-cell`, `li`         | `warning`, `error`                              |
 | `data-diagnostic-origin`   | `li`                      | `parser`, `rule`                                |
+| `data-diagnostic-id`       | `.kgv-diagnostic-marker`  | id of the diagnostic the marker stands for      |
 | `aria-current`             | `.kgv-diagnostics button` | `true` on the selected item                     |
+
+`data-diagnostic-id` is what makes the markers addressable without a callback per
+interaction: look the id up in the `diagnostics` you passed in to drive a hover
+tooltip, a deep link, or an assertion. The marker's `aria-label` already carries
+the position and message for assistive technology.
 
 Emphasis marks are the one exception: the mark character is per-instance data,
 so it is set as an inline `text-emphasis` style and cannot be themed in CSS.

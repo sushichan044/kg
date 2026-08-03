@@ -354,6 +354,7 @@ function ManuscriptViewerComponent(
             }}
             type="button"
             className="kgv-diagnostic-marker"
+            data-diagnostic-id={first.id}
             aria-label={`${first.location.start.line}行${first.location.start.column}列: ${first.message}`}
             onClick={() => onDiagnosticSelect?.(first)}
           />
