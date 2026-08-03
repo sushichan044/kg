@@ -166,6 +166,25 @@ test("renders the four supported pixiv notation forms without exposing their tag
   expect(screen.container.textContent).not.toContain("[[emphasismark:");
 });
 
+test("keeps a ruby reading within the gap beside its own line", async () => {
+  const { screen } = await renderViewer({
+    text: "[[rb:漢字 > かんじ]]あ",
+    settings,
+    parser: pixivParser,
+  });
+
+  const cell = screen.container.querySelector<HTMLElement>(".kgv-cell")!.getBoundingClientRect();
+  const base = screen.container
+    .querySelector<HTMLElement>('[data-annotation="ruby"]')!
+    .getBoundingClientRect();
+  const reading = screen.container.querySelector<HTMLElement>("rt")!.getBoundingClientRect();
+
+  // The reading runs alongside the base characters, so it is as tall as they are…
+  expect(reading.height).toBeCloseTo(base.height, 0);
+  // …and no wider than one cell, or it would cover the line written before it.
+  expect(reading.width).toBeLessThan(cell.width);
+});
+
 test("splits annotations at line boundaries and repeats ruby readings", async () => {
   const { screen } = await renderViewer({
     text: "[[rb:一二三四五六七八九十一二 > いちにさんしごろくしちはちきゅうじゅういちに]]",

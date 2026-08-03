@@ -98,17 +98,26 @@
 }
 
 /* Ruby text needs explicit placement: the UA default lays it out above the
-   base text in the inline direction, which collapses under vertical-rl. */
+   base text in the inline direction, which collapses under vertical-rl.
+
+   The reading runs in its own vertical flow, orthogonal to the annotation box
+   around it, so its block axis is horizontal and its inline axis vertical.
+   Pinning top and bottom therefore gives it the base characters' length to run
+   along, and leaving the width auto keeps it about one ruby em across — narrow
+   enough to sit in the gap beside the line instead of covering the line written
+   before it. Sizing it with `block-size: 100%` swapped those two axes. */
 .kgv-annotation[data-annotation="ruby"] rt {
   position: absolute;
   top: 0;
+  bottom: 0;
   left: 100%;
-  block-size: 100%;
   writing-mode: vertical-rl;
   text-orientation: upright;
   font-family: var(--kgv-manuscript-font);
   font-size: calc(var(--kgv-cell-size) * 0.36);
   line-height: 1;
+  /* Centre the reading on its base, as ruby over a compound normally sits. */
+  text-align: center;
 }
 
 /* Keeps the emphasis mark beside the glyph rather than overlapping it. */

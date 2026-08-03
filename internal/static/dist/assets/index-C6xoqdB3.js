@@ -102,12 +102,13 @@ Error generating stack: `+e.message+`
 .kgv-annotation[data-annotation="ruby"] rt {
   writing-mode: vertical-rl;
   text-orientation: upright;
-  block-size: 100%;
   font-family: var(--kgv-manuscript-font);
   font-size: calc(var(--kgv-cell-size) * .36);
+  text-align: center;
   line-height: 1;
   position: absolute;
   top: 0;
+  bottom: 0;
   left: 100%;
 }
 
