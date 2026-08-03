@@ -98,6 +98,7 @@ type ProofreadingRule =
 組み込みルールと利用者が追加するルールは同じ契約を使う。
 組み込みルールはルール固有の設定を受け取るファクトリーとして提供し、生成したインスタンスに設定を閉じ込める。
 これにより、ランナーを全ルールで共通化し、設定を一つの巨大な object に集約しない。
+`ProofreadingOptions` は削除し、各組み込みルールのファクトリー引数へ分割する。
 どちらのルールも `ManuscriptRange` から同じ形式の診断を生成する。
 校正 API は viewer、React、DOM に依存しない。
 
@@ -111,7 +112,7 @@ viewer は原文の解析、組版、校正ルールの登録、校正の実行�
 
 `ManuscriptState`、`ManuscriptController`、`ManuscriptAction`、`ManuscriptTransaction` は削除する。
 原文を直接受け取るページ分割 API と校正 API も削除し、解析済み原稿または組版済み原稿を受け取る API に置き換える。
-組版設定、校正設定、プリセット、その永続化は利用者が責任を持つ。
+組版設定、校正設定、プリセット、その永続化は利用アプリケーションが所有し、同梱 application では frontend へ移す。
 これらは原稿変換ではなく利用アプリケーション固有の状態だからである。
 core の `ManuscriptPreferences` と永続化 API は削除する。
 互換オーバーロードやアダプターは残さない。
