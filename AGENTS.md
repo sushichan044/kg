@@ -9,6 +9,11 @@ This file provides guidance to Coding Agents when working with code in this repo
 - use `testify` for testing and assertions.
 - use `golang-...` skills to follow Go best practices and idioms.
 
+## Web Coding Standard
+
+- Prefer [Extending test context with `test.extend()`](https://vitest.dev/guide/test-context.md) rather than beforeEach/afterEach.
+- Use [`expect.assert()](https://vitest.dev/api/expect.html#assert) for assert premises rather than conditional / optional-chain / non-null statements.
+
 <!--VITE PLUS START-->
 
 ## Using Vite+, the Unified Toolchain for the Web
