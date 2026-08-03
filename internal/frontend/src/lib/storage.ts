@@ -1,36 +1,47 @@
-import {
-  DEFAULT_APPEARANCE,
-  DEFAULT_OFFSETS,
-  DEFAULT_PROOFREADING_OPTIONS,
-  DEFAULT_SETTINGS,
-  DEFAULT_ZOOM,
-  decodeManuscriptPreferences,
-  encodeManuscriptPreferences,
-} from "@sushichan044/kg-core";
-import type { ManuscriptPreferences, ManuscriptState } from "@sushichan044/kg-core";
+import { ManuscriptCompositionSettings } from "@sushichan044/kg-core";
+import { ZoomMode } from "@sushichan044/kg-viewer";
 import * as v from "valibot";
 
 const APP_STATE_KEY = "kg.app.state.v1";
-const PREFERENCES_KEY = "kg.manuscript.preferences.v2";
+const PREFERENCES_KEY = "kg.manuscript.preferences.v3";
 const PAGE_KEY_PREFIX = "kg.app.page.v1:";
 
-const AppStateSchema = v.object({
+const readonlyObject = <const TEntries extends v.ObjectEntries>(entries: TEntries) =>
+  v.pipe(v.strictObject(entries), v.readonly());
+
+const AppStateSchema = readonlyObject({
   version: v.literal(1),
   selectedPath: v.nullable(v.string()),
+});
+
+const ZoomModeSchema = v.variant("kind", [
+  readonlyObject({ kind: v.literal("fit") }),
+  readonlyObject({ kind: v.literal("fixed"), percent: v.picklist([50, 75, 100, 125, 150]) }),
+]);
+
+const ManuscriptPresetSchema = readonlyObject({
+  name: v.pipe(v.string(), v.trim(), v.nonEmpty()),
+  composition: ManuscriptCompositionSettings.schema,
+});
+
+const ManuscriptPreferencesSchema = readonlyObject({
+  version: v.literal(3),
+  composition: ManuscriptCompositionSettings.schema,
+  zoom: ZoomModeSchema,
+  presets: v.pipe(v.array(ManuscriptPresetSchema), v.readonly()),
 });
 
 const PageSchema = v.pipe(v.number(), v.integer(), v.minValue(0));
 
 export type AppState = v.InferOutput<typeof AppStateSchema>;
+export type ManuscriptPreset = v.InferOutput<typeof ManuscriptPresetSchema>;
+export type ManuscriptPreferences = v.InferOutput<typeof ManuscriptPreferencesSchema>;
 
 export const DEFAULT_APP_STATE: AppState = { version: 1, selectedPath: null };
-
 export const DEFAULT_MANUSCRIPT_PREFERENCES: ManuscriptPreferences = {
-  settings: DEFAULT_SETTINGS,
-  appearance: DEFAULT_APPEARANCE,
-  offsets: DEFAULT_OFFSETS,
-  proofreading: DEFAULT_PROOFREADING_OPTIONS,
-  zoom: DEFAULT_ZOOM,
+  version: 3,
+  composition: ManuscriptCompositionSettings.defaults,
+  zoom: ZoomMode.defaults,
   presets: [],
 };
 
@@ -59,16 +70,19 @@ export function saveAppState(state: AppState): boolean {
 
 export function loadManuscriptPreferences(): ManuscriptPreferences {
   try {
-    const result = decodeManuscriptPreferences(readJson(PREFERENCES_KEY));
-    return result.ok ? result.value : DEFAULT_MANUSCRIPT_PREFERENCES;
+    const result = v.safeParse(ManuscriptPreferencesSchema, readJson(PREFERENCES_KEY));
+    return result.success ? result.output : DEFAULT_MANUSCRIPT_PREFERENCES;
   } catch {
     return DEFAULT_MANUSCRIPT_PREFERENCES;
   }
 }
 
-export function saveManuscriptPreferences(state: ManuscriptState): boolean {
+export function saveManuscriptPreferences(preferences: ManuscriptPreferences): boolean {
   try {
-    localStorage.setItem(PREFERENCES_KEY, JSON.stringify(encodeManuscriptPreferences(state)));
+    localStorage.setItem(
+      PREFERENCES_KEY,
+      JSON.stringify(v.parse(ManuscriptPreferencesSchema, preferences)),
+    );
     return true;
   } catch {
     return false;

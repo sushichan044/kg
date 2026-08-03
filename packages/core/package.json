@@ -1,7 +1,7 @@
 {
   "name": "@sushichan044/kg-core",
   "version": "0.2.0",
-  "description": "Framework-independent manuscript pagination and Japanese novel-style diagnostics",
+  "description": "Framework-independent parsing, composition, and proofreading for Japanese manuscripts",
   "keywords": [
     "japanese",
     "manuscript",

@@ -1,13 +1,27 @@
-import { createManuscript } from "@sushichan044/kg-core";
-import type { GridSettings } from "@sushichan044/kg-core";
+import {
+  ManuscriptCompositionSettings,
+  composeManuscript,
+  manuscriptGridComposer,
+  parseManuscript,
+} from "@sushichan044/kg-core";
 import { expect, test } from "vite-plus/test";
 import { render } from "vitest-browser-react";
 
 import { IframeIsolation } from "./IframeIsolation";
 import { ManuscriptViewer } from "./ManuscriptViewer";
-import { ManuscriptProvider } from "./Provider";
 
 import "./styles.css";
+
+function composed(source: string) {
+  const parsed = parseManuscript(source);
+  if (!parsed.ok) throw new Error("fixture did not parse");
+  const result = composeManuscript(parsed.value, {
+    composer: manuscriptGridComposer,
+    settings: ManuscriptCompositionSettings.defaults,
+  });
+  if (!result.ok) throw new Error("fixture did not compose");
+  return result.value;
+}
 
 test("renders children inside the iframe", async () => {
   const screen = await render(
@@ -25,14 +39,10 @@ test("renders children inside the iframe", async () => {
 });
 
 test("applies viewer CSS inside the iframe", async () => {
-  const manuscript = createManuscript({ text: "あ" });
-
   const screen = await render(
-    <ManuscriptProvider controller={manuscript}>
-      <IframeIsolation>
-        <ManuscriptViewer />
-      </IframeIsolation>
-    </ManuscriptProvider>,
+    <IframeIsolation>
+      <ManuscriptViewer composed={composed("あ")} />
+    </IframeIsolation>,
   );
 
   await expect
@@ -48,15 +58,11 @@ test("applies viewer CSS inside the iframe", async () => {
   expect(style.borderBlockStartWidth).not.toBe("0px");
 });
 
-test("preserves provider context through the portal", async () => {
-  const manuscript = createManuscript({ text: "段落" });
-
+test("preserves controlled props through the portal", async () => {
   const screen = await render(
-    <ManuscriptProvider controller={manuscript}>
-      <IframeIsolation>
-        <ManuscriptViewer />
-      </IframeIsolation>
-    </ManuscriptProvider>,
+    <IframeIsolation>
+      <ManuscriptViewer composed={composed("段落")} />
+    </IframeIsolation>,
   );
 
   await expect
@@ -68,14 +74,10 @@ test("preserves provider context through the portal", async () => {
 });
 
 test("forwards styleOverrides into the iframe", async () => {
-  const manuscript = createManuscript({ text: "あ" });
-
   const screen = await render(
-    <ManuscriptProvider controller={manuscript}>
-      <IframeIsolation styleOverrides=".kgv-viewer { --kgv-padding: 0.5rem; }">
-        <ManuscriptViewer />
-      </IframeIsolation>
-    </ManuscriptProvider>,
+    <IframeIsolation styleOverrides=".kgv-viewer { --kgv-padding: 0.5rem; }">
+      <ManuscriptViewer composed={composed("あ")} />
+    </IframeIsolation>,
   );
 
   await expect
@@ -90,20 +92,17 @@ test("forwards styleOverrides into the iframe", async () => {
 });
 
 test("exposes imperatives handles through the portal", async () => {
-  const settings: GridSettings = { charsPerLine: 10, linesPerStage: 10, stagesPerPage: 2 };
-  const manuscript = createManuscript({ text: "あ".repeat(10), settings });
   let viewHandle: { getVisiblePage: () => number } | null = null;
 
   await render(
-    <ManuscriptProvider controller={manuscript}>
-      <IframeIsolation>
-        <ManuscriptViewer
-          ref={(handle) => {
-            viewHandle = handle;
-          }}
-        />
-      </IframeIsolation>
-    </ManuscriptProvider>,
+    <IframeIsolation>
+      <ManuscriptViewer
+        composed={composed("あ".repeat(10))}
+        ref={(handle) => {
+          viewHandle = handle;
+        }}
+      />
+    </IframeIsolation>,
   );
 
   await expect.poll(() => viewHandle?.getVisiblePage()).toBe(0);

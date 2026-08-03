@@ -1,11 +1,10 @@
-import { fitPagePercent, fontPreset } from "@sushichan044/kg-core";
+import { FontPreset } from "@sushichan044/kg-core";
 import type {
-  Cell,
+  GridCell,
+  GridComposedManuscript,
+  GridPage,
+  ManuscriptAnnotation,
   ManuscriptDiagnostic,
-  NotationAnnotation,
-  OccupiedCell,
-  Page,
-  Stage,
 } from "@sushichan044/kg-core";
 import {
   forwardRef,
@@ -18,25 +17,31 @@ import {
 } from "react";
 import type { CSSProperties, ForwardedRef, ReactNode } from "react";
 
-import { useEffectiveZoom, useManuscriptDispatch, useManuscriptState } from "./Provider";
+import { ZoomMode } from "./ZoomMode";
 
-export interface ManuscriptViewerProps {
+const NO_DIAGNOSTICS: readonly ManuscriptDiagnostic[] = [];
+
+export type ManuscriptViewerProps = Readonly<{
+  composed: GridComposedManuscript;
+  diagnostics?: readonly ManuscriptDiagnostic[];
+  activeDiagnosticId?: string | null;
+  zoom?: ZoomMode;
   ariaLabel?: string;
   className?: string;
   onViewEvent?: (event: ManuscriptViewEvent) => void;
   onDiagnosticSelect?: (diagnostic: ManuscriptDiagnostic) => void;
-}
+}>;
 
 export type ManuscriptViewEvent =
-  | { type: "visible-page.change"; page: number }
-  | { type: "effective-zoom.change"; percent: number };
+  | Readonly<{ kind: "visible-page.change"; page: number }>
+  | Readonly<{ kind: "effective-zoom.change"; percent: number }>;
 
-export interface ManuscriptViewHandle {
+export type ManuscriptViewHandle = Readonly<{
   scrollToPage: (index: number) => void;
   scrollToDiagnostic: (id: string) => void;
   getVisiblePage: () => number;
   getEffectiveZoomPercent: () => number;
-}
+}>;
 
 type ManuscriptStyle = CSSProperties & {
   "--kgv-cell-size": string;
@@ -47,27 +52,33 @@ type ManuscriptStyle = CSSProperties & {
 };
 
 const uprightGlyphPattern = /^(?:\p{Script=Latin}|[0-9])/u;
-function pageText(page: Page): string {
-  return page
-    .flatMap((stage: Stage) =>
-      stage.map((line) => line.flatMap((cell) => (cell === null ? [] : [cell.grapheme])).join("")),
+
+function pageText(page: GridPage): string {
+  return page.stages
+    .flatMap(({ lines }) =>
+      lines.map(({ cells }) =>
+        cells.flatMap(({ value }) => (value === null ? [] : [value])).join(""),
+      ),
     )
     .join("\n");
 }
 
 function diagnosticsForCell(
-  cell: OccupiedCell,
+  cell: GridCell,
   diagnostics: readonly ManuscriptDiagnostic[],
 ): ManuscriptDiagnostic[] {
+  if (cell.range === null) return [];
+  const sourceRange = cell.range.source;
   return diagnostics.filter(
-    ({ range }) => range.start < cell.sourceRange.end && range.end > cell.sourceRange.start,
+    ({ range }) => range.source.start < sourceRange.end && range.source.end > sourceRange.start,
   );
 }
 
-function startsInCell(cell: OccupiedCell, diagnostic: ManuscriptDiagnostic): boolean {
+function startsInCell(cell: GridCell, diagnostic: ManuscriptDiagnostic): boolean {
   return (
-    diagnostic.range.start >= cell.sourceRange.start &&
-    diagnostic.range.start < cell.sourceRange.end
+    cell.range !== null &&
+    diagnostic.range.source.start >= cell.range.source.start &&
+    diagnostic.range.source.start < cell.range.source.end
   );
 }
 
@@ -75,57 +86,46 @@ function joinClassNames(...names: Array<string | undefined>): string {
   return names.filter((name) => name !== undefined && name !== "").join(" ");
 }
 
-interface RenderedCell {
-  id: string;
-  cell: Cell;
-}
+type RenderedCell = Readonly<{ id: string; cell: GridCell }>;
 
-interface CellFragment {
+type CellFragment = Readonly<{
   id: string;
-  annotation?: NotationAnnotation;
+  annotations: readonly ManuscriptAnnotation[];
   cells: RenderedCell[];
+}>;
+
+function annotationKey(annotation: ManuscriptAnnotation): string {
+  return `${annotation.kind}:${annotation.range.source.start}:${annotation.range.source.end}`;
 }
 
-function annotationKey(annotation: NotationAnnotation | undefined): string | undefined {
-  if (annotation === undefined) {
-    return undefined;
-  }
-
-  return `${annotation.kind}:${annotation.sourceRange.start}:${annotation.sourceRange.end}`;
-}
-
-function cellAnnotation(cell: Cell): NotationAnnotation | undefined {
-  return cell?.annotations?.[0];
+function annotationSetKey(annotations: readonly ManuscriptAnnotation[]): string {
+  return annotations.map(annotationKey).join("|");
 }
 
 function cssString(value: string): string {
   return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
 }
 
-function fragmentCells(cells: RenderedCell[]): CellFragment[] {
+function fragmentCells(cells: readonly RenderedCell[]): CellFragment[] {
   const fragments: CellFragment[] = [];
-
   for (const item of cells) {
-    const annotation = cellAnnotation(item.cell);
     const previous = fragments.at(-1);
     if (
-      annotation !== undefined &&
       previous !== undefined &&
-      annotationKey(previous.annotation) === annotationKey(annotation)
+      annotationSetKey(previous.annotations) === annotationSetKey(item.cell.annotations)
     ) {
       previous.cells.push(item);
     } else {
-      fragments.push({ id: item.id, annotation, cells: [item] });
+      fragments.push({ id: item.id, annotations: item.cell.annotations, cells: [item] });
     }
   }
-
   return fragments;
 }
 
-interface AnnotationFragmentProps {
-  annotation: NotationAnnotation;
+type AnnotationFragmentProps = Readonly<{
+  annotation: ManuscriptAnnotation;
   children: ReactNode;
-}
+}>;
 
 function AnnotationFragment({ annotation, children }: AnnotationFragmentProps) {
   switch (annotation.kind) {
@@ -165,8 +165,23 @@ function AnnotationFragment({ annotation, children }: AnnotationFragmentProps) {
   }
 }
 
+function wrapAnnotations(annotations: readonly ManuscriptAnnotation[], children: ReactNode) {
+  return annotations.reduceRight<ReactNode>(
+    (wrapped, annotation) => (
+      <AnnotationFragment key={annotationKey(annotation)} annotation={annotation}>
+        {wrapped}
+      </AnnotationFragment>
+    ),
+    children,
+  );
+}
+
 function ManuscriptViewerComponent(
   {
+    composed,
+    diagnostics = NO_DIAGNOSTICS,
+    activeDiagnosticId = null,
+    zoom = ZoomMode.defaults,
     ariaLabel = "原稿プレビュー",
     className,
     onViewEvent,
@@ -174,22 +189,20 @@ function ManuscriptViewerComponent(
   }: ManuscriptViewerProps,
   ref: ForwardedRef<ManuscriptViewHandle>,
 ) {
-  const { appearance, activeDiagnosticId, diagnostics, geometry, pagination, zoom } =
-    useManuscriptState((state) => state);
-  const dispatch = useManuscriptDispatch();
-  const [, setSharedEffectiveZoom] = useEffectiveZoom();
+  const { pages, geometry } = composed.layout;
   const viewportRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<Array<HTMLElement | null>>([]);
   const diagnosticRefs = useRef(new Map<string, HTMLElement>());
   const pendingPageRef = useRef<number | null>(null);
   const visiblePageRef = useRef(0);
-  const effectivePercentRef = useRef<number>(zoom.mode === "fixed" ? zoom.percent : 100);
+  const effectivePercentRef = useRef<number>(zoom.kind === "fixed" ? zoom.percent : 100);
   const [fitPercent, setFitPercent] = useState(100);
-  const effectivePercent = zoom.mode === "fixed" ? zoom.percent : fitPercent;
-  const selectedFont = fontPreset(appearance.fontPreset);
+  const effectivePercent = zoom.kind === "fixed" ? zoom.percent : fitPercent;
+  const selectedFont = FontPreset.of(composed.settings.appearance.fontPreset);
+
   const scrollToPage = useCallback(
     (index: number) => {
-      const target = Math.min(Math.max(Math.trunc(index), 0), pagination.pages.length - 1);
+      const target = Math.min(Math.max(Math.trunc(index), 0), pages.length - 1);
       visiblePageRef.current = target;
       const page = pageRefs.current[target];
       if (page === null || page === undefined) {
@@ -199,7 +212,7 @@ function ManuscriptViewerComponent(
         page.scrollIntoView({ block: "start" });
       }
     },
-    [pagination.pages.length],
+    [pages.length],
   );
   const scrollToDiagnostic = useCallback((id: string) => {
     diagnosticRefs.current.get(id)?.scrollIntoView({ block: "center", inline: "center" });
@@ -215,81 +228,65 @@ function ManuscriptViewerComponent(
     }),
     [scrollToDiagnostic, scrollToPage],
   );
+
   const renderedPages = useMemo(
     () =>
-      pagination.pages.map((page, pageIndex) => ({
+      pages.map((page, pageIndex) => ({
         id: `page:${pageIndex}`,
         index: pageIndex,
         page,
-        stages: page.map((stage, stageIndex) => ({
+        stages: page.stages.map((stage, stageIndex) => ({
           id: `page:${pageIndex}:stage:${stageIndex}`,
-          lines: stage.map((line, lineIndex) => ({
+          lines: stage.lines.map((line, lineIndex) => ({
             id: `page:${pageIndex}:stage:${stageIndex}:line:${lineIndex}`,
-            cells: line.map((cell, cellIndex) => ({
+            cells: line.cells.map((cell, cellIndex) => ({
               id: `page:${pageIndex}:stage:${stageIndex}:line:${lineIndex}:cell:${cellIndex}`,
               cell,
             })),
           })),
         })),
       })),
-    [pagination.pages],
+    [pages],
   );
 
   useEffect(() => {
-    if (zoom.mode !== "fit") {
-      return;
-    }
+    if (zoom.kind !== "fit") return;
     const viewport = viewportRef.current;
-    if (viewport === null) {
-      return;
-    }
-
+    if (viewport === null) return;
     const updateFitPercent = () => {
       const style = getComputedStyle(viewport);
-      const availableWidth =
+      const width =
         viewport.clientWidth -
         Number.parseFloat(style.paddingInlineStart) -
         Number.parseFloat(style.paddingInlineEnd);
-      const availableHeight =
+      const height =
         viewport.clientHeight -
         Number.parseFloat(style.paddingBlockStart) -
         Number.parseFloat(style.paddingBlockEnd);
       setFitPercent(
-        fitPagePercent(
-          availableWidth,
-          availableHeight,
-          geometry.paperWidthMm,
-          geometry.paperHeightMm,
-        ),
+        ZoomMode.fitPagePercent(width, height, geometry.paperWidthMm, geometry.paperHeightMm),
       );
     };
-
     updateFitPercent();
     const observer = new ResizeObserver(updateFitPercent);
     observer.observe(viewport);
-
     return () => {
       observer.disconnect();
     };
-  }, [geometry.paperHeightMm, geometry.paperWidthMm, zoom.mode]);
+  }, [geometry.paperHeightMm, geometry.paperWidthMm, zoom.kind]);
 
   useEffect(() => {
     effectivePercentRef.current = effectivePercent;
-    setSharedEffectiveZoom(effectivePercent);
-    onViewEvent?.({ type: "effective-zoom.change", percent: effectivePercent });
-  }, [effectivePercent, onViewEvent, setSharedEffectiveZoom]);
+    onViewEvent?.({ kind: "effective-zoom.change", percent: effectivePercent });
+  }, [effectivePercent, onViewEvent]);
 
   useEffect(() => {
-    if (pendingPageRef.current !== null) {
-      scrollToPage(pendingPageRef.current);
-    }
-  }, [pagination.pages, scrollToPage]);
+    if (pendingPageRef.current !== null) scrollToPage(pendingPageRef.current);
+  }, [pages, scrollToPage]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
-    if (viewport === null) {
-      return;
-    }
+    if (viewport === null) return;
     const observer = new IntersectionObserver(
       (entries) => {
         const visible = entries
@@ -298,90 +295,67 @@ function ManuscriptViewerComponent(
         if (visible !== undefined) {
           const page = Number(visible.target.getAttribute("data-page-index"));
           visiblePageRef.current = page;
-          onViewEvent?.({ type: "visible-page.change", page });
+          onViewEvent?.({ kind: "visible-page.change", page });
         }
       },
       { root: viewport, threshold: [0.25, 0.5, 0.75] },
     );
-    for (const page of pageRefs.current) {
-      if (page !== null) {
-        observer.observe(page);
-      }
-    }
-
+    for (const page of pageRefs.current) if (page !== null) observer.observe(page);
     return () => {
       observer.disconnect();
     };
-  }, [onViewEvent, pagination.pages]);
+  }, [onViewEvent, pages]);
 
   useEffect(() => {
-    if (activeDiagnosticId !== null) {
-      scrollToDiagnostic(activeDiagnosticId);
-    }
-  }, [activeDiagnosticId, pagination.pages, scrollToDiagnostic]);
+    if (activeDiagnosticId !== null) scrollToDiagnostic(activeDiagnosticId);
+  }, [activeDiagnosticId, pages, scrollToDiagnostic]);
 
-  const style: ManuscriptStyle = useMemo(() => {
-    return {
+  const style: ManuscriptStyle = useMemo(
+    () => ({
       "--kgv-cell-size": `${geometry.cellSizeMm * (effectivePercent / 100)}mm`,
       "--kgv-line-gap": `${geometry.lineGapMm * (effectivePercent / 100)}mm`,
       "--kgv-manuscript-font": selectedFont.family,
       "--kgv-page-height": `${geometry.paperHeightMm * (effectivePercent / 100)}mm`,
       "--kgv-page-width": `${geometry.paperWidthMm * (effectivePercent / 100)}mm`,
-    };
-  }, [
-    geometry.cellSizeMm,
-    geometry.lineGapMm,
-    geometry.paperHeightMm,
-    geometry.paperWidthMm,
-    effectivePercent,
-    selectedFont.family,
-  ]);
+    }),
+    [effectivePercent, geometry, selectedFont.family],
+  );
 
-  const renderCell = (cellId: string, cell: Cell) => {
-    if (cell === null) {
-      return <span key={cellId} className="kgv-cell" />;
-    }
+  const renderCell = (cellId: string, cell: GridCell) => {
+    if (cell.value === null) return <span key={cellId} className="kgv-cell" />;
     const cellDiagnostics = diagnosticsForCell(cell, diagnostics);
-    const first = cellDiagnostics.find((diagnostic) => startsInCell(cell, diagnostic));
-    const active = cellDiagnostics.some((diagnostic) => diagnostic.id === activeDiagnosticId);
-
+    const first = cellDiagnostics.find((item) => startsInCell(cell, item));
+    const active = cellDiagnostics.some(({ id }) => id === activeDiagnosticId);
     return (
       <span
         key={cellId}
         className="kgv-cell"
         data-diagnostic={cellDiagnostics.length > 0 ? "" : undefined}
         data-diagnostic-active={active ? "" : undefined}
+        data-diagnostic-severity={first?.severity}
       >
         <span
           className={joinClassNames(
             "kgv-glyph",
-            uprightGlyphPattern.test(cell.grapheme) ? "kgv-glyph-upright" : undefined,
+            uprightGlyphPattern.test(cell.value) ? "kgv-glyph-upright" : undefined,
           )}
           aria-hidden="true"
         >
-          {cell.grapheme}
+          {cell.value}
         </span>
         {first !== undefined && (
           <button
             ref={(element) => {
-              for (const diagnostic of cellDiagnostics) {
-                if (!startsInCell(cell, diagnostic)) {
-                  continue;
-                }
-                if (element === null) {
-                  diagnosticRefs.current.delete(diagnostic.id);
-                } else {
-                  diagnosticRefs.current.set(diagnostic.id, element);
-                }
+              for (const item of cellDiagnostics) {
+                if (!startsInCell(cell, item)) continue;
+                if (element === null) diagnosticRefs.current.delete(item.id);
+                else diagnosticRefs.current.set(item.id, element);
               }
             }}
             type="button"
             className="kgv-diagnostic-marker"
             aria-label={`${first.location.start.line}行${first.location.start.column}列: ${first.message}`}
-            onClick={() => {
-              dispatch({ type: "diagnostic.select", id: first.id });
-              onDiagnosticSelect?.(first);
-            }}
+            onClick={() => onDiagnosticSelect?.(first)}
           />
         )}
       </span>
@@ -400,7 +374,7 @@ function ManuscriptViewerComponent(
               }}
               data-page-index={pageIndex}
               className="kgv-page"
-              aria-label={`${pageIndex + 1}ページ目、全${pagination.pages.length}ページ`}
+              aria-label={`${pageIndex + 1}ページ目、全${pages.length}ページ`}
               data-offscreen={pageIndex > 0 ? "" : undefined}
               data-overflow={geometry.fitsPaper ? undefined : ""}
             >
@@ -411,15 +385,15 @@ function ManuscriptViewerComponent(
                     {lines.map(({ id: lineId, cells }) => (
                       <div key={lineId} className="kgv-line">
                         {fragmentCells(cells).map((fragment) => {
-                          const renderedCells = fragment.cells.map(({ id: cellId, cell }) =>
+                          const rendered = fragment.cells.map(({ id: cellId, cell }) =>
                             renderCell(cellId, cell),
                           );
-                          return fragment.annotation === undefined ? (
-                            renderedCells
+                          return fragment.annotations.length === 0 ? (
+                            rendered
                           ) : (
-                            <AnnotationFragment key={fragment.id} annotation={fragment.annotation}>
-                              {renderedCells}
-                            </AnnotationFragment>
+                            <span key={fragment.id} className="kgv-annotation-stack">
+                              {wrapAnnotations(fragment.annotations, rendered)}
+                            </span>
                           );
                         })}
                       </div>

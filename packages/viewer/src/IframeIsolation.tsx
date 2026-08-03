@@ -4,12 +4,12 @@ import { createPortal } from "react-dom";
 
 import { viewerStyles } from "./styleContent";
 
-export interface IframeIsolationProps {
+export type IframeIsolationProps = Readonly<{
   children: ReactNode;
   className?: string;
   title?: string;
   styleOverrides?: string;
-}
+}>;
 
 export function IframeIsolation({
   children,

@@ -1,15 +1,11 @@
 # @sushichan044/kg-core
 
-Framework-independent TypeScript state and utilities for Japanese manuscript
-preview and proofreading.
+Framework-independent parsing, composition, and proofreading for Japanese
+manuscripts.
 
-The package paginates source text into manuscript-grid cells while preserving
-UTF-16 source ranges. It also reports common Japanese novel-style diagnostics.
-Diagnostics never modify the source text and do not expose automatic fixes. The
-default rules also report CJK compatibility ideographs and grapheme clusters
-containing Unicode variation selectors, including text/emoji variation
-sequences, ideographic variation sequences, and Mongolian free variation
-selectors. Ordinary emoji without a variation selector are not reported.
+The package exposes plain readonly data transfer objects and pure processing
+functions. It does not own application state, persistence, React components,
+or DOM behavior.
 
 ## Install
 
@@ -17,72 +13,83 @@ selectors. Ordinary emoji without a variation selector are not reported.
 pnpm add @sushichan044/kg-core
 ```
 
-## Usage
-
-```ts
-import { paginateManuscript, proofreadManuscript } from "@sushichan044/kg-core";
-
-const pagination = paginateManuscript(source, {
-  charsPerLine: 27,
-  linesPerStage: 23,
-  stagesPerPage: 2,
-});
-
-const diagnostics = proofreadManuscript(source);
-```
-
-For an interactive viewer or editor, use the immutable manuscript state and
-transaction API. Pagination, geometry, and diagnostics are derived together
-from each accepted snapshot.
-
-```ts
-import { createManuscript } from "@sushichan044/kg-core";
-
-const manuscript = createManuscript({ text: source });
-
-manuscript.subscribe((transaction) => {
-  render(transaction.state);
-});
-
-manuscript.dispatch(
-  { type: "document.replace", text: nextSource },
-  { type: "config.patch", patch: { settings: { charsPerLine: 30 } } },
-);
-```
-
-`plainTextNotation` is the default. Pass `pixivNotation` to hide supported
-pixiv tags and paginate or proofread only their displayed text:
+## Processing pipeline
 
 ```ts
 import {
-  DEFAULT_OFFSETS,
-  createManuscript,
-  paginateManuscript,
-  pixivNotation,
+  ComposeError,
+  composeManuscript,
+  createDefaultProofreadingRules,
+  ManuscriptCompositionSettings,
+  manuscriptGridComposer,
+  ParseError,
+  parseManuscript,
+  pixivParser,
+  ProofreadError,
   proofreadManuscript,
 } from "@sushichan044/kg-core";
 
-paginateManuscript(source, settings, DEFAULT_OFFSETS, pixivNotation);
-proofreadManuscript(source, {}, pixivNotation);
-createManuscript({ text: source, notation: pixivNotation });
+const parsed = parseManuscript(source, { parser: pixivParser });
+if (!parsed.ok) throw new Error(ParseError.describe(parsed.error));
+
+const composed = composeManuscript(parsed.value, {
+  composer: manuscriptGridComposer,
+  settings: ManuscriptCompositionSettings.defaults,
+});
+if (!composed.ok) throw new Error(ComposeError.describe(composed.error));
+
+const proofread = proofreadManuscript(composed.value, {
+  rules: createDefaultProofreadingRules(),
+});
+if (!proofread.ok) throw new Error(ProofreadError.describe(proofread.error));
+
+const diagnostics = [...parsed.warnings, ...proofread.value];
 ```
 
-Cells and diagnostics still use raw, zero-based UTF-16 source ranges when a
-notation hides delimiters or ruby readings. A state's notation is retained by
-document updates, but it is a runtime choice and is not encoded in manuscript
-preferences.
+`parseManuscript` uses `plainTextParser` when no parser is supplied. The Pixiv
+parser normalizes ruby, bold, italic, and emphasis notation into a closed
+annotation union. Malformed or unknown notation remains visible and produces a
+parser warning.
 
-`decodeManuscriptPreferences` parses only the current versioned persistence
-shape. Incompatible or incomplete payloads are rejected; legacy versions are
-not migrated.
+`composeManuscript` requires a composer. The built-in grid composer produces a
+self-contained snapshot containing the parsed manuscript, accepted settings,
+geometry, statistics, and page/stage/line/cell hierarchy. Every occupied
+element has source, display, and grapheme ranges; empty placement elements use
+`null`.
 
-Diagnostic ranges are zero-based, end-exclusive UTF-16 offsets into the
-original source. Pagination normalizes line endings for layout while preserving
-those original offsets on every occupied cell.
+## Extensions and validation
 
-Appearance settings support A4, A5, A6 (bunko), JIS B5, JIS B6, and shinsho
-paper. `calculateManuscriptGeometry` includes the fixed half-em gap between
-vertical lines in `gridWidthMm` and exposes its physical size as `lineGapMm`.
+Parsers implement `ManuscriptParser`. Composers implement `ManuscriptComposer`
+and provide Valibot schemas for their settings and layout. Proofreading rules
+carry `kind: "parsed"` or `kind: "composed"` to declare which manuscript they
+need, and report findings through `context.report`.
+
+A plugin signals its own failure with a `Rejection` — a plain reason string.
+Core turns that into a variant of the stage's error union, so plugins never
+construct core's error types.
+
+Each concept lives in its own module as a type plus a companion object of the
+same name, holding its schema and operations: `ManuscriptRange.merge`,
+`PaperSize.of`, `ManuscriptCompositionSettings.defaults`, and so on. Types are
+inferred from the schemas with `v.InferOutput`; source, display, and grapheme
+ranges are distinct branded types, and plugin IDs are branded `NamespacedId`.
+
+Processing functions return `ManuscriptResult`: success carries warnings, and
+failure carries exactly one error from a discriminated union, so callers can
+`switch` on `error.kind` exhaustively. Each error variant exposes its context
+as typed fields; `describe` renders one for display. Invalid settings and
+plugin output fail explicitly; values are never clamped or partially trusted.
+
+## Source mapping
+
+Source and display ranges are zero-based, end-exclusive UTF-16 offsets.
+Grapheme ranges index the normalized grapheme array. Diagnostics include
+one-based source line and column positions, so renderers do not need to search
+or recalculate locations.
+
+The default proofreading rules report common Japanese novel-style issues and
+Unicode variation sequences. Diagnostics do not modify the source and do not
+contain automatic fixes.
 
 ## Browser support
 

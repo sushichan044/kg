@@ -1,21 +1,20 @@
 import type { ManuscriptDiagnostic } from "@sushichan044/kg-core";
 
-import { useManuscriptDispatch, useManuscriptState } from "./Provider";
-
-export interface DiagnosticListProps {
+export type DiagnosticListProps = Readonly<{
+  diagnostics: readonly ManuscriptDiagnostic[];
+  activeDiagnosticId?: string | null;
   onSelect?: (diagnostic: ManuscriptDiagnostic) => void;
   emptyMessage?: string;
   className?: string;
-}
+}>;
 
 export function DiagnosticList({
+  diagnostics,
+  activeDiagnosticId = null,
   onSelect,
-  emptyMessage = "校正エラーはありません。",
+  emptyMessage = "診断はありません。",
   className,
 }: DiagnosticListProps) {
-  const { activeDiagnosticId, diagnostics } = useManuscriptState((state) => state);
-  const dispatch = useManuscriptDispatch();
-
   if (diagnostics.length === 0) {
     return (
       <p className={["kgv-diagnostics-empty", className].filter(Boolean).join(" ")}>
@@ -26,20 +25,21 @@ export function DiagnosticList({
 
   return (
     <ol className={["kgv-diagnostics", className].filter(Boolean).join(" ")}>
-      {diagnostics.map((diagnostic) => (
-        <li key={diagnostic.id}>
+      {diagnostics.map((item) => (
+        <li
+          key={item.id}
+          data-diagnostic-origin={item.origin.kind}
+          data-diagnostic-severity={item.severity}
+        >
           <button
             type="button"
-            aria-current={diagnostic.id === activeDiagnosticId ? "true" : undefined}
-            onClick={() => {
-              dispatch({ type: "diagnostic.select", id: diagnostic.id });
-              onSelect?.(diagnostic);
-            }}
+            aria-current={item.id === activeDiagnosticId ? "true" : undefined}
+            onClick={() => onSelect?.(item)}
           >
             <span className="kgv-diagnostic-location">
-              {diagnostic.location.start.line}行 {diagnostic.location.start.column}列
+              {item.location.start.line}行 {item.location.start.column}列
             </span>
-            <span>{diagnostic.message}</span>
+            <span>{item.message}</span>
           </button>
         </li>
       ))}

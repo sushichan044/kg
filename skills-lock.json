@@ -96,6 +96,24 @@
       "sourceType": "github",
       "skillPath": "skills/golang-troubleshooting/SKILL.md",
       "computedHash": "e9e300c027cc1162c79f809dcb8554fd5350c1d1170495eb291384194e52d474"
+    },
+    "kamae": {
+      "source": "iwasa-kosui/kamae-ts",
+      "sourceType": "github",
+      "skillPath": "skills/kamae/SKILL.md",
+      "computedHash": "ca86958f4e5db607a91ba5679ea04726dfa6ae7ab2b41b7693e0b706d2cd446a"
+    },
+    "kamae-review": {
+      "source": "iwasa-kosui/kamae-ts",
+      "sourceType": "github",
+      "skillPath": "skills/kamae-review/SKILL.md",
+      "computedHash": "ebe16d438eee566ce3acb9d98247864a0df2fba6d7b829067c200d147fe4b1e0"
+    },
+    "valibot": {
+      "source": "open-circle/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/valibot/SKILL.md",
+      "computedHash": "6798b923c1bbe9b07cb8c40470ada09c377d666045caefda90d95577e16e8744"
     }
   }
 }
