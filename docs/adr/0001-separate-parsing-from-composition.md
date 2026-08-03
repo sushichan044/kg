@@ -74,8 +74,10 @@ UTF-8 byte offset や Unicode code point offset を採用すると、core と vi
 表示範囲が原文記法をまたぐ場合、原文範囲は途中の記法を含む最小の連続被覆区間とする。
 診断とエディタ選択を一つの `SourceRange` で表現するため、非連続な原文範囲は導入しない。
 パーサーと組版 API は範囲の対応を維持し、校正時に文字列を再探索しない。
-`ManuscriptDiagnostic` は原文範囲と、原文から算出した line / column を保持する。
-校正 API が診断生成時に line / column を付与し、viewer は再計算せず表示する。
+`ManuscriptDiagnostic` は原文範囲と、原文から算出した 1 始まりの line / column を保持する。
+line は `CRLF`、`CR`、`LF` を改行境界として数え、`CRLF` は一つの改行として扱う。
+column は行頭からの UTF-16 code unit 数に 1 を加えた値とする。
+校正 API が診断生成時に line / column を付与し、viewer は再計算せずその値を表示する。
 
 ## 校正 API
 
