@@ -144,7 +144,7 @@ test("renders the four supported pixiv notation forms without exposing their tag
   const bold = screen.container.querySelector<HTMLElement>('[data-annotation="bold"]');
   const italic = screen.container.querySelector<HTMLElement>('[data-annotation="italic"]');
   const emphasis = screen.container.querySelector<HTMLElement>('[data-annotation="emphasis"]');
-  const rubyReading = ruby?.querySelector<HTMLElement>("rt");
+  const rubyReading = ruby?.querySelector<HTMLElement>(".kgv-ruby");
 
   expect(rubyReading?.textContent).toBe("かんじ");
   // Where the reading sits along its base is pinned by the two tests below this one.
@@ -174,7 +174,7 @@ test("keeps a ruby reading within the gap beside its own line", async () => {
   const base = screen.container
     .querySelector<HTMLElement>('[data-annotation="ruby"]')!
     .getBoundingClientRect();
-  const reading = screen.container.querySelector<HTMLElement>("rt")!.getBoundingClientRect();
+  const reading = screen.container.querySelector<HTMLElement>(".kgv-ruby")!.getBoundingClientRect();
 
   // The reading starts where its base ends…
   expect(reading.left).toBeGreaterThanOrEqual(base.right);
@@ -194,17 +194,15 @@ test("centres each reading character on its own cell when the counts match", asy
   expect(base.dataset.rubyFit).toBe("mono");
 
   const cells = Array.from(base.querySelectorAll<HTMLElement>(".kgv-cell"));
-  const reading = screen.container.querySelector<HTMLElement>("rt")!.firstChild!;
-  const centreOf = (rect: DOMRect) => rect.top + rect.height / 2;
+  const reading = Array.from(base.querySelectorAll<HTMLElement>(".kgv-ruby-character"));
+  const centreOf = (element: Element) => {
+    const rect = element.getBoundingClientRect();
+    return rect.top + rect.height / 2;
+  };
 
+  expect(reading).toHaveLength(cells.length);
   for (const [index, cell] of cells.entries()) {
-    const range = document.createRange();
-    range.setStart(reading, index);
-    range.setEnd(reading, index + 1);
-    expect(centreOf(range.getBoundingClientRect())).toBeCloseTo(
-      centreOf(cell.getBoundingClientRect()),
-      0,
-    );
+    expect(centreOf(reading[index]!)).toBeCloseTo(centreOf(cell), 0);
   }
 });
 
@@ -229,7 +227,7 @@ test("spreads a ruby reading across exactly the characters it annotates", async 
   const baseGlyphs = Array.from(base.querySelectorAll<HTMLElement>(".kgv-glyph"));
   const first = inkOf(baseGlyphs[0]!);
   const last = inkOf(baseGlyphs.at(-1)!);
-  const reading = inkOf(screen.container.querySelector<HTMLElement>("rt")!);
+  const reading = inkOf(screen.container.querySelector<HTMLElement>(".kgv-ruby")!);
 
   // The reading brackets the base characters, not the cells they sit in. Within a pixel: the two
   // runs are set at different sizes, so their em boxes do not line up to the fraction.
@@ -245,7 +243,7 @@ test("sets a ruby reading at half the size of the characters it annotates", asyn
   });
 
   const glyph = screen.container.querySelector<HTMLElement>(".kgv-glyph")!;
-  const reading = screen.container.querySelector<HTMLElement>("rt")!;
+  const reading = screen.container.querySelector<HTMLElement>(".kgv-ruby")!;
 
   expect(Number.parseFloat(getComputedStyle(reading).fontSize)).toBeCloseTo(
     Number.parseFloat(getComputedStyle(glyph).fontSize) / 2,
@@ -262,10 +260,12 @@ test("splits annotations at line boundaries and repeats ruby readings", async ()
 
   const rubyFragments = screen.container.querySelectorAll<HTMLElement>('[data-annotation="ruby"]');
   expect(rubyFragments).toHaveLength(2);
-  expect(Array.from(rubyFragments, (ruby) => ruby.querySelector("rt")?.textContent)).toEqual([
-    "いちにさんしごろくしちはちきゅうじゅういちに",
-    "いちにさんしごろくしちはちきゅうじゅういちに",
-  ]);
+  expect(Array.from(rubyFragments, (ruby) => ruby.querySelector(".kgv-ruby")?.textContent)).toEqual(
+    [
+      "いちにさんしごろくしちはちきゅうじゅういちに",
+      "いちにさんしごろくしちはちきゅうじゅういちに",
+    ],
+  );
   expect(Array.from(rubyFragments, (ruby) => ruby.querySelectorAll(".kgv-cell").length)).toEqual([
     10, 2,
   ]);

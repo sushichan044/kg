@@ -124,13 +124,19 @@ function fragmentCells(cells: readonly RenderedCell[]): CellFragment[] {
 
 const graphemes = new Intl.Segmenter("ja", { granularity: "grapheme" });
 
+type ReadingCharacter = Readonly<{ character: string; offset: number }>;
+
 /**
- * How a reading is set against the characters it annotates. One reading character per base
- * character is mono ruby, where each belongs to the character below it; anything else is group
- * ruby, which belongs to the compound as a whole. structural.css lays the two out differently.
+ * A reading, split so each character can be placed on its own. Letter-spacing would be shorter, but
+ * engines disagree on where the space around a character goes in a vertical flow; one box per
+ * character leaves nothing to disagree about. The offset identifies a character even when the
+ * reading repeats one.
  */
-function rubyFit(reading: string, baseCharacters: number): "group" | "mono" {
-  return [...graphemes.segment(reading)].length === baseCharacters ? "mono" : "group";
+function readingCharacters(reading: string): ReadingCharacter[] {
+  return [...graphemes.segment(reading)].map(({ segment, index }) => ({
+    character: segment,
+    offset: index,
+  }));
 }
 
 type AnnotationFragmentProps = Readonly<{
@@ -159,14 +165,26 @@ function AnnotationFragment({ annotation, baseCharacters, children }: Annotation
       );
     }
     case "ruby": {
+      const reading = readingCharacters(annotation.reading);
+      // One reading character per base character belongs to the character below it — mono ruby.
+      // Any other count belongs to the compound as a whole — group ruby. structural.css places the
+      // two differently.
+      const fit = reading.length === baseCharacters ? "mono" : "group";
       return (
-        <ruby
-          className="kgv-annotation"
-          data-annotation="ruby"
-          data-ruby-fit={rubyFit(annotation.reading, baseCharacters)}
-        >
+        <ruby className="kgv-annotation" data-annotation="ruby" data-ruby-fit={fit}>
           {children}
-          <rt aria-hidden="true">{annotation.reading}</rt>
+          {/* The reading is placed by the box inside the <rt> rather than by the <rt> itself:
+              engines lay ruby text out themselves and disagree about how much of that a stylesheet
+              may take over, but they all treat a plain span as a plain span. */}
+          <rt aria-hidden="true">
+            <span className="kgv-ruby">
+              {reading.map(({ character, offset }) => (
+                <span key={offset} className="kgv-ruby-character">
+                  {character}
+                </span>
+              ))}
+            </span>
+          </rt>
         </ruby>
       );
     }

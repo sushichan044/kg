@@ -50,9 +50,19 @@ as the viewport allows. Clamp it yourself if your layout wants a limit. The
 `ZoomMode` companion offers `defaults`, `fitPagePercent`, and `adjacentLevel` for
 stepping through a scale — `ZOOM_LEVELS` by default, or one you pass in.
 
-Ruby, bold, italic, and emphasis annotations render as typed React elements;
+Bold, italic, and emphasis annotations render as typed React elements;
 annotation content is never inserted as HTML. Overlapping annotations are
 rendered deterministically from the normalized annotation set.
+
+A ruby annotation keeps its `<ruby>` and `<rt>`, but the reading is placed by
+`span.kgv-ruby` inside the `<rt>`, one box per character: engines lay ruby text out
+themselves and disagree about how much of that a stylesheet may take over, while
+they all treat a plain span as a plain span. Style `.kgv-ruby` rather than `rt`.
+
+`data-ruby-fit` says how the reading relates to its base: `mono` when there is one
+reading character per base character, so each sits on the character it belongs to,
+and `group` otherwise, so the reading spreads across the compound with its first
+and last character at either end.
 
 Every vertical manuscript line is an independent grid with a half-em gap. The
 gap scales with zoom and is included in the core geometry used to center the
@@ -110,6 +120,9 @@ div.kgv-viewer
                     └── div.kgv-line
                         ├── span.kgv-annotation-stack     ← only around annotated runs
                         │   └── strong|em|ruby|span.kgv-annotation
+                        │       └── rt                    ← ruby only
+                        │           └── span.kgv-ruby
+                        │               └── span.kgv-ruby-character
                         └── span.kgv-cell
                             ├── span.kgv-glyph
                             └── button.kgv-diagnostic-marker  ← only where a diagnostic starts
@@ -127,6 +140,7 @@ State is exposed as attributes rather than modifier classes:
 | `data-overflow`            | `.kgv-page`               | present when the grid exceeds the paper         |
 | `data-offscreen`           | `.kgv-page`               | present on pages eligible for skipped rendering |
 | `data-annotation`          | `.kgv-annotation`         | `bold`, `italic`, `ruby`, `emphasis`            |
+| `data-ruby-fit`            | `.kgv-annotation`         | `mono`, `group`                                 |
 | `data-diagnostic`          | `.kgv-cell`               | present when a diagnostic covers the cell       |
 | `data-diagnostic-active`   | `.kgv-cell`               | present when that diagnostic is selected        |
 | `data-diagnostic-severity` | `.kgv-cell`, `li`         | `warning`, `error`                              |

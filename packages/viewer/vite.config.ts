@@ -19,7 +19,9 @@ export const viewerTestProjects = [
         enabled: true,
         provider: playwright(),
         headless: true,
-        instances: [{ browser: "chromium" }],
+        // WebKit as well as Chromium: this package lives on vertical writing, ruby, and
+        // text-emphasis, which is exactly where engines diverge.
+        instances: [{ browser: "chromium" }, { browser: "webkit" }],
       },
     },
   }),
