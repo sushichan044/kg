@@ -1,8 +1,8 @@
-import { fontPreset } from "@sushichan044/kg-core";
+import { FontPreset } from "@sushichan044/kg-core";
 import type {
   GridCell,
-  GridPage,
   GridComposedManuscript,
+  GridPage,
   ManuscriptAnnotation,
   ManuscriptDiagnostic,
 } from "@sushichan044/kg-core";
@@ -17,66 +17,31 @@ import {
 } from "react";
 import type { CSSProperties, ForwardedRef, ReactNode } from "react";
 
-export const ZOOM_LEVELS = [50, 75, 100, 125, 150] as const;
-export type FixedZoomPercent = (typeof ZOOM_LEVELS)[number];
-export type ZoomMode =
-  | { readonly mode: "fixed"; readonly percent: FixedZoomPercent }
-  | {
-      readonly mode: "fit";
-    };
-export const DEFAULT_ZOOM = { mode: "fixed", percent: 100 } as const satisfies ZoomMode;
+import { ZoomMode } from "./ZoomMode";
 
-const CSS_PIXELS_PER_MM = 96 / 25.4;
-const MAX_FIT_PERCENT = Math.max(...ZOOM_LEVELS);
 const NO_DIAGNOSTICS: readonly ManuscriptDiagnostic[] = [];
 
-export function adjacentZoomLevel(
-  effectivePercent: number,
-  direction: "in" | "out",
-): FixedZoomPercent | null {
-  const levels = direction === "in" ? ZOOM_LEVELS : [...ZOOM_LEVELS].reverse();
-  return (
-    levels.find((level) =>
-      direction === "in" ? level > effectivePercent : level < effectivePercent,
-    ) ?? null
-  );
-}
-
-export function fitPagePercent(
-  viewportWidthPx: number,
-  viewportHeightPx: number,
-  paperWidthMm: number,
-  paperHeightMm: number,
-): number {
-  if (viewportWidthPx <= 0 || viewportHeightPx <= 0) return 100;
-  return Math.min(
-    (viewportWidthPx / (paperWidthMm * CSS_PIXELS_PER_MM)) * 100,
-    (viewportHeightPx / (paperHeightMm * CSS_PIXELS_PER_MM)) * 100,
-    MAX_FIT_PERCENT,
-  );
-}
-
-export interface ManuscriptViewerProps {
-  readonly composed: GridComposedManuscript;
-  readonly diagnostics?: readonly ManuscriptDiagnostic[];
-  readonly activeDiagnosticId?: string | null;
-  readonly zoom?: ZoomMode;
-  readonly ariaLabel?: string;
-  readonly className?: string;
-  readonly onViewEvent?: (event: ManuscriptViewEvent) => void;
-  readonly onDiagnosticSelect?: (diagnostic: ManuscriptDiagnostic) => void;
-}
+export type ManuscriptViewerProps = Readonly<{
+  composed: GridComposedManuscript;
+  diagnostics?: readonly ManuscriptDiagnostic[];
+  activeDiagnosticId?: string | null;
+  zoom?: ZoomMode;
+  ariaLabel?: string;
+  className?: string;
+  onViewEvent?: (event: ManuscriptViewEvent) => void;
+  onDiagnosticSelect?: (diagnostic: ManuscriptDiagnostic) => void;
+}>;
 
 export type ManuscriptViewEvent =
-  | { readonly type: "visible-page.change"; readonly page: number }
-  | { readonly type: "effective-zoom.change"; readonly percent: number };
+  | Readonly<{ kind: "visible-page.change"; page: number }>
+  | Readonly<{ kind: "effective-zoom.change"; percent: number }>;
 
-export interface ManuscriptViewHandle {
+export type ManuscriptViewHandle = Readonly<{
   scrollToPage: (index: number) => void;
   scrollToDiagnostic: (id: string) => void;
   getVisiblePage: () => number;
   getEffectiveZoomPercent: () => number;
-}
+}>;
 
 type ManuscriptStyle = CSSProperties & {
   "--kgv-cell-size": string;
@@ -121,16 +86,13 @@ function joinClassNames(...names: Array<string | undefined>): string {
   return names.filter((name) => name !== undefined && name !== "").join(" ");
 }
 
-interface RenderedCell {
-  readonly id: string;
-  readonly cell: GridCell;
-}
+type RenderedCell = Readonly<{ id: string; cell: GridCell }>;
 
-interface CellFragment {
-  readonly id: string;
-  readonly annotations: readonly ManuscriptAnnotation[];
-  readonly cells: RenderedCell[];
-}
+type CellFragment = Readonly<{
+  id: string;
+  annotations: readonly ManuscriptAnnotation[];
+  cells: RenderedCell[];
+}>;
 
 function annotationKey(annotation: ManuscriptAnnotation): string {
   return `${annotation.kind}:${annotation.range.source.start}:${annotation.range.source.end}`;
@@ -160,10 +122,10 @@ function fragmentCells(cells: readonly RenderedCell[]): CellFragment[] {
   return fragments;
 }
 
-interface AnnotationFragmentProps {
-  readonly annotation: ManuscriptAnnotation;
-  readonly children: ReactNode;
-}
+type AnnotationFragmentProps = Readonly<{
+  annotation: ManuscriptAnnotation;
+  children: ReactNode;
+}>;
 
 function AnnotationFragment({ annotation, children }: AnnotationFragmentProps) {
   switch (annotation.kind) {
@@ -219,7 +181,7 @@ function ManuscriptViewerComponent(
     composed,
     diagnostics = NO_DIAGNOSTICS,
     activeDiagnosticId = null,
-    zoom = DEFAULT_ZOOM,
+    zoom = ZoomMode.defaults,
     ariaLabel = "原稿プレビュー",
     className,
     onViewEvent,
@@ -233,10 +195,10 @@ function ManuscriptViewerComponent(
   const diagnosticRefs = useRef(new Map<string, HTMLElement>());
   const pendingPageRef = useRef<number | null>(null);
   const visiblePageRef = useRef(0);
-  const effectivePercentRef = useRef<number>(zoom.mode === "fixed" ? zoom.percent : 100);
+  const effectivePercentRef = useRef<number>(zoom.kind === "fixed" ? zoom.percent : 100);
   const [fitPercent, setFitPercent] = useState(100);
-  const effectivePercent = zoom.mode === "fixed" ? zoom.percent : fitPercent;
-  const selectedFont = fontPreset(composed.settings.appearance.fontPreset);
+  const effectivePercent = zoom.kind === "fixed" ? zoom.percent : fitPercent;
+  const selectedFont = FontPreset.of(composed.settings.appearance.fontPreset);
 
   const scrollToPage = useCallback(
     (index: number) => {
@@ -288,7 +250,7 @@ function ManuscriptViewerComponent(
   );
 
   useEffect(() => {
-    if (zoom.mode !== "fit") return;
+    if (zoom.kind !== "fit") return;
     const viewport = viewportRef.current;
     if (viewport === null) return;
     const updateFitPercent = () => {
@@ -301,7 +263,9 @@ function ManuscriptViewerComponent(
         viewport.clientHeight -
         Number.parseFloat(style.paddingBlockStart) -
         Number.parseFloat(style.paddingBlockEnd);
-      setFitPercent(fitPagePercent(width, height, geometry.paperWidthMm, geometry.paperHeightMm));
+      setFitPercent(
+        ZoomMode.fitPagePercent(width, height, geometry.paperWidthMm, geometry.paperHeightMm),
+      );
     };
     updateFitPercent();
     const observer = new ResizeObserver(updateFitPercent);
@@ -309,11 +273,11 @@ function ManuscriptViewerComponent(
     return () => {
       observer.disconnect();
     };
-  }, [geometry.paperHeightMm, geometry.paperWidthMm, zoom.mode]);
+  }, [geometry.paperHeightMm, geometry.paperWidthMm, zoom.kind]);
 
   useEffect(() => {
     effectivePercentRef.current = effectivePercent;
-    onViewEvent?.({ type: "effective-zoom.change", percent: effectivePercent });
+    onViewEvent?.({ kind: "effective-zoom.change", percent: effectivePercent });
   }, [effectivePercent, onViewEvent]);
 
   useEffect(() => {
@@ -331,7 +295,7 @@ function ManuscriptViewerComponent(
         if (visible !== undefined) {
           const page = Number(visible.target.getAttribute("data-page-index"));
           visiblePageRef.current = page;
-          onViewEvent?.({ type: "visible-page.change", page });
+          onViewEvent?.({ kind: "visible-page.change", page });
         }
       },
       { root: viewport, threshold: [0.25, 0.5, 0.75] },

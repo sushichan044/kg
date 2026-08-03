@@ -1,8 +1,5 @@
-import {
-  DEFAULT_COMPOSITION_SETTINGS,
-  ManuscriptCompositionSettingsSchema,
-} from "@sushichan044/kg-core";
-import { DEFAULT_ZOOM } from "@sushichan044/kg-viewer";
+import { ManuscriptCompositionSettings } from "@sushichan044/kg-core";
+import { ZoomMode } from "@sushichan044/kg-viewer";
 import * as v from "valibot";
 
 const APP_STATE_KEY = "kg.app.state.v1";
@@ -17,19 +14,19 @@ const AppStateSchema = readonlyObject({
   selectedPath: v.nullable(v.string()),
 });
 
-const ZoomModeSchema = v.variant("mode", [
-  readonlyObject({ mode: v.literal("fit") }),
-  readonlyObject({ mode: v.literal("fixed"), percent: v.picklist([50, 75, 100, 125, 150]) }),
+const ZoomModeSchema = v.variant("kind", [
+  readonlyObject({ kind: v.literal("fit") }),
+  readonlyObject({ kind: v.literal("fixed"), percent: v.picklist([50, 75, 100, 125, 150]) }),
 ]);
 
 const ManuscriptPresetSchema = readonlyObject({
   name: v.pipe(v.string(), v.trim(), v.nonEmpty()),
-  composition: ManuscriptCompositionSettingsSchema,
+  composition: ManuscriptCompositionSettings.schema,
 });
 
 const ManuscriptPreferencesSchema = readonlyObject({
   version: v.literal(3),
-  composition: ManuscriptCompositionSettingsSchema,
+  composition: ManuscriptCompositionSettings.schema,
   zoom: ZoomModeSchema,
   presets: v.pipe(v.array(ManuscriptPresetSchema), v.readonly()),
 });
@@ -43,8 +40,8 @@ export type ManuscriptPreferences = v.InferOutput<typeof ManuscriptPreferencesSc
 export const DEFAULT_APP_STATE: AppState = { version: 1, selectedPath: null };
 export const DEFAULT_MANUSCRIPT_PREFERENCES: ManuscriptPreferences = {
   version: 3,
-  composition: DEFAULT_COMPOSITION_SETTINGS,
-  zoom: DEFAULT_ZOOM,
+  composition: ManuscriptCompositionSettings.defaults,
+  zoom: ZoomMode.defaults,
   presets: [],
 };
 

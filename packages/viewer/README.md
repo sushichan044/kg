@@ -40,7 +40,12 @@ passes immutable snapshots through controlled props.
 
 `ManuscriptViewer` exposes a ref handle for DOM-only navigation, including
 scrolling to a page or diagnostic. It reports visible-page and effective-zoom
-changes without storing them in the manuscript snapshot.
+changes through `onViewEvent` without storing them in the manuscript snapshot.
+
+Zoom is a controlled `ZoomMode`: either `{ kind: "fixed", percent }` or
+`{ kind: "fit" }`, which the viewer resolves against its own viewport. The
+`ZoomMode` companion provides `defaults`, `adjacentLevel` for zoom in/out
+buttons, and `fitPagePercent`.
 
 Ruby, bold, italic, and emphasis annotations render as typed React elements;
 annotation content is never inserted as HTML. Overlapping annotations are

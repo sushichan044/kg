@@ -1,6 +1,6 @@
 import {
-  DEFAULT_APPEARANCE,
-  DEFAULT_COMPOSITION_SETTINGS,
+  ManuscriptAppearanceSettings,
+  ManuscriptCompositionSettings,
   composeManuscript,
   createDefaultProofreadingRules,
   manuscriptGridComposer,
@@ -8,12 +8,7 @@ import {
   pixivParser,
   proofreadManuscript,
 } from "@sushichan044/kg-core";
-import type {
-  GridSettings,
-  ManuscriptAppearanceSettings,
-  ManuscriptOffsets,
-  ManuscriptParser,
-} from "@sushichan044/kg-core";
+import type { GridSettings, ManuscriptOffsets, ManuscriptParser } from "@sushichan044/kg-core";
 import { expect, test } from "vite-plus/test";
 import { render } from "vitest-browser-react";
 
@@ -28,13 +23,13 @@ const settings: GridSettings = {
   stagesPerPage: 1,
 };
 
-interface ViewerFixtureOptions {
+type ViewerFixtureOptions = Readonly<{
   text?: string;
   settings?: GridSettings;
   offsets?: ManuscriptOffsets;
   appearance?: ManuscriptAppearanceSettings;
   parser?: ManuscriptParser;
-}
+}>;
 
 async function renderViewer(
   options: ViewerFixtureOptions,
@@ -45,14 +40,15 @@ async function renderViewer(
   const composed = composeManuscript(parsed.value, {
     composer: manuscriptGridComposer,
     settings: {
-      grid: options.settings ?? DEFAULT_COMPOSITION_SETTINGS.grid,
-      offsets: options.offsets ?? DEFAULT_COMPOSITION_SETTINGS.offsets,
-      appearance: options.appearance ?? DEFAULT_COMPOSITION_SETTINGS.appearance,
+      grid: options.settings ?? ManuscriptCompositionSettings.defaults.grid,
+      offsets: options.offsets ?? ManuscriptCompositionSettings.defaults.offsets,
+      appearance: options.appearance ?? ManuscriptCompositionSettings.defaults.appearance,
     },
   });
-  const rules = createDefaultProofreadingRules();
-  if (!composed.ok || !rules.ok) throw new Error("fixture setup failed");
-  const proofread = proofreadManuscript(composed.value, { rules: rules.value });
+  if (!composed.ok) throw new Error("fixture setup failed");
+  const proofread = proofreadManuscript(composed.value, {
+    rules: createDefaultProofreadingRules(),
+  });
   if (!proofread.ok) throw new Error("fixture did not proofread");
   const diagnostics = [...parsed.warnings, ...proofread.value];
   const screen = await render(
@@ -224,7 +220,7 @@ test("renders a cell whose size in pixels matches the specified point size at 10
   const { screen } = await renderViewer({
     text: "あ",
     settings,
-    appearance: { ...DEFAULT_APPEARANCE, fontSizePt: 10 },
+    appearance: { ...ManuscriptAppearanceSettings.defaults, fontSizePt: 10 },
   });
 
   const cell = screen.container.querySelector<HTMLElement>(".kgv-cell");
@@ -236,7 +232,7 @@ test("renders each vertical line as an independent grid with a half-em gap", asy
   const { screen } = await renderViewer({
     text: "あ",
     settings,
-    appearance: { ...DEFAULT_APPEARANCE, fontSizePt: 12 },
+    appearance: { ...ManuscriptAppearanceSettings.defaults, fontSizePt: 12 },
   });
 
   const lines = screen.container.querySelectorAll<HTMLElement>(".kgv-line");

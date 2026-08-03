@@ -17,29 +17,31 @@ pnpm add @sushichan044/kg-core
 
 ```ts
 import {
-  DEFAULT_COMPOSITION_SETTINGS,
+  ComposeError,
   composeManuscript,
   createDefaultProofreadingRules,
+  ManuscriptCompositionSettings,
   manuscriptGridComposer,
+  ParseError,
   parseManuscript,
   pixivParser,
+  ProofreadError,
   proofreadManuscript,
 } from "@sushichan044/kg-core";
 
 const parsed = parseManuscript(source, { parser: pixivParser });
-if (!parsed.ok) throw new Error(parsed.errors[0]?.message);
+if (!parsed.ok) throw new Error(ParseError.describe(parsed.error));
 
 const composed = composeManuscript(parsed.value, {
   composer: manuscriptGridComposer,
-  settings: DEFAULT_COMPOSITION_SETTINGS,
+  settings: ManuscriptCompositionSettings.defaults,
 });
-if (!composed.ok) throw new Error(composed.errors[0]?.message);
+if (!composed.ok) throw new Error(ComposeError.describe(composed.error));
 
-const rules = createDefaultProofreadingRules();
-if (!rules.ok) throw new Error(rules.errors[0]?.message);
-
-const proofread = proofreadManuscript(composed.value, { rules: rules.value });
-if (!proofread.ok) throw new Error(proofread.errors[0]?.message);
+const proofread = proofreadManuscript(composed.value, {
+  rules: createDefaultProofreadingRules(),
+});
+if (!proofread.ok) throw new Error(ProofreadError.describe(proofread.error));
 
 const diagnostics = [...parsed.warnings, ...proofread.value];
 ```
@@ -57,21 +59,26 @@ element has source, display, and grapheme ranges; empty placement elements use
 
 ## Extensions and validation
 
-Parsers implement `ManuscriptParser`. Composers implement
-`ManuscriptComposer` and provide Valibot schemas for their settings and layout.
-Proofreading rules declare whether they require a parsed or composed manuscript
-and report diagnostics through `context.report`.
+Parsers implement `ManuscriptParser`. Composers implement `ManuscriptComposer`
+and provide Valibot schemas for their settings and layout. Proofreading rules
+carry `kind: "parsed"` or `kind: "composed"` to declare which manuscript they
+need, and report findings through `context.report`.
 
-All external processing results are validated at the core boundary. Public DTO
-and settings schemas are exported for applications that need to validate API or
-persistence payloads. Types are inferred from the schemas with
-`v.InferOutput`; source, display, and grapheme ranges use distinct branded
-types.
+A plugin signals its own failure with a `Rejection` — a plain reason string.
+Core turns that into a variant of the stage's error union, so plugins never
+construct core's error types.
 
-Processing functions return `ManuscriptResult`: success values include
-warnings, while failures contain structured parse, compose, or proofread
-errors. Invalid settings and plugin output fail explicitly; values are never
-clamped or partially trusted.
+Each concept lives in its own module as a type plus a companion object of the
+same name, holding its schema and operations: `ManuscriptRange.merge`,
+`PaperSize.of`, `ManuscriptCompositionSettings.defaults`, and so on. Types are
+inferred from the schemas with `v.InferOutput`; source, display, and grapheme
+ranges are distinct branded types, and plugin IDs are branded `NamespacedId`.
+
+Processing functions return `ManuscriptResult`: success carries warnings, and
+failure carries exactly one error from a discriminated union, so callers can
+`switch` on `error.kind` exhaustively. Each error variant exposes its context
+as typed fields; `describe` renders one for display. Invalid settings and
+plugin output fail explicitly; values are never clamped or partially trusted.
 
 ## Source mapping
 

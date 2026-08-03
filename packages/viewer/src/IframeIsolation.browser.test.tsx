@@ -1,5 +1,5 @@
 import {
-  DEFAULT_COMPOSITION_SETTINGS,
+  ManuscriptCompositionSettings,
   composeManuscript,
   manuscriptGridComposer,
   parseManuscript,
@@ -17,7 +17,7 @@ function composed(source: string) {
   if (!parsed.ok) throw new Error("fixture did not parse");
   const result = composeManuscript(parsed.value, {
     composer: manuscriptGridComposer,
-    settings: DEFAULT_COMPOSITION_SETTINGS,
+    settings: ManuscriptCompositionSettings.defaults,
   });
   if (!result.ok) throw new Error("fixture did not compose");
   return result.value;

@@ -18,15 +18,15 @@ import {
   savePage,
 } from "./lib/storage";
 import type { AppState } from "./lib/storage";
-import { manuscriptReducer, processManuscript } from "./manuscript";
+import { manuscriptReducer, ProcessManuscriptError, processManuscript } from "./manuscript";
 import type { ManuscriptAction, ManuscriptState } from "./manuscript";
 
-interface SheetProps {
-  readonly open: boolean;
-  readonly title: string;
-  readonly children: ReactNode;
-  readonly onClose: () => void;
-}
+type SheetProps = Readonly<{
+  open: boolean;
+  title: string;
+  children: ReactNode;
+  onClose: () => void;
+}>;
 
 function Sheet({ open, title, children, onClose }: SheetProps) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -83,7 +83,7 @@ function replaceSelectedPathInURL(path: string | null): void {
   window.history.replaceState(window.history.state, "", url);
 }
 
-function resolveAppState(files: FileEntry[], current: AppState): AppState {
+function resolveAppState(files: readonly FileEntry[], current: AppState): AppState {
   const selectedPath =
     files.find((file) => file.path === current.selectedPath)?.path ?? files[0]?.path ?? null;
   return selectedPath === current.selectedPath ? current : { version: 1, selectedPath };
@@ -108,10 +108,10 @@ function Workspace() {
     ? manuscript.activeDiagnosticId
     : null;
   const [effectiveZoomPercent, setEffectiveZoomPercent] = useState<number>(
-    manuscript.preferences.zoom.mode === "fixed" ? manuscript.preferences.zoom.percent : 100,
+    manuscript.preferences.zoom.kind === "fixed" ? manuscript.preferences.zoom.percent : 100,
   );
   const [appState, setAppState] = useState(loadInitialAppState);
-  const [files, setFiles] = useState<FileEntry[]>([]);
+  const [files, setFiles] = useState<readonly FileEntry[]>([]);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [loadedDocument, setLoadedDocument] = useState<{ id: string } | null>(null);
   const [status, setStatus] = useState("");
@@ -148,7 +148,7 @@ function Workspace() {
   }, []);
 
   const acceptCatalogResponse = useCallback(
-    (request: number, nextFiles: FileEntry[]) => {
+    (request: number, nextFiles: readonly FileEntry[]) => {
       if (request !== catalogRequestRef.current) return;
       setFiles(nextFiles);
       commitAppState(resolveAppState(nextFiles, appStateRef.current));
@@ -171,7 +171,7 @@ function Workspace() {
     return fetchContent(id).then(
       (text) => {
         if (request !== contentRequestRef.current) return;
-        dispatch({ type: "document.replace", text });
+        dispatch({ kind: "document.replace", text });
         setLoadedDocument({ id });
       },
       () => {
@@ -202,7 +202,7 @@ function Workspace() {
   useEffect(() => {
     if (selectedId === null) {
       contentRequestRef.current += 1;
-      dispatch({ type: "document.replace", text: "" });
+      dispatch({ kind: "document.replace", text: "" });
       return;
     }
     void loadContent(selectedId);
@@ -235,9 +235,9 @@ function Workspace() {
 
   const onViewEvent = useCallback(
     (event: ManuscriptViewEvent) => {
-      if (event.type === "visible-page.change" && selectedPath !== null) {
+      if (event.kind === "visible-page.change" && selectedPath !== null) {
         savePage(selectedPath, event.page);
-      } else if (event.type === "effective-zoom.change") {
+      } else if (event.kind === "effective-zoom.change") {
         setEffectiveZoomPercent(event.percent);
       }
     },
@@ -245,7 +245,7 @@ function Workspace() {
   );
 
   const selectDiagnostic = useCallback((diagnostic: ManuscriptDiagnostic) => {
-    dispatch({ type: "diagnostic.select", id: diagnostic.id });
+    dispatch({ kind: "diagnostic.select", id: diagnostic.id });
     viewRef.current?.scrollToDiagnostic(diagnostic.id);
     setDiagnosticsSheetOpen(false);
   }, []);
@@ -257,16 +257,16 @@ function Workspace() {
       presets={manuscript.preferences.presets}
       status={status}
       onCompositionChange={(composition) => {
-        commitPreferenceAction({ type: "composition.replace", composition });
+        commitPreferenceAction({ kind: "composition.replace", composition });
       }}
       onPresetApply={(preset) => {
-        commitPreferenceAction({ type: "preset.apply", preset });
+        commitPreferenceAction({ kind: "preset.apply", preset });
       }}
       onPresetSave={(preset) => {
-        commitPreferenceAction({ type: "preset.save", preset });
+        commitPreferenceAction({ kind: "preset.save", preset });
       }}
       onPresetDelete={(name) => {
-        commitPreferenceAction({ type: "preset.delete", name });
+        commitPreferenceAction({ kind: "preset.delete", name });
       }}
     />
   ) : null;
@@ -285,16 +285,16 @@ function Workspace() {
             presets={manuscript.preferences.presets}
             status={status}
             onCompositionChange={(composition) => {
-              commitPreferenceAction({ type: "composition.replace", composition });
+              commitPreferenceAction({ kind: "composition.replace", composition });
             }}
             onPresetApply={(preset) => {
-              commitPreferenceAction({ type: "preset.apply", preset });
+              commitPreferenceAction({ kind: "preset.apply", preset });
             }}
             onPresetSave={(preset) => {
-              commitPreferenceAction({ type: "preset.save", preset });
+              commitPreferenceAction({ kind: "preset.save", preset });
             }}
             onPresetDelete={(name) => {
-              commitPreferenceAction({ type: "preset.delete", name });
+              commitPreferenceAction({ kind: "preset.delete", name });
             }}
           />
         ) : null}
@@ -314,7 +314,7 @@ function Workspace() {
                 zoom={manuscript.preferences.zoom}
                 effectivePercent={effectiveZoomPercent}
                 onChange={(zoom) => {
-                  commitPreferenceAction({ type: "zoom.replace", zoom });
+                  commitPreferenceAction({ kind: "zoom.replace", zoom });
                 }}
                 onDiagnosticsOpen={() => {
                   setDiagnosticDrawerOpen((open) => !open);
@@ -361,7 +361,7 @@ function Workspace() {
                   zoom={manuscript.preferences.zoom}
                   onViewEvent={onViewEvent}
                   onDiagnosticSelect={(diagnostic) => {
-                    dispatch({ type: "diagnostic.select", id: diagnostic.id });
+                    dispatch({ kind: "diagnostic.select", id: diagnostic.id });
                     if (window.matchMedia("(max-width: 52rem)").matches) {
                       setDiagnosticsSheetOpen(true);
                     } else {
@@ -373,11 +373,7 @@ function Workspace() {
             ) : (
               <div className="preview__failure" role="alert">
                 <strong>原稿を処理できませんでした。</strong>
-                <ul>
-                  {processed.errors.map((error) => (
-                    <li key={`${error.stage}:${error.code}`}>{error.message}</li>
-                  ))}
-                </ul>
+                <p>{ProcessManuscriptError.describe(processed.error)}</p>
               </div>
             )}
           </>
@@ -428,7 +424,7 @@ function Workspace() {
           zoom={manuscript.preferences.zoom}
           effectivePercent={effectiveZoomPercent}
           onChange={(zoom) => {
-            commitPreferenceAction({ type: "zoom.replace", zoom });
+            commitPreferenceAction({ kind: "zoom.replace", zoom });
           }}
         />
         {settings}

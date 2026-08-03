@@ -36,12 +36,17 @@ persistence.
 
 Parsers normalize service-specific source notation into display graphemes and a
 closed annotation union. Composers receive a parsed manuscript and produce a
-self-contained layout snapshot. Proofreading rules explicitly declare whether
-they inspect parsed or composed data.
+layout; core pairs that layout with the manuscript and the settings it already
+validated. Proofreading rules declare which manuscript they inspect through a
+`kind` discriminant on the rule itself.
 
 Source, display, and grapheme ranges share one structural representation but
 use distinct branded types. Source and display offsets are zero-based,
 end-exclusive UTF-16 offsets. Grapheme offsets index the parsed grapheme array.
+Plugin IDs are a branded `NamespacedId` once validated at the boundary.
+
+Each concept is one module holding a type and a companion object of the same
+name, which owns that type's schema and operations. `index.ts` only re-exports.
 
 ## Runtime validation
 
@@ -53,6 +58,11 @@ Custom composers supply schemas for their settings and layout. This keeps
 runtime validation extensible without teaching core the shape of every future
 layout. Structural and cross-field failures return `ManuscriptResult` errors;
 core does not clamp invalid values or accept partially valid plugin output.
+
+Each stage owns a discriminated error union, and a failed `ManuscriptResult`
+carries exactly one of its variants so callers can branch exhaustively. A
+plugin reports its own refusal as a `Rejection` carrying a reason, which core
+converts into a variant of that stage's union.
 
 Internal code trusts values after they cross a validated boundary. React props
 and reducer actions are not repeatedly parsed when their producers are already
@@ -108,6 +118,10 @@ The Go server is the only filesystem owner and watcher. It exposes file
 discovery and content through HTTP and reports catalog, file, and process
 changes through server-sent events. Release builds embed the frontend in the Go
 binary; development uses the same HTTP boundary through the frontend proxy.
+
+The frontend parses HTTP responses and server-sent event payloads with Valibot
+schemas rather than asserting their declared shape, since both arrive as text
+from outside the type system.
 
 ## Non-goals
 

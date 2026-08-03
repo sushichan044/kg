@@ -1,12 +1,12 @@
 import type { ManuscriptDiagnostic } from "@sushichan044/kg-core";
 
-export interface DiagnosticListProps {
-  readonly diagnostics: readonly ManuscriptDiagnostic[];
-  readonly activeDiagnosticId?: string | null;
-  readonly onSelect?: (diagnostic: ManuscriptDiagnostic) => void;
-  readonly emptyMessage?: string;
-  readonly className?: string;
-}
+export type DiagnosticListProps = Readonly<{
+  diagnostics: readonly ManuscriptDiagnostic[];
+  activeDiagnosticId?: string | null;
+  onSelect?: (diagnostic: ManuscriptDiagnostic) => void;
+  emptyMessage?: string;
+  className?: string;
+}>;
 
 export function DiagnosticList({
   diagnostics,

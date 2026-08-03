@@ -1,13 +1,13 @@
 import * as v from "valibot";
 import { describe, expect, test } from "vite-plus/test";
 
-import { parseManuscript, pixivParser } from "./notation";
-import {
-  DEFAULT_COMPOSITION_SETTINGS,
-  composeManuscript,
-  manuscriptGridComposer,
-} from "./pagination";
-import type { ManuscriptCompositionSettings } from "./pagination";
+import { parseManuscript } from "../parser/parse-manuscript";
+import { pixivParser } from "../parser/pixiv-parser";
+import { ManuscriptResult } from "../result/manuscript-result";
+import { composeManuscript } from "./compose-manuscript";
+import { ManuscriptCompositionSettings } from "./composition-settings";
+import { manuscriptGridComposer } from "./grid-composer";
+import type { ManuscriptComposer } from "./manuscript-composer";
 
 function parsed(source: string) {
   const result = parseManuscript(source);
@@ -19,9 +19,8 @@ function settings(
   patch: Partial<ManuscriptCompositionSettings["grid"]> = {},
 ): ManuscriptCompositionSettings {
   return {
-    ...DEFAULT_COMPOSITION_SETTINGS,
+    ...ManuscriptCompositionSettings.defaults,
     grid: {
-      ...DEFAULT_COMPOSITION_SETTINGS.grid,
       charsPerLine: 10,
       linesPerStage: 10,
       stagesPerPage: 1,
@@ -29,6 +28,28 @@ function settings(
     },
   };
 }
+
+type LabelLayout = { label: string };
+
+/**
+ * A minimal third-party composer: enough to exercise the plugin boundary, nothing more.
+ */
+const labelComposer = (
+  id: string,
+  label: (prefix: string, displayText: string) => LabelLayout,
+): ManuscriptComposer<{ prefix: string }, LabelLayout> => ({
+  id,
+  settingsSchema: v.object({ prefix: v.string() }),
+  layoutSchema: v.object({ label: v.string() }),
+  compose: (manuscript, value) =>
+    ManuscriptResult.succeed(label(value.prefix, manuscript.displayText)),
+});
+
+/**
+ * Stands in for a JavaScript plugin whose runtime output contradicts its declared schema — the one
+ * thing the layout schema exists to catch, and unreachable without lying to the compiler.
+ */
+const lyingLabel = (): LabelLayout => ({ label: 1 }) as unknown as LabelLayout;
 
 describe("composeManuscript", () => {
   test("returns a self-contained grid snapshot with ranges at every level", () => {
@@ -78,28 +99,25 @@ describe("composeManuscript", () => {
     const invalid: ManuscriptCompositionSettings = {
       ...settings(),
       offsets: {
-        ...DEFAULT_COMPOSITION_SETTINGS.offsets,
+        ...ManuscriptCompositionSettings.defaults.offsets,
         stage: { leading: 5, trailing: 5 },
       },
     };
+    const result = composeManuscript(parsed("本文"), {
+      composer: manuscriptGridComposer,
+      settings: invalid,
+    });
 
-    expect(
-      composeManuscript(parsed("本文"), { composer: manuscriptGridComposer, settings: invalid }),
-    ).toMatchObject({ ok: false, errors: [{ code: "invalid-settings", stage: "compose" }] });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toMatchObject({ kind: "InvalidSettings", composerId: "kg/grid" });
   });
 
   test("uses a custom composer supplied through the options object", () => {
     const result = composeManuscript(parsed("本文"), {
-      composer: {
-        id: "example/count",
-        settingsSchema: v.object({ prefix: v.string() }),
-        layoutSchema: v.object({ label: v.string() }),
-        compose: (manuscript, value: { prefix: string }) => ({
-          ok: true,
-          warnings: [],
-          value: { settings: value, layout: { label: value.prefix + manuscript.displayText } },
-        }),
-      },
+      composer: labelComposer("example/count", (prefix, displayText) => ({
+        label: prefix + displayText,
+      })),
       settings: { prefix: ">" },
     });
 
@@ -111,25 +129,27 @@ describe("composeManuscript", () => {
 
   test("rejects custom composer output that does not match its layout schema", () => {
     const result = composeManuscript(parsed("本文"), {
-      composer: {
-        id: "example/broken",
-        settingsSchema: v.object({ prefix: v.string() }),
-        layoutSchema: v.object({ label: v.string() }),
-        compose: (_manuscript, value: { prefix: string }) => ({
-          ok: true,
-          warnings: [],
-          value: {
-            settings: value,
-            layout: { label: 1 as unknown as string },
-          },
-        }),
-      },
+      composer: labelComposer("example/broken", lyingLabel),
       settings: { prefix: ">" },
     });
 
-    expect(result).toMatchObject({
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toMatchObject({
+      kind: "InvalidComposerOutput",
+      composerId: "example/broken",
+    });
+  });
+
+  test("reports the offending ID when a composer is not namespaced", () => {
+    const result = composeManuscript(parsed("本文"), {
+      composer: labelComposer("broken", (prefix) => ({ label: prefix })),
+      settings: { prefix: ">" },
+    });
+
+    expect(result).toEqual({
       ok: false,
-      errors: [{ code: "invalid-composer-output", stage: "compose" }],
+      error: { kind: "InvalidComposerId", composerId: "broken" },
     });
   });
 });

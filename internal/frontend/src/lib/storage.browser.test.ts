@@ -1,3 +1,4 @@
+import type { ZoomMode } from "@sushichan044/kg-viewer";
 import { beforeEach, expect, test } from "vite-plus/test";
 
 import {
@@ -28,14 +29,14 @@ test("stores frontend-owned composition, zoom, and presets", () => {
       ...DEFAULT_MANUSCRIPT_PREFERENCES.composition,
       grid: { ...DEFAULT_MANUSCRIPT_PREFERENCES.composition.grid, charsPerLine: 30 },
     },
-    zoom: { mode: "fit" } as const,
+    zoom: { kind: "fit" } as const satisfies ZoomMode,
   };
 
   expect(saveAppState({ version: 1, selectedPath: "draft.txt" })).toBe(true);
   expect(saveManuscriptPreferences(preferences)).toBe(true);
   expect(loadAppState().selectedPath).toBe("draft.txt");
   expect(loadManuscriptPreferences().composition.grid.charsPerLine).toBe(30);
-  expect(loadManuscriptPreferences().zoom).toEqual({ mode: "fit" });
+  expect(loadManuscriptPreferences().zoom).toEqual({ kind: "fit" });
 });
 
 test("does not parse v2 manuscript preferences", () => {

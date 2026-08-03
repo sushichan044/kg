@@ -1,30 +1,26 @@
 import {
-  FONT_PRESETS,
-  FONT_SIZE_PT_RANGE,
-  PAPER_SIZES,
-  SETTING_RANGES,
-  maxFontSizePt,
-  validateCompositionSettings,
-} from "@sushichan044/kg-core";
-import type {
+  FontPreset,
   FontPresetId,
-  GridComposedManuscript,
+  FontSizePt,
+  GridSettings,
   ManuscriptCompositionSettings,
+  ManuscriptGeometry,
+  PaperSize,
   PaperSizeId,
 } from "@sushichan044/kg-core";
-import { adjacentZoomLevel } from "@sushichan044/kg-viewer";
-import type { ZoomMode } from "@sushichan044/kg-viewer";
+import type { GridComposedManuscript } from "@sushichan044/kg-core";
+import { ZoomMode } from "@sushichan044/kg-viewer";
 import { useState } from "react";
 
 import type { ManuscriptPreset } from "../lib/storage";
 
-interface ZoomControlsProps {
-  readonly zoom: ZoomMode;
-  readonly effectivePercent: number;
-  readonly verbose?: boolean;
-  readonly className?: string;
-  readonly onChange: (zoom: ZoomMode) => void;
-}
+type ZoomControlsProps = Readonly<{
+  zoom: ZoomMode;
+  effectivePercent: number;
+  verbose?: boolean;
+  className?: string;
+  onChange: (zoom: ZoomMode) => void;
+}>;
 
 function classNames(...values: Array<string | undefined>): string {
   return values.filter(Boolean).join(" ");
@@ -37,8 +33,8 @@ export function ZoomControls({
   className,
   onChange,
 }: ZoomControlsProps) {
-  const zoomOut = adjacentZoomLevel(effectivePercent, "out");
-  const zoomIn = adjacentZoomLevel(effectivePercent, "in");
+  const zoomOut = ZoomMode.adjacentLevel(effectivePercent, "out");
+  const zoomIn = ZoomMode.adjacentLevel(effectivePercent, "in");
   return (
     <div
       className={classNames(
@@ -53,7 +49,7 @@ export function ZoomControls({
         aria-label="縮小"
         disabled={zoomOut === null}
         onClick={() => {
-          if (zoomOut !== null) onChange({ mode: "fixed", percent: zoomOut });
+          if (zoomOut !== null) onChange({ kind: "fixed", percent: zoomOut });
         }}
       >
         −
@@ -64,16 +60,16 @@ export function ZoomControls({
         aria-label="拡大"
         disabled={zoomIn === null}
         onClick={() => {
-          if (zoomIn !== null) onChange({ mode: "fixed", percent: zoomIn });
+          if (zoomIn !== null) onChange({ kind: "fixed", percent: zoomIn });
         }}
       >
         ＋
       </button>
       <button
         type="button"
-        aria-pressed={zoom.mode === "fit"}
+        aria-pressed={zoom.kind === "fit"}
         onClick={() => {
-          onChange({ mode: "fit" });
+          onChange({ kind: "fit" });
         }}
       >
         {verbose ? "ページに合わせる" : "全体"}
@@ -82,12 +78,13 @@ export function ZoomControls({
   );
 }
 
-interface ViewerToolbarProps extends ZoomControlsProps {
-  readonly documentLabel: string;
-  readonly composed: GridComposedManuscript;
-  readonly diagnosticCount: number;
-  readonly onDiagnosticsOpen: () => void;
-}
+type ViewerToolbarProps = ZoomControlsProps &
+  Readonly<{
+    documentLabel: string;
+    composed: GridComposedManuscript;
+    diagnosticCount: number;
+    onDiagnosticsOpen: () => void;
+  }>;
 
 export function ViewerToolbar({
   documentLabel,
@@ -123,17 +120,17 @@ export function ViewerToolbar({
   );
 }
 
-interface SettingsPanelProps {
-  readonly composition: ManuscriptCompositionSettings;
-  readonly composed: GridComposedManuscript;
-  readonly presets: readonly ManuscriptPreset[];
-  readonly status: string;
-  readonly idPrefix?: string;
-  readonly onCompositionChange: (composition: ManuscriptCompositionSettings) => void;
-  readonly onPresetApply: (preset: ManuscriptPreset) => void;
-  readonly onPresetSave: (preset: ManuscriptPreset) => void;
-  readonly onPresetDelete: (name: string) => void;
-}
+type SettingsPanelProps = Readonly<{
+  composition: ManuscriptCompositionSettings;
+  composed: GridComposedManuscript;
+  presets: readonly ManuscriptPreset[];
+  status: string;
+  idPrefix?: string;
+  onCompositionChange: (composition: ManuscriptCompositionSettings) => void;
+  onPresetApply: (preset: ManuscriptPreset) => void;
+  onPresetSave: (preset: ManuscriptPreset) => void;
+  onPresetDelete: (name: string) => void;
+}>;
 
 type GridKey = keyof ManuscriptCompositionSettings["grid"];
 type OffsetScope = keyof ManuscriptCompositionSettings["offsets"];
@@ -158,8 +155,11 @@ export function SettingsPanel({
 }: SettingsPanelProps) {
   const [presetName, setPresetName] = useState("");
 
+  /**
+   * Half-edited values reach here constantly; only commit settings core would accept.
+   */
   const accept = (candidate: ManuscriptCompositionSettings) => {
-    if (validateCompositionSettings(candidate).ok) onCompositionChange(candidate);
+    if (ManuscriptCompositionSettings.is(candidate)) onCompositionChange(candidate);
   };
   const changeGrid = (key: GridKey, value: string) => {
     const parsed = numericValue(value);
@@ -177,7 +177,10 @@ export function SettingsPanel({
       },
     });
   };
-  const maximumFontSize = maxFontSizePt(composition.grid, composition.appearance.paperSize);
+  const maximumFontSize = ManuscriptGeometry.maxFontSizePt(
+    composition.grid,
+    composition.appearance.paperSize,
+  );
 
   return (
     <div className="kgv-settings-panel">
@@ -195,8 +198,8 @@ export function SettingsPanel({
             <input
               id={`${idPrefix}${key}`}
               type="number"
-              min={SETTING_RANGES[key].min}
-              max={SETTING_RANGES[key].max}
+              min={GridSettings.ranges[key].min}
+              max={GridSettings.ranges[key].max}
               value={composition.grid[key]}
               onChange={(event) => {
                 changeGrid(key, event.currentTarget.value);
@@ -213,16 +216,15 @@ export function SettingsPanel({
           <select
             value={composition.appearance.paperSize}
             onChange={(event) => {
+              const paperSize = event.currentTarget.value;
+              if (!PaperSizeId.is(paperSize)) return;
               accept({
                 ...composition,
-                appearance: {
-                  ...composition.appearance,
-                  paperSize: event.currentTarget.value as PaperSizeId,
-                },
+                appearance: { ...composition.appearance, paperSize },
               });
             }}
           >
-            {Object.values(PAPER_SIZES).map((paper) => (
+            {PaperSize.all.map((paper) => (
               <option key={paper.id} value={paper.id}>
                 {paper.label}
               </option>
@@ -233,9 +235,9 @@ export function SettingsPanel({
           <span>文字サイズ</span>
           <input
             type="number"
-            min={FONT_SIZE_PT_RANGE.min}
-            max={FONT_SIZE_PT_RANGE.max}
-            step={FONT_SIZE_PT_RANGE.step}
+            min={FontSizePt.range.min}
+            max={FontSizePt.range.max}
+            step={FontSizePt.range.step}
             value={composition.appearance.fontSizePt}
             onChange={(event) => {
               const fontSizePt = numericValue(event.currentTarget.value);
@@ -251,16 +253,15 @@ export function SettingsPanel({
           <select
             value={composition.appearance.fontPreset}
             onChange={(event) => {
+              const fontPreset = event.currentTarget.value;
+              if (!FontPresetId.is(fontPreset)) return;
               accept({
                 ...composition,
-                appearance: {
-                  ...composition.appearance,
-                  fontPreset: event.currentTarget.value as FontPresetId,
-                },
+                appearance: { ...composition.appearance, fontPreset },
               });
             }}
           >
-            {Object.values(FONT_PRESETS).map((font) => (
+            {FontPreset.all.map((font) => (
               <option key={font.id} value={font.id}>
                 {font.label}
               </option>

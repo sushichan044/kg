@@ -10,9 +10,8 @@ import { DiagnosticList } from "./DiagnosticList";
 
 function diagnostics() {
   const parsed = parseManuscript("問題");
-  const rules = createDefaultProofreadingRules();
-  if (!parsed.ok || !rules.ok) throw new Error("fixture setup failed");
-  const result = proofreadManuscript(parsed.value, { rules: rules.value });
+  if (!parsed.ok) throw new Error("fixture setup failed");
+  const result = proofreadManuscript(parsed.value, { rules: createDefaultProofreadingRules() });
   if (!result.ok) throw new Error("fixture did not proofread");
   return result.value;
 }

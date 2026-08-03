@@ -2,11 +2,11 @@ import type { ReactNode } from "react";
 
 import type { FileEntry } from "../lib/api";
 
-export interface FilePanelProps {
-  files: FileEntry[];
+export type FilePanelProps = Readonly<{
+  files: readonly FileEntry[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-}
+}>;
 
 export function FilePanel({ files, selectedId, onSelect }: FilePanelProps) {
   return (
@@ -35,10 +35,11 @@ export function FilePanel({ files, selectedId, onSelect }: FilePanelProps) {
   );
 }
 
-export interface SidebarProps extends FilePanelProps {
-  readonly children?: ReactNode;
-  readonly status?: string;
-}
+export type SidebarProps = FilePanelProps &
+  Readonly<{
+    children?: ReactNode;
+    status?: string;
+  }>;
 
 export function Sidebar({ files, selectedId, onSelect, status, children }: SidebarProps) {
   return (

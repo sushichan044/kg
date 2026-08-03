@@ -1,45 +1,45 @@
 import {
+  assertNever,
+  ComposeError,
   composeManuscript,
   createDefaultProofreadingRules,
   manuscriptGridComposer,
+  ManuscriptResult,
+  ParseError,
   parseManuscript,
   pixivParser,
+  ProofreadError,
   proofreadManuscript,
-  success,
 } from "@sushichan044/kg-core";
 import type {
   GridComposedManuscript,
   ManuscriptCompositionSettings,
   ManuscriptDiagnostic,
-  ManuscriptResult,
 } from "@sushichan044/kg-core";
 import type { ZoomMode } from "@sushichan044/kg-viewer";
 
 import type { ManuscriptPreferences, ManuscriptPreset } from "./lib/storage";
 
-export interface ManuscriptState {
-  readonly source: string;
-  readonly preferences: ManuscriptPreferences;
-  readonly activeDiagnosticId: string | null;
-}
+export type ManuscriptState = Readonly<{
+  source: string;
+  preferences: ManuscriptPreferences;
+  activeDiagnosticId: string | null;
+}>;
 
 export type ManuscriptAction =
-  | { readonly type: "document.replace"; readonly text: string }
-  | {
-      readonly type: "composition.replace";
-      readonly composition: ManuscriptCompositionSettings;
-    }
-  | { readonly type: "zoom.replace"; readonly zoom: ZoomMode }
-  | { readonly type: "preset.apply"; readonly preset: ManuscriptPreset }
-  | { readonly type: "preset.save"; readonly preset: ManuscriptPreset }
-  | { readonly type: "preset.delete"; readonly name: string }
-  | { readonly type: "diagnostic.select"; readonly id: string | null };
+  | Readonly<{ kind: "document.replace"; text: string }>
+  | Readonly<{ kind: "composition.replace"; composition: ManuscriptCompositionSettings }>
+  | Readonly<{ kind: "zoom.replace"; zoom: ZoomMode }>
+  | Readonly<{ kind: "preset.apply"; preset: ManuscriptPreset }>
+  | Readonly<{ kind: "preset.save"; preset: ManuscriptPreset }>
+  | Readonly<{ kind: "preset.delete"; name: string }>
+  | Readonly<{ kind: "diagnostic.select"; id: string | null }>;
 
 export function manuscriptReducer(
   state: ManuscriptState,
   action: ManuscriptAction,
 ): ManuscriptState {
-  switch (action.type) {
+  switch (action.kind) {
     case "document.replace": {
       return { ...state, source: action.text, activeDiagnosticId: null };
     }
@@ -61,10 +61,10 @@ export function manuscriptReducer(
       };
     }
     case "preset.save": {
-      const presets = state.preferences.presets.filter(({ name }) => name !== action.preset.name);
+      const kept = state.preferences.presets.filter(({ name }) => name !== action.preset.name);
       return {
         ...state,
-        preferences: { ...state.preferences, presets: [...presets, action.preset] },
+        preferences: { ...state.preferences, presets: [...kept, action.preset] },
       };
     }
     case "preset.delete": {
@@ -79,37 +79,70 @@ export function manuscriptReducer(
     case "diagnostic.select": {
       return { ...state, activeDiagnosticId: action.id };
     }
+    default: {
+      return assertNever(action);
+    }
   }
 }
 
-export interface ProcessedManuscript {
-  readonly composed: GridComposedManuscript;
-  readonly diagnostics: readonly ManuscriptDiagnostic[];
-}
+export type ProcessedManuscript = Readonly<{
+  composed: GridComposedManuscript;
+  diagnostics: readonly ManuscriptDiagnostic[];
+}>;
+
+/**
+ * Which stage failed, wrapping that stage's own error. Tagging by stage keeps the three error
+ * unions distinguishable, which a flat union of them would not.
+ */
+export type ProcessManuscriptError =
+  | Readonly<{ stage: "parse"; error: ParseError }>
+  | Readonly<{ stage: "compose"; error: ComposeError }>
+  | Readonly<{ stage: "proofread"; error: ProofreadError }>;
+
+export const ProcessManuscriptError = {
+  describe: (failure: ProcessManuscriptError): string => {
+    switch (failure.stage) {
+      case "parse": {
+        return ParseError.describe(failure.error);
+      }
+      case "compose": {
+        return ComposeError.describe(failure.error);
+      }
+      case "proofread": {
+        return ProofreadError.describe(failure.error);
+      }
+      default: {
+        return assertNever(failure);
+      }
+    }
+  },
+} as const;
 
 export function processManuscript(
   source: string,
   composition: ManuscriptCompositionSettings,
-): ManuscriptResult<ProcessedManuscript> {
+): ManuscriptResult<ProcessedManuscript, ProcessManuscriptError> {
   const parsed = parseManuscript(source, { parser: pixivParser });
-  if (!parsed.ok) return parsed;
+  if (!parsed.ok) return ManuscriptResult.fail({ stage: "parse", error: parsed.error });
 
   const composed = composeManuscript(parsed.value, {
     composer: manuscriptGridComposer,
     settings: composition,
   });
-  if (!composed.ok) return composed;
+  if (!composed.ok) return ManuscriptResult.fail({ stage: "compose", error: composed.error });
 
-  const rules = createDefaultProofreadingRules();
-  if (!rules.ok) return rules;
-  const proofread = proofreadManuscript(composed.value, { rules: rules.value });
-  if (!proofread.ok) return proofread;
+  const proofread = proofreadManuscript(composed.value, {
+    rules: createDefaultProofreadingRules(),
+  });
+  if (!proofread.ok) return ManuscriptResult.fail({ stage: "proofread", error: proofread.error });
 
-  const diagnostics = [
-    ...parsed.warnings,
-    ...composed.warnings,
-    ...proofread.warnings,
-    ...proofread.value,
-  ];
-  return success({ composed: composed.value, diagnostics });
+  return ManuscriptResult.succeed({
+    composed: composed.value,
+    diagnostics: [
+      ...parsed.warnings,
+      ...composed.warnings,
+      ...proofread.warnings,
+      ...proofread.value,
+    ],
+  });
 }

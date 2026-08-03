@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import { parseManuscript, pixivParser, plainTextParser } from "./notation";
+import { ManuscriptResult } from "../result/manuscript-result";
+import type { ManuscriptParser } from "./manuscript-parser";
+import { parseManuscript } from "./parse-manuscript";
+import { pixivParser } from "./pixiv-parser";
+import { plainTextParser } from "./plain-text-parser";
 
 describe("parseManuscript", () => {
   test("uses the plain text parser by default and preserves UTF-16 mappings", () => {
@@ -90,22 +94,75 @@ describe("parseManuscript", () => {
     ]);
   });
 
+  test("reports the offending ID when a parser is not namespaced", () => {
+    const parser: ManuscriptParser = {
+      id: "broken",
+      parse: () => ManuscriptResult.succeed(unreachableManuscript()),
+    };
+
+    expect(parseManuscript("source", { parser })).toEqual({
+      ok: false,
+      error: { kind: "InvalidParserId", parserId: "broken" },
+    });
+  });
+
   test("rejects a parser result whose source or ranges violate the contract", () => {
-    const result = parseManuscript("source", {
-      parser: {
-        id: "example/broken",
-        parse: () => ({
-          ok: true,
-          warnings: [],
-          value: { source: "other", displayText: "x", graphemes: [], annotations: [] },
+    const parser: ManuscriptParser = {
+      id: "example/broken",
+      parse: () =>
+        ManuscriptResult.succeed({
+          source: "other",
+          displayText: "x",
+          graphemes: [],
+          annotations: [],
         }),
+    };
+    const result = parseManuscript("source", { parser });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.kind).toBe("InvalidParserOutput");
+  });
+
+  test("surfaces a parser's own refusal as a rejection carrying its reason", () => {
+    const parser: ManuscriptParser = {
+      id: "example/refuses",
+      parse: () => ManuscriptResult.fail({ reason: "この記法には対応していません" }),
+    };
+
+    expect(parseManuscript("source", { parser })).toEqual({
+      ok: false,
+      error: {
+        kind: "ParserRejected",
+        parserId: "example/refuses",
+        reason: "この記法には対応していません",
       },
     });
+  });
 
-    expect(result).toMatchObject({ ok: false, errors: [{ stage: "parse" }] });
+  test("turns a throwing parser into a typed error instead of propagating the throw", () => {
+    const failure = new Error("boom");
+    const parser: ManuscriptParser = {
+      id: "example/throws",
+      parse: () => {
+        throw failure;
+      },
+    };
+
+    expect(parseManuscript("source", { parser })).toEqual({
+      ok: false,
+      error: { kind: "ParserThrew", parserId: "example/throws", cause: failure },
+    });
   });
 
   test("exports the built-in plain parser through the public parser contract", () => {
     expect(parseManuscript("text", { parser: plainTextParser })).toEqual(parseManuscript("text"));
   });
 });
+
+/**
+ * The parser under test never runs; only its ID is inspected.
+ */
+function unreachableManuscript() {
+  return { source: "", displayText: "", graphemes: [], annotations: [] };
+}

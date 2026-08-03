@@ -1,10 +1,29 @@
 import { useEffect, useRef } from "react";
+import * as v from "valibot";
 
-export interface ServerEventHandlers {
+export type ServerEventHandlers = Readonly<{
   // onCatalogChanged fires when the file list should be refetched.
   onCatalogChanged: () => void;
   // onFileChanged fires with the ID of a file whose content changed.
   onFileChanged: (id: string) => void;
+}>;
+
+const StartedEventSchema = v.object({ pid: v.number() });
+const FileChangedEventSchema = v.object({ id: v.string() });
+
+/**
+ * SSE payloads are text off the wire; parse them rather than trusting their declared shape.
+ */
+function parseEvent<TSchema extends v.GenericSchema>(
+  schema: TSchema,
+  data: string,
+): v.InferOutput<TSchema> | undefined {
+  try {
+    const result = v.safeParse(schema, JSON.parse(data));
+    return result.success ? result.output : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 // useServerEvents subscribes to the server's SSE stream. It reloads the page
@@ -22,8 +41,9 @@ export function useServerEvents(handlers: ServerEventHandlers): void {
     let knownPID: string | null = null;
 
     source.addEventListener("started", (e) => {
-      const { pid } = JSON.parse(e.data) as { pid: number };
-      const id = String(pid);
+      const started = parseEvent(StartedEventSchema, e.data);
+      if (started === undefined) return;
+      const id = String(started.pid);
       if (knownPID !== null && knownPID !== id) {
         window.location.reload();
 
@@ -37,8 +57,8 @@ export function useServerEvents(handlers: ServerEventHandlers): void {
     });
 
     source.addEventListener("file-changed", (e) => {
-      const { id } = JSON.parse(e.data) as { id: string };
-      ref.current.onFileChanged(id);
+      const changed = parseEvent(FileChangedEventSchema, e.data);
+      if (changed !== undefined) ref.current.onFileChanged(changed.id);
     });
 
     return () => {
