@@ -214,25 +214,19 @@ test("spreads a ruby reading across exactly the characters it annotates", async 
     parser: pixivParser,
   });
 
-  /**
-   * Where the characters actually are, which is inside the box that holds them.
-   */
-  const inkOf = (element: Element) => {
-    const range = document.createRange();
-    range.selectNodeContents(element);
-    return range.getBoundingClientRect();
-  };
-
+  // Character boxes rather than the ink inside them: a box is font-size times line-height, which
+  // holds wherever this runs, while ink depends on whichever font the machine happens to have.
   const base = screen.container.querySelector<HTMLElement>('[data-annotation="ruby"]')!;
   const baseGlyphs = Array.from(base.querySelectorAll<HTMLElement>(".kgv-glyph"));
-  const first = inkOf(baseGlyphs[0]!);
-  const last = inkOf(baseGlyphs.at(-1)!);
-  const reading = inkOf(screen.container.querySelector<HTMLElement>(".kgv-ruby")!);
+  const first = baseGlyphs[0]!.getBoundingClientRect();
+  const last = baseGlyphs.at(-1)!.getBoundingClientRect();
+  const reading = screen.container.querySelector<HTMLElement>(".kgv-ruby")!;
 
-  // The reading brackets the base characters, not the cells they sit in. Within a pixel: the two
-  // runs are set at different sizes, so their em boxes do not line up to the fraction.
-  expect(Math.abs(reading.top - first.top)).toBeLessThan(1);
-  expect(Math.abs(reading.bottom - last.bottom)).toBeLessThan(1);
+  // The reading brackets the base characters, not the cells they sit in. Within a pixel: the inset
+  // is figured from the cell size, while the theme loaded here also draws a 1px rule inside each
+  // cell, which centres the characters half a pixel lower than the inset accounts for.
+  expect(Math.abs(reading.getBoundingClientRect().top - first.top)).toBeLessThan(1);
+  expect(Math.abs(reading.getBoundingClientRect().bottom - last.bottom)).toBeLessThan(1);
 });
 
 test("sets a ruby reading at half the size of the characters it annotates", async () => {
