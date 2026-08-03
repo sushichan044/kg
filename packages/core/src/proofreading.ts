@@ -284,22 +284,8 @@ function proofreadText(
   );
 }
 
-function sourceLineStarts(text: string): number[] {
-  const starts = [0];
-  let index = 0;
-  while (index < text.length) {
-    if (text[index] === "\r") {
-      if (text[index + 1] === "\n") {
-        index += 1;
-      }
-      starts.push(index + 1);
-    } else if (text[index] === "\n") {
-      starts.push(index + 1);
-    }
-    index += 1;
-  }
-
-  return starts;
+function sourceLineStarts(lines: SourceLine[]): number[] {
+  return lines.map((line) => line.start);
 }
 
 function sourcePosition(lineStarts: number[], offset: number): SourcePosition {
@@ -389,14 +375,15 @@ export function proofreadManuscript(
 
   const settings = { ...DEFAULT_PROOFREADING_OPTIONS, ...options };
   const parsed = notation.parse(text);
-  const lineStarts = sourceLineStarts(text);
+  const sourceLines = splitSourceLines(text);
+  const lineStarts = sourceLineStarts(sourceLines);
   const diagnostics = proofreadText(parsed.text, {
     ...settings,
     noVariantCharacters: false,
   }).map((item) => mapDiagnosticToSource(lineStarts, parsed, item));
 
   if (settings.noVariantCharacters) {
-    for (const line of splitSourceLines(text)) {
+    for (const line of sourceLines) {
       diagnostics.push(...collectVariantCharacters(line));
     }
   }
