@@ -36,7 +36,8 @@ core は値と純粋な変換だけを提供し、処理全体の状態を所有
 
 パーサーは公開契約を実装し、`ParsedManuscript` を返す。
 core はプレーンテキストと Pixiv のパーサーを同じ契約で提供する。
-`ParsedManuscript` とその配列は immutable とし、共有した範囲情報が後から無効にならないようにする。
+注釈はルビ、太字、斜体、傍点からなる closed union とし、重複する範囲を許可する。
+`ParsedManuscript` とその配列は readonly な plain object とし、class や deep freeze は使わない。
 
 ## 組版済み原稿
 
@@ -45,14 +46,19 @@ core はプレーンテキストと Pixiv のパーサーを同じ契約で提�
 ```ts
 composeManuscript(
   parsed: ParsedManuscript,
-  settings: ManuscriptCompositionSettings,
-): ComposedManuscript;
+  options: {
+    composer: ManuscriptComposer;
+    settings: ManuscriptCompositionSettings;
+  },
+): ManuscriptResult<ComposedManuscript>;
 ```
 
 `ComposedManuscript` は `ParsedManuscript` と、ページ、段、行、セルの構造を持つ。
 内容を持つ各配置要素から、対応する解析済み原稿の範囲を取得できるようにする。
 内容を持たない配置要素の範囲は `null` とする。
 `ManuscriptCompositionSettings` は配置または物理寸法を変えるすべての値を含み、zoom や UI の選択状態を含まない。
+composer は settings と layout の Valibot schema を公開し、core が plugin の入出力を実行時にも検査できるようにする。
+無効な設定や offset は丸めず、`ManuscriptResult` の失敗として返す。
 
 ## 範囲と診断
 
@@ -65,6 +71,8 @@ interface ManuscriptRange {
   readonly graphemes: GraphemeRange;
 }
 ```
+
+三つの範囲は構造を共有するが、取り違えをコンパイル時に検出するため、それぞれを Valibot の brand で区別する。
 
 原文と表示用テキストの範囲は UTF-16 の 0 始まりかつ終端を含まない offset とする。
 JavaScript の文字列操作、`Intl.Segmenter` の index、DOM の selection API が UTF-16 offset を使うため、この単位を正本にする。
@@ -84,17 +92,18 @@ column は行頭からの UTF-16 code unit 数に 1 を加えた値とする。
 校正ルールは必要な原稿表現を宣言し、設定済みのインスタンスとして扱う。
 
 ```ts
-type ProofreadingRule =
-  | {
-      readonly id: string;
-      readonly requires: "parsed";
-      check(manuscript: ParsedManuscript): readonly ManuscriptDiagnostic[];
-    }
-  | {
-      readonly id: string;
-      readonly requires: "composed";
-      check(manuscript: ComposedManuscript): readonly ManuscriptDiagnostic[];
-    };
+interface ProofreadingRule {
+  readonly meta: {
+    readonly id: `${string}/${string}`;
+    readonly requires: "parsed" | "composed";
+    readonly messages: Readonly<Record<string, string>>;
+  };
+  check(manuscript, context: ProofreadingRuleContext): void;
+}
+
+interface ProofreadingRuleContext {
+  report(report: ProofreadingReport): void;
+}
 ```
 
 組み込みルールと利用者が追加するルールは同じ契約を使う。
@@ -102,7 +111,16 @@ type ProofreadingRule =
 これにより、ランナーを全ルールで共通化し、設定を一つの巨大な object に集約しない。
 `ProofreadingOptions` は削除し、各組み込みルールのファクトリー引数へ分割する。
 どちらのルールも `ManuscriptRange` から同じ形式の診断を生成する。
+rule ID は namespaced な形式とし、重複を失敗として扱う。
+組版済み原稿を校正するときは、解析済み原稿を要求するルールと組版済み原稿を要求するルールの両方を実行する。
 校正 API は viewer、React、DOM に依存しない。
+
+## 実行時検査
+
+公開 DTO と設定の Valibot schema を core が提供し、対応する TypeScript 型を `InferOutput` から導出する。
+parser の結果、composer の設定と結果、校正 rule の metadata と report を各境界で検査する。
+TypeScript によって生成元が保証されている core 内部の中間値や frontend の reducer action は、処理のたびに再検査しない。
+これにより、plugin と永続化 payload は実行時に検査しつつ、内部処理に重複した validation を持ち込まない。
 
 ## Viewer API
 
@@ -117,4 +135,5 @@ viewer は原文の解析、組版、校正ルールの登録、校正の実行�
 組版設定、校正設定、プリセット、その永続化は利用アプリケーションが所有し、同梱 application では frontend へ移す。
 これらは原稿変換ではなく利用アプリケーション固有の状態だからである。
 core の `ManuscriptPreferences` と永続化 API は削除する。
+同梱 frontend の永続化形式は version 3 とし、version 2 から移行せず既定値へ戻す。
 互換オーバーロードやアダプターは残さない。

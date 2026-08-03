@@ -1,15 +1,24 @@
-import { DEFAULT_APPEARANCE, createManuscript, pixivNotation } from "@sushichan044/kg-core";
+import {
+  DEFAULT_APPEARANCE,
+  DEFAULT_COMPOSITION_SETTINGS,
+  composeManuscript,
+  createDefaultProofreadingRules,
+  manuscriptGridComposer,
+  parseManuscript,
+  pixivParser,
+  proofreadManuscript,
+} from "@sushichan044/kg-core";
 import type {
   GridSettings,
+  ManuscriptAppearanceSettings,
   ManuscriptOffsets,
-  ManuscriptStateOptions,
+  ManuscriptParser,
 } from "@sushichan044/kg-core";
 import { expect, test } from "vite-plus/test";
 import { render } from "vitest-browser-react";
 
 import { ManuscriptViewer } from "./ManuscriptViewer";
 import type { ManuscriptViewerProps } from "./ManuscriptViewer";
-import { ManuscriptProvider } from "./Provider";
 
 import "./styles.css";
 
@@ -19,15 +28,38 @@ const settings: GridSettings = {
   stagesPerPage: 1,
 };
 
-async function renderViewer(options: ManuscriptStateOptions, props: ManuscriptViewerProps = {}) {
-  const manuscript = createManuscript(options);
+interface ViewerFixtureOptions {
+  text?: string;
+  settings?: GridSettings;
+  offsets?: ManuscriptOffsets;
+  appearance?: ManuscriptAppearanceSettings;
+  parser?: ManuscriptParser;
+}
+
+async function renderViewer(
+  options: ViewerFixtureOptions,
+  props: Omit<ManuscriptViewerProps, "composed" | "diagnostics"> = {},
+) {
+  const parsed = parseManuscript(options.text ?? "", { parser: options.parser });
+  if (!parsed.ok) throw new Error("fixture did not parse");
+  const composed = composeManuscript(parsed.value, {
+    composer: manuscriptGridComposer,
+    settings: {
+      grid: options.settings ?? DEFAULT_COMPOSITION_SETTINGS.grid,
+      offsets: options.offsets ?? DEFAULT_COMPOSITION_SETTINGS.offsets,
+      appearance: options.appearance ?? DEFAULT_COMPOSITION_SETTINGS.appearance,
+    },
+  });
+  const rules = createDefaultProofreadingRules();
+  if (!composed.ok || !rules.ok) throw new Error("fixture setup failed");
+  const proofread = proofreadManuscript(composed.value, { rules: rules.value });
+  if (!proofread.ok) throw new Error("fixture did not proofread");
+  const diagnostics = [...parsed.warnings, ...proofread.value];
   const screen = await render(
-    <ManuscriptProvider controller={manuscript}>
-      <ManuscriptViewer {...props} />
-    </ManuscriptProvider>,
+    <ManuscriptViewer composed={composed.value} diagnostics={diagnostics} {...props} />,
   );
 
-  return { manuscript, screen };
+  return { composed: composed.value, diagnostics, screen };
 }
 
 test("renders the first grapheme in the top-right cell with square geometry", async () => {
@@ -47,7 +79,7 @@ test("renders the first grapheme in the top-right cell with square geometry", as
 test("marks diagnostics and selects them without changing the manuscript", async () => {
   const text = "「誤り。。。 」";
   let selected = "";
-  const { manuscript, screen } = await renderViewer(
+  const { diagnostics, screen } = await renderViewer(
     { text, settings },
     {
       onDiagnosticSelect: (diagnostic) => {
@@ -58,17 +90,15 @@ test("marks diagnostics and selects them without changing the manuscript", async
 
   expect(screen.container.querySelectorAll("[data-diagnostic]")).not.toHaveLength(0);
   await screen.getByRole("button").first().click();
-  expect(selected).toBe(manuscript.state.diagnostics[0]?.id);
+  expect(selected).toBe(diagnostics[0]?.id);
   expect(screen.container.textContent).toContain(text);
 });
 
 test("marks an entire emoji variation sequence as one diagnostic", async () => {
-  const { manuscript, screen } = await renderViewer({ text: "　⭐️", settings });
+  const { diagnostics, screen } = await renderViewer({ text: "　⭐️", settings });
 
-  const diagnostic = manuscript.state.diagnostics.find(
-    ({ ruleId }) => ruleId === "variant-character",
-  );
-  expect(diagnostic?.range).toEqual({ start: 1, end: 3 });
+  const diagnostic = diagnostics.find(({ origin }) => origin.id === "kg/variant-character");
+  expect(diagnostic?.range.source).toEqual({ start: 1, end: 3 });
 
   const occupiedCells = Array.from(
     screen.container.querySelectorAll<HTMLElement>(".kgv-cell"),
@@ -81,7 +111,7 @@ test("selects the diagnostic that starts in the clicked cell when ranges are nes
   // 「あ、。。」 raises a closing-quote diagnostic over 、。。 and a consecutive-punctuation
   // diagnostic over 。。 nested inside it, each starting in a different cell.
   let selected = "";
-  const { manuscript, screen } = await renderViewer(
+  const { diagnostics, screen } = await renderViewer(
     { text: "「あ、。。」", settings },
     {
       onDiagnosticSelect: (diagnostic) => {
@@ -90,10 +120,8 @@ test("selects the diagnostic that starts in the clicked cell when ranges are nes
     },
   );
 
-  const nested = manuscript.state.diagnostics.find(
-    ({ ruleId }) => ruleId === "no-consecutive-punctuation",
-  );
-  expect(manuscript.state.diagnostics).toHaveLength(2);
+  const nested = diagnostics.find(({ origin }) => origin.id === "kg/no-consecutive-punctuation");
+  expect(diagnostics).toHaveLength(2);
 
   const markers = screen.container.querySelectorAll<HTMLButtonElement>(".kgv-diagnostic-marker");
   expect(markers).toHaveLength(2);
@@ -103,7 +131,7 @@ test("selects the diagnostic that starts in the clicked cell when ranges are nes
 
 test("renders the four supported pixiv notation forms without exposing their tags", async () => {
   const source = "[[rb:漢字 > かんじ]][b:太字][i:斜体][[emphasismark:強調>・]]";
-  const { screen } = await renderViewer({ text: source, settings, notation: pixivNotation });
+  const { screen } = await renderViewer({ text: source, settings, parser: pixivParser });
 
   const ruby = screen.container.querySelector<HTMLElement>('[data-annotation="ruby"]');
   const bold = screen.container.querySelector<HTMLElement>('[data-annotation="bold"]');
@@ -135,7 +163,7 @@ test("splits annotations at line boundaries and repeats ruby readings", async ()
   const { screen } = await renderViewer({
     text: "[[rb:一二三四五六七八九十一二 > いちにさんしごろくしちはちきゅうじゅういちに]]",
     settings,
-    notation: pixivNotation,
+    parser: pixivParser,
   });
 
   const rubyFragments = screen.container.querySelectorAll<HTMLElement>('[data-annotation="ruby"]');
@@ -153,7 +181,7 @@ test("escapes an emphasis mark before using it as a CSS string", async () => {
   const { screen } = await renderViewer({
     text: '[[emphasismark:引用>"]] ',
     settings,
-    notation: pixivNotation,
+    parser: pixivParser,
   });
 
   const emphasis = screen.container.querySelector<HTMLElement>('[data-annotation="emphasis"]');
@@ -164,10 +192,10 @@ test("escapes an emphasis mark before using it as a CSS string", async () => {
 test("keeps diagnostic selection working for decorated source ranges", async () => {
   let selectedRange: { start: number; end: number } | undefined;
   const { screen } = await renderViewer(
-    { text: "[b:「あ、。。」]", settings, notation: pixivNotation },
+    { text: "[b:「あ、。。」]", settings, parser: pixivParser },
     {
       onDiagnosticSelect: (diagnostic) => {
-        selectedRange = diagnostic.range;
+        selectedRange = diagnostic.range.source;
       },
     },
   );
@@ -181,7 +209,7 @@ test("keeps diagnostic selection working for decorated source ranges", async () 
 
 test("renders HTML-looking notation content as text instead of DOM", async () => {
   const source = "[b:<img src=x onerror=alert(1)>]";
-  const { screen } = await renderViewer({ text: source, settings, notation: pixivNotation });
+  const { screen } = await renderViewer({ text: source, settings, parser: pixivParser });
 
   expect(screen.container.querySelector("img")).toBeNull();
   expect(

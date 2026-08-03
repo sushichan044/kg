@@ -76,11 +76,11 @@ test("connects proofreading feedback to the drawer and manuscript cells", async 
   await page.viewport(1280, 800);
   const screen = await render(<App />);
 
-  const diagnosticsTrigger = screen.getByRole("button", { name: "校正エラー 4件" });
+  const diagnosticsTrigger = screen.getByRole("button", { name: "診断 4件" });
   await expect.element(diagnosticsTrigger).toBeVisible();
   await diagnosticsTrigger.click();
 
-  const drawer = screen.getByRole("complementary", { name: "校正エラー" });
+  const drawer = screen.getByRole("complementary", { name: "診断" });
   await expect.element(drawer).toBeVisible();
 
   await drawer.getByRole("list").getByRole("button").nth(3).click();
@@ -107,7 +107,7 @@ test("opens compact file, settings, and diagnostics sheets", async () => {
   );
   expect(buttons.map((button) => button.textContent.trim())).toEqual([
     "ファイル",
-    "校正 4",
+    "診断 4",
     "設定",
   ]);
 
@@ -116,8 +116,8 @@ test("opens compact file, settings, and diagnostics sheets", async () => {
   await expect.element(settingsDialog).toBeVisible();
   await settingsDialog.getByRole("button", { name: "表示設定を閉じる" }).click();
 
-  await screen.getByRole("button", { name: "校正エラー 4件" }).click();
-  const diagnosticsDialog = screen.getByRole("dialog", { name: "校正エラー" });
+  await screen.getByRole("button", { name: "診断 4件" }).click();
+  const diagnosticsDialog = screen.getByRole("dialog", { name: "診断" });
   await expect.element(diagnosticsDialog).toBeVisible();
 });
 

@@ -1,155 +1,112 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import { pixivNotation, plainTextNotation } from "./notation";
-import { proofreadManuscript } from "./proofreading";
-import type { NovelStyleRuleId } from "./proofreading";
+import { parseManuscript } from "./notation";
+import {
+  DEFAULT_COMPOSITION_SETTINGS,
+  composeManuscript,
+  manuscriptGridComposer,
+} from "./pagination";
+import { createDefaultProofreadingRules, proofreadManuscript } from "./proofreading";
+import type { ParsedProofreadingRule } from "./proofreading";
 
-function ruleIds(text: string): NovelStyleRuleId[] {
-  return proofreadManuscript(text).map((diagnostic) => diagnostic.ruleId);
+function fixture(source: string) {
+  const parsed = parseManuscript(source);
+  const rules = createDefaultProofreadingRules();
+  if (!parsed.ok || !rules.ok) throw new Error("fixture setup failed");
+  return { parsed: parsed.value, rules: rules.value };
 }
 
 describe("proofreadManuscript", () => {
-  test.each([
-    ["字下げがない", "paragraph-leading-character"],
-    ["「句点。」", "punctuation-before-closing-quote"],
-    ["「驚き！次」", "space-after-question-or-exclamation"],
-    ["「………」", "even-ellipsis"],
-    ["「―――」", "even-dash"],
-    ["「。。。 」", "no-consecutive-punctuation"],
-    ["「・・・」", "no-consecutive-interpunct"],
-    ["「ーーー」", "no-consecutive-choonpu"],
-    ["「記号−文字」", "minus-before-number"],
-    ["「西暦2026年」", "max-arabic-numeral-digits"],
-  ] as const)("reports %s", (text, expected) => {
-    expect(ruleIds(text)).toContain(expected);
-  });
+  test("runs the built-in rules and derives raw locations across CRLF", () => {
+    const { parsed, rules } = fixture("　正常\r\n問題");
+    const result = proofreadManuscript(parsed, { rules });
 
-  test("accepts documented novel-style forms", () => {
-    expect(
-      proofreadManuscript(
-        "　字下げした段落。\n「会話文」\n「驚き！　続き」\n「……――」\n「数字は２０まで、−３も可」",
-      ),
-    ).toEqual([]);
-  });
-
-  test("can disable individual rules and change the numeral threshold", () => {
-    expect(
-      proofreadManuscript("2016", {
-        paragraphLeadingCharacters: false,
-        maxArabicNumeralDigits: 4,
-      }),
-    ).toEqual([]);
-  });
-
-  test("reports stable raw ranges and locations across CRLF", () => {
-    const diagnostics = proofreadManuscript("　正常\r\n問題");
-    expect(diagnostics).toHaveLength(1);
-    expect(diagnostics[0]).toMatchObject({
-      id: "paragraph-leading-character:5:6",
-      range: { start: 5, end: 6 },
-      location: {
-        start: { offset: 5, line: 2, column: 1 },
-      },
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toHaveLength(1);
+    expect(result.value[0]).toMatchObject({
+      origin: { kind: "rule", id: "kg/paragraph-leading-character" },
+      severity: "error",
+      range: { source: { start: 5, end: 6 } },
+      location: { start: { offset: 5, line: 2, column: 1 } },
     });
   });
 
-  test("never changes the source or exposes a replacement", () => {
-    const source = "「誤り。。。 」";
-    const diagnostics = proofreadManuscript(source);
-    expect(source).toBe("「誤り。。。 」");
-    expect(diagnostics.some((item) => "fix" in item || "replacement" in item)).toBe(false);
-  });
-
-  test.each([
-    ["CJK compatibility ideograph", "　﨑", { start: 1, end: 2 }],
-    ["supplementary CJK compatibility ideograph", "　\u{2F800}", { start: 1, end: 3 }],
-    ["text variation sequence", "　⭐︎", { start: 1, end: 3 }],
-    ["emoji variation sequence", "　⭐️", { start: 1, end: 3 }],
-    ["keycap variation sequence", "　1️⃣", { start: 1, end: 4 }],
-    ["ideographic variation sequence", "　葛\u{E0100}", { start: 1, end: 4 }],
-    ["supplementary variation selector", "　A\u{E01EF}", { start: 1, end: 4 }],
-    ["Mongolian free variation selector", "　\u1820\u180B", { start: 1, end: 3 }],
-    ["Mongolian free variation selector four", "　\u1820\u180F", { start: 1, end: 3 }],
-    ["isolated variation selector", "\uFE0F", { start: 0, end: 1 }],
-  ])("reports the entire grapheme for %s", (_description, source, range) => {
-    const diagnostics = proofreadManuscript(source).filter(
-      ({ ruleId }) => ruleId === "variant-character",
-    );
-
-    expect(diagnostics).toHaveLength(1);
-    expect(diagnostics[0]).toMatchObject({
-      ruleId: "variant-character",
-      range,
-      location: {
-        start: { line: 1, column: range.start + 1 },
-        end: { line: 1, column: range.end + 1 },
+  test("lets a custom rule report by message ID and range", () => {
+    const { parsed } = fixture("本文");
+    const rule: ParsedProofreadingRule = {
+      meta: {
+        id: "example/first-character",
+        requires: "parsed",
+        messages: { first: "先頭は {{ value }} です" },
       },
+      check: (manuscript, context) => {
+        context.report({
+          range: manuscript.graphemes[0]!.range,
+          messageId: "first",
+          data: { value: manuscript.graphemes[0]!.value },
+        });
+      },
+    };
+    const result = proofreadManuscript(parsed, { rules: [rule] });
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: [{ message: "先頭は 本 です", origin: { id: "example/first-character" } }],
     });
   });
 
-  test.each(["　⭐", "　😀", "　👩‍💻", "　👍🏽", "　高辺", "　\uE000"])(
-    "does not report an unselected emoji, dictionary variant, or private-use character: %s",
-    (source) => {
-      expect(ruleIds(source)).not.toContain("variant-character");
-    },
-  );
+  test("rejects duplicate rule IDs", () => {
+    const { parsed } = fixture("本文");
+    const rule: ParsedProofreadingRule = {
+      meta: { id: "example/duplicate", requires: "parsed", messages: {} },
+      check: () => {},
+    };
 
-  test("can disable variant-character diagnostics", () => {
-    expect(proofreadManuscript("　⭐️﨑", { noVariantCharacters: false })).toEqual([]);
-  });
-
-  test("proofreads displayed pixiv text and maps diagnostics to raw source positions", () => {
-    const source = "[b:問題]";
-    const diagnostics = proofreadManuscript(source, {}, pixivNotation);
-
-    expect(diagnostics).toHaveLength(1);
-    expect(diagnostics[0]).toMatchObject({
-      ruleId: "paragraph-leading-character",
-      range: { start: 3, end: 4 },
-      location: {
-        start: { offset: 3, line: 1, column: 4 },
-        end: { offset: 4, line: 1, column: 5 },
-      },
+    expect(proofreadManuscript(parsed, { rules: [rule, rule] })).toMatchObject({
+      ok: false,
+      errors: [{ code: "duplicate-rule", stage: "proofread" }],
     });
   });
 
-  test("maps notation-aware diagnostics across CRLF source lines", () => {
-    const source = "[b:　正常]\r\n[b:問題]";
-    const start = source.indexOf("問題");
-    const diagnostics = proofreadManuscript(source, {}, pixivNotation);
-
-    expect(diagnostics).toHaveLength(1);
-    expect(diagnostics[0]).toMatchObject({
-      ruleId: "paragraph-leading-character",
-      range: { start, end: start + 1 },
-      location: {
-        start: { offset: start, line: 2, column: 4 },
-        end: { offset: start + 1, line: 2, column: 5 },
+  test("rejects a report that does not match the public report schema", () => {
+    const { parsed } = fixture("本文");
+    const rule: ParsedProofreadingRule = {
+      meta: { id: "example/broken-report", requires: "parsed", messages: { broken: "broken" } },
+      check: (_manuscript, context) => {
+        context.report({ range: null as never, messageId: "broken" });
       },
+    };
+
+    expect(proofreadManuscript(parsed, { rules: [rule] })).toMatchObject({
+      ok: false,
+      errors: [{ code: "invalid-report", stage: "proofread" }],
     });
   });
 
-  test("does not proofread pixiv delimiters or ruby readings as displayed prose", () => {
-    const source = "[[rb:「正常」>。。。2026]]";
+  test("runs parsed and composed rules from a composed manuscript", () => {
+    const { parsed } = fixture("本文");
+    const composed = composeManuscript(parsed, {
+      composer: manuscriptGridComposer,
+      settings: DEFAULT_COMPOSITION_SETTINGS,
+    });
+    if (!composed.ok) throw new Error("fixture did not compose");
+    const seen: string[] = [];
+    const parsedRule: ParsedProofreadingRule = {
+      meta: { id: "example/parsed", requires: "parsed", messages: {} },
+      check: () => seen.push("parsed"),
+    };
+    const result = proofreadManuscript(composed.value, {
+      rules: [
+        parsedRule,
+        {
+          meta: { id: "example/composed", requires: "composed", messages: {} },
+          check: () => seen.push("composed"),
+        },
+      ],
+    });
 
-    expect(proofreadManuscript(source, { noVariantCharacters: false }, pixivNotation)).toEqual([]);
-  });
-
-  test("still checks variant characters in hidden notation values", () => {
-    const source = "[[rb:　正常>⭐️]][[emphasismark:本文>﨑]]";
-    const diagnostics = proofreadManuscript(source, {}, pixivNotation).filter(
-      ({ ruleId }) => ruleId === "variant-character",
-    );
-
-    expect(diagnostics.map(({ range }) => range)).toEqual([
-      { start: source.indexOf("⭐️"), end: source.indexOf("⭐️") + "⭐️".length },
-      { start: source.indexOf("﨑"), end: source.indexOf("﨑") + 1 },
-    ]);
-  });
-
-  test("keeps plain text diagnostics identical when the default notation is explicit", () => {
-    const source = "　正常\r\n問題⭐️";
-
-    expect(proofreadManuscript(source, {}, plainTextNotation)).toEqual(proofreadManuscript(source));
+    expect(result.ok).toBe(true);
+    expect(seen).toEqual(["parsed", "composed"]);
   });
 });

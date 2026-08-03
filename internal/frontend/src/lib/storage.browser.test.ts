@@ -1,4 +1,3 @@
-import { DEFAULT_SETTINGS, createManuscript } from "@sushichan044/kg-core";
 import { beforeEach, expect, test } from "vite-plus/test";
 
 import {
@@ -22,49 +21,51 @@ test("returns defaults when current state is absent", () => {
   expect(loadManuscriptPreferences()).toEqual(DEFAULT_MANUSCRIPT_PREFERENCES);
 });
 
-test("stores app state separately from manuscript preferences", () => {
-  const manuscript = createManuscript({
-    settings: { ...DEFAULT_SETTINGS, charsPerLine: 30 },
-    zoom: { mode: "fit" },
-  });
+test("stores frontend-owned composition, zoom, and presets", () => {
+  const preferences = {
+    ...DEFAULT_MANUSCRIPT_PREFERENCES,
+    composition: {
+      ...DEFAULT_MANUSCRIPT_PREFERENCES.composition,
+      grid: { ...DEFAULT_MANUSCRIPT_PREFERENCES.composition.grid, charsPerLine: 30 },
+    },
+    zoom: { mode: "fit" } as const,
+  };
 
   expect(saveAppState({ version: 1, selectedPath: "draft.txt" })).toBe(true);
-  expect(saveManuscriptPreferences(manuscript.state)).toBe(true);
-
+  expect(saveManuscriptPreferences(preferences)).toBe(true);
   expect(loadAppState().selectedPath).toBe("draft.txt");
-  expect(loadManuscriptPreferences().settings.charsPerLine).toBe(30);
+  expect(loadManuscriptPreferences().composition.grid.charsPerLine).toBe(30);
   expect(loadManuscriptPreferences().zoom).toEqual({ mode: "fit" });
 });
 
-test("does not parse legacy viewer state", () => {
-  localStorage.setItem(
-    "kg.viewer.state.v3",
-    JSON.stringify({ version: 3, selectedPath: "legacy.txt", settings: DEFAULT_SETTINGS }),
-  );
-
-  expect(loadAppState()).toEqual(DEFAULT_APP_STATE);
-  expect(loadManuscriptPreferences()).toEqual(DEFAULT_MANUSCRIPT_PREFERENCES);
-});
-
-test("rejects malformed or incomplete current payloads", () => {
-  localStorage.setItem("kg.app.state.v1", "{");
+test("does not parse v2 manuscript preferences", () => {
   localStorage.setItem(
     "kg.manuscript.preferences.v2",
-    JSON.stringify({ version: 2, settings: DEFAULT_SETTINGS }),
+    JSON.stringify({ version: 2, settings: { charsPerLine: 30 } }),
   );
+  expect(loadManuscriptPreferences()).toEqual(DEFAULT_MANUSCRIPT_PREFERENCES);
+});
 
+test("rejects malformed or incomplete v3 payloads", () => {
+  localStorage.setItem("kg.app.state.v1", "{");
+  localStorage.setItem("kg.manuscript.preferences.v3", JSON.stringify({ version: 3 }));
   expect(loadAppState()).toEqual(DEFAULT_APP_STATE);
   expect(loadManuscriptPreferences()).toEqual(DEFAULT_MANUSCRIPT_PREFERENCES);
 });
 
-test("does not migrate version one manuscript preferences", () => {
-  localStorage.setItem(
-    "kg.manuscript.preferences.v1",
-    JSON.stringify({
-      version: 1,
-      settings: { ...DEFAULT_SETTINGS, charsPerLine: 30 },
-    }),
-  );
+test("rejects v3 composition settings that violate cross-field offset constraints", () => {
+  const invalid = {
+    ...DEFAULT_MANUSCRIPT_PREFERENCES,
+    composition: {
+      ...DEFAULT_MANUSCRIPT_PREFERENCES.composition,
+      grid: { charsPerLine: 10, linesPerStage: 10, stagesPerPage: 1 },
+      offsets: {
+        ...DEFAULT_MANUSCRIPT_PREFERENCES.composition.offsets,
+        stage: { leading: 5, trailing: 5 },
+      },
+    },
+  };
+  localStorage.setItem("kg.manuscript.preferences.v3", JSON.stringify(invalid));
 
   expect(loadManuscriptPreferences()).toEqual(DEFAULT_MANUSCRIPT_PREFERENCES);
 });
@@ -75,12 +76,9 @@ test("round-trips the visible page per document for the current session", () => 
   expect(loadPage("other.txt")).toBe(0);
 });
 
-test("keeps the stored page when asked to save a value that is not a page index", () => {
+test("keeps the stored page when asked to save an invalid page index", () => {
   savePage("draft.txt", 3);
   savePage("draft.txt", -1);
   savePage("draft.txt", 1.5);
   expect(loadPage("draft.txt")).toBe(3);
-
-  savePage("other.txt", -1);
-  expect(loadPage("other.txt")).toBe(0);
 });

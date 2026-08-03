@@ -1,153 +1,111 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import { pixivNotation, plainTextNotation } from "./notation";
+import { parseManuscript, pixivParser, plainTextParser } from "./notation";
 
-describe("plainTextNotation", () => {
-  test("preserves text and maps every grapheme to its UTF-16 ranges", () => {
-    const source = "A😀\r\n家";
+describe("parseManuscript", () => {
+  test("uses the plain text parser by default and preserves UTF-16 mappings", () => {
+    const result = parseManuscript("A😀\r\n家");
 
-    expect(plainTextNotation.parse(source)).toEqual({
-      text: source,
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.warnings).toEqual([]);
+    expect(result.value).toEqual({
+      source: "A😀\r\n家",
+      displayText: "A😀\r\n家",
       graphemes: [
-        { grapheme: "A", textRange: { start: 0, end: 1 }, sourceRange: { start: 0, end: 1 } },
-        { grapheme: "😀", textRange: { start: 1, end: 3 }, sourceRange: { start: 1, end: 3 } },
         {
-          grapheme: "\r\n",
-          textRange: { start: 3, end: 5 },
-          sourceRange: { start: 3, end: 5 },
+          value: "A",
+          range: {
+            source: { start: 0, end: 1 },
+            display: { start: 0, end: 1 },
+            graphemes: { start: 0, end: 1 },
+          },
         },
-        { grapheme: "家", textRange: { start: 5, end: 6 }, sourceRange: { start: 5, end: 6 } },
+        {
+          value: "😀",
+          range: {
+            source: { start: 1, end: 3 },
+            display: { start: 1, end: 3 },
+            graphemes: { start: 1, end: 2 },
+          },
+        },
+        {
+          value: "\r\n",
+          range: {
+            source: { start: 3, end: 5 },
+            display: { start: 3, end: 5 },
+            graphemes: { start: 2, end: 3 },
+          },
+        },
+        {
+          value: "家",
+          range: {
+            source: { start: 5, end: 6 },
+            display: { start: 5, end: 6 },
+            graphemes: { start: 3, end: 4 },
+          },
+        },
       ],
       annotations: [],
     });
   });
-});
 
-describe("pixivNotation", () => {
-  test("parses the supported pixiv notation into typed annotations", () => {
-    const source = "[[rb:漢字 > かんじ]][b:太字][i:斜体][[emphasismark:強調>・]]";
-    const parsed = pixivNotation.parse(source);
+  test("normalizes Pixiv annotations and keeps all three ranges", () => {
+    const source = "😀[b:𠮷野][[rb:漢字>かんじ]]";
+    const result = parseManuscript(source, { parser: pixivParser });
 
-    expect(parsed.text).toBe("漢字太字斜体強調");
-    expect(parsed.annotations).toEqual([
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.displayText).toBe("😀𠮷野漢字");
+    expect(result.value.annotations).toEqual([
+      {
+        kind: "bold",
+        range: {
+          source: { start: 2, end: 9 },
+          display: { start: 2, end: 5 },
+          graphemes: { start: 1, end: 3 },
+        },
+      },
       {
         kind: "ruby",
         reading: "かんじ",
-        graphemeRange: { start: 0, end: 2 },
-        sourceRange: { start: 0, end: "[[rb:漢字 > かんじ]]".length },
-      },
-      {
-        kind: "bold",
-        graphemeRange: { start: 2, end: 4 },
-        sourceRange: {
-          start: "[[rb:漢字 > かんじ]]".length,
-          end: "[[rb:漢字 > かんじ]][b:太字]".length,
-        },
-      },
-      {
-        kind: "italic",
-        graphemeRange: { start: 4, end: 6 },
-        sourceRange: {
-          start: "[[rb:漢字 > かんじ]][b:太字]".length,
-          end: "[[rb:漢字 > かんじ]][b:太字][i:斜体]".length,
-        },
-      },
-      {
-        kind: "emphasis",
-        mark: "・",
-        graphemeRange: { start: 6, end: 8 },
-        sourceRange: {
-          start: source.indexOf("[[emphasismark:"),
-          end: source.length,
+        range: {
+          source: { start: 9, end: source.length },
+          display: { start: 5, end: 7 },
+          graphemes: { start: 3, end: 5 },
         },
       },
     ]);
   });
 
-  test("maps displayed graphemes to source and display UTF-16 ranges", () => {
-    const source = "😀[b:𠮷野]終";
-    const parsed = pixivNotation.parse(source);
+  test("recovers unknown or malformed Pixiv notation as text with warnings", () => {
+    const result = parseManuscript("[unknown:text]\n[b:broken", { parser: pixivParser });
 
-    expect(parsed.text).toBe("😀𠮷野終");
-    expect(parsed.graphemes).toEqual([
-      { grapheme: "😀", textRange: { start: 0, end: 2 }, sourceRange: { start: 0, end: 2 } },
-      { grapheme: "𠮷", textRange: { start: 2, end: 4 }, sourceRange: { start: 5, end: 7 } },
-      { grapheme: "野", textRange: { start: 4, end: 5 }, sourceRange: { start: 7, end: 8 } },
-      { grapheme: "終", textRange: { start: 5, end: 6 }, sourceRange: { start: 9, end: 10 } },
-    ]);
-    expect(parsed.annotations).toEqual([
-      {
-        kind: "bold",
-        graphemeRange: { start: 1, end: 3 },
-        sourceRange: { start: 2, end: 9 },
-      },
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.displayText).toBe("[unknown:text]\n[b:broken");
+    expect(result.warnings.map(({ origin, severity }) => [origin, severity])).toEqual([
+      [{ kind: "parser", id: "kg/pixiv" }, "warning"],
+      [{ kind: "parser", id: "kg/pixiv" }, "warning"],
     ]);
   });
 
-  test("keeps a variation selector after a tag with its preceding grapheme", () => {
-    const source = "[b:予]\uFE00国";
-    const parsed = pixivNotation.parse(source);
-
-    expect(parsed.graphemes).toEqual([
-      {
-        grapheme: "予\uFE00",
-        textRange: { start: 0, end: 2 },
-        sourceRange: { start: 3, end: 6 },
+  test("rejects a parser result whose source or ranges violate the contract", () => {
+    const result = parseManuscript("source", {
+      parser: {
+        id: "example/broken",
+        parse: () => ({
+          ok: true,
+          warnings: [],
+          value: { source: "other", displayText: "x", graphemes: [], annotations: [] },
+        }),
       },
-      { grapheme: "国", textRange: { start: 2, end: 3 }, sourceRange: { start: 6, end: 7 } },
-    ]);
-    expect(parsed.annotations[0]).toMatchObject({
-      kind: "bold",
-      graphemeRange: { start: 0, end: 1 },
     });
+
+    expect(result).toMatchObject({ ok: false, errors: [{ stage: "parse" }] });
   });
 
-  test.each([
-    ["unknown", "[unknown:text]"],
-    ["malformed", "[b:text"],
-    ["empty", "[i:]"],
-    ["nested", "[b:outer[i:inner]text]"],
-    ["ruby without reading", "[[rb:base > ]]"],
-    ["ruby with nested notation", "[[rb:[b:base] > reading]]"],
-    ["emphasis with a multi-grapheme mark", "[[emphasismark:text>・・]]"],
-  ])("treats %s notation as literal text", (_description, source) => {
-    expect(pixivNotation.parse(source)).toEqual(plainTextNotation.parse(source));
-  });
-
-  test("does not parse notation across a line break and resumes on the next line", () => {
-    const source = "[b:first\nline]\n[b:second]";
-    const parsed = pixivNotation.parse(source);
-
-    expect(parsed.text).toBe("[b:first\nline]\nsecond");
-    expect(parsed.annotations).toEqual([
-      {
-        kind: "bold",
-        graphemeRange: { start: 15, end: 21 },
-        sourceRange: { start: 15, end: 25 },
-      },
-    ]);
-  });
-
-  test("keeps HTML-looking content as an ordinary string", () => {
-    const source = "[b:<img src=x onerror=alert(1)>]";
-    const parsed = pixivNotation.parse(source);
-
-    expect(parsed.text).toBe("<img src=x onerror=alert(1)>");
-    expect(parsed.graphemes.map(({ grapheme }) => grapheme).join("")).toBe(parsed.text);
-  });
-
-  test("accepts exactly one grapheme as an emphasis mark", () => {
-    const source = "[[emphasismark:星>⭐︎]]";
-    const parsed = pixivNotation.parse(source);
-
-    expect(parsed.text).toBe("星");
-    expect(parsed.annotations).toEqual([
-      {
-        kind: "emphasis",
-        mark: "⭐︎",
-        graphemeRange: { start: 0, end: 1 },
-        sourceRange: { start: 0, end: source.length },
-      },
-    ]);
+  test("exports the built-in plain parser through the public parser contract", () => {
+    expect(parseManuscript("text", { parser: plainTextParser })).toEqual(parseManuscript("text"));
   });
 });

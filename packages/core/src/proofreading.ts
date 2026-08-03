@@ -1,75 +1,269 @@
-import { plainTextNotation } from "./notation";
-import type { ManuscriptNotation, ParsedManuscript } from "./notation";
-import type { SourceRange } from "./pagination";
+import * as v from "valibot";
 
-export const NOVEL_STYLE_RULE_IDS = [
-  "paragraph-leading-character",
-  "punctuation-before-closing-quote",
-  "space-after-question-or-exclamation",
-  "even-ellipsis",
-  "even-dash",
-  "no-consecutive-punctuation",
-  "no-consecutive-interpunct",
-  "no-consecutive-choonpu",
-  "minus-before-number",
-  "max-arabic-numeral-digits",
-  "variant-character",
-] as const;
+import { diagnostic, failure, mergeManuscriptRanges, success } from "./model";
+import { ManuscriptRangeSchema } from "./model";
+import type { ManuscriptDiagnostic, ManuscriptRange, ManuscriptResult, TextRange } from "./model";
+import type { ParsedManuscript } from "./notation";
+import type { ComposedManuscript } from "./pagination";
 
-export type NovelStyleRuleId = (typeof NOVEL_STYLE_RULE_IDS)[number];
+const readonlyObject = <const TEntries extends v.ObjectEntries>(entries: TEntries) =>
+  v.pipe(v.strictObject(entries), v.readonly());
 
-export interface SourcePosition {
-  offset: number;
-  line: number;
-  column: number;
+export const ProofreadingReportSchema = readonlyObject({
+  range: ManuscriptRangeSchema,
+  messageId: v.string(),
+  data: v.optional(v.pipe(v.record(v.string(), v.union([v.string(), v.number()])), v.readonly())),
+});
+
+export type ProofreadingReport = v.InferOutput<typeof ProofreadingReportSchema>;
+
+export interface ProofreadingRuleContext {
+  report(report: ProofreadingReport): void;
 }
 
-export interface ManuscriptDiagnostic {
-  id: string;
-  ruleId: NovelStyleRuleId;
-  message: string;
-  severity: "error";
-  range: SourceRange;
-  location: {
-    start: SourcePosition;
-    end: SourcePosition;
-  };
+export const ProofreadingRuleMetaSchema = readonlyObject({
+  id: v.pipe(v.string(), v.nonEmpty(), v.regex(/^[^/]+\/[^/]+$/u)),
+  requires: v.picklist(["parsed", "composed"]),
+  messages: v.pipe(v.record(v.string(), v.string()), v.readonly()),
+});
+
+export type ProofreadingRuleMeta = v.InferOutput<typeof ProofreadingRuleMetaSchema>;
+
+export interface ParsedProofreadingRule {
+  readonly meta: ProofreadingRuleMeta & { readonly requires: "parsed" };
+  check(manuscript: ParsedManuscript, context: ProofreadingRuleContext): void;
 }
 
-export interface ProofreadingOptions {
-  paragraphLeadingCharacters: string | false;
-  noPunctuationBeforeClosingQuote: boolean;
-  spaceAfterQuestionOrExclamation: boolean;
-  evenEllipsis: boolean;
-  evenDash: boolean;
-  noConsecutivePunctuation: boolean;
-  noConsecutiveInterpunct: boolean;
-  noConsecutiveChoonpu: boolean;
-  minusBeforeNumber: boolean;
-  maxArabicNumeralDigits: number | false;
-  noVariantCharacters: boolean;
+export interface ComposedProofreadingRule<
+  TComposed extends ComposedManuscript = ComposedManuscript,
+> {
+  readonly meta: ProofreadingRuleMeta & { readonly requires: "composed" };
+  check(manuscript: TComposed, context: ProofreadingRuleContext): void;
 }
 
-export const DEFAULT_PROOFREADING_OPTIONS: ProofreadingOptions = {
-  paragraphLeadingCharacters: "　「『〖〈《（(“\"‘'［[〔｛{＜<",
-  noPunctuationBeforeClosingQuote: true,
-  spaceAfterQuestionOrExclamation: true,
-  evenEllipsis: true,
-  evenDash: true,
-  noConsecutivePunctuation: true,
-  noConsecutiveInterpunct: true,
-  noConsecutiveChoonpu: true,
-  minusBeforeNumber: true,
-  maxArabicNumeralDigits: 2,
-  noVariantCharacters: true,
-};
+export type ProofreadingRule = ParsedProofreadingRule | ComposedProofreadingRule;
+
+export interface ProofreadOptions<TRule extends ProofreadingRule> {
+  readonly rules: readonly TRule[];
+}
 
 const graphemeSegmenter = new Intl.Segmenter("ja", { granularity: "grapheme" });
+const DEFAULT_PARAGRAPH_LEADING_CHARACTERS = "　「『〖〈《（(“\"‘'［[〔｛{＜<";
+
+interface DisplayLine {
+  readonly text: string;
+  readonly start: number;
+}
+
+function splitDisplayLines(text: string): DisplayLine[] {
+  const lines: DisplayLine[] = [];
+  let start = 0;
+  let index = 0;
+  while (index < text.length) {
+    const character = text[index];
+    if (character !== "\n" && character !== "\r") {
+      index += 1;
+      continue;
+    }
+    lines.push({ text: text.slice(start, index), start });
+    index += character === "\r" && text[index + 1] === "\n" ? 2 : 1;
+    start = index;
+  }
+  lines.push({ text: text.slice(start), start });
+  return lines;
+}
+
+function displayRange(manuscript: ParsedManuscript, start: number, end: number): ManuscriptRange {
+  const selected = manuscript.graphemes.filter(
+    ({ range }) => range.display.start < end && range.display.end > start,
+  );
+  const merged = mergeManuscriptRanges(selected.map(({ range }) => range));
+  if (merged === null) {
+    return v.parse(ManuscriptRangeSchema, {
+      source: { start: 0, end: 0 },
+      display: { start, end },
+      graphemes: { start: 0, end: 0 },
+    });
+  }
+  const first = selected[0]!;
+  const last = selected.at(-1)!;
+  const sourceStart =
+    first.range.source.start +
+    Math.min(start - first.range.display.start, first.range.source.end - first.range.source.start);
+  const sourceEnd =
+    end === last.range.display.end
+      ? last.range.source.end
+      : last.range.source.start +
+        Math.min(end - last.range.display.start, last.range.source.end - last.range.source.start);
+  return v.parse(ManuscriptRangeSchema, {
+    source: { start: sourceStart, end: sourceEnd },
+    display: { start, end },
+    graphemes: merged.graphemes,
+  });
+}
+
+function sourceRange(manuscript: ParsedManuscript, source: TextRange): ManuscriptRange {
+  const selected = manuscript.graphemes.filter(
+    ({ range }) => range.source.start < source.end && range.source.end > source.start,
+  );
+  const annotation = manuscript.annotations.find(
+    ({ range }) => range.source.start <= source.start && range.source.end >= source.end,
+  );
+  const merged =
+    mergeManuscriptRanges(selected.map(({ range }) => range)) ?? annotation?.range ?? null;
+  return v.parse(ManuscriptRangeSchema, {
+    source,
+    display: merged?.display ?? { start: 0, end: 0 },
+    graphemes: merged?.graphemes ?? { start: 0, end: 0 },
+  });
+}
+
+function interpolate(template: string, data: ProofreadingReport["data"]): string {
+  return template.replaceAll(/\{\{\s*([^}\s]+)\s*\}\}/gu, (_match, key: string) =>
+    String(data?.[key] ?? ""),
+  );
+}
+
+function defineParsedRule(
+  id: `${string}/${string}`,
+  message: string,
+  check: (manuscript: ParsedManuscript, report: (range: ManuscriptRange) => void) => void,
+): ManuscriptResult<ParsedProofreadingRule> {
+  return success({
+    meta: { id, requires: "parsed", messages: { default: message } },
+    check: (manuscript, context) => {
+      check(manuscript, (range) => {
+        context.report({ range, messageId: "default" });
+      });
+    },
+  });
+}
+
+interface MatchRuleOptions {
+  readonly id: `${string}/${string}`;
+  readonly pattern: RegExp;
+  readonly message: string;
+  readonly test?: (match: RegExpExecArray) => boolean;
+}
+
+function createMatchRule(options: MatchRuleOptions): ManuscriptResult<ParsedProofreadingRule> {
+  return defineParsedRule(options.id, options.message, (manuscript, report) => {
+    for (const line of splitDisplayLines(manuscript.displayText)) {
+      options.pattern.lastIndex = 0;
+      let match = options.pattern.exec(line.text);
+      while (match !== null) {
+        if (options.test?.(match) ?? true) {
+          report(
+            displayRange(
+              manuscript,
+              line.start + match.index,
+              line.start + match.index + match[0].length,
+            ),
+          );
+        }
+        match = options.pattern.exec(line.text);
+      }
+    }
+  });
+}
+
+export function createParagraphLeadingCharacterRule(
+  options: { readonly allowedCharacters?: string } = {},
+): ManuscriptResult<ParsedProofreadingRule> {
+  const allowedCharacters = options.allowedCharacters ?? DEFAULT_PARAGRAPH_LEADING_CHARACTERS;
+  if (!v.is(v.pipe(v.string(), v.nonEmpty()), allowedCharacters)) {
+    return failure("proofread", "invalid-rule-options", "allowedCharacters must not be empty");
+  }
+  return defineParsedRule(
+    "kg/paragraph-leading-character",
+    "段落の先頭には全角スペースまたは開き括弧が必要です",
+    (manuscript, report) => {
+      for (const line of splitDisplayLines(manuscript.displayText)) {
+        if (line.text !== "" && !allowedCharacters.includes(line.text[0] ?? "")) {
+          const length = (line.text.codePointAt(0) ?? 0) > 0xffff ? 2 : 1;
+          report(displayRange(manuscript, line.start, line.start + length));
+        }
+      }
+    },
+  );
+}
+
+export const createPunctuationBeforeClosingQuoteRule = () =>
+  createMatchRule({
+    id: "kg/punctuation-before-closing-quote",
+    pattern: /[。、]+(?=[」』〗〉》）)”"’'］\]〕｝}＞>])/gu,
+    message: "閉じ括弧の直前に句読点を置くことはできません",
+  });
+
+export const createSpaceAfterQuestionOrExclamationRule = () =>
+  createMatchRule({
+    id: "kg/space-after-question-or-exclamation",
+    pattern: /[？！](?![ 　？！」』〗〉》）)”"’'］\]〕｝}＞>]|$)/gu,
+    message: "感嘆符または疑問符の直後には空白か閉じ括弧が必要です",
+  });
+
+export const createEvenEllipsisRule = () =>
+  createMatchRule({
+    id: "kg/even-ellipsis",
+    pattern: /…+/gu,
+    test: (match) => match[0].length % 2 === 1,
+    message: "連続する三点リーダーの数は偶数にしてください",
+  });
+
+export const createEvenDashRule = () =>
+  createMatchRule({
+    id: "kg/even-dash",
+    pattern: /―+/gu,
+    test: (match) => match[0].length % 2 === 1,
+    message: "連続するダッシュの数は偶数にしてください",
+  });
+
+export const createNoConsecutivePunctuationRule = () =>
+  createMatchRule({
+    id: "kg/no-consecutive-punctuation",
+    pattern: /。。+|、、+/gu,
+    message: "句読点が連続しています",
+  });
+
+export const createNoConsecutiveInterpunctRule = () =>
+  createMatchRule({
+    id: "kg/no-consecutive-interpunct",
+    pattern: /・・+/gu,
+    message: "中黒が連続しています",
+  });
+
+export const createNoConsecutiveChoonpuRule = () =>
+  createMatchRule({
+    id: "kg/no-consecutive-choonpu",
+    pattern: /ーー+/gu,
+    message: "長音符が連続しています",
+  });
+
+export const createMinusBeforeNumberRule = () =>
+  createMatchRule({
+    id: "kg/minus-before-number",
+    pattern: /−(?![0-9０-９〇一二三四五六七八九十])/gu,
+    message: "マイナス記号の直後には数字が必要です",
+  });
+
+export function createMaxArabicNumeralDigitsRule(
+  options: { readonly maxDigits?: number } = {},
+): ManuscriptResult<ParsedProofreadingRule> {
+  const maxDigits = options.maxDigits ?? 2;
+  if (!v.is(v.pipe(v.number(), v.finite(), v.integer(), v.minValue(1)), maxDigits)) {
+    return failure("proofread", "invalid-rule-options", "maxDigits must be a positive integer");
+  }
+  return createMatchRule({
+    id: "kg/max-arabic-numeral-digits",
+    pattern: /([0-9０-９]+)(?:[.．]([0-9０-９]+))?/gu,
+    test: (match) => (match[1]?.length ?? 0) > maxDigits || (match[2]?.length ?? 0) > maxDigits,
+    message: `${maxDigits}桁を超えるアラビア数字が使われています`,
+  });
+}
 
 function isVariantCharacter(character: string): boolean {
   const codePoint = character.codePointAt(0);
   if (codePoint === undefined) return false;
-
   return (
     (codePoint >= 0x180b && codePoint <= 0x180d) ||
     codePoint === 0x180f ||
@@ -80,318 +274,123 @@ function isVariantCharacter(character: string): boolean {
   );
 }
 
-interface SourceLine {
-  text: string;
-  start: number;
-  number: number;
-}
-
-interface MatchRule {
-  id: NovelStyleRuleId;
-  pattern: RegExp;
-  message: string | ((match: RegExpExecArray) => string);
-  test?: (match: RegExpExecArray) => boolean;
-}
-
-function splitSourceLines(text: string): SourceLine[] {
-  const lines: SourceLine[] = [];
-  let start = 0;
-  let number = 1;
-  let index = 0;
-
-  while (index < text.length) {
-    const character = text[index];
-    if (character !== "\n" && character !== "\r") {
-      index += 1;
-
-      continue;
-    }
-    lines.push({ text: text.slice(start, index), start, number });
-    if (character === "\r" && text[index + 1] === "\n") {
-      index += 2;
-    } else {
-      index += 1;
-    }
-    start = index;
-    number += 1;
-  }
-  lines.push({ text: text.slice(start), start, number });
-
-  return lines;
-}
-
-function diagnostic(
-  line: SourceLine,
-  ruleId: NovelStyleRuleId,
-  message: string,
-  localRange: SourceRange,
-): ManuscriptDiagnostic {
-  const range = {
-    start: line.start + localRange.start,
-    end: line.start + localRange.end,
-  };
-
-  return {
-    id: `${ruleId}:${range.start}:${range.end}`,
-    ruleId,
-    message,
-    severity: "error",
-    range,
-    location: {
-      start: {
-        offset: range.start,
-        line: line.number,
-        column: localRange.start + 1,
-      },
-      end: {
-        offset: range.end,
-        line: line.number,
-        column: localRange.end + 1,
-      },
-    },
-  };
-}
-
-function collectMatches(line: SourceLine, rule: MatchRule): ManuscriptDiagnostic[] {
-  const diagnostics: ManuscriptDiagnostic[] = [];
-  rule.pattern.lastIndex = 0;
-  let match = rule.pattern.exec(line.text);
-  while (match !== null) {
-    if (rule.test?.(match) ?? true) {
-      diagnostics.push(
-        diagnostic(
-          line,
-          rule.id,
-          typeof rule.message === "function" ? rule.message(match) : rule.message,
-          { start: match.index, end: match.index + match[0].length },
-        ),
-      );
-    }
-    match = rule.pattern.exec(line.text);
-  }
-
-  return diagnostics;
-}
-
-function collectVariantCharacters(line: SourceLine): ManuscriptDiagnostic[] {
-  const diagnostics: ManuscriptDiagnostic[] = [];
-  for (const { index, segment } of graphemeSegmenter.segment(line.text)) {
-    if (Array.from(segment).some(isVariantCharacter)) {
-      diagnostics.push(
-        diagnostic(line, "variant-character", "異体字または字形選択子が使われています", {
-          start: index,
-          end: index + segment.length,
-        }),
-      );
-    }
-  }
-
-  return diagnostics;
-}
-
-function proofreadText(
-  text: string,
-  options: Partial<ProofreadingOptions> = {},
-): ManuscriptDiagnostic[] {
-  const settings = { ...DEFAULT_PROOFREADING_OPTIONS, ...options };
-  const diagnostics: ManuscriptDiagnostic[] = [];
-  const maxArabicNumeralDigits =
-    typeof settings.maxArabicNumeralDigits === "number" ? settings.maxArabicNumeralDigits : null;
-  const rules: Array<MatchRule | false> = [
-    settings.noPunctuationBeforeClosingQuote && {
-      id: "punctuation-before-closing-quote",
-      pattern: /[。、]+(?=[」』〗〉》）)”"’'］\]〕｝}＞>])/gu,
-      message: "閉じ括弧の直前に句読点を置くことはできません",
-    },
-    settings.spaceAfterQuestionOrExclamation && {
-      id: "space-after-question-or-exclamation",
-      pattern: /[？！](?![ 　？！」』〗〉》）)”"’'］\]〕｝}＞>]|$)/gu,
-      message: "感嘆符・疑問符の直後には空白または閉じ括弧が必要です",
-    },
-    settings.evenEllipsis && {
-      id: "even-ellipsis",
-      pattern: /…+/gu,
-      test: (match) => match[0].length % 2 === 1,
-      message: "連続する三点リーダーの数は偶数にしてください",
-    },
-    settings.evenDash && {
-      id: "even-dash",
-      pattern: /―+/gu,
-      test: (match) => match[0].length % 2 === 1,
-      message: "連続するダッシュの数は偶数にしてください",
-    },
-    settings.noConsecutivePunctuation && {
-      id: "no-consecutive-punctuation",
-      pattern: /。。+|、、+/gu,
-      message: "句読点が連続しています",
-    },
-    settings.noConsecutiveInterpunct && {
-      id: "no-consecutive-interpunct",
-      pattern: /・・+/gu,
-      message: "中黒が連続しています",
-    },
-    settings.noConsecutiveChoonpu && {
-      id: "no-consecutive-choonpu",
-      pattern: /ーー+/gu,
-      message: "長音符が連続しています",
-    },
-    settings.minusBeforeNumber && {
-      id: "minus-before-number",
-      pattern: /−(?![0-9０-９〇一二三四五六七八九十])/gu,
-      message: "マイナス記号の直後には数字が必要です",
-    },
-    maxArabicNumeralDigits !== null && {
-      id: "max-arabic-numeral-digits",
-      pattern: /([0-9０-９]+)(?:[.．]([0-9０-９]+))?/gu,
-      test: (match) =>
-        (match[1]?.length ?? 0) > maxArabicNumeralDigits ||
-        (match[2]?.length ?? 0) > maxArabicNumeralDigits,
-      message: `${maxArabicNumeralDigits}桁を超えるアラビア数字が使われています`,
-    },
-  ];
-
-  for (const line of splitSourceLines(text)) {
-    if (
-      line.text !== "" &&
-      settings.paragraphLeadingCharacters !== false &&
-      !settings.paragraphLeadingCharacters.includes(line.text[0] ?? "")
-    ) {
-      diagnostics.push(
-        diagnostic(
-          line,
-          "paragraph-leading-character",
-          "段落の先頭には全角スペースまたは開き括弧が必要です",
-          { start: 0, end: (line.text.codePointAt(0) ?? 0) > 0xffff ? 2 : 1 },
-        ),
-      );
-    }
-
-    for (const rule of rules) {
-      if (rule !== false) {
-        diagnostics.push(...collectMatches(line, rule));
+export function createVariantCharacterRule(): ManuscriptResult<ParsedProofreadingRule> {
+  return defineParsedRule(
+    "kg/variant-character",
+    "異体字または字形選択子が使われています",
+    (manuscript, report) => {
+      for (const { index, segment } of graphemeSegmenter.segment(manuscript.source)) {
+        if (Array.from(segment).some(isVariantCharacter)) {
+          report(sourceRange(manuscript, { start: index, end: index + segment.length }));
+        }
       }
-    }
-    if (settings.noVariantCharacters) {
-      diagnostics.push(...collectVariantCharacters(line));
-    }
-  }
-
-  return diagnostics.sort(
-    (left, right) =>
-      left.range.start - right.range.start ||
-      left.range.end - right.range.end ||
-      left.ruleId.localeCompare(right.ruleId),
+    },
   );
 }
 
-function sourceLineStarts(lines: SourceLine[]): number[] {
-  return lines.map((line) => line.start);
+export function createDefaultProofreadingRules(): ManuscriptResult<
+  readonly ParsedProofreadingRule[]
+> {
+  const results = [
+    createParagraphLeadingCharacterRule(),
+    createPunctuationBeforeClosingQuoteRule(),
+    createSpaceAfterQuestionOrExclamationRule(),
+    createEvenEllipsisRule(),
+    createEvenDashRule(),
+    createNoConsecutivePunctuationRule(),
+    createNoConsecutiveInterpunctRule(),
+    createNoConsecutiveChoonpuRule(),
+    createMinusBeforeNumberRule(),
+    createMaxArabicNumeralDigitsRule(),
+    createVariantCharacterRule(),
+  ];
+  const failed = results.find((result) => !result.ok);
+  if (failed !== undefined) return failed;
+  return success(results.flatMap((result) => (result.ok ? [result.value] : [])));
 }
 
-function sourcePosition(lineStarts: number[], offset: number): SourcePosition {
-  let low = 0;
-  let high = lineStarts.length;
-  while (low < high) {
-    const middle = Math.floor((low + high) / 2);
-    if (lineStarts[middle]! <= offset) {
-      low = middle + 1;
-    } else {
-      high = middle;
-    }
-  }
-
-  const lineIndex = Math.max(0, low - 1);
-  return { offset, line: lineIndex + 1, column: offset - lineStarts[lineIndex]! + 1 };
-}
-
-function sourceOffset(
-  parsed: ParsedManuscript,
-  displayOffset: number,
-  boundary: "start" | "end",
-): number {
-  let low = 0;
-  let high = parsed.graphemes.length;
-  while (low < high) {
-    const middle = Math.floor((low + high) / 2);
-    const end = parsed.graphemes[middle]!.textRange.end;
-    if (boundary === "start" ? end <= displayOffset : end < displayOffset) {
-      low = middle + 1;
-    } else {
-      high = middle;
-    }
-  }
-
-  const grapheme = parsed.graphemes[low];
-  const contains =
-    grapheme !== undefined &&
-    (boundary === "start"
-      ? displayOffset >= grapheme.textRange.start && displayOffset < grapheme.textRange.end
-      : displayOffset > grapheme.textRange.start && displayOffset <= grapheme.textRange.end);
-  if (contains) {
-    if (boundary === "end" && displayOffset === grapheme.textRange.end) {
-      return grapheme.sourceRange.end;
-    }
-    return (
-      grapheme.sourceRange.start +
-      Math.min(
-        displayOffset - grapheme.textRange.start,
-        grapheme.sourceRange.end - grapheme.sourceRange.start,
-      )
-    );
-  }
-
-  return parsed.graphemes.at(-1)?.sourceRange.end ?? 0;
-}
-
-function mapDiagnosticToSource(
-  lineStarts: number[],
-  parsed: ParsedManuscript,
-  item: ManuscriptDiagnostic,
-): ManuscriptDiagnostic {
-  const range = {
-    start: sourceOffset(parsed, item.range.start, "start"),
-    end: sourceOffset(parsed, item.range.end, "end"),
-  };
-
-  return {
-    ...item,
-    id: `${item.ruleId}:${range.start}:${range.end}`,
-    range,
-    location: {
-      start: sourcePosition(lineStarts, range.start),
-      end: sourcePosition(lineStarts, range.end),
-    },
-  };
+function isComposed(
+  manuscript: ParsedManuscript | ComposedManuscript,
+): manuscript is ComposedManuscript {
+  return "composerId" in manuscript;
 }
 
 export function proofreadManuscript(
-  text: string,
-  options: Partial<ProofreadingOptions> = {},
-  notation: ManuscriptNotation = plainTextNotation,
-): ManuscriptDiagnostic[] {
-  if (notation === plainTextNotation) {
-    return proofreadText(text, options);
-  }
-
-  const settings = { ...DEFAULT_PROOFREADING_OPTIONS, ...options };
-  const parsed = notation.parse(text);
-  const sourceLines = splitSourceLines(text);
-  const lineStarts = sourceLineStarts(sourceLines);
-  const diagnostics = proofreadText(parsed.text, {
-    ...settings,
-    noVariantCharacters: false,
-  }).map((item) => mapDiagnosticToSource(lineStarts, parsed, item));
-
-  if (settings.noVariantCharacters) {
-    for (const line of sourceLines) {
-      diagnostics.push(...collectVariantCharacters(line));
-    }
-  }
-
-  return diagnostics.sort(
-    (left, right) =>
-      left.range.start - right.range.start ||
-      left.range.end - right.range.end ||
-      left.ruleId.localeCompare(right.ruleId),
+  manuscript: ParsedManuscript,
+  options: ProofreadOptions<ParsedProofreadingRule>,
+): ManuscriptResult<readonly ManuscriptDiagnostic[]>;
+export function proofreadManuscript(
+  manuscript: ComposedManuscript,
+  options: ProofreadOptions<ProofreadingRule>,
+): ManuscriptResult<readonly ManuscriptDiagnostic[]>;
+export function proofreadManuscript(
+  manuscript: ParsedManuscript | ComposedManuscript,
+  options: ProofreadOptions<ProofreadingRule>,
+): ManuscriptResult<readonly ManuscriptDiagnostic[]> {
+  const metadata = v.safeParse(
+    v.pipe(
+      v.array(ProofreadingRuleMetaSchema),
+      v.check(
+        (items) => new Set(items.map(({ id }) => id)).size === items.length,
+        "rule IDs must be unique",
+      ),
+    ),
+    options.rules.map(({ meta }) => meta),
   );
+  if (!metadata.success) {
+    const invalidId = metadata.issues.some(({ type }) => type === "regex");
+    if (invalidId) {
+      return failure("proofread", "invalid-rule-id", "rule IDs must use namespace/name");
+    }
+    const duplicateId = metadata.issues.some(({ type }) => type === "check");
+    return duplicateId
+      ? failure("proofread", "duplicate-rule", "rule IDs must be unique")
+      : failure("proofread", "invalid-rule", "rule metadata is invalid");
+  }
+  const parsed = isComposed(manuscript) ? manuscript.parsed : manuscript;
+  const diagnostics: ManuscriptDiagnostic[] = [];
+  try {
+    for (const rule of options.rules) {
+      const reports: unknown[] = [];
+      const context: ProofreadingRuleContext = { report: (report) => reports.push(report) };
+      if (rule.meta.requires === "parsed") {
+        (rule as ParsedProofreadingRule).check(parsed, context);
+      } else if (isComposed(manuscript)) {
+        (rule as ComposedProofreadingRule).check(manuscript, context);
+      }
+      const validatedReports = v.safeParse(v.array(ProofreadingReportSchema), reports);
+      if (!validatedReports.success) {
+        return failure("proofread", "invalid-report", "rule reported an invalid diagnostic");
+      }
+      for (const report of validatedReports.output) {
+        const template = rule.meta.messages[report.messageId];
+        if (template === undefined) {
+          return failure("proofread", "unknown-message", "rule reported an unknown message ID");
+        }
+        diagnostics.push(
+          diagnostic(
+            parsed.source,
+            { kind: "rule", id: rule.meta.id },
+            "error",
+            report.messageId,
+            interpolate(template, report.data),
+            report.range,
+          ),
+        );
+      }
+    }
+  } catch (error) {
+    return failure(
+      "proofread",
+      "rule-failed",
+      error instanceof Error ? error.message : "proofreading rule failed",
+    );
+  }
+  diagnostics.sort(
+    (left, right) =>
+      left.range.source.start - right.range.source.start ||
+      left.range.source.end - right.range.source.end ||
+      left.origin.id.localeCompare(right.origin.id),
+  );
+  return success(diagnostics);
 }

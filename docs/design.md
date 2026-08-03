@@ -1,17 +1,10 @@
 # Architecture
 
-`kg` is a local browser previewer for Japanese plain-text manuscripts.
-The repository separates reusable manuscript behavior from the application that
-loads files and presents the browser shell.
-
-This document records stable architectural boundaries.
-User-facing behavior, supported settings, proofreading rules, and verification
-details belong to package documentation and tests so this document does not
-need to mirror routine code changes.
+`kg` is a local browser previewer for Japanese plain-text manuscripts. The
+repository separates reusable manuscript processing from rendering and from the
+application that loads files and presents the browser shell.
 
 ## Dependency direction
-
-Dependencies point inward from the application toward reusable packages:
 
 ```text
 Go server
@@ -23,115 +16,102 @@ internal/frontend ──▶ packages/viewer ──▶ packages/core
 ```
 
 - `packages/core` has no React, DOM, filesystem, or browser-storage dependency.
-- `packages/viewer` depends on core and React, but not on the `kg` application.
-- `internal/frontend` consumes only public package APIs.
-- The Go server does not own manuscript layout or proofreading behavior.
+- `packages/viewer` depends on core and React, but not on the application.
+- `internal/frontend` consumes public package APIs and owns orchestration.
+- The Go server owns filesystem access, not manuscript processing.
 
-The dependency direction must not be reversed to accommodate application-only
-features.
+## Core processing
 
-## Core
+`@sushichan044/kg-core` provides four explicit boundaries:
 
-`@sushichan044/kg-core` owns the manuscript domain.
-Its primary abstraction is an immutable `ManuscriptState` containing source
-text, preferences, selection, and all derived results such as pagination,
-geometry, and diagnostics.
+```text
+source ──parse──▶ ParsedManuscript ──compose──▶ ComposedManuscript
+                       │                              │
+                       └────────proofread─────────────┘──▶ diagnostics
+```
 
-State changes are expressed as typed actions.
-Applying one or more actions produces a transaction that is either accepted in
-full or rejected without changing the previous snapshot.
-`ManuscriptController` serializes accepted transactions and notifies subscribers
-once per dispatched batch.
+The values crossing these boundaries are readonly plain objects. Core does not
+own a controller, subscription lifecycle, preferences, selection, or
+persistence.
 
-This model keeps derived data coherent: consumers never provide pagination or
-diagnostics independently from the text and configuration that produced them.
-Low-level pure functions remain public for consumers that do not need the state
-model.
+Parsers normalize service-specific source notation into display graphemes and a
+closed annotation union. Composers receive a parsed manuscript and produce a
+self-contained layout snapshot. Proofreading rules explicitly declare whether
+they inspect parsed or composed data.
 
-Unknown data is parsed at public and persistence boundaries with Valibot.
-Successful parsing returns typed values; failed parsing does not produce a
-partially trusted object.
-Internal code trusts values that have already crossed those boundaries.
+Source, display, and grapheme ranges share one structural representation but
+use distinct branded types. Source and display offsets are zero-based,
+end-exclusive UTF-16 offsets. Grapheme offsets index the parsed grapheme array.
+
+## Runtime validation
+
+Core exports Valibot schemas for its public DTOs and settings. TypeScript types
+are inferred from those schemas. Parser results, composer settings and results,
+and proofreading reports are validated at their public boundaries.
+
+Custom composers supply schemas for their settings and layout. This keeps
+runtime validation extensible without teaching core the shape of every future
+layout. Structural and cross-field failures return `ManuscriptResult` errors;
+core does not clamp invalid values or accept partially valid plugin output.
+
+Internal code trusts values after they cross a validated boundary. React props
+and reducer actions are not repeatedly parsed when their producers are already
+typed internal code.
 
 ## Viewer
 
-`@sushichan044/kg-viewer` adapts the core controller to React.
-`ManuscriptProvider` subscribes to one controller and supplies connected
-viewport, toolbar, diagnostic, zoom, and settings components.
-
-The viewer owns interaction that is meaningful for any manuscript consumer,
-including configuration drafts, diagnostic selection, presets, and effective
-zoom.
-The consuming application does not recalculate or inject derived manuscript
+`@sushichan044/kg-viewer` is rendering-only. `ManuscriptViewer` receives a
+composed grid snapshot, diagnostics, active diagnostic ID, and zoom through
+controlled props. `DiagnosticList` receives the same diagnostic selection
 state.
 
-DOM-only behavior is exposed through the `ManuscriptViewer` ref handle.
-This includes navigation such as scrolling to a page or diagnostic.
-DOM state does not enter the core snapshot.
+The viewer does not parse source, compose pages, run rules, register plugins,
+manage settings, or persist preferences. DOM-only navigation remains available
+through the viewer ref handle. Visible-page and effective-zoom changes are
+reported as events.
 
-Viewer CSS is explicitly imported and scoped with the `kgv-` namespace.
-The package does not reset or style the surrounding application.
-React remains a peer dependency.
+Viewer CSS is explicitly imported and scoped with the `kgv-` namespace. React
+and React DOM remain peer dependencies.
 
 ## Frontend application
 
-`internal/frontend` is a thin adapter around core and viewer.
-It owns only application concerns:
+`internal/frontend` owns the application reducer and derives processing results
+with a synchronous parse, compose, and proofread pipeline. It also owns:
 
-- fetching the file catalog and selected document;
-- reacting to server-sent file events;
-- selecting a document;
-- composing desktop and mobile application shells;
-- opening application drawers and dialogs; and
-- persisting application and manuscript state.
+- file catalog and content requests;
+- server-sent file events;
+- selected document and diagnostic state;
+- composition settings, zoom, and presets;
+- desktop and mobile shells; and
+- local and session persistence.
 
-Fetched text enters the manuscript model through a `document.replace` action.
-The frontend reads derived state through viewer hooks and invokes DOM navigation
-through the view handle.
-It does not call pagination, geometry, or proofreading functions directly.
+Processing failures replace the preview with an explicit error instead of
+showing a stale composed snapshot. The initial implementation recomputes the
+full pipeline synchronously; async or incremental processing can be introduced
+at the application boundary without changing core or viewer ownership.
 
 ## Persistence
 
-Application state and manuscript preferences have separate ownership and
-storage keys:
+Application selection and manuscript preferences use separate keys:
 
-- `kg.app.state.v1` stores application selection.
-- `kg.manuscript.preferences.v2` stores core-owned manuscript preferences.
-- per-document visible-page state is best-effort session storage.
+- `kg.app.state.v1` stores the selected path.
+- `kg.manuscript.preferences.v3` stores composition settings, zoom, and presets.
+- per-document visible-page state uses best-effort session storage.
 
-Each durable payload has its own versioned schema.
-Only the current complete shape is parsed.
-Malformed, incomplete, incompatible, and legacy payloads fall back to defaults;
-the application does not retain migration code for old pre-release versions.
-
-The core package owns encoding and decoding manuscript preferences.
-The frontend owns encoding and decoding application selection.
+The frontend validates current payloads with Valibot and falls back to defaults
+for malformed, incomplete, incompatible, or legacy values. Version 2
+preferences are intentionally not migrated.
 
 ## Server boundary
 
-The Go server is the only filesystem owner and watcher.
-It exposes file discovery and content through HTTP, and reports catalog, file,
-and process changes through server-sent events.
-The browser never reads watched paths directly.
+The Go server is the only filesystem owner and watcher. It exposes file
+discovery and content through HTTP and reports catalog, file, and process
+changes through server-sent events. Release builds embed the frontend in the Go
+binary; development uses the same HTTP boundary through the frontend proxy.
 
-Release builds embed the frontend in the Go binary.
-Development uses the same HTTP boundary through the frontend development
-server's proxy.
+## Non-goals
 
-## Extension boundary
-
-New manuscript behavior belongs in core when it is framework-independent, and
-in viewer when it is reusable React or DOM interaction.
-Application-specific file or shell behavior stays in `internal/frontend`.
-
-A second preview mode may introduce an explicit mode registry or discriminated
-union.
-Do not introduce a generic plugin system before more than one concrete mode
-establishes the required abstraction.
-
-## Architectural non-goals
-
-The architecture does not make `kg` a production typesetting engine, browser
-editor, or automatic correction system.
-Print-accurate composition, source mutation, and editor ownership remain outside
-the package boundaries described here.
+The architecture does not provide print-accurate typesetting, source editing,
+automatic correction, generic annotations, asynchronous processing, or
+incremental recomposition. Those capabilities require concrete use cases before
+their contracts are added.

@@ -1,4 +1,4 @@
-import { SettingsPanel } from "@sushichan044/kg-viewer";
+import type { ReactNode } from "react";
 
 import type { FileEntry } from "../lib/api";
 
@@ -36,10 +36,11 @@ export function FilePanel({ files, selectedId, onSelect }: FilePanelProps) {
 }
 
 export interface SidebarProps extends FilePanelProps {
-  status?: string;
+  readonly children?: ReactNode;
+  readonly status?: string;
 }
 
-export function Sidebar({ files, selectedId, onSelect, status }: SidebarProps) {
+export function Sidebar({ files, selectedId, onSelect, status, children }: SidebarProps) {
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -47,7 +48,10 @@ export function Sidebar({ files, selectedId, onSelect, status }: SidebarProps) {
         <span className="brand__mode">原稿用紙</span>
       </div>
       <FilePanel files={files} selectedId={selectedId} onSelect={onSelect} />
-      <SettingsPanel idPrefix="desktop-" status={status} />
+      {children}
+      <p className="sidebar__status" role="status">
+        {status}
+      </p>
     </aside>
   );
 }
