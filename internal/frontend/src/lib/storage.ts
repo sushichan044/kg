@@ -16,7 +16,11 @@ const AppStateSchema = readonlyObject({
 
 const ZoomModeSchema = v.variant("kind", [
   readonlyObject({ kind: v.literal("fit") }),
-  readonlyObject({ kind: v.literal("fixed"), percent: v.picklist([50, 75, 100, 125, 150]) }),
+  readonlyObject({
+    kind: v.literal("fixed"),
+    // The viewer accepts any magnification; a stored one only has to be usable.
+    percent: v.pipe(v.number(), v.finite(), v.minValue(1)),
+  }),
 ]);
 
 const ManuscriptPresetSchema = readonlyObject({

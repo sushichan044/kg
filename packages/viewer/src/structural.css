@@ -116,8 +116,12 @@
   font-family: var(--kgv-manuscript-font);
   font-size: calc(var(--kgv-cell-size) * 0.36);
   line-height: 1;
-  /* Centre the reading on its base, as ruby over a compound normally sits. */
-  text-align: center;
+  /* Spread the reading over the whole base rather than bunching it up: a reading belongs to the
+     compound it annotates, not to one of its characters. `text-align-last` is what does the work,
+     since a reading is a single line and justification otherwise skips the last one. */
+  text-align: justify;
+  text-align-last: justify;
+  text-justify: inter-character;
 }
 
 /* Keeps the emphasis mark beside the glyph rather than overlapping it. */

@@ -185,6 +185,25 @@ test("keeps a ruby reading within the gap beside its own line", async () => {
   expect(reading.width).toBeLessThan(cell.width);
 });
 
+test("spreads a ruby reading over the cells its base occupies", async () => {
+  const { screen } = await renderViewer({
+    // Three kana over a two-character base: shorter than its base unless it is spread out.
+    text: "[[rb:漢字 > かんじ]]あ",
+    settings,
+    parser: pixivParser,
+  });
+
+  const base = screen.container
+    .querySelector<HTMLElement>('[data-annotation="ruby"]')!
+    .getBoundingClientRect();
+  const reading = screen.container.querySelector<HTMLElement>("rt")!;
+  const range = document.createRange();
+  range.selectNodeContents(reading);
+  const glyphs = range.getBoundingClientRect();
+
+  expect(glyphs.height).toBeCloseTo(base.height, 0);
+});
+
 test("splits annotations at line boundaries and repeats ruby readings", async () => {
   const { screen } = await renderViewer({
     text: "[[rb:一二三四五六七八九十一二 > いちにさんしごろくしちはちきゅうじゅういちに]]",
