@@ -96,7 +96,7 @@ a hostile host reset to keep all of this from regressing.
 
 ### DOM contract
 
-```
+```text
 div.kgv-viewer
 └── div.kgv-viewport
     └── div.kgv-stack                       ← carries the geometry properties
@@ -156,9 +156,11 @@ on the values the component computes.
 
 ### Isolated rendering
 
-`IframeIsolation` renders children into a sandboxed iframe, where a stylesheet
-in the host document cannot reach them. It injects `structural.css` and nothing
-else by default:
+`IframeIsolation` renders children into an iframe built from `srcDoc`, giving
+them a document of their own that the host page's stylesheets do not reach. The
+iframe is deliberately not sandboxed: it stays same-origin so the component can
+portal React children into it. It injects `structural.css` and nothing else by
+default:
 
 ```tsx
 import { IframeIsolation, ManuscriptViewer, themeStyles } from "@sushichan044/kg-viewer";

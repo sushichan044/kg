@@ -78,13 +78,16 @@ test("applies the theme when it is injected alongside the structural stylesheet"
   expect(cellStyle.borderBlockStartWidth).not.toBe("0px");
 });
 
-test("leaves out the structural stylesheet for a custom injection", async () => {
-  const { glyphStyle } = await isolated(
-    <IframeIsolation styles={{ kind: "custom", css: [] }}>
+test("injects only the given CSS for a custom injection", async () => {
+  const { cellStyle, glyphStyle } = await isolated(
+    <IframeIsolation
+      styles={{ kind: "custom", css: ".kgv-cell { border-block-start: 3px solid }" }}
+    >
       <ManuscriptViewer composed={composed("あ")} />
     </IframeIsolation>,
   );
 
+  expect(cellStyle.borderBlockStartWidth).toBe("3px");
   expect(glyphStyle.writingMode).toBe("horizontal-tb");
 });
 
