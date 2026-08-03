@@ -8,6 +8,7 @@ import { DiagnosticList } from "./DiagnosticList";
 import { ManuscriptViewer } from "./ManuscriptViewer";
 import type { ManuscriptViewHandle } from "./ManuscriptViewer";
 import { ManuscriptProvider } from "./Provider";
+import { SettingsPanel } from "./SettingsPanel";
 import { ViewerToolbar } from "./ViewerToolbar";
 
 import "./styles.css";
@@ -53,4 +54,19 @@ test("exposes DOM-only navigation through the view handle", async () => {
   viewRef.current?.scrollToPage(999);
   expect(viewRef.current?.getVisiblePage()).toBeLessThan(manuscript.state.pagination.pages.length);
   expect(viewRef.current?.getEffectiveZoomPercent()).toBe(100);
+});
+
+test("offers book paper sizes in settings and applies the selection", async () => {
+  const manuscript = createManuscript();
+  const screen = await render(
+    <ManuscriptProvider controller={manuscript}>
+      <SettingsPanel />
+    </ManuscriptProvider>,
+  );
+
+  const paperSize = screen.getByLabelText("用紙");
+  await expect.element(paperSize.getByRole("option", { name: "A6（文庫）" })).toBeInTheDocument();
+  await paperSize.selectOptions("shinsho");
+
+  expect(manuscript.state.appearance.paperSize).toBe("shinsho");
 });
