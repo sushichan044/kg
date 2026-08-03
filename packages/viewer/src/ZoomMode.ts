@@ -1,14 +1,9 @@
 /**
  * The scale {@link ZoomMode.adjacentLevel} steps through by default. Nothing constrains a consumer
- * to it: `percent` accepts any magnification, so a slider or a scale of your own works just as
- * well.
+ * to it, or to any scale at all: `percent` is whatever magnification you ask for, so a slider or a
+ * pinch gesture works as well as buttons.
  */
 export const ZOOM_LEVELS = [50, 75, 100, 125, 150] as const;
-
-/**
- * How far `fitPagePercent` will grow a page that has room to spare.
- */
-const MAX_FIT_PERCENT = 150;
 
 const CSS_PIXELS_PER_MM = 96 / 25.4;
 
@@ -40,8 +35,9 @@ export const ZoomMode = {
   },
 
   /**
-   * The magnification at which a whole page fits the viewport, never magnifying past
-   * {@link MAX_FIT_PERCENT}.
+   * The magnification at which a whole page fits the viewport, whatever that turns out to be. It is
+   * deliberately not capped: how large a page may grow is the consuming application's call, so
+   * clamp the result if a ceiling suits your layout.
    */
   fitPagePercent: (
     viewportWidthPx: number,
@@ -53,7 +49,6 @@ export const ZoomMode = {
     return Math.min(
       (viewportWidthPx / (paperWidthMm * CSS_PIXELS_PER_MM)) * 100,
       (viewportHeightPx / (paperHeightMm * CSS_PIXELS_PER_MM)) * 100,
-      MAX_FIT_PERCENT,
     );
   },
 } as const;

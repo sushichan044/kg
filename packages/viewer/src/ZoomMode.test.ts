@@ -36,8 +36,10 @@ describe("fitPagePercent", () => {
     expect(ZoomMode.fitPagePercent(296 * perMm, 105 * perMm, 148, 210)).toBeCloseTo(50, 0);
   });
 
-  test("stops magnifying a page that has room to spare", () => {
-    expect(ZoomMode.fitPagePercent(10_000, 10_000, 148, 210)).toBe(150);
+  test("keeps growing a page that has room to spare, leaving any ceiling to the caller", () => {
+    const perMm = 96 / 25.4;
+
+    expect(ZoomMode.fitPagePercent(2100 * perMm, 2100 * perMm, 148, 210)).toBeCloseTo(1000, 0);
   });
 
   test("falls back to full size before the viewport has been measured", () => {
