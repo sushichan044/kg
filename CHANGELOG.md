@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/sushichan044/kg/compare/v0.1.0...v0.1.1) (2026-08-03)
+
+
+### Features
+
+* improve manuscript preview fidelity and sharing ([#39](https://github.com/sushichan044/kg/issues/39)) ([2822c3d](https://github.com/sushichan044/kg/commit/2822c3d33599d37da3cceaf71ddeb8942e60b069))
+
 ## [0.1.0](https://github.com/sushichan044/kg/compare/v0.0.5...v0.1.0) (2026-08-01)
 
 
