@@ -84,6 +84,24 @@ describe("pixivNotation", () => {
     ]);
   });
 
+  test("keeps a variation selector after a tag with its preceding grapheme", () => {
+    const source = "[b:予]\uFE00国";
+    const parsed = pixivNotation.parse(source);
+
+    expect(parsed.graphemes).toEqual([
+      {
+        grapheme: "予\uFE00",
+        textRange: { start: 0, end: 2 },
+        sourceRange: { start: 3, end: 6 },
+      },
+      { grapheme: "国", textRange: { start: 2, end: 3 }, sourceRange: { start: 6, end: 7 } },
+    ]);
+    expect(parsed.annotations[0]).toMatchObject({
+      kind: "bold",
+      graphemeRange: { start: 0, end: 1 },
+    });
+  });
+
   test.each([
     ["unknown", "[unknown:text]"],
     ["malformed", "[b:text"],

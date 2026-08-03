@@ -129,8 +129,8 @@
 
   .kgv-annotation-ruby rt {
     position: absolute;
-    inset-block-start: 0;
-    inset-inline-start: 100%;
+    top: 0;
+    left: 100%;
     block-size: 100%;
     writing-mode: vertical-rl;
     text-orientation: upright;

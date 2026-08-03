@@ -120,6 +120,8 @@ function Workspace({ controller }: WorkspaceProps) {
   const [diagnosticsSheetOpen, setDiagnosticsSheetOpen] = useState(false);
   const viewRef = useRef<ManuscriptViewHandle>(null);
   const appStateRef = useRef(appState);
+  // Identifies the newest catalog request so a late response cannot overwrite a newer one.
+  const catalogRequestRef = useRef(0);
   // Identifies the newest content request so a late response cannot overwrite a newer one.
   const contentRequestRef = useRef(0);
 
@@ -134,15 +136,27 @@ function Workspace({ controller }: WorkspaceProps) {
     if (!saveAppState(next)) setStatus("選択状態を保存できませんでした");
   }, []);
 
-  const refreshFiles = useCallback(async () => {
-    try {
-      const nextFiles = await fetchFiles();
+  const acceptCatalogResponse = useCallback(
+    (request: number, nextFiles: FileEntry[]) => {
+      if (request !== catalogRequestRef.current) return;
       setFiles(nextFiles);
       commitAppState(resolveAppState(nextFiles, appStateRef.current));
+      setCatalogLoaded(true);
+    },
+    [commitAppState],
+  );
+
+  const refreshFiles = useCallback(async () => {
+    const request = ++catalogRequestRef.current;
+    try {
+      const nextFiles = await fetchFiles();
+      acceptCatalogResponse(request, nextFiles);
     } catch {
-      setStatus("ファイル一覧の取得に失敗しました");
+      if (request === catalogRequestRef.current) {
+        setStatus("ファイル一覧の取得に失敗しました");
+      }
     }
-  }, [commitAppState]);
+  }, [acceptCatalogResponse]);
 
   const loadContent = useCallback(
     (id: string) => {
@@ -162,23 +176,21 @@ function Workspace({ controller }: WorkspaceProps) {
   );
 
   useEffect(() => {
-    let ignore = false;
+    const request = ++catalogRequestRef.current;
     void fetchFiles().then(
       (nextFiles) => {
-        if (!ignore) {
-          setFiles(nextFiles);
-          commitAppState(resolveAppState(nextFiles, appStateRef.current));
-          setCatalogLoaded(true);
-        }
+        acceptCatalogResponse(request, nextFiles);
       },
       () => {
-        if (!ignore) setStatus("ファイル一覧の取得に失敗しました");
+        if (request === catalogRequestRef.current) {
+          setStatus("ファイル一覧の取得に失敗しました");
+        }
       },
     );
     return () => {
-      ignore = true;
+      catalogRequestRef.current += 1;
     };
-  }, [commitAppState]);
+  }, [acceptCatalogResponse]);
 
   useEffect(() => {
     if (!catalogLoaded) return;

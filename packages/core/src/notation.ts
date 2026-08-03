@@ -60,19 +60,36 @@ class ParsedManuscriptBuilder {
   #textLength = 0;
 
   append(text: string, sourceStart: number): GraphemeRange {
-    const start = this.graphemes.length;
+    let start = this.graphemes.length;
+    let unsegmentedStart = 0;
     this.#textParts.push(text);
 
-    for (const { index, segment } of segmenter.segment(text)) {
+    const previous = this.graphemes.at(-1);
+    if (previous !== undefined && text.length > 0) {
+      const first = segmenter
+        .segment(previous.grapheme + text)
+        [Symbol.iterator]()
+        .next().value;
+      const joinedLength = first?.segment.length ?? previous.grapheme.length;
+      unsegmentedStart = joinedLength - previous.grapheme.length;
+      if (unsegmentedStart > 0) {
+        previous.grapheme += text.slice(0, unsegmentedStart);
+        previous.textRange.end += unsegmentedStart;
+        previous.sourceRange.end = sourceStart + unsegmentedStart;
+        start -= 1;
+      }
+    }
+
+    for (const { index, segment } of segmenter.segment(text.slice(unsegmentedStart))) {
       this.graphemes.push({
         grapheme: segment,
         textRange: {
-          start: this.#textLength + index,
-          end: this.#textLength + index + segment.length,
+          start: this.#textLength + unsegmentedStart + index,
+          end: this.#textLength + unsegmentedStart + index + segment.length,
         },
         sourceRange: {
-          start: sourceStart + index,
-          end: sourceStart + index + segment.length,
+          start: sourceStart + unsegmentedStart + index,
+          end: sourceStart + unsegmentedStart + index + segment.length,
         },
       });
     }

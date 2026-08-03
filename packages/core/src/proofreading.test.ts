@@ -113,6 +113,22 @@ describe("proofreadManuscript", () => {
     });
   });
 
+  test("maps notation-aware diagnostics across CRLF source lines", () => {
+    const source = "[b:　正常]\r\n[b:問題]";
+    const start = source.indexOf("問題");
+    const diagnostics = proofreadManuscript(source, {}, pixivNotation);
+
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0]).toMatchObject({
+      ruleId: "paragraph-leading-character",
+      range: { start, end: start + 1 },
+      location: {
+        start: { offset: start, line: 2, column: 4 },
+        end: { offset: start + 1, line: 2, column: 5 },
+      },
+    });
+  });
+
   test("does not proofread pixiv delimiters or ruby readings as displayed prose", () => {
     const source = "[[rb:「正常」>。。。2026]]";
 

@@ -109,8 +109,16 @@ test("renders the four supported pixiv notation forms without exposing their tag
   const bold = screen.container.querySelector<HTMLElement>('[data-annotation="bold"]');
   const italic = screen.container.querySelector<HTMLElement>('[data-annotation="italic"]');
   const emphasis = screen.container.querySelector<HTMLElement>('[data-annotation="emphasis"]');
+  const rubyReading = ruby?.querySelector<HTMLElement>("rt");
 
-  expect(ruby?.querySelector("rt")?.textContent).toBe("かんじ");
+  expect(rubyReading?.textContent).toBe("かんじ");
+  expect(rubyReading?.getBoundingClientRect().top).toBeCloseTo(
+    ruby?.getBoundingClientRect().top ?? 0,
+    0,
+  );
+  expect(rubyReading?.getBoundingClientRect().left).toBeGreaterThanOrEqual(
+    ruby?.getBoundingClientRect().right ?? 0,
+  );
   expect(getComputedStyle(bold!).fontWeight).toBe("700");
   expect(getComputedStyle(italic!).fontStyle).toBe("italic");
   expect(getComputedStyle(emphasis!).textEmphasisStyle).toContain("・");

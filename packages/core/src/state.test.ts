@@ -176,13 +176,20 @@ describe("manuscript preferences codec", () => {
     expect(decodeManuscriptPreferences(validPayload).ok).toBe(true);
   });
 
-  test.each(["a6", "shinsho"] as const)("round-trips the %s paper size", (paperSize) => {
-    const state = createManuscriptState({ appearance: { ...DEFAULT_APPEARANCE, paperSize } });
+  test.each([
+    ["a6", 105, 148],
+    ["shinsho", 106, 173],
+  ] as const)(
+    "round-trips the %s paper size and applies its geometry",
+    (paperSize, width, height) => {
+      const state = createManuscriptState({ appearance: { ...DEFAULT_APPEARANCE, paperSize } });
 
-    const decoded = decodedValue(decodeManuscriptPreferences(encodeManuscriptPreferences(state)));
+      const decoded = decodedValue(decodeManuscriptPreferences(encodeManuscriptPreferences(state)));
 
-    expect(decoded.appearance.paperSize).toBe(paperSize);
-  });
+      expect(decoded.appearance.paperSize).toBe(paperSize);
+      expect(state.geometry).toMatchObject({ paperWidthMm: width, paperHeightMm: height });
+    },
+  );
 
   test("rejects preferences from older versions", () => {
     const decoded = decodeManuscriptPreferences({ ...validPayload, version: 1 });

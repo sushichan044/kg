@@ -284,25 +284,38 @@ function proofreadText(
   );
 }
 
-function sourcePosition(text: string, offset: number): SourcePosition {
-  let line = 1;
-  let lineStart = 0;
+function sourceLineStarts(text: string): number[] {
+  const starts = [0];
   let index = 0;
-  while (index < offset) {
+  while (index < text.length) {
     if (text[index] === "\r") {
       if (text[index + 1] === "\n") {
         index += 1;
       }
-      line += 1;
-      lineStart = index + 1;
+      starts.push(index + 1);
     } else if (text[index] === "\n") {
-      line += 1;
-      lineStart = index + 1;
+      starts.push(index + 1);
     }
     index += 1;
   }
 
-  return { offset, line, column: offset - lineStart + 1 };
+  return starts;
+}
+
+function sourcePosition(lineStarts: number[], offset: number): SourcePosition {
+  let low = 0;
+  let high = lineStarts.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (lineStarts[middle]! <= offset) {
+      low = middle + 1;
+    } else {
+      high = middle;
+    }
+  }
+
+  const lineIndex = Math.max(0, low - 1);
+  return { offset, line: lineIndex + 1, column: offset - lineStarts[lineIndex]! + 1 };
 }
 
 function sourceOffset(
@@ -310,27 +323,42 @@ function sourceOffset(
   displayOffset: number,
   boundary: "start" | "end",
 ): number {
-  for (const grapheme of parsed.graphemes) {
-    const contains =
-      boundary === "start"
-        ? displayOffset >= grapheme.textRange.start && displayOffset < grapheme.textRange.end
-        : displayOffset > grapheme.textRange.start && displayOffset <= grapheme.textRange.end;
-    if (contains) {
-      return (
-        grapheme.sourceRange.start +
-        Math.min(
-          displayOffset - grapheme.textRange.start,
-          grapheme.sourceRange.end - grapheme.sourceRange.start,
-        )
-      );
+  let low = 0;
+  let high = parsed.graphemes.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    const end = parsed.graphemes[middle]!.textRange.end;
+    if (boundary === "start" ? end <= displayOffset : end < displayOffset) {
+      low = middle + 1;
+    } else {
+      high = middle;
     }
+  }
+
+  const grapheme = parsed.graphemes[low];
+  const contains =
+    grapheme !== undefined &&
+    (boundary === "start"
+      ? displayOffset >= grapheme.textRange.start && displayOffset < grapheme.textRange.end
+      : displayOffset > grapheme.textRange.start && displayOffset <= grapheme.textRange.end);
+  if (contains) {
+    if (boundary === "end" && displayOffset === grapheme.textRange.end) {
+      return grapheme.sourceRange.end;
+    }
+    return (
+      grapheme.sourceRange.start +
+      Math.min(
+        displayOffset - grapheme.textRange.start,
+        grapheme.sourceRange.end - grapheme.sourceRange.start,
+      )
+    );
   }
 
   return parsed.graphemes.at(-1)?.sourceRange.end ?? 0;
 }
 
 function mapDiagnosticToSource(
-  source: string,
+  lineStarts: number[],
   parsed: ParsedManuscript,
   item: ManuscriptDiagnostic,
 ): ManuscriptDiagnostic {
@@ -344,8 +372,8 @@ function mapDiagnosticToSource(
     id: `${item.ruleId}:${range.start}:${range.end}`,
     range,
     location: {
-      start: sourcePosition(source, range.start),
-      end: sourcePosition(source, range.end),
+      start: sourcePosition(lineStarts, range.start),
+      end: sourcePosition(lineStarts, range.end),
     },
   };
 }
@@ -361,10 +389,11 @@ export function proofreadManuscript(
 
   const settings = { ...DEFAULT_PROOFREADING_OPTIONS, ...options };
   const parsed = notation.parse(text);
+  const lineStarts = sourceLineStarts(text);
   const diagnostics = proofreadText(parsed.text, {
     ...settings,
     noVariantCharacters: false,
-  }).map((item) => mapDiagnosticToSource(text, parsed, item));
+  }).map((item) => mapDiagnosticToSource(lineStarts, parsed, item));
 
   if (settings.noVariantCharacters) {
     for (const line of splitSourceLines(text)) {

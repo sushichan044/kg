@@ -171,6 +171,81 @@ test("normalizes an unknown URL file to the first available file", async () => {
   });
 });
 
+test("synchronizes the URL after a failed initial catalog load is refreshed", async () => {
+  let catalogRequests = 0;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = input instanceof Request ? input.url : input.toString();
+      if (url.endsWith("/_/api/files")) {
+        catalogRequests += 1;
+        if (catalogRequests === 1) throw new Error("catalog unavailable");
+        return new Response(JSON.stringify([files[1]]), {
+          headers: { "content-type": "application/json" },
+        });
+      }
+
+      return new Response("共有本文");
+    }),
+  );
+  const screen = await render(<App />);
+
+  await vi.waitFor(() => {
+    expect(FakeEventSource.latest).toBeDefined();
+  });
+  FakeEventSource.latest?.emit("update", "{}");
+
+  await vi.waitFor(() => {
+    expect(screen.container.querySelector(".kgv-toolbar-label")?.textContent).toBe("共有 原稿.txt");
+    expect(new URL(window.location.href).searchParams.get("file")).toBe("共有 原稿.txt");
+  });
+});
+
+test("keeps the newest catalog when an older request finishes last", async () => {
+  let catalogRequests = 0;
+  let resolveInitialCatalog!: (response: Response) => void;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((input: RequestInfo | URL) => {
+      const url = input instanceof Request ? input.url : input.toString();
+      if (url.endsWith("/_/api/files")) {
+        catalogRequests += 1;
+        if (catalogRequests === 1) {
+          return new Promise<Response>((resolve) => {
+            resolveInitialCatalog = resolve;
+          });
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify([files[1]]), {
+            headers: { "content-type": "application/json" },
+          }),
+        );
+      }
+
+      return Promise.resolve(new Response("共有本文"));
+    }),
+  );
+  const screen = await render(<App />);
+
+  await vi.waitFor(() => {
+    expect(FakeEventSource.latest).toBeDefined();
+  });
+  FakeEventSource.latest?.emit("update", "{}");
+  await vi.waitFor(() => {
+    expect(screen.container.querySelector(".kgv-toolbar-label")?.textContent).toBe("共有 原稿.txt");
+  });
+
+  resolveInitialCatalog(
+    new Response(JSON.stringify([files[0]]), {
+      headers: { "content-type": "application/json" },
+    }),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  expect(screen.container.querySelector(".kgv-toolbar-label")?.textContent).toBe("共有 原稿.txt");
+  expect(new URL(window.location.href).searchParams.get("file")).toBe("共有 原稿.txt");
+});
+
 test("renders pixiv notation after the initial load and a file reload", async () => {
   novelSource = pixivSource;
   const screen = await render(<App />);
