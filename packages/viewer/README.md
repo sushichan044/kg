@@ -11,7 +11,7 @@ pnpm add @sushichan044/kg-core @sushichan044/kg-viewer react react-dom
 
 ## React viewer
 
-Import the stylesheet explicitly and pass already processed values:
+Import a stylesheet explicitly and pass already processed values:
 
 ```tsx
 import { DiagnosticList, ManuscriptViewer } from "@sushichan044/kg-viewer";
@@ -57,6 +57,121 @@ grid on the selected paper size.
 
 See [`@sushichan044/kg-core`](../core/README.md) for parsing, composition,
 source mapping, schema validation, and proofreading APIs.
+
+## Styling
+
+The components ship no look of their own. They render a fixed DOM whose class
+names and `data-*` attributes are the public styling contract, so applications
+style them with ordinary CSS instead of props.
+
+### Stylesheets
+
+| Entry                                    | Contents                                                | Required |
+| ---------------------------------------- | ------------------------------------------------------- | -------- |
+| `@sushichan044/kg-viewer/structural.css` | Layout physics of the vertical-writing grid. No colors. | Yes      |
+| `@sushichan044/kg-viewer/theme.css`      | The default look: colors, borders, shadows, spacing.    | No       |
+| `@sushichan044/kg-viewer/styles.css`     | Both of the above.                                      | —        |
+
+`structural.css` is required because the grid is laid out from geometry that
+only CSS can consume — cell pitch, line gap, and page size arrive as custom
+properties and are resolved with `calc()`. Import it and style everything else
+yourself, or import `styles.css` and adjust the tokens below.
+
+The two sheets take opposite positions in the cascade on purpose:
+
+- `structural.css` is **unlayered and selected by class**, so a global
+  `* { box-sizing }`, `button { padding }`, or `ol { list-style }` reset in your
+  application cannot break the grid. Import it before your own stylesheet, and
+  override a rule deliberately with an equally specific selector.
+- `theme.css` sits in the `kg-viewer.theme` **cascade layer with `:where()`
+  selectors**, so any rule of yours beats it — layered or not, no `!important`
+  needed. It only sets properties `structural.css` leaves alone, so overriding
+  it never disturbs the layout.
+
+`structural.css` also neutralizes the inherited text properties that would
+distort a fixed-size cell (`letter-spacing`, `word-spacing`, `text-indent`,
+`text-transform`), since inheritance reaches the glyphs regardless of
+specificity. A `src/structural.browser.test.tsx` suite renders the viewer under
+a hostile host reset to keep all of this from regressing.
+
+### DOM contract
+
+```
+div.kgv-viewer
+└── div.kgv-viewport
+    └── div.kgv-stack                       ← carries the geometry properties
+        └── section.kgv-page[data-page-index]
+            ├── p.kgv-visually-hidden       ← page text for assistive tech
+            └── div.kgv-page-grid
+                └── div.kgv-stage
+                    └── div.kgv-line
+                        ├── span.kgv-annotation-stack     ← only around annotated runs
+                        │   └── strong|em|ruby|span.kgv-annotation
+                        └── span.kgv-cell
+                            ├── span.kgv-glyph
+                            └── button.kgv-diagnostic-marker  ← only where a diagnostic starts
+```
+
+`DiagnosticList` renders `ol.kgv-diagnostics > li > button`, with
+`span.kgv-diagnostic-location` inside each button, or
+`p.kgv-diagnostics-empty` when there is nothing to report.
+
+State is exposed as attributes rather than modifier classes:
+
+| Attribute                  | On                        | Values                                          |
+| -------------------------- | ------------------------- | ----------------------------------------------- |
+| `data-page-index`          | `.kgv-page`               | zero-based page number                          |
+| `data-overflow`            | `.kgv-page`               | present when the grid exceeds the paper         |
+| `data-offscreen`           | `.kgv-page`               | present on pages eligible for skipped rendering |
+| `data-annotation`          | `.kgv-annotation`         | `bold`, `italic`, `ruby`, `emphasis`            |
+| `data-diagnostic`          | `.kgv-cell`               | present when a diagnostic covers the cell       |
+| `data-diagnostic-active`   | `.kgv-cell`               | present when that diagnostic is selected        |
+| `data-diagnostic-severity` | `.kgv-cell`, `li`         | `warning`, `error`                              |
+| `data-diagnostic-origin`   | `li`                      | `parser`, `rule`                                |
+| `aria-current`             | `.kgv-diagnostics button` | `true` on the selected item                     |
+
+Emphasis marks are the one exception: the mark character is per-instance data,
+so it is set as an inline `text-emphasis` style and cannot be themed in CSS.
+
+### Custom properties
+
+`theme.css` declares these on `.kgv-viewer`; override them to retint the
+default look. `DiagnosticList` reads them with literal fallbacks, so it also
+works when rendered outside `.kgv-viewer`.
+
+`--kgv-surface`, `--kgv-paper`, `--kgv-text`, `--kgv-text-muted`, `--kgv-grid`,
+`--kgv-accent`, `--kgv-controls-surface`, `--kgv-padding`.
+
+`ManuscriptViewer` sets `--kgv-cell-size`, `--kgv-line-gap`, `--kgv-page-width`,
+`--kgv-page-height`, and `--kgv-manuscript-font` on `.kgv-stack` from the
+composed geometry and the effective zoom. Read them to stay aligned with the
+grid; do not assign them, since the layout and the fit-zoom measurement depend
+on the values the component computes.
+
+### Isolated rendering
+
+`IframeIsolation` renders children into a sandboxed iframe, where a stylesheet
+in the host document cannot reach them. It injects `structural.css` and nothing
+else by default:
+
+```tsx
+import { IframeIsolation, ManuscriptViewer, themeStyles } from "@sushichan044/kg-viewer";
+
+<IframeIsolation styles={{ kind: "structural", css: themeStyles }}>
+  <ManuscriptViewer composed={composed} />
+</IframeIsolation>;
+```
+
+`styles` accepts `{ kind: "structural", css? }` to append CSS after the
+structural rules, or `{ kind: "custom", css }` to supply every rule yourself.
+`structuralStyles` and `themeStyles` are also exported as plain strings for
+shadow roots and server-rendered `<style>` tags.
+
+Applications that own the whole page usually do not need this component:
+render `ManuscriptViewer` directly so the page's own cascade reaches it.
+
+`DiagnosticList` is a convenience, not infrastructure. Building your own list
+from `ManuscriptDiagnostic[]` is expected when you want different markup.
 
 ## Browser support
 

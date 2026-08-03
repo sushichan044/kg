@@ -1,42 +1,40 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-import { viewerStyles } from "./styleContent";
+import { IframeStyleInjection } from "./IframeStyleInjection";
 
 export type IframeIsolationProps = Readonly<{
   children: ReactNode;
   className?: string;
   title?: string;
-  styleOverrides?: string;
+  styles?: IframeStyleInjection;
 }>;
+
+/**
+ * Sizing for the iframe document itself. Kept out of the style injection so that swapping
+ * stylesheets never leaves the isolated document without a scroll box.
+ */
+const shellStyles = "html,body{margin:0;padding:0;height:100%;overflow:hidden}#root{height:100%}";
+
+const srcdoc = [
+  "<!DOCTYPE html>",
+  "<html>",
+  '<head><meta charset="utf-8">',
+  `<style>${shellStyles}</style>`,
+  "</head>",
+  '<body><div id="root"></div></body>',
+  "</html>",
+].join("");
 
 export function IframeIsolation({
   children,
   className,
   title = "viewer",
-  styleOverrides,
+  styles = IframeStyleInjection.defaults,
 }: IframeIsolationProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [mountNode, setMountNode] = useState<HTMLElement | null>(null);
-
-  const srcdoc = useMemo(
-    () =>
-      [
-        "<!DOCTYPE html>",
-        "<html>",
-        '<head><meta charset="utf-8">',
-        "<style>",
-        viewerStyles,
-        "</style>",
-        "<style>html,body{margin:0;padding:0;height:100%;overflow:hidden}",
-        "#root{height:100%}</style>",
-        "</head>",
-        '<body><div id="root"></div></body>',
-        "</html>",
-      ].join(""),
-    [],
-  );
 
   const handleLoad = useCallback(() => {
     const iframe = iframeRef.current;
@@ -73,7 +71,9 @@ export function IframeIsolation({
       {mountNode !== null &&
         createPortal(
           <>
-            {styleOverrides !== undefined && <style>{styleOverrides}</style>}
+            {/* Portaled rather than inlined into srcdoc so stylesheet changes apply
+                without tearing down the iframe and remounting its React tree. */}
+            <style>{IframeStyleInjection.toCssText(styles)}</style>
             {children}
           </>,
           mountNode,

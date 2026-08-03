@@ -1,0 +1,185 @@
+/* Layout physics for the vertical-writing manuscript grid: the rules the viewer
+   cannot render without. Declares no colors, so it composes with any theme.
+
+   Deliberately unlayered and selected by class. Layered rules lose to unlayered
+   ones no matter how specific they are, so a `@layer` here would let a host
+   page's `* { box-sizing }` or `button { padding }` reset silently break the
+   grid. Class selectors outrank those element and universal selectors instead.
+   Override a rule on purpose with an equally specific selector loaded after
+   this file. theme.css takes the opposite stance — see there. */
+
+.kgv-viewer {
+  min-inline-size: 0;
+  min-block-size: 0;
+  block-size: 100%;
+}
+
+.kgv-visually-hidden {
+  position: absolute;
+  clip-path: inset(50%);
+  overflow: clip;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  white-space: nowrap;
+}
+
+.kgv-viewport {
+  min-inline-size: 0;
+  min-block-size: 0;
+  block-size: 100%;
+  overflow: auto;
+  /* The fit-zoom effect measures this padding, so it needs a value even when
+     theme.css — which declares --kgv-padding — is not loaded. */
+  padding: var(--kgv-padding, 2rem);
+  overscroll-behavior: contain;
+}
+
+.kgv-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  inline-size: max-content;
+  min-inline-size: 100%;
+  gap: 2rem;
+}
+
+.kgv-page {
+  display: grid;
+  place-items: center;
+  inline-size: var(--kgv-page-width);
+  block-size: var(--kgv-page-height);
+  flex: none;
+}
+
+@supports (content-visibility: auto) {
+  .kgv-page[data-offscreen] {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 60rem;
+  }
+}
+
+.kgv-page-grid {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--kgv-cell-size) * 2);
+}
+
+.kgv-stage {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  gap: var(--kgv-line-gap);
+}
+
+.kgv-line {
+  display: flex;
+  flex-direction: column;
+}
+
+.kgv-cell {
+  position: relative;
+  /* Keeps a themed border inside the cell instead of growing the grid pitch. */
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  inline-size: var(--kgv-cell-size);
+  block-size: var(--kgv-cell-size);
+}
+
+.kgv-annotation {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  inline-size: var(--kgv-cell-size);
+}
+
+/* Ruby text needs explicit placement: the UA default lays it out above the
+   base text in the inline direction, which collapses under vertical-rl. */
+.kgv-annotation[data-annotation="ruby"] rt {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  block-size: 100%;
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  font-family: var(--kgv-manuscript-font);
+  font-size: calc(var(--kgv-cell-size) * 0.36);
+  line-height: 1;
+}
+
+/* Keeps the emphasis mark beside the glyph rather than overlapping it. */
+.kgv-annotation[data-annotation="emphasis"] {
+  text-emphasis-position: over right;
+}
+
+.kgv-glyph {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-family: var(--kgv-manuscript-font);
+  /* --kgv-cell-size is the mass-me pitch (derived from the specified point
+     size) that drives the page/margin math; glyphs render smaller than the
+     full cell so characters keep breathing room instead of touching every
+     edge, matching how printed manuscript paper actually looks. */
+  font-size: calc(var(--kgv-cell-size) * 0.82);
+  line-height: 1;
+}
+
+/* Inheritance is not a specificity contest: these properties reach the glyph
+   from the host page's `body` however the viewer is selected, and extra
+   tracking or recasing pushes characters out of their cells. */
+.kgv-glyph,
+.kgv-annotation[data-annotation="ruby"] rt {
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-indent: 0;
+  text-transform: none;
+}
+
+.kgv-glyph-upright {
+  text-orientation: upright;
+}
+
+.kgv-diagnostic-marker {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.kgv-diagnostics {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kgv-diagnostics button {
+  display: grid;
+  inline-size: 100%;
+  /* WCAG 2.5.8 target size. */
+  min-block-size: 2rem;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.kgv-diagnostics-empty {
+  margin: 0;
+}
+
+@media (pointer: coarse) {
+  .kgv-diagnostics button {
+    min-inline-size: 2.75rem;
+    min-block-size: 2.75rem;
+  }
+}

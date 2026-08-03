@@ -33,7 +33,10 @@ export default defineConfig({
       dts: {
         tsgo: true,
       },
-      entry: ["src/index.ts", "src/styles.css"],
+      // The stylesheets ship as plain assets straight from src (see package.json
+      // exports): pack merges every CSS entry into one file, which cannot express
+      // the structural/theme split, and these sheets need no transpiling.
+      entry: ["src/index.ts"],
       fixedExtension: true,
       format: "esm",
       fromVite: true,
@@ -50,7 +53,7 @@ export default defineConfig({
   run: {
     tasks: {
       build: {
-        command: "node scripts/generate-style-content.mjs && vp fmt && vp pack",
+        command: "vp pack",
         dependsOn: [{ task: "build", from: "dependencies" }],
       },
       check: {

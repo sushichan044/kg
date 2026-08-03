@@ -131,21 +131,21 @@ function AnnotationFragment({ annotation, children }: AnnotationFragmentProps) {
   switch (annotation.kind) {
     case "bold": {
       return (
-        <strong className="kgv-annotation kgv-annotation-bold" data-annotation="bold">
+        <strong className="kgv-annotation" data-annotation="bold">
           {children}
         </strong>
       );
     }
     case "italic": {
       return (
-        <em className="kgv-annotation kgv-annotation-italic" data-annotation="italic">
+        <em className="kgv-annotation" data-annotation="italic">
           {children}
         </em>
       );
     }
     case "ruby": {
       return (
-        <ruby className="kgv-annotation kgv-annotation-ruby" data-annotation="ruby">
+        <ruby className="kgv-annotation" data-annotation="ruby">
           {children}
           <rt aria-hidden="true">{annotation.reading}</rt>
         </ruby>
@@ -154,7 +154,7 @@ function AnnotationFragment({ annotation, children }: AnnotationFragmentProps) {
     case "emphasis": {
       return (
         <span
-          className="kgv-annotation kgv-annotation-emphasis"
+          className="kgv-annotation"
           data-annotation="emphasis"
           style={{ textEmphasis: cssString(annotation.mark) }}
         >
