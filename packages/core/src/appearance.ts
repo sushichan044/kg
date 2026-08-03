@@ -3,8 +3,10 @@ import type { GridSettings } from "./pagination";
 export const PAPER_SIZES = [
   { id: "a4", label: "A4", widthMm: 210, heightMm: 297 },
   { id: "a5", label: "A5", widthMm: 148, heightMm: 210 },
+  { id: "a6", label: "A6（文庫）", widthMm: 105, heightMm: 148 },
   { id: "jis-b5", label: "B5（JIS）", widthMm: 182, heightMm: 257 },
   { id: "jis-b6", label: "B6（JIS）", widthMm: 128, heightMm: 182 },
+  { id: "shinsho", label: "新書", widthMm: 106, heightMm: 173 },
 ] as const;
 
 export type PaperSizeId = (typeof PAPER_SIZES)[number]["id"];
@@ -47,6 +49,7 @@ export type ZoomMode = { mode: "fixed"; percent: FixedZoomPercent } | { mode: "f
 export const DEFAULT_ZOOM = { mode: "fixed", percent: 100 } as const satisfies ZoomMode;
 
 const STAGE_GAP_CELLS = 2;
+const LINE_GAP_CELLS = 0.5;
 const CSS_PIXELS_PER_MM = 96 / 25.4;
 const MAX_FIT_PERCENT = Math.max(...ZOOM_LEVELS);
 const PT_PER_MM = 72 / 25.4;
@@ -55,6 +58,7 @@ export interface ManuscriptGeometry {
   paperWidthMm: number;
   paperHeightMm: number;
   cellSizeMm: number;
+  lineGapMm: number;
   fontSizePt: number;
   gridWidthMm: number;
   gridHeightMm: number;
@@ -88,13 +92,21 @@ function gridHeightInCells(settings: GridSettings): number {
   );
 }
 
+/**
+ * The grid's inline size in cells, including the gap between adjacent vertical lines.
+ */
+function gridWidthInCells(settings: GridSettings): number {
+  return settings.linesPerStage + LINE_GAP_CELLS * (settings.linesPerStage - 1);
+}
+
 export function calculateManuscriptGeometry(
   settings: GridSettings,
   appearance: ManuscriptAppearanceSettings,
 ): ManuscriptGeometry {
   const paper = paperSize(appearance.paperSize);
   const cellSizeMm = ptToMm(appearance.fontSizePt);
-  const gridWidthMm = settings.linesPerStage * cellSizeMm;
+  const lineGapMm = LINE_GAP_CELLS * cellSizeMm;
+  const gridWidthMm = gridWidthInCells(settings) * cellSizeMm;
   const gridHeightMm = gridHeightInCells(settings) * cellSizeMm;
   const marginInlineMm = (paper.widthMm - gridWidthMm) / 2;
   const marginBlockMm = (paper.heightMm - gridHeightMm) / 2;
@@ -103,6 +115,7 @@ export function calculateManuscriptGeometry(
     paperWidthMm: paper.widthMm,
     paperHeightMm: paper.heightMm,
     cellSizeMm,
+    lineGapMm,
     fontSizePt: appearance.fontSizePt,
     gridWidthMm,
     gridHeightMm,
@@ -118,7 +131,7 @@ export function calculateManuscriptGeometry(
 export function maxFontSizePt(settings: GridSettings, paperSizeId: PaperSizeId): number {
   const paper = paperSize(paperSizeId);
   const maxCellSizeMm = Math.min(
-    paper.widthMm / settings.linesPerStage,
+    paper.widthMm / gridWidthInCells(settings),
     paper.heightMm / gridHeightInCells(settings),
   );
   const maxPt = mmToPt(maxCellSizeMm);

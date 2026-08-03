@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 
+import { pixivNotation, plainTextNotation } from "./notation";
 import { DEFAULT_OFFSETS, MAX_DOCUMENT_OFFSET, paginateManuscript } from "./pagination";
 import type { GridSettings, Line, ManuscriptOffsets } from "./pagination";
 
@@ -58,6 +59,40 @@ describe("paginateManuscript", () => {
     const { pages } = paginateManuscript("あい、", { ...small, charsPerLine: 2 });
     expect(filled(pages[0]![0]![0]!)).toEqual(["あ", "い"]);
     expect(filled(pages[0]![0]![1]!)).toEqual(["、"]);
+  });
+
+  test("paginates displayed pixiv text while retaining raw ranges and annotations", () => {
+    const source = "[[rb:漢字>かんじ]][b:太字]";
+    const { pages, stats } = paginateManuscript(source, small, DEFAULT_OFFSETS, pixivNotation);
+    const firstLine = pages[0]![0]![0]!;
+    const secondLine = pages[0]![0]![1]!;
+
+    expect(stats.chars).toBe(4);
+    expect(filled(firstLine)).toEqual(["漢", "字", "太"]);
+    expect(filled(secondLine)).toEqual(["字"]);
+    expect(firstLine[0]).toMatchObject({
+      sourceRange: { start: 5, end: 6 },
+      annotations: [{ kind: "ruby", reading: "かんじ" }],
+    });
+    expect(firstLine[2]).toMatchObject({
+      sourceRange: { start: source.indexOf("太"), end: source.indexOf("太") + 1 },
+      annotations: [{ kind: "bold" }],
+    });
+    expect(secondLine[0]).toMatchObject({ annotations: [{ kind: "bold" }] });
+    expect(firstLine[2]?.annotations?.[0]).toBe(secondLine[0]?.annotations?.[0]);
+  });
+
+  test("preserves displayed blank lines and raw offsets with pixiv notation", () => {
+    const source = "[b:あ]\r\n\r\n[i:い]";
+    const { pages, stats } = paginateManuscript(source, small, DEFAULT_OFFSETS, pixivNotation);
+
+    expect(stats.sourceLines).toBe(3);
+    expect(filled(pages[0]![0]![0]!)).toEqual(["あ"]);
+    expect(filled(pages[0]![0]![1]!)).toEqual([]);
+    expect(pages[1]![0]![0]![0]).toMatchObject({
+      grapheme: "い",
+      sourceRange: { start: source.indexOf("い"), end: source.indexOf("い") + 1 },
+    });
   });
 });
 
@@ -191,5 +226,12 @@ describe("paginateManuscript with offsets", () => {
     const withDefault = paginateManuscript("あいうえお", small);
     const withExplicitDefault = paginateManuscript("あいうえお", small, DEFAULT_OFFSETS);
     expect(withDefault).toEqual(withExplicitDefault);
+  });
+
+  test("keeps plain text pagination identical when the default notation is explicit", () => {
+    const implicit = paginateManuscript("あ\r\n😀", small);
+    const explicit = paginateManuscript("あ\r\n😀", small, DEFAULT_OFFSETS, plainTextNotation);
+
+    expect(implicit).toEqual(explicit);
   });
 });

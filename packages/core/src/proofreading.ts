@@ -1,3 +1,5 @@
+import { plainTextNotation } from "./notation";
+import type { ManuscriptNotation, ParsedManuscript } from "./notation";
 import type { SourceRange } from "./pagination";
 
 export const NOVEL_STYLE_RULE_IDS = [
@@ -11,6 +13,7 @@ export const NOVEL_STYLE_RULE_IDS = [
   "no-consecutive-choonpu",
   "minus-before-number",
   "max-arabic-numeral-digits",
+  "variant-character",
 ] as const;
 
 export type NovelStyleRuleId = (typeof NOVEL_STYLE_RULE_IDS)[number];
@@ -44,6 +47,7 @@ export interface ProofreadingOptions {
   noConsecutiveChoonpu: boolean;
   minusBeforeNumber: boolean;
   maxArabicNumeralDigits: number | false;
+  noVariantCharacters: boolean;
 }
 
 export const DEFAULT_PROOFREADING_OPTIONS: ProofreadingOptions = {
@@ -57,7 +61,24 @@ export const DEFAULT_PROOFREADING_OPTIONS: ProofreadingOptions = {
   noConsecutiveChoonpu: true,
   minusBeforeNumber: true,
   maxArabicNumeralDigits: 2,
+  noVariantCharacters: true,
 };
+
+const graphemeSegmenter = new Intl.Segmenter("ja", { granularity: "grapheme" });
+
+function isVariantCharacter(character: string): boolean {
+  const codePoint = character.codePointAt(0);
+  if (codePoint === undefined) return false;
+
+  return (
+    (codePoint >= 0x180b && codePoint <= 0x180d) ||
+    codePoint === 0x180f ||
+    (codePoint >= 0xfe00 && codePoint <= 0xfe0f) ||
+    (codePoint >= 0xf900 && codePoint <= 0xfaff) ||
+    (codePoint >= 0x2f800 && codePoint <= 0x2fa1f) ||
+    (codePoint >= 0xe0100 && codePoint <= 0xe01ef)
+  );
+}
 
 interface SourceLine {
   text: string;
@@ -152,7 +173,23 @@ function collectMatches(line: SourceLine, rule: MatchRule): ManuscriptDiagnostic
   return diagnostics;
 }
 
-export function proofreadManuscript(
+function collectVariantCharacters(line: SourceLine): ManuscriptDiagnostic[] {
+  const diagnostics: ManuscriptDiagnostic[] = [];
+  for (const { index, segment } of graphemeSegmenter.segment(line.text)) {
+    if (Array.from(segment).some(isVariantCharacter)) {
+      diagnostics.push(
+        diagnostic(line, "variant-character", "異体字または字形選択子が使われています", {
+          start: index,
+          end: index + segment.length,
+        }),
+      );
+    }
+  }
+
+  return diagnostics;
+}
+
+function proofreadText(
   text: string,
   options: Partial<ProofreadingOptions> = {},
 ): ManuscriptDiagnostic[] {
@@ -233,6 +270,105 @@ export function proofreadManuscript(
       if (rule !== false) {
         diagnostics.push(...collectMatches(line, rule));
       }
+    }
+    if (settings.noVariantCharacters) {
+      diagnostics.push(...collectVariantCharacters(line));
+    }
+  }
+
+  return diagnostics.sort(
+    (left, right) =>
+      left.range.start - right.range.start ||
+      left.range.end - right.range.end ||
+      left.ruleId.localeCompare(right.ruleId),
+  );
+}
+
+function sourcePosition(text: string, offset: number): SourcePosition {
+  let line = 1;
+  let lineStart = 0;
+  let index = 0;
+  while (index < offset) {
+    if (text[index] === "\r") {
+      if (text[index + 1] === "\n") {
+        index += 1;
+      }
+      line += 1;
+      lineStart = index + 1;
+    } else if (text[index] === "\n") {
+      line += 1;
+      lineStart = index + 1;
+    }
+    index += 1;
+  }
+
+  return { offset, line, column: offset - lineStart + 1 };
+}
+
+function sourceOffset(
+  parsed: ParsedManuscript,
+  displayOffset: number,
+  boundary: "start" | "end",
+): number {
+  for (const grapheme of parsed.graphemes) {
+    const contains =
+      boundary === "start"
+        ? displayOffset >= grapheme.textRange.start && displayOffset < grapheme.textRange.end
+        : displayOffset > grapheme.textRange.start && displayOffset <= grapheme.textRange.end;
+    if (contains) {
+      return (
+        grapheme.sourceRange.start +
+        Math.min(
+          displayOffset - grapheme.textRange.start,
+          grapheme.sourceRange.end - grapheme.sourceRange.start,
+        )
+      );
+    }
+  }
+
+  return parsed.graphemes.at(-1)?.sourceRange.end ?? 0;
+}
+
+function mapDiagnosticToSource(
+  source: string,
+  parsed: ParsedManuscript,
+  item: ManuscriptDiagnostic,
+): ManuscriptDiagnostic {
+  const range = {
+    start: sourceOffset(parsed, item.range.start, "start"),
+    end: sourceOffset(parsed, item.range.end, "end"),
+  };
+
+  return {
+    ...item,
+    id: `${item.ruleId}:${range.start}:${range.end}`,
+    range,
+    location: {
+      start: sourcePosition(source, range.start),
+      end: sourcePosition(source, range.end),
+    },
+  };
+}
+
+export function proofreadManuscript(
+  text: string,
+  options: Partial<ProofreadingOptions> = {},
+  notation: ManuscriptNotation = plainTextNotation,
+): ManuscriptDiagnostic[] {
+  if (notation === plainTextNotation) {
+    return proofreadText(text, options);
+  }
+
+  const settings = { ...DEFAULT_PROOFREADING_OPTIONS, ...options };
+  const parsed = notation.parse(text);
+  const diagnostics = proofreadText(parsed.text, {
+    ...settings,
+    noVariantCharacters: false,
+  }).map((item) => mapDiagnosticToSource(text, parsed, item));
+
+  if (settings.noVariantCharacters) {
+    for (const line of splitSourceLines(text)) {
+      diagnostics.push(...collectVariantCharacters(line));
     }
   }
 

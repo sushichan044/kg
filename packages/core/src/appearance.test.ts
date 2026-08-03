@@ -4,6 +4,7 @@ import {
   calculateManuscriptGeometry,
   FONT_SIZE_PT_RANGE,
   isFontSizePt,
+  isPaperSizeId,
   maxFontSizePt,
   mmToPt,
   paperSize,
@@ -39,17 +40,28 @@ describe("calculateManuscriptGeometry", () => {
   test("computes grid dimensions and centers the grid within the paper as margins", () => {
     const geometry = calculateManuscriptGeometry(settings, appearance(9, "a5"));
     const cellSizeMm = ptToMm(9);
-    const expectedGridWidth = settings.linesPerStage * cellSizeMm;
+    const expectedLineGap = cellSizeMm * 0.5;
+    const expectedGridWidth =
+      settings.linesPerStage * cellSizeMm + (settings.linesPerStage - 1) * expectedLineGap;
     const expectedGridHeight =
       (settings.stagesPerPage * settings.charsPerLine + 2 * (settings.stagesPerPage - 1)) *
       cellSizeMm;
     const paper = paperSize("a5");
 
     expect(geometry.gridWidthMm).toBeCloseTo(expectedGridWidth, 10);
+    expect(geometry.lineGapMm).toBeCloseTo(expectedLineGap, 10);
     expect(geometry.gridHeightMm).toBeCloseTo(expectedGridHeight, 10);
     expect(geometry.marginInlineMm).toBeCloseTo((paper.widthMm - expectedGridWidth) / 2, 10);
     expect(geometry.marginBlockMm).toBeCloseTo((paper.heightMm - expectedGridHeight) / 2, 10);
     expect(geometry.fitsPaper).toBe(true);
+  });
+
+  test.each([
+    ["a6", "A6（文庫）", 105, 148],
+    ["shinsho", "新書", 106, 173],
+  ] as const)("supports the %s book format", (id, label, widthMm, heightMm) => {
+    expect(paperSize(id)).toEqual({ id, label, widthMm, heightMm });
+    expect(isPaperSizeId(id)).toBe(true);
   });
 
   test("reports fitsPaper: false and negative margins without clamping an oversized font", () => {
