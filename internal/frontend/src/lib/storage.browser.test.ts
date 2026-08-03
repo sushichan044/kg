@@ -49,11 +49,23 @@ test("does not parse legacy viewer state", () => {
 test("rejects malformed or incomplete current payloads", () => {
   localStorage.setItem("kg.app.state.v1", "{");
   localStorage.setItem(
-    "kg.manuscript.preferences.v1",
-    JSON.stringify({ version: 1, settings: DEFAULT_SETTINGS }),
+    "kg.manuscript.preferences.v2",
+    JSON.stringify({ version: 2, settings: DEFAULT_SETTINGS }),
   );
 
   expect(loadAppState()).toEqual(DEFAULT_APP_STATE);
+  expect(loadManuscriptPreferences()).toEqual(DEFAULT_MANUSCRIPT_PREFERENCES);
+});
+
+test("does not migrate version one manuscript preferences", () => {
+  localStorage.setItem(
+    "kg.manuscript.preferences.v1",
+    JSON.stringify({
+      version: 1,
+      settings: { ...DEFAULT_SETTINGS, charsPerLine: 30 },
+    }),
+  );
+
   expect(loadManuscriptPreferences()).toEqual(DEFAULT_MANUSCRIPT_PREFERENCES);
 });
 

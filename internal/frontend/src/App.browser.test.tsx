@@ -14,28 +14,56 @@ const source = [
   "「三点リーダーが奇数………。」",
   "　数字は2026年のままになっている。",
 ].join("\n");
+const pixivSource = "[[rb:漢字 > かんじ]][b:太字][i:斜体][[emphasismark:強調>・]]";
+let novelSource = source;
+
+const files = [
+  { id: "novel", path: "testdata/novel.txt" },
+  { id: "shared", path: "共有 原稿.txt" },
+];
 
 class FakeEventSource {
-  addEventListener() {}
+  static latest: FakeEventSource | undefined;
+  readonly #listeners = new Map<string, EventListenerOrEventListenerObject>();
+
+  constructor() {
+    FakeEventSource.latest = this;
+  }
+
+  addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
+    this.#listeners.set(type, listener);
+  }
+
+  emit(type: string, data: string) {
+    const listener = this.#listeners.get(type);
+    if (typeof listener === "function") {
+      listener(new MessageEvent(type, { data }));
+    } else {
+      listener?.handleEvent(new MessageEvent(type, { data }));
+    }
+  }
 
   close() {}
 }
 
 beforeEach(() => {
+  window.history.replaceState(null, "", "/");
   localStorage.clear();
   sessionStorage.clear();
+  novelSource = source;
+  FakeEventSource.latest = undefined;
   vi.stubGlobal("EventSource", FakeEventSource);
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL) => {
       const url = input instanceof Request ? input.url : input.toString();
       if (url.endsWith("/_/api/files")) {
-        return new Response(JSON.stringify([{ id: "novel", path: "testdata/novel.txt" }]), {
+        return new Response(JSON.stringify(files), {
           headers: { "content-type": "application/json" },
         });
       }
 
-      return new Response(source);
+      return new Response(url.includes("/shared/") ? "共有本文" : novelSource);
     }),
   );
 });
@@ -91,4 +119,82 @@ test("opens compact file, settings, and diagnostics sheets", async () => {
   await screen.getByRole("button", { name: "校正エラー 4件" }).click();
   const diagnosticsDialog = screen.getByRole("dialog", { name: "校正エラー" });
   await expect.element(diagnosticsDialog).toBeVisible();
+});
+
+test("opens the file selected by the URL and preserves unrelated URL state", async () => {
+  window.history.replaceState(
+    null,
+    "",
+    "/?mode=preview&file=%E5%85%B1%E6%9C%89+%E5%8E%9F%E7%A8%BF.txt#preview",
+  );
+
+  const screen = await render(<App />);
+
+  await vi.waitFor(() => {
+    expect(screen.container.querySelector(".kgv-toolbar-label")?.textContent).toBe("共有 原稿.txt");
+  });
+  expect(new URL(window.location.href).searchParams.get("file")).toBe("共有 原稿.txt");
+  expect(new URL(window.location.href).searchParams.get("mode")).toBe("preview");
+  expect(window.location.hash).toBe("#preview");
+});
+
+test("updates the shared URL when another file is selected", async () => {
+  window.history.replaceState(
+    null,
+    "",
+    "/?mode=preview&file=%E5%85%B1%E6%9C%89+%E5%8E%9F%E7%A8%BF.txt#preview",
+  );
+  const screen = await render(<App />);
+
+  await vi.waitFor(() => {
+    expect(screen.container.querySelector(".kgv-toolbar-label")?.textContent).toBe("共有 原稿.txt");
+  });
+  screen.container.querySelector<HTMLButtonElement>(".sidebar .file-list__item")?.click();
+
+  await vi.waitFor(() => {
+    expect(new URL(window.location.href).searchParams.get("file")).toBe("testdata/novel.txt");
+  });
+  expect(new URL(window.location.href).searchParams.get("mode")).toBe("preview");
+  expect(window.location.hash).toBe("#preview");
+});
+
+test("normalizes an unknown URL file to the first available file", async () => {
+  window.history.replaceState(null, "", "/?file=missing.txt");
+
+  const screen = await render(<App />);
+
+  await vi.waitFor(() => {
+    expect(screen.container.querySelector(".kgv-toolbar-label")?.textContent).toBe(
+      "testdata/novel.txt",
+    );
+    expect(new URL(window.location.href).searchParams.get("file")).toBe("testdata/novel.txt");
+  });
+});
+
+test("renders pixiv notation after the initial load and a file reload", async () => {
+  novelSource = pixivSource;
+  const screen = await render(<App />);
+
+  const viewerDocument = () =>
+    screen.container.querySelector<HTMLIFrameElement>("iframe")?.contentDocument;
+  await vi.waitFor(() => {
+    expect(viewerDocument()?.querySelectorAll("[data-annotation]")).toHaveLength(4);
+    expect(
+      viewerDocument()?.querySelector(".kgv-visually-hidden")?.textContent.replace(/\n+$/, ""),
+    ).toBe("漢字太字斜体強調");
+  });
+  expect(viewerDocument()?.body.textContent).not.toContain("[[rb:");
+
+  novelSource = "[b:再読込]";
+  FakeEventSource.latest?.emit("file-changed", JSON.stringify({ id: "novel" }));
+
+  await vi.waitFor(() => {
+    expect(viewerDocument()?.querySelectorAll('[data-annotation="bold"] .kgv-cell')).toHaveLength(
+      3,
+    );
+    expect(
+      viewerDocument()?.querySelector(".kgv-visually-hidden")?.textContent.replace(/\n+$/, ""),
+    ).toBe("再読込");
+  });
+  expect(viewerDocument()?.body.textContent).not.toContain("[b:");
 });
