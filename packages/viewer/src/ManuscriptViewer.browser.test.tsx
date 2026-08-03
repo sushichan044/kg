@@ -147,10 +147,7 @@ test("renders the four supported pixiv notation forms without exposing their tag
   const rubyReading = ruby?.querySelector<HTMLElement>("rt");
 
   expect(rubyReading?.textContent).toBe("かんじ");
-  expect(rubyReading?.getBoundingClientRect().top).toBeCloseTo(
-    ruby?.getBoundingClientRect().top ?? 0,
-    0,
-  );
+  // Where the reading sits along its base is pinned by the two tests below this one.
   expect(rubyReading?.getBoundingClientRect().left).toBeGreaterThanOrEqual(
     ruby?.getBoundingClientRect().right ?? 0,
   );
@@ -179,13 +176,39 @@ test("keeps a ruby reading within the gap beside its own line", async () => {
     .getBoundingClientRect();
   const reading = screen.container.querySelector<HTMLElement>("rt")!.getBoundingClientRect();
 
-  // The reading runs alongside the base characters, so it is as tall as they are…
-  expect(reading.height).toBeCloseTo(base.height, 0);
-  // …and no wider than one cell, or it would cover the line written before it.
+  // The reading starts where its base ends…
+  expect(reading.left).toBeGreaterThanOrEqual(base.right);
+  // …and is narrower than one cell, so it cannot cover the line written before it.
   expect(reading.width).toBeLessThan(cell.width);
 });
 
-test("spreads a ruby reading over the cells its base occupies", async () => {
+test("centres each reading character on its own cell when the counts match", async () => {
+  // 仮名 / かな: two characters read as two, so each reading character belongs to one of them.
+  const { screen } = await renderViewer({
+    text: "[[rb:仮名 > かな]]",
+    settings,
+    parser: pixivParser,
+  });
+
+  const base = screen.container.querySelector<HTMLElement>('[data-annotation="ruby"]')!;
+  expect(base.dataset.rubyFit).toBe("mono");
+
+  const cells = Array.from(base.querySelectorAll<HTMLElement>(".kgv-cell"));
+  const reading = screen.container.querySelector<HTMLElement>("rt")!.firstChild!;
+  const centreOf = (rect: DOMRect) => rect.top + rect.height / 2;
+
+  for (const [index, cell] of cells.entries()) {
+    const range = document.createRange();
+    range.setStart(reading, index);
+    range.setEnd(reading, index + 1);
+    expect(centreOf(range.getBoundingClientRect())).toBeCloseTo(
+      centreOf(cell.getBoundingClientRect()),
+      0,
+    );
+  }
+});
+
+test("spreads a ruby reading across exactly the characters it annotates", async () => {
   const { screen } = await renderViewer({
     // Three kana over a two-character base: shorter than its base unless it is spread out.
     text: "[[rb:漢字 > かんじ]]あ",
@@ -193,15 +216,41 @@ test("spreads a ruby reading over the cells its base occupies", async () => {
     parser: pixivParser,
   });
 
-  const base = screen.container
-    .querySelector<HTMLElement>('[data-annotation="ruby"]')!
-    .getBoundingClientRect();
-  const reading = screen.container.querySelector<HTMLElement>("rt")!;
-  const range = document.createRange();
-  range.selectNodeContents(reading);
-  const glyphs = range.getBoundingClientRect();
+  /**
+   * Where the characters actually are, which is inside the box that holds them.
+   */
+  const inkOf = (element: Element) => {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    return range.getBoundingClientRect();
+  };
 
-  expect(glyphs.height).toBeCloseTo(base.height, 0);
+  const base = screen.container.querySelector<HTMLElement>('[data-annotation="ruby"]')!;
+  const baseGlyphs = Array.from(base.querySelectorAll<HTMLElement>(".kgv-glyph"));
+  const first = inkOf(baseGlyphs[0]!);
+  const last = inkOf(baseGlyphs.at(-1)!);
+  const reading = inkOf(screen.container.querySelector<HTMLElement>("rt")!);
+
+  // The reading brackets the base characters, not the cells they sit in. Within a pixel: the two
+  // runs are set at different sizes, so their em boxes do not line up to the fraction.
+  expect(Math.abs(reading.top - first.top)).toBeLessThan(1);
+  expect(Math.abs(reading.bottom - last.bottom)).toBeLessThan(1);
+});
+
+test("sets a ruby reading at half the size of the characters it annotates", async () => {
+  const { screen } = await renderViewer({
+    text: "[[rb:漢字 > かんじ]]",
+    settings,
+    parser: pixivParser,
+  });
+
+  const glyph = screen.container.querySelector<HTMLElement>(".kgv-glyph")!;
+  const reading = screen.container.querySelector<HTMLElement>("rt")!;
+
+  expect(Number.parseFloat(getComputedStyle(reading).fontSize)).toBeCloseTo(
+    Number.parseFloat(getComputedStyle(glyph).fontSize) / 2,
+    1,
+  );
 });
 
 test("splits annotations at line boundaries and repeats ruby readings", async () => {

@@ -122,12 +122,27 @@ function fragmentCells(cells: readonly RenderedCell[]): CellFragment[] {
   return fragments;
 }
 
+const graphemes = new Intl.Segmenter("ja", { granularity: "grapheme" });
+
+/**
+ * How a reading is set against the characters it annotates. One reading character per base
+ * character is mono ruby, where each belongs to the character below it; anything else is group
+ * ruby, which belongs to the compound as a whole. structural.css lays the two out differently.
+ */
+function rubyFit(reading: string, baseCharacters: number): "group" | "mono" {
+  return [...graphemes.segment(reading)].length === baseCharacters ? "mono" : "group";
+}
+
 type AnnotationFragmentProps = Readonly<{
   annotation: ManuscriptAnnotation;
+  /**
+   * Cells this fragment covers. A reading repeats when its base is split across lines.
+   */
+  baseCharacters: number;
   children: ReactNode;
 }>;
 
-function AnnotationFragment({ annotation, children }: AnnotationFragmentProps) {
+function AnnotationFragment({ annotation, baseCharacters, children }: AnnotationFragmentProps) {
   switch (annotation.kind) {
     case "bold": {
       return (
@@ -145,7 +160,11 @@ function AnnotationFragment({ annotation, children }: AnnotationFragmentProps) {
     }
     case "ruby": {
       return (
-        <ruby className="kgv-annotation" data-annotation="ruby">
+        <ruby
+          className="kgv-annotation"
+          data-annotation="ruby"
+          data-ruby-fit={rubyFit(annotation.reading, baseCharacters)}
+        >
           {children}
           <rt aria-hidden="true">{annotation.reading}</rt>
         </ruby>
@@ -165,10 +184,18 @@ function AnnotationFragment({ annotation, children }: AnnotationFragmentProps) {
   }
 }
 
-function wrapAnnotations(annotations: readonly ManuscriptAnnotation[], children: ReactNode) {
+function wrapAnnotations(
+  annotations: readonly ManuscriptAnnotation[],
+  baseCharacters: number,
+  children: ReactNode,
+) {
   return annotations.reduceRight<ReactNode>(
     (wrapped, annotation) => (
-      <AnnotationFragment key={annotationKey(annotation)} annotation={annotation}>
+      <AnnotationFragment
+        key={annotationKey(annotation)}
+        annotation={annotation}
+        baseCharacters={baseCharacters}
+      >
         {wrapped}
       </AnnotationFragment>
     ),
@@ -393,7 +420,11 @@ function ManuscriptViewerComponent(
                             rendered
                           ) : (
                             <span key={fragment.id} className="kgv-annotation-stack">
-                              {wrapAnnotations(fragment.annotations, rendered)}
+                              {wrapAnnotations(
+                                fragment.annotations,
+                                fragment.cells.length,
+                                rendered,
+                              )}
                             </span>
                           );
                         })}

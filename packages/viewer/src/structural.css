@@ -9,6 +9,10 @@
    this file. theme.css takes the opposite stance — see there. */
 
 .kgv-viewer {
+  /* How much of its cell a glyph fills. Ruby size and placement are derived from it, so the three
+     cannot drift apart. See .kgv-glyph for why it is below 1. */
+  --kgv-glyph-scale: 0.82;
+
   min-inline-size: 0;
   min-block-size: 0;
   block-size: 100%;
@@ -108,17 +112,40 @@
    before it. Sizing it with `block-size: 100%` swapped those two axes. */
 .kgv-annotation[data-annotation="ruby"] rt {
   position: absolute;
-  top: 0;
-  bottom: 0;
   left: 100%;
   writing-mode: vertical-rl;
   text-orientation: upright;
   font-family: var(--kgv-manuscript-font);
-  font-size: calc(var(--kgv-cell-size) * 0.36);
+  /* Half the size of the characters it annotates, the usual proportion for ruby. */
+  font-size: calc(var(--kgv-cell-size) * var(--kgv-glyph-scale) / 2);
   line-height: 1;
-  /* Spread the reading over the whole base rather than bunching it up: a reading belongs to the
-     compound it annotates, not to one of its characters. `text-align-last` is what does the work,
-     since a reading is a single line and justification otherwise skips the last one. */
+  /* Baseline for the two fits below, and a defence against the host page's inherited spacing.
+     Whichever fit applies is declared after this rule and overrides what it needs. */
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-indent: 0;
+  text-transform: none;
+}
+
+/* One reading character per base character: each belongs to the character below it, so centre it on
+   that character's cell. Spending the leftover of a cell on letter-spacing gives each reading
+   character an advance of exactly one cell, and a vertical flow centres the character in it. */
+.kgv-annotation[data-ruby-fit="mono"] rt {
+  top: 0;
+  bottom: 0;
+  letter-spacing: calc(var(--kgv-cell-size) - 1em);
+}
+
+/* Any other count belongs to the compound rather than to a single character, so spread it over the
+   whole base. `text-align-last` is what does the work, since a reading is a single line and
+   justification otherwise skips the last one.
+
+   A glyph sits centred in its cell, so the base characters start and end inside the cells at either
+   end of the run. Inset by that margin to bracket the characters rather than the cells, which keeps
+   the reading from spilling past them. */
+.kgv-annotation[data-ruby-fit="group"] rt {
+  top: calc(var(--kgv-cell-size) * (1 - var(--kgv-glyph-scale)) / 2);
+  bottom: calc(var(--kgv-cell-size) * (1 - var(--kgv-glyph-scale)) / 2);
   text-align: justify;
   text-align-last: justify;
   text-justify: inter-character;
@@ -137,15 +164,15 @@
      size) that drives the page/margin math; glyphs render smaller than the
      full cell so characters keep breathing room instead of touching every
      edge, matching how printed manuscript paper actually looks. */
-  font-size: calc(var(--kgv-cell-size) * 0.82);
+  font-size: calc(var(--kgv-cell-size) * var(--kgv-glyph-scale));
   line-height: 1;
 }
 
 /* Inheritance is not a specificity contest: these properties reach the glyph
    from the host page's `body` however the viewer is selected, and extra
-   tracking or recasing pushes characters out of their cells. */
-.kgv-glyph,
-.kgv-annotation[data-annotation="ruby"] rt {
+   tracking or recasing pushes characters out of their cells. The reading
+   defends itself in its own rule, where it also spends letter-spacing. */
+.kgv-glyph {
   letter-spacing: normal;
   word-spacing: normal;
   text-indent: 0;
