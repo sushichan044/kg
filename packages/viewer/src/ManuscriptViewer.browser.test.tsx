@@ -258,6 +258,20 @@ test("renders a cell whose size in pixels matches the specified point size at 10
   expect(cell?.getBoundingClientRect().width).toBeCloseTo((10 * 96) / 72, 0);
 });
 
+test("scales cells to a magnification outside the built-in scale", async () => {
+  const { screen } = await renderViewer(
+    {
+      text: "あ",
+      settings,
+      appearance: { ...ManuscriptAppearanceSettings.defaults, fontSizePt: 10 },
+    },
+    { zoom: { kind: "fixed", percent: 90 } },
+  );
+
+  const cell = screen.container.querySelector<HTMLElement>(".kgv-cell");
+  expect(cell?.getBoundingClientRect().width).toBeCloseTo(((10 * 96) / 72) * 0.9, 0);
+});
+
 test("renders each vertical line as an independent grid with a half-em gap", async () => {
   const { screen } = await renderViewer({
     text: "あ",

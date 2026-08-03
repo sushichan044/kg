@@ -77,8 +77,8 @@ export default defineConfig({
     },
   },
   test: {
-    // viewer-unit currently has no plain *.test.ts(x) files — everything here is
-    // browser-mode only — so an empty project shouldn't fail a filtered `--project` run.
+    // Most of this package can only be tested in a browser, so a filtered `--project` run may
+    // legitimately match nothing.
     passWithNoTests: true,
     projects: viewerTestProjects,
   },

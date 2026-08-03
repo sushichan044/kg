@@ -43,9 +43,10 @@ scrolling to a page or diagnostic. It reports visible-page and effective-zoom
 changes through `onViewEvent` without storing them in the manuscript snapshot.
 
 Zoom is a controlled `ZoomMode`: either `{ kind: "fixed", percent }` or
-`{ kind: "fit" }`, which the viewer resolves against its own viewport. The
-`ZoomMode` companion provides `defaults`, `adjacentLevel` for zoom in/out
-buttons, and `fitPagePercent`.
+`{ kind: "fit" }`, which the viewer resolves against its own viewport. `percent`
+is any magnification, so a slider or pinch gesture works as well as buttons. The
+`ZoomMode` companion provides `defaults`, `fitPagePercent`, and `adjacentLevel`
+for stepping through a scale — `ZOOM_LEVELS` by default, or one you pass in.
 
 Ruby, bold, italic, and emphasis annotations render as typed React elements;
 annotation content is never inserted as HTML. Overlapping annotations are

@@ -197,7 +197,9 @@ function ManuscriptViewerComponent(
   const visiblePageRef = useRef(0);
   const effectivePercentRef = useRef<number>(zoom.kind === "fixed" ? zoom.percent : 100);
   const [fitPercent, setFitPercent] = useState(100);
-  const effectivePercent = zoom.kind === "fixed" ? zoom.percent : fitPercent;
+  // Any magnification is allowed, but a non-positive one would collapse every cell to nothing and
+  // render a page-shaped void rather than reporting a problem.
+  const effectivePercent = Math.max(zoom.kind === "fixed" ? zoom.percent : fitPercent, 1);
   const selectedFont = FontPreset.of(composed.settings.appearance.fontPreset);
 
   const scrollToPage = useCallback(

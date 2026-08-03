@@ -36,3 +36,7 @@ dist/
 !internal/static/dist/**
 
 node_modules/
+
+# Browser-mode test artifacts: failure screenshots and their attachments
+.vitest-attachments/
+__screenshots__/
