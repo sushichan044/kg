@@ -70,6 +70,8 @@ type ManuscriptStyle = CSSProperties & {
  * size that is already scaled by the zoom.
  */
 type BandStyle = CSSProperties & {
+  "--kgv-band-lane": number;
+  "--kgv-band-lanes": number;
   "--kgv-band-length": number;
   "--kgv-band-offset": number;
 };
@@ -136,20 +138,34 @@ type DiagnosticBand = Readonly<{
   offset: number;
   length: number;
   /**
+   * Which share of the line's width the band takes, and how many shares there are. Bands over
+   * different runs each take the whole width; bands over exactly the same run split it, since
+   * identical boxes would leave every one but the frontmost impossible to click.
+   */
+  lane: number;
+  lanes: number;
+  /**
    * Whether the diagnostic starts in this line, which is the band that carries its control.
    */
   startsHere: boolean;
 }>;
 
+type PlacedBand = Omit<DiagnosticBand, "lane" | "lanes">;
+
+function spanKey({ offset, length }: PlacedBand): string {
+  return `${offset}:${length}`;
+}
+
 /**
  * One band per diagnostic reaching the line, covering every cell it touches. Longer bands come
- * first so a band nested inside another paints — and answers to a click — on top of it.
+ * first so a band nested inside another paints — and answers to a click — on top of it. Bands over
+ * the same run cannot be told apart that way, so they are given a lane each instead.
  */
 function diagnosticBands(
   cells: readonly RenderedCell[],
   diagnostics: readonly ManuscriptDiagnostic[],
 ): DiagnosticBand[] {
-  const bands: DiagnosticBand[] = [];
+  const placed: PlacedBand[] = [];
   for (const diagnostic of diagnostics) {
     let offset = -1;
     let end = -1;
@@ -163,10 +179,31 @@ function diagnosticBands(
     }
     if (offset < 0) continue;
 
-    bands.push({ diagnostic, offset, length: end - offset + 1, startsHere });
+    placed.push({ diagnostic, offset, length: end - offset + 1, startsHere });
+  }
+  placed.sort((left, right) => left.offset - right.offset || right.length - left.length);
+
+  const lanes = new Map<string, number>();
+  for (const band of placed) lanes.set(spanKey(band), (lanes.get(spanKey(band)) ?? 0) + 1);
+
+  const taken = new Map<string, number>();
+  const bands: DiagnosticBand[] = [];
+  for (const band of placed) {
+    const key = spanKey(band);
+    const lane = taken.get(key) ?? 0;
+    taken.set(key, lane + 1);
+
+    bands.push({
+      diagnostic: band.diagnostic,
+      offset: band.offset,
+      length: band.length,
+      lane,
+      lanes: lanes.get(key) ?? 1,
+      startsHere: band.startsHere,
+    });
   }
 
-  return bands.sort((left, right) => left.offset - right.offset || right.length - left.length);
+  return bands;
 }
 
 type CellFragment = Readonly<{
@@ -492,8 +529,13 @@ function ManuscriptViewerComponent(
     );
   };
 
-  const renderBand = ({ diagnostic, offset, length, startsHere }: DiagnosticBand) => {
-    const style: BandStyle = { "--kgv-band-length": length, "--kgv-band-offset": offset };
+  const renderBand = ({ diagnostic, offset, length, lane, lanes, startsHere }: DiagnosticBand) => {
+    const style: BandStyle = {
+      "--kgv-band-lane": lane,
+      "--kgv-band-lanes": lanes,
+      "--kgv-band-length": length,
+      "--kgv-band-offset": offset,
+    };
     const active = diagnostic.id === activeDiagnosticId;
 
     // A diagnostic split across lines keeps one control, on the band it starts in, so assistive

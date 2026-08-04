@@ -8,7 +8,12 @@ import {
   pixivParser,
   proofreadManuscript,
 } from "@sushichan044/kg-core";
-import type { GridSettings, ManuscriptOffsets, ManuscriptParser } from "@sushichan044/kg-core";
+import type {
+  GridSettings,
+  ManuscriptDiagnostic,
+  ManuscriptOffsets,
+  ManuscriptParser,
+} from "@sushichan044/kg-core";
 import { expect, test } from "vite-plus/test";
 import { render } from "vitest-browser-react";
 
@@ -29,6 +34,10 @@ type ViewerFixtureOptions = Readonly<{
   offsets?: ManuscriptOffsets;
   appearance?: ManuscriptAppearanceSettings;
   parser?: ManuscriptParser;
+  /**
+   * Stands in for a rule set the fixture cannot produce, such as two rules reporting one span.
+   */
+  reportedAs?: (found: readonly ManuscriptDiagnostic[]) => readonly ManuscriptDiagnostic[];
 }>;
 
 const defaultZoom = {
@@ -60,7 +69,8 @@ async function renderViewer(options: ViewerFixtureOptions, props: ViewerFixtureP
   });
   expect.assert(proofread.ok, "fixture did not proofread");
 
-  const diagnostics = [...parsed.warnings, ...proofread.value];
+  const found = [...parsed.warnings, ...proofread.value];
+  const diagnostics = options.reportedAs?.(found) ?? found;
   const screen = await render(
     <ManuscriptViewer composed={composed.value} diagnostics={diagnostics} {...props} />,
   );
@@ -177,6 +187,45 @@ test("names the diagnostic each band stands for", async () => {
 
     expect(band.getAttribute("aria-label")).toContain(diagnostic.message);
   }
+});
+
+test("keeps both findings selectable when two cover exactly the same cells", async () => {
+  let selected = "";
+  const { diagnostics, screen } = await renderViewer(
+    {
+      text: "「あ、。。」",
+      settings,
+      // Two rules may report one span. The twin stands in for the second rule, since the built-in
+      // set gives every overlapping notation exactly one owner.
+      reportedAs: (found) => {
+        const first = found[0];
+        expect.assert(first !== undefined, "fixture produced no diagnostics");
+
+        return [first, { ...first, id: `${first.id}:twin` }];
+      },
+    },
+    {
+      onDiagnosticSelect: (diagnostic) => {
+        selected = diagnostic.id;
+      },
+    },
+  );
+
+  const bands = Array.from(
+    screen.container.querySelectorAll<HTMLButtonElement>("button.kgv-diagnostic-band"),
+  );
+  expect(bands).toHaveLength(2);
+
+  const selectedByClicking = bands.map((band) => {
+    const { left, top, width, height } = band.getBoundingClientRect();
+    const atCentre = document.elementFromPoint(left + width / 2, top + height / 2);
+    expect(atCentre).toBe(band);
+
+    band.click();
+    return selected;
+  });
+
+  expect(new Set(selectedByClicking)).toEqual(new Set(diagnostics.map(({ id }) => id)));
 });
 
 test("keeps a band and its own severity for each overlapping diagnostic", async () => {

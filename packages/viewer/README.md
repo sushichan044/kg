@@ -160,7 +160,10 @@ the ruling entirely with `.kgv-line-rules { display: none }`.
 One `.kgv-diagnostic-band` covers the cells a diagnostic reaches in one line,
 placed from `--kgv-band-offset` and `--kgv-band-length` (both counted in cells),
 so a finding spanning several characters is decorated once instead of once per
-character. Overlapping findings get a band each, the narrower one on top. The
+character. Overlapping findings get a band each, the narrower one on top. Two
+findings over exactly the same cells cannot be told apart that way, so they take
+a lane of the line's width each, from `--kgv-band-lane` of `--kgv-band-lanes`,
+and both stay visible and clickable. The
 band a diagnostic starts in is a `<button>` carrying its `aria-label` and
 selection; where a finding continues onto the next line the band is an inert
 `<span data-diagnostic-continued>`, so one finding is offered as one control.
