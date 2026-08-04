@@ -99,6 +99,7 @@ test("keeps sized boxes on border-box when the host resets box-sizing", async ()
   expect(styleOf(".kgv-viewport").boxSizing).toBe("border-box");
   expect(styleOf(".kgv-page").boxSizing).toBe("border-box");
   expect(styleOf(".kgv-cell").boxSizing).toBe("border-box");
+  expect(styleOf(".kgv-diagnostic-band").boxSizing).toBe("border-box");
   expect(styleOf(".kgv-diagnostics button").boxSizing).toBe("border-box");
 });
 
@@ -112,14 +113,48 @@ test("keeps semantic annotation styles when the host resets fonts", async () => 
   expect(styleOf('[data-annotation="italic"]').fontStyle).toBe("italic");
 });
 
-test("keeps the diagnostic marker an invisible overlay under host button styles", async () => {
+test("keeps the diagnostic band an unpainted overlay under host button styles", async () => {
   const { styleOf } = await renderWithHostStyles("数字は2026年のまま。");
 
-  const marker = styleOf(".kgv-diagnostic-marker");
-  expect(marker.position).toBe("absolute");
-  expect(marker.borderTopWidth).toBe("0px");
-  expect(marker.paddingTop).toBe("0px");
-  expect(marker.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+  const band = styleOf("button.kgv-diagnostic-band");
+  expect(band.position).toBe("absolute");
+  expect(band.borderTopWidth).toBe("0px");
+  expect(band.paddingTop).toBe("0px");
+  expect(band.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+});
+
+test("rules every cell on the pitch of the text it sits behind", async () => {
+  const { query } = await renderWithHostStyles("数字は2026年のまま。");
+
+  const line = query(".kgv-line");
+  const cells = Array.from(line.querySelectorAll<HTMLElement>(".kgv-cell"));
+  const rules = Array.from(line.querySelectorAll<HTMLElement>(".kgv-rule-cell"));
+
+  expect(rules).toHaveLength(cells.length);
+  for (const [index, rule] of rules.entries()) {
+    const cell = cells[index];
+    expect.assert(cell !== undefined, `line has no cell at index ${index}`);
+
+    const ruled = rule.getBoundingClientRect();
+    const written = cell.getBoundingClientRect();
+    expect(ruled.top).toBeCloseTo(written.top, 1);
+    expect(ruled.height).toBeCloseTo(written.height, 1);
+  }
+});
+
+test("keeps the decoration layers out of the line they cover", async () => {
+  const { query } = await renderWithHostStyles("数字は2026年のまま。");
+
+  const line = query(".kgv-line").getBoundingClientRect();
+  const rules = query(".kgv-line-rules").getBoundingClientRect();
+  const diagnostics = query(".kgv-line-diagnostics").getBoundingClientRect();
+
+  for (const layer of [rules, diagnostics]) {
+    expect(layer.top).toBeCloseTo(line.top, 1);
+    expect(layer.left).toBeCloseTo(line.left, 1);
+    expect(layer.width).toBeCloseTo(line.width, 1);
+    expect(layer.height).toBeCloseTo(line.height, 1);
+  }
 });
 
 test("keeps glyphs centred when the host sets inherited text properties", async () => {

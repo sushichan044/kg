@@ -83,14 +83,44 @@
   gap: var(--kgv-line-gap);
 }
 
+/* Anchors the two decoration layers below. */
 .kgv-line {
+  position: relative;
   display: flex;
   flex-direction: column;
 }
 
+/* The ruling and the diagnostics are drawn by layers of their own rather than by the boxes
+   holding the text: a layer is sized by the line and contributes no size back, so nothing a
+   theme paints can move the grid off the geometry the composer calculated. Which layer covers
+   which follows from document order — ruling, then text, then diagnostics — so neither sheet
+   needs a z-index to keep them apart. */
+.kgv-line-rules,
+.kgv-line-diagnostics {
+  position: absolute;
+  inset: 0;
+  /* Only the interactive bands take pointer events; see below. */
+  pointer-events: none;
+}
+
+/* The ruling layer holds one empty box per cell, on the same pitch as the text above it, so a
+   theme has a box per rule to paint and every rule lands on a cell edge. */
+.kgv-line-rules {
+  display: flex;
+  flex-direction: column;
+}
+
+.kgv-rule-cell {
+  /* Keeps a themed rule inside the box, on the pitch the composer calculated. */
+  box-sizing: border-box;
+  flex: none;
+  block-size: var(--kgv-cell-size);
+}
+
 .kgv-cell {
   position: relative;
-  /* Keeps a themed border inside the cell instead of growing the grid pitch. */
+  /* The ruling is drawn by the layer above, but a host reset or an application may still put a
+     border on a cell; border-box keeps it inside the cell instead of growing the grid pitch. */
   box-sizing: border-box;
   display: grid;
   place-items: center;
@@ -203,14 +233,32 @@
   text-orientation: upright;
 }
 
-.kgv-diagnostic-marker {
+/* One band per diagnostic per line, covering the cells the diagnostic reaches. The run is placed
+   from its offset and length in cells so a diagnostic spanning several characters is decorated as
+   one continuous band instead of once per character.
+
+   A band takes the whole width of the line unless another diagnostic covers exactly the same
+   cells: identical boxes would stack, and only the frontmost of them could be clicked, so each
+   takes a lane of the width instead. */
+.kgv-diagnostic-band {
   position: absolute;
-  inset: 0;
+  box-sizing: border-box;
+  inset-inline-start: calc(100% * var(--kgv-band-lane) / var(--kgv-band-lanes));
+  inline-size: calc(100% / var(--kgv-band-lanes));
+  inset-block-start: calc(var(--kgv-band-offset) * var(--kgv-cell-size));
+  block-size: calc(var(--kgv-band-length) * var(--kgv-cell-size));
   margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
   color: inherit;
+  font: inherit;
+}
+
+/* The band a diagnostic starts in is its control, so the whole run answers to a click while the
+   layer around it lets pointer events through to the manuscript. */
+button.kgv-diagnostic-band {
+  pointer-events: auto;
   cursor: pointer;
 }
 

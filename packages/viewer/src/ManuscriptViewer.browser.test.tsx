@@ -8,7 +8,12 @@ import {
   pixivParser,
   proofreadManuscript,
 } from "@sushichan044/kg-core";
-import type { GridSettings, ManuscriptOffsets, ManuscriptParser } from "@sushichan044/kg-core";
+import type {
+  GridSettings,
+  ManuscriptDiagnostic,
+  ManuscriptOffsets,
+  ManuscriptParser,
+} from "@sushichan044/kg-core";
 import { expect, test } from "vite-plus/test";
 import { render } from "vitest-browser-react";
 
@@ -29,6 +34,10 @@ type ViewerFixtureOptions = Readonly<{
   offsets?: ManuscriptOffsets;
   appearance?: ManuscriptAppearanceSettings;
   parser?: ManuscriptParser;
+  /**
+   * Stands in for a rule set the fixture cannot produce, such as two rules reporting one span.
+   */
+  reportedAs?: (found: readonly ManuscriptDiagnostic[]) => readonly ManuscriptDiagnostic[];
 }>;
 
 const defaultZoom = {
@@ -60,7 +69,8 @@ async function renderViewer(options: ViewerFixtureOptions, props: ViewerFixtureP
   });
   expect.assert(proofread.ok, "fixture did not proofread");
 
-  const diagnostics = [...parsed.warnings, ...proofread.value];
+  const found = [...parsed.warnings, ...proofread.value];
+  const diagnostics = options.reportedAs?.(found) ?? found;
   const screen = await render(
     <ManuscriptViewer composed={composed.value} diagnostics={diagnostics} {...props} />,
   );
@@ -126,9 +136,9 @@ test("marks an entire emoji variation sequence as one diagnostic", async () => {
   expect(occupiedCells[1]).toHaveAttribute("data-diagnostic");
 });
 
-test("selects the diagnostic that starts in the clicked cell when ranges are nested", async () => {
+test("selects the nested diagnostic when its band lies inside another", async () => {
   // 「あ、。。」 raises a closing-quote diagnostic over 、。。 and a consecutive-punctuation
-  // diagnostic over 。。 nested inside it, each starting in a different cell.
+  // diagnostic over 。。 nested inside it, so the nested band has to stay reachable.
   let selected = "";
   const { diagnostics, screen } = await renderViewer(
     { text: "「あ、。。」", settings },
@@ -143,25 +153,136 @@ test("selects the diagnostic that starts in the clicked cell when ranges are nes
   expect.assert(nested !== undefined, "fixture produced no nested punctuation diagnostic");
   expect(diagnostics).toHaveLength(2);
 
-  const markers = screen.container.querySelectorAll<HTMLButtonElement>(".kgv-diagnostic-marker");
-  expect(markers).toHaveLength(2);
-  const secondMarker = markers[1];
-  expect.assert(secondMarker !== undefined, "grid has no second diagnostic marker");
+  const nestedBand = screen.container.querySelector<HTMLButtonElement>(
+    `button.kgv-diagnostic-band[data-diagnostic-id="${nested.id}"]`,
+  );
+  expect.assert(nestedBand !== null, "grid has no band for the nested diagnostic");
 
-  secondMarker.click();
+  const band = nestedBand.getBoundingClientRect();
+  const atCentre = document.elementFromPoint(
+    band.left + band.width / 2,
+    band.top + band.height / 2,
+  );
+  expect(atCentre).toBe(nestedBand);
+
+  nestedBand.click();
 
   expect(selected).toBe(nested.id);
 });
 
-test("names the diagnostic each marker stands for", async () => {
+test("names the diagnostic each band stands for", async () => {
   const { diagnostics, screen } = await renderViewer({ text: "「あ、。。」", settings });
 
-  const markers = Array.from(
-    screen.container.querySelectorAll<HTMLButtonElement>(".kgv-diagnostic-marker"),
+  const bands = Array.from(
+    screen.container.querySelectorAll<HTMLButtonElement>("button.kgv-diagnostic-band"),
   );
-  expect(markers.map((marker) => marker.dataset.diagnosticId)).toEqual(
-    diagnostics.map(({ id }) => id),
+
+  expect(bands).toHaveLength(diagnostics.length);
+  expect(new Set(bands.map((band) => band.dataset.diagnosticId))).toEqual(
+    new Set(diagnostics.map(({ id }) => id)),
   );
+  for (const band of bands) {
+    const diagnostic = diagnostics.find(({ id }) => id === band.dataset.diagnosticId);
+    expect.assert(diagnostic !== undefined, "band stands for no diagnostic");
+
+    expect(band.getAttribute("aria-label")).toContain(diagnostic.message);
+  }
+});
+
+test("keeps both findings selectable when two cover exactly the same cells", async () => {
+  let selected = "";
+  const { diagnostics, screen } = await renderViewer(
+    {
+      text: "「あ、。。」",
+      settings,
+      // Two rules may report one span. The twin stands in for the second rule, since the built-in
+      // set gives every overlapping notation exactly one owner.
+      reportedAs: (found) => {
+        const first = found[0];
+        expect.assert(first !== undefined, "fixture produced no diagnostics");
+
+        return [first, { ...first, id: `${first.id}:twin` }];
+      },
+    },
+    {
+      onDiagnosticSelect: (diagnostic) => {
+        selected = diagnostic.id;
+      },
+    },
+  );
+
+  const bands = Array.from(
+    screen.container.querySelectorAll<HTMLButtonElement>("button.kgv-diagnostic-band"),
+  );
+  expect(bands).toHaveLength(2);
+
+  const selectedByClicking = bands.map((band) => {
+    const { left, top, width, height } = band.getBoundingClientRect();
+    const atCentre = document.elementFromPoint(left + width / 2, top + height / 2);
+    expect(atCentre).toBe(band);
+
+    band.click();
+    return selected;
+  });
+
+  expect(new Set(selectedByClicking)).toEqual(new Set(diagnostics.map(({ id }) => id)));
+});
+
+test("keeps a band and its own severity for each overlapping diagnostic", async () => {
+  const { diagnostics, screen } = await renderViewer({ text: "「あ、。。」", settings });
+
+  const bands = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-diagnostic-band"));
+
+  expect(
+    Object.fromEntries(
+      bands.map((band) => [band.dataset.diagnosticId, band.dataset.diagnosticSeverity]),
+    ),
+  ).toEqual(Object.fromEntries(diagnostics.map(({ id, severity }) => [id, severity])));
+});
+
+test("covers exactly the cells a diagnostic reaches with one band", async () => {
+  const { diagnostics, screen } = await renderViewer({ text: "「あ、。。」", settings });
+
+  const quote = diagnostics.find(
+    ({ origin }) => origin.id === "kg/punctuation-before-closing-quote",
+  );
+  expect.assert(quote !== undefined, "fixture produced no closing-quote diagnostic");
+
+  const bandElement = screen.container.querySelector<HTMLElement>(
+    `.kgv-diagnostic-band[data-diagnostic-id="${quote.id}"]`,
+  );
+  const cells = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-cell"));
+  const firstCell = cells[quote.range.graphemes.start];
+  const lastCell = cells[quote.range.graphemes.end - 1];
+  expect.assert(bandElement !== null, "grid has no band for the closing-quote diagnostic");
+  expect.assert(firstCell !== undefined, "grid has no cell where the diagnostic starts");
+  expect.assert(lastCell !== undefined, "grid has no cell where the diagnostic ends");
+
+  const band = bandElement.getBoundingClientRect();
+
+  expect(band.top).toBeCloseTo(firstCell.getBoundingClientRect().top, 0);
+  expect(band.bottom).toBeCloseTo(lastCell.getBoundingClientRect().bottom, 0);
+});
+
+test("bands a diagnostic that runs past a line end once per line, with one control", async () => {
+  // 。。 lands on the last cell of the first line and the first cell of the next one.
+  const { diagnostics, screen } = await renderViewer({
+    text: "あいうえおかきくけ。。",
+    settings,
+  });
+
+  const split = diagnostics.find(({ origin }) => origin.id === "kg/no-consecutive-punctuation");
+  expect.assert(split !== undefined, "fixture produced no punctuation diagnostic");
+
+  const bands = Array.from(
+    screen.container.querySelectorAll<HTMLElement>(
+      `.kgv-diagnostic-band[data-diagnostic-id="${split.id}"]`,
+    ),
+  );
+
+  expect(bands).toHaveLength(2);
+  expect(bands.filter((band) => band.tagName === "BUTTON")).toHaveLength(1);
+  expect(bands.filter((band) => band.dataset.diagnosticContinued !== undefined)).toHaveLength(1);
 });
 
 test("renders the four supported pixiv notation forms without exposing their tags", async () => {
@@ -377,7 +498,7 @@ test("escapes an emphasis mark before using it as a CSS string", async () => {
 
 test("keeps diagnostic selection working for decorated source ranges", async () => {
   let selectedRange: { start: number; end: number } | undefined;
-  const { screen } = await renderViewer(
+  const { diagnostics, screen } = await renderViewer(
     { text: "[b:「あ、。。」]", settings, parser: pixivParser },
     {
       onDiagnosticSelect: (diagnostic) => {
@@ -386,7 +507,18 @@ test("keeps diagnostic selection working for decorated source ranges", async () 
     },
   );
 
-  await screen.getByRole("button").first().click();
+  const quote = diagnostics.find(
+    ({ origin }) => origin.id === "kg/punctuation-before-closing-quote",
+  );
+  expect.assert(quote !== undefined, "fixture produced no closing-quote diagnostic");
+
+  const band = screen.container.querySelector<HTMLButtonElement>(
+    `button.kgv-diagnostic-band[data-diagnostic-id="${quote.id}"]`,
+  );
+  expect.assert(band !== null, "grid has no band for the closing-quote diagnostic");
+
+  band.click();
+
   expect(selectedRange).toEqual({ start: 5, end: 8 });
   expect(
     screen.container.querySelector('[data-annotation="bold"] [data-diagnostic]'),
@@ -486,7 +618,28 @@ test("renders each vertical line as an independent grid with a half-em gap", asy
 
   expect(first.right).toBeGreaterThan(second.right);
   expect(first.left - second.left).toBeCloseTo(first.width + cellSize * 0.5, 0);
-  expect(getComputedStyle(firstLine).borderInlineEndWidth).toBe("1px");
+});
+
+test("keeps the themed grid on the geometry the composer calculated", async () => {
+  const { screen } = await renderViewer({ text: "あ", settings });
+
+  const grid = screen.container.querySelector<HTMLElement>(".kgv-page-grid");
+  const cell = screen.container.querySelector<HTMLElement>(".kgv-cell");
+  const line = screen.container.querySelector<HTMLElement>(".kgv-line");
+  expect.assert(grid !== null, "page has no grid");
+  expect.assert(cell !== null, "grid has no cell");
+  expect.assert(line !== null, "grid has no line");
+
+  // Nothing the theme paints may widen a line, so the grid stays as wide as the composed
+  // geometry: every line plus a half-em gap between adjacent ones.
+  const cellSize = cell.getBoundingClientRect().width;
+  const lines = settings.linesPerStage;
+
+  expect(grid.getBoundingClientRect().width).toBeCloseTo(
+    lines * cellSize + (lines - 1) * cellSize * 0.5,
+    0,
+  );
+  expect(line.getBoundingClientRect().height).toBeCloseTo(settings.charsPerLine * cellSize, 0);
 });
 
 test("renders offset-reserved leading cells as empty", async () => {

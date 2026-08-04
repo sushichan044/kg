@@ -86,9 +86,17 @@ test("keeps the default manuscript theme under a common reset", async () => {
   const { styleOf } = await renderThemedViewerUnderReset();
 
   expect(styleOf(".kgv-page").backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
-  expect(styleOf(".kgv-cell").borderBlockStartWidth).toBe("1px");
+  expect(styleOf(".kgv-rule-cell").borderBlockStartWidth).toBe("1px");
   expect(styleOf('[data-annotation="bold"]').fontWeight).toBe("700");
   expect(styleOf('[data-annotation="italic"]').fontStyle).toBe("italic");
+});
+
+test("keeps the diagnostic band visible under a common reset", async () => {
+  const { styleOf } = await renderThemedViewerUnderReset();
+
+  const band = styleOf(".kgv-diagnostic-band");
+  expect(band.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+  expect(band.boxShadow).not.toBe("none");
 });
 
 test("keeps the default diagnostic theme under a common reset", async () => {
