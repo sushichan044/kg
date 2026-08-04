@@ -17,7 +17,9 @@ jobs:
     runs-on: ubuntu-slim
     outputs:
       core-release-created: ${{ steps.release.outputs['packages/core--release_created'] }}
+      core-tag-name: ${{ steps.release.outputs['packages/core--tag_name'] }}
       viewer-release-created: ${{ steps.release.outputs['packages/viewer--release_created'] }}
+      viewer-tag-name: ${{ steps.release.outputs['packages/viewer--tag_name'] }}
     permissions:
       contents: write
       id-token: write
@@ -45,7 +47,7 @@ jobs:
       needs.release-please.outputs.core-release-created == 'true' ||
       needs.release-please.outputs.viewer-release-created == 'true'
     permissions:
-      contents: read
+      contents: write
       id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -59,6 +61,18 @@ jobs:
         if: needs.release-please.outputs.core-release-created == 'true'
         run: pnpm --filter @sushichan044/kg-core publish --no-git-checks
 
+      - name: Undraft @sushichan044/kg-core release
+        if: needs.release-please.outputs.core-release-created == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit ${{ needs.release-please.outputs.core-tag-name }} --draft=false
+
       - name: Publish @sushichan044/kg-viewer
         if: needs.release-please.outputs.viewer-release-created == 'true'
         run: pnpm --filter @sushichan044/kg-viewer publish --no-git-checks
+
+      - name: Undraft @sushichan044/kg-viewer release
+        if: needs.release-please.outputs.viewer-release-created == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit ${{ needs.release-please.outputs.viewer-tag-name }} --draft=false
