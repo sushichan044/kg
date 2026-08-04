@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.2.0](https://github.com/sushichan044/kg/compare/v0.1.1...v0.2.0) (2026-08-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **viewer:** styles.css no longer carries the only stylesheet export, IframeIsolation replaces styleOverrides with a styles injection, and the kgv-annotation-{bold,italic,ruby,emphasis} modifier classes are gone.
+* separate manuscript processing stages behind typed contracts ([#43](https://github.com/sushichan044/kg/issues/43))
+
+### Features
+
+* **viewer:** make styling and zoom consumer-controlled ([#44](https://github.com/sushichan044/kg/issues/44)) ([38f3492](https://github.com/sushichan044/kg/commit/38f3492ff414bb8cfb527bf0072e7e3052464e29))
+
+
+### Code Refactoring
+
+* separate manuscript processing stages behind typed contracts ([#43](https://github.com/sushichan044/kg/issues/43)) ([4ca2eda](https://github.com/sushichan044/kg/commit/4ca2eda5eaac323c591995dc98f57a1d4b620f5c))
+
 ## [0.1.1](https://github.com/sushichan044/kg/compare/v0.1.0...v0.1.1) (2026-08-03)
 
 
