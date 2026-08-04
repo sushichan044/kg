@@ -1,17 +1,14 @@
 name: "Setup Go"
 description: |
   Sets up the Go environment for tests, builds, etc.
-inputs:
-  go-version-file:
-    description: "The path to the Go version file."
-    required: true
+
 runs:
   using: "composite"
   steps:
     - name: Setup Go
       uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
-        go-version-file: ${{ inputs.go-version-file }}
+        go-version-file: go.mod
         cache: false
 
     - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -47,7 +44,7 @@ runs:
         node-version-file: .node-version
 
     - name: Setup pnpm
-      uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
       with:
         run_install: false
 
