@@ -6,16 +6,19 @@
    page's `* { box-sizing }` or `button { padding }` reset silently break the
    grid. Class selectors outrank those element and universal selectors instead.
    Override a rule on purpose with an equally specific selector loaded after
-   this file. theme.css takes the opposite stance — see there. */
+   this file. theme.css follows the same boundary for its default look. */
 
 .kgv-viewer {
   /* How much of its cell a glyph fills. Ruby size and placement are derived from it, so the three
      cannot drift apart. See .kgv-glyph for why it is below 1. */
   --kgv-glyph-scale: 0.82;
 
+  box-sizing: border-box;
   min-inline-size: 0;
   min-block-size: 0;
   block-size: 100%;
+  font-style: normal;
+  font-weight: 400;
 }
 
 .kgv-visually-hidden {
@@ -31,6 +34,7 @@
 }
 
 .kgv-viewport {
+  box-sizing: border-box;
   min-inline-size: 0;
   min-block-size: 0;
   block-size: 100%;
@@ -51,6 +55,7 @@
 }
 
 .kgv-page {
+  box-sizing: border-box;
   display: grid;
   place-items: center;
   inline-size: var(--kgv-page-width);
@@ -164,6 +169,14 @@
   text-emphasis-position: over right;
 }
 
+.kgv-annotation[data-annotation="bold"] {
+  font-weight: 700;
+}
+
+.kgv-annotation[data-annotation="italic"] {
+  font-style: italic;
+}
+
 .kgv-glyph {
   writing-mode: vertical-rl;
   text-orientation: mixed;
@@ -210,10 +223,12 @@
 }
 
 .kgv-diagnostics button {
+  box-sizing: border-box;
   display: grid;
   inline-size: 100%;
   /* WCAG 2.5.8 target size. */
   min-block-size: 2rem;
+  margin: 0;
   color: inherit;
   font: inherit;
   text-align: start;

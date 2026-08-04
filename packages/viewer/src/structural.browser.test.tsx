@@ -4,8 +4,10 @@ import {
   createDefaultProofreadingRules,
   manuscriptGridComposer,
   parseManuscript,
+  pixivParser,
   proofreadManuscript,
 } from "@sushichan044/kg-core";
+import type { ManuscriptParser } from "@sushichan044/kg-core";
 import { expect, test } from "vite-plus/test";
 import { render } from "vitest-browser-react";
 
@@ -20,8 +22,13 @@ import "./structural.css";
  * without iframe isolation means the grid has to survive exactly this.
  */
 const hostStyles = `
-  * {
+  *,
+  ::before,
+  ::after {
     box-sizing: content-box;
+    margin: 0;
+    padding: 0;
+    border: 0;
   }
 
   body {
@@ -44,10 +51,15 @@ const hostStyles = `
   p {
     margin-block: 1em;
   }
+
+  strong,
+  em {
+    font: inherit;
+  }
 `;
 
-async function renderWithHostStyles(text: string) {
-  const parsed = parseManuscript(text);
+async function renderWithHostStyles(text: string, parser?: ManuscriptParser) {
+  const parsed = parseManuscript(text, { parser });
   if (!parsed.ok) throw new Error("fixture did not parse");
   const composed = composeManuscript(parsed.value, {
     composer: manuscriptGridComposer,
@@ -76,10 +88,24 @@ async function renderWithHostStyles(text: string) {
   return { query, styleOf: (selector: string) => getComputedStyle(query(selector)) };
 }
 
-test("keeps cell geometry when the host resets box-sizing", async () => {
+test("keeps sized boxes on border-box when the host resets box-sizing", async () => {
   const { styleOf } = await renderWithHostStyles("数字は2026年のまま。");
 
+  expect(styleOf(".kgv-viewer").boxSizing).toBe("border-box");
+  expect(styleOf(".kgv-viewport").boxSizing).toBe("border-box");
+  expect(styleOf(".kgv-page").boxSizing).toBe("border-box");
   expect(styleOf(".kgv-cell").boxSizing).toBe("border-box");
+  expect(styleOf(".kgv-diagnostics button").boxSizing).toBe("border-box");
+});
+
+test("keeps semantic annotation styles when the host resets fonts", async () => {
+  const { styleOf } = await renderWithHostStyles(
+    "[b:太字][i:斜体]数字は2026年のまま。",
+    pixivParser,
+  );
+
+  expect(styleOf('[data-annotation="bold"]').fontWeight).toBe("700");
+  expect(styleOf('[data-annotation="italic"]').fontStyle).toBe("italic");
 });
 
 test("keeps the diagnostic marker an invisible overlay under host button styles", async () => {

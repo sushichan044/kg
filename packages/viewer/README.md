@@ -103,22 +103,24 @@ only CSS can consume — cell pitch, line gap, and page size arrive as custom
 properties and are resolved with `calc()`. Import it and style everything else
 yourself, or import `styles.css` and adjust the tokens below.
 
-The two sheets take opposite positions in the cascade on purpose:
+Both sheets are **unlayered and selected by package class**. This makes the
+layout and default theme independent of low-specificity reset styles such as
+Tailwind Preflight and classic universal or element resets, even when the reset
+is loaded later. The package does not apply a global `*` reset of its own.
 
-- `structural.css` is **unlayered and selected by class**, so a global
-  `* { box-sizing }`, `button { padding }`, or `ol { list-style }` reset in your
-  application cannot break the grid. Import it before your own stylesheet, and
-  override a rule deliberately with an equally specific selector.
-- `theme.css` sits in the `kg-viewer.theme` **cascade layer with `:where()`
-  selectors**, so any rule of yours beats it — layered or not, no `!important`
-  needed. It only sets properties `structural.css` leaves alone, so overriding
-  it never disturbs the layout.
+Import the package stylesheet before your application stylesheet. Override a
+rule deliberately with an equally specific package-class selector loaded after
+it. Rules using `!important`, or selectors with class, attribute, or ID
+specificity, are treated as intentional application customization rather than
+as resets and are outside this compatibility guarantee.
 
 `structural.css` also neutralizes the inherited text properties that would
 distort a fixed-size cell (`letter-spacing`, `word-spacing`, `text-indent`,
-`text-transform`), since inheritance reaches the glyphs regardless of
-specificity. A `src/structural.browser.test.tsx` suite renders the viewer under
-a hostile host reset to keep all of this from regressing.
+`text-transform`, font weight, and font style), since inheritance reaches the
+glyphs regardless of specificity. It fixes the box model of sized elements and
+keeps semantic bold and italic annotations intact without the optional theme.
+Browser suites render the viewer directly and through `IframeIsolation` under
+host resets to keep this contract from regressing.
 
 ### DOM contract
 

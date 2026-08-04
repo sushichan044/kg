@@ -12,6 +12,23 @@ import { IframeIsolation } from "./IframeIsolation";
 import { ManuscriptViewer } from "./ManuscriptViewer";
 import { themeStyles } from "./styleSheets";
 
+const commonReset = `
+  *,
+  ::before,
+  ::after {
+    box-sizing: content-box;
+    margin: 0;
+    padding: 0;
+    border: 0 solid;
+  }
+
+  strong,
+  em,
+  button {
+    font: inherit;
+  }
+`;
+
 function composed(source: string) {
   const parsed = parseManuscript(source);
   if (!parsed.ok) throw new Error("fixture did not parse");
@@ -32,12 +49,26 @@ async function isolated(node: ReactElement) {
     })
     .toBeTruthy();
 
-  const iframe = screen.container.querySelector<HTMLIFrameElement>("iframe")!;
-  const document = iframe.contentDocument!;
-  const view = iframe.contentWindow!;
+  const iframe = screen.container.querySelector<HTMLIFrameElement>("iframe");
+  expect.assert(iframe !== null, "iframe did not render");
+  const document = iframe.contentDocument;
+  const view = iframe.contentWindow;
+  expect.assert(document !== null, "iframe document is unavailable");
+  expect.assert(view !== null, "iframe window is unavailable");
+  const cell = document.querySelector<HTMLElement>(".kgv-cell");
+  const glyph = document.querySelector<HTMLElement>(".kgv-glyph");
+  const root = document.getElementById("root");
+  const viewport = document.querySelector<HTMLElement>(".kgv-viewport");
+  expect.assert(cell !== null, "viewer cell did not render");
+  expect.assert(glyph !== null, "viewer glyph did not render");
+  expect.assert(root !== null, "iframe root is unavailable");
+  expect.assert(viewport !== null, "viewer viewport did not render");
   return {
-    cellStyle: view.getComputedStyle(document.querySelector<HTMLElement>(".kgv-cell")!),
-    glyphStyle: view.getComputedStyle(document.querySelector<HTMLElement>(".kgv-glyph")!),
+    cellStyle: view.getComputedStyle(cell),
+    glyphStyle: view.getComputedStyle(glyph),
+    rootRect: root.getBoundingClientRect(),
+    viewportRect: viewport.getBoundingClientRect(),
+    viewportStyle: view.getComputedStyle(viewport),
   };
 }
 
@@ -76,6 +107,18 @@ test("applies the theme when it is injected alongside the structural stylesheet"
 
   expect(glyphStyle.writingMode).toBe("vertical-rl");
   expect(cellStyle.borderBlockStartWidth).not.toBe("0px");
+});
+
+test("keeps the isolated preview self-contained when a reset is injected last", async () => {
+  const { cellStyle, rootRect, viewportRect, viewportStyle } = await isolated(
+    <IframeIsolation styles={{ kind: "structural", css: [themeStyles, commonReset] }}>
+      <ManuscriptViewer composed={composed("あ")} />
+    </IframeIsolation>,
+  );
+
+  expect(viewportStyle.boxSizing).toBe("border-box");
+  expect(viewportRect.height).toBe(rootRect.height);
+  expect(cellStyle.borderBlockStartWidth).toBe("1px");
 });
 
 test("injects only the given CSS for a custom injection", async () => {
