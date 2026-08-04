@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.0](https://github.com/sushichan044/kg/compare/v0.3.0...v0.4.0) (2026-08-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **core:** make the preferred dash configurable ([#62](https://github.com/sushichan044/kg/issues/62))
+
+### Features
+
+* **core:** make the preferred dash configurable ([#62](https://github.com/sushichan044/kg/issues/62)) ([52626d2](https://github.com/sushichan044/kg/commit/52626d2e8c7f893da947b602ec6136d79e5e4938))
+
 ## [0.3.0](https://github.com/sushichan044/kg/compare/v0.2.1...v0.3.0) (2026-08-04)
 
 
