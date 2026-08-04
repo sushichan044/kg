@@ -1,55 +1,12 @@
-import { ManuscriptDiagnostic } from "../diagnostic/manuscript-diagnostic";
 import { NamespacedId } from "../namespaced-id";
-import { ManuscriptRange } from "../range/manuscript-range";
 import { ManuscriptResult } from "../result/manuscript-result";
 import { createManuscriptDraft } from "./internal/manuscript-draft";
+import { unrecognizedNotationWarnings } from "./internal/notation-warning";
+import type { UnrecognizedSpan } from "./internal/notation-warning";
 import { literalEnd, parsePixivTag } from "./internal/pixiv-notation";
 import type { ManuscriptParser } from "./manuscript-parser";
-import type { ParsedManuscript } from "./parsed-manuscript";
 
 const PARSER_ID = NamespacedId.of("kg/pixiv");
-
-type UnrecognizedSpan = Readonly<{ start: number; end: number }>;
-
-/**
- * Locates an unrecognised source span in display and grapheme coordinates for the warning.
- */
-function spanRange(manuscript: ParsedManuscript, span: UnrecognizedSpan): ManuscriptRange {
-  const covered = manuscript.graphemes.filter(
-    ({ range }) => range.source.start < span.end && range.source.end > span.start,
-  );
-  const first = covered[0];
-  const last = covered.at(-1);
-  if (first === undefined || last === undefined) {
-    return ManuscriptRange.of({
-      source: span,
-      display: { start: 0, end: 0 },
-      graphemes: { start: 0, end: 0 },
-    });
-  }
-
-  return ManuscriptRange.of({
-    source: span,
-    display: { start: first.range.display.start, end: last.range.display.end },
-    graphemes: { start: first.range.graphemes.start, end: last.range.graphemes.end },
-  });
-}
-
-function unrecognizedNotationWarning(
-  source: string,
-  manuscript: ParsedManuscript,
-  span: UnrecognizedSpan,
-  index: number,
-): ManuscriptDiagnostic {
-  return ManuscriptDiagnostic.of({
-    source,
-    origin: { kind: "parser", id: PARSER_ID },
-    severity: "warning",
-    code: `unrecognized-notation-${index}`,
-    message: "認識できない記法を原文として扱いました",
-    range: spanRange(manuscript, span),
-  });
-}
 
 /**
  * Understands Pixiv's ruby, bold, italic and emphasis-mark notation. Anything bracket-shaped that
@@ -93,9 +50,7 @@ export const pixivParser: ManuscriptParser = {
 
     return ManuscriptResult.succeed(
       manuscript,
-      unrecognized.map((span, order) =>
-        unrecognizedNotationWarning(source, manuscript, span, order),
-      ),
+      unrecognizedNotationWarnings(source, PARSER_ID, manuscript, unrecognized),
     );
   },
 };

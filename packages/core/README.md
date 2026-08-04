@@ -24,12 +24,13 @@ import {
   manuscriptGridComposer,
   ParseError,
   parseManuscript,
+  kakuyomuParser,
   pixivParser,
   ProofreadError,
   proofreadManuscript,
 } from "@sushichan044/kg-core";
 
-const parsed = parseManuscript(source, { parser: pixivParser });
+const parsed = parseManuscript(source, { parser: kakuyomuParser });
 if (!parsed.ok) throw new Error(ParseError.describe(parsed.error));
 
 const composed = composeManuscript(parsed.value, {
@@ -46,10 +47,10 @@ if (!proofread.ok) throw new Error(ProofreadError.describe(proofread.error));
 const diagnostics = [...parsed.warnings, ...proofread.value];
 ```
 
-`parseManuscript` uses `plainTextParser` when no parser is supplied. The Pixiv
-parser normalizes ruby, bold, italic, and emphasis notation into a closed
-annotation union. Malformed or unknown notation remains visible and produces a
-parser warning.
+`parseManuscript` uses `plainTextParser` when no parser is supplied. The built-in
+`pixivParser` normalizes ruby, bold, italic, and emphasis notation; `kakuyomuParser`
+normalizes Kakuyomu ruby and emphasis marks. Malformed or unknown notation remains
+visible and produces a parser warning.
 
 `composeManuscript` requires a composer. The built-in grid composer produces a
 self-contained snapshot containing the parsed manuscript, accepted settings,
