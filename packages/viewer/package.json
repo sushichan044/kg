@@ -1,6 +1,6 @@
 {
   "name": "@sushichan044/kg-viewer",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Reusable React components for manuscript-grid preview and diagnostic feedback",
   "keywords": [
     "japanese",
