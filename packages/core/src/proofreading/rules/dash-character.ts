@@ -8,6 +8,6 @@ import { defineMatchRule } from "./internal/define-rule";
 export const dashCharacterRule = (): ParsedProofreadingRule =>
   defineMatchRule({
     id: "kg/dash-character",
-    pattern: /[—–─━﹣]+|-{2,}/gu,
+    pattern: /[—–─━﹣－]+|-{2,}/gu,
     message: "ダッシュには「―」を使ってください",
   });

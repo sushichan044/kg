@@ -42,7 +42,7 @@ describe("proofreadManuscript", () => {
     expect.assert(result.ok, "expected proofreadManuscript to succeed");
     expect(result.value).toHaveLength(1);
     expect(result.value[0]).toMatchObject({
-      origin: { kind: "rule", id: "kg/paragraph-leading-character" },
+      origin: { kind: "rule", id: "kg/paragraph-opening" },
       severity: "error",
       range: { source: { start: 5, end: 6 } },
       location: { start: { offset: 5, line: 2, column: 1 } },

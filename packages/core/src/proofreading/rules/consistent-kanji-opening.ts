@@ -12,10 +12,14 @@ const RULE_ID = "kg/consistent-kanji-opening";
 const MESSAGE =
   "「{{ closed }}」と「{{ opened }}」が混在しています。文脈上の使い分けか表記ゆれかを確認してください";
 
-const KanjiOpeningPairSchema = readonlyObject({
-  closed: v.pipe(v.string(), v.nonEmpty()),
-  opened: v.pipe(v.string(), v.nonEmpty()),
-});
+const KanjiOpeningPairSchema = v.pipe(
+  readonlyObject({
+    closed: v.pipe(v.string(), v.nonEmpty()),
+    opened: v.pipe(v.string(), v.nonEmpty()),
+  }),
+  // Identical spellings are not a pair: the rule would find one for the other and always warn.
+  v.check(({ closed, opened }) => closed !== opened, "a pair must hold two different spellings"),
+);
 
 /**
  * A word written in kanji, paired with the kana form of the same word.

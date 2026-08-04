@@ -99,13 +99,11 @@ export { minusBeforeNumberRule } from "./proofreading/rules/minus-before-number"
 export { noConsecutiveChoonpuRule } from "./proofreading/rules/no-consecutive-choonpu";
 export { noConsecutiveInterpunctRule } from "./proofreading/rules/no-consecutive-interpunct";
 export { noConsecutivePunctuationRule } from "./proofreading/rules/no-consecutive-punctuation";
-export { noIndentBeforeOpeningBracketRule } from "./proofreading/rules/no-indent-before-opening-bracket";
-export { paragraphIndentWidthRule } from "./proofreading/rules/paragraph-indent-width";
 export {
-  createParagraphLeadingCharacterRule,
-  paragraphLeadingCharacterRule,
-} from "./proofreading/rules/paragraph-leading-character";
-export type { ParagraphLeadingCharacterOptions } from "./proofreading/rules/paragraph-leading-character";
+  createParagraphOpeningRule,
+  paragraphOpeningRule,
+} from "./proofreading/rules/paragraph-opening";
+export type { ParagraphOpeningOptions } from "./proofreading/rules/paragraph-opening";
 export { punctuationBeforeClosingQuoteRule } from "./proofreading/rules/punctuation-before-closing-quote";
 export { spaceAfterQuestionOrExclamationRule } from "./proofreading/rules/space-after-question-or-exclamation";
 export { variantCharacterRule } from "./proofreading/rules/variant-character";

@@ -13,9 +13,7 @@ import { consistentNumeralWidthRule } from "./consistent-numeral-width";
 import { dashCharacterRule } from "./dash-character";
 import { ellipsisCharacterRule } from "./ellipsis-character";
 import { fullwidthJapanesePunctuationRule } from "./fullwidth-japanese-punctuation";
-import { noIndentBeforeOpeningBracketRule } from "./no-indent-before-opening-bracket";
-import { paragraphIndentWidthRule } from "./paragraph-indent-width";
-import { paragraphLeadingCharacterRule } from "./paragraph-leading-character";
+import { createParagraphOpeningRule, paragraphOpeningRule } from "./paragraph-opening";
 import { spaceAfterQuestionOrExclamationRule } from "./space-after-question-or-exclamation";
 
 function diagnose(source: string, rule: ParsedProofreadingRule): readonly ManuscriptDiagnostic[] {
@@ -36,63 +34,117 @@ function only(diagnostics: readonly ManuscriptDiagnostic[]): ManuscriptDiagnosti
   return first;
 }
 
-describe("paragraphLeadingCharacterRule", () => {
-  test("leaves a line made only of decoration symbols alone", () => {
-    const diagnostics = diagnose("　本文\n＊　＊　＊\n　本文", paragraphLeadingCharacterRule());
+describe("paragraphOpeningRule", () => {
+  test("reports prose that is not indented", () => {
+    const diagnostics = diagnose("本文", paragraphOpeningRule());
 
-    expect(diagnostics).toEqual([]);
+    expect(only(diagnostics)).toMatchObject({
+      message: "段落の先頭には全角スペースまたは開き括弧が必要です",
+      range: { display: { start: 0, end: 1 } },
+    });
   });
 
-  test("still reports prose that is not indented", () => {
-    const diagnostics = diagnose("本文", paragraphLeadingCharacterRule());
+  test("reports a halfwidth space where the indent belongs", () => {
+    const diagnostics = diagnose(" 本文", paragraphOpeningRule());
 
-    expect(only(diagnostics).range.display).toEqual({ start: 0, end: 1 });
-  });
-});
-
-describe("paragraphIndentWidthRule", () => {
-  test("reports an indent wider than one ideographic space", () => {
-    const diagnostics = diagnose("　　本文", paragraphIndentWidthRule());
-
-    expect(only(diagnostics).range.display).toEqual({ start: 0, end: 2 });
+    expect(only(diagnostics)).toMatchObject({
+      message: "段落の先頭には全角スペースまたは開き括弧が必要です",
+      range: { display: { start: 0, end: 1 } },
+    });
   });
 
-  test("reports an ideographic space followed by a halfwidth space", () => {
-    const diagnostics = diagnose("　 本文", paragraphIndentWidthRule());
+  test("reports a tab where the indent belongs", () => {
+    const diagnostics = diagnose("\t本文", paragraphOpeningRule());
 
-    expect(only(diagnostics).range.display).toEqual({ start: 0, end: 2 });
+    expect(only(diagnostics)).toMatchObject({
+      message: "段落の先頭には全角スペースまたは開き括弧が必要です",
+      range: { display: { start: 0, end: 1 } },
+    });
   });
 
   test("accepts exactly one ideographic space", () => {
-    const diagnostics = diagnose("　本文", paragraphIndentWidthRule());
+    const diagnostics = diagnose("　本文", paragraphOpeningRule());
 
     expect(diagnostics).toEqual([]);
   });
 
-  test("leaves an indented bracket paragraph to the bracket rule", () => {
-    const diagnostics = diagnose("　　「本文」", paragraphIndentWidthRule());
+  test("reports an indent wider than one ideographic space", () => {
+    const diagnostics = diagnose("　　本文", paragraphOpeningRule());
+
+    expect(only(diagnostics)).toMatchObject({
+      message: "段落冒頭の字下げは全角スペース1字にしてください",
+      range: { display: { start: 0, end: 2 } },
+    });
+  });
+
+  test("reports an ideographic space followed by a halfwidth space", () => {
+    const diagnostics = diagnose("　 本文", paragraphOpeningRule());
+
+    expect(only(diagnostics)).toMatchObject({
+      message: "段落冒頭の字下げは全角スペース1字にしてください",
+      range: { display: { start: 0, end: 2 } },
+    });
+  });
+
+  test("accepts a paragraph that opens with a bracket", () => {
+    const diagnostics = diagnose("「本文」", paragraphOpeningRule());
+
+    expect(diagnostics).toEqual([]);
+  });
+
+  test("reports the indent before a paragraph that opens with a bracket", () => {
+    const diagnostics = diagnose("　「本文」", paragraphOpeningRule());
+
+    expect(only(diagnostics)).toMatchObject({
+      message: "括弧から始まる段落を字下げすることはできません",
+      range: { display: { start: 0, end: 1 } },
+    });
+  });
+
+  test("reports a halfwidth indent before a bracket once, not as two findings", () => {
+    const diagnostics = diagnose(" 「本文」", paragraphOpeningRule());
+
+    expect(only(diagnostics)).toMatchObject({
+      message: "括弧から始まる段落を字下げすることはできません",
+      range: { display: { start: 0, end: 1 } },
+    });
+  });
+
+  test("leaves a line made only of decoration symbols alone", () => {
+    const diagnostics = diagnose("　本文\n＊　＊　＊\n　本文", paragraphOpeningRule());
 
     expect(diagnostics).toEqual([]);
   });
 
   test("leaves a line of spaces alone", () => {
-    const diagnostics = diagnose("　本文\n　　\n　本文", paragraphIndentWidthRule());
+    const diagnostics = diagnose("　本文\n　　\n　本文", paragraphOpeningRule());
 
     expect(diagnostics).toEqual([]);
   });
 });
 
-describe("noIndentBeforeOpeningBracketRule", () => {
-  test("reports the spaces before an opening bracket", () => {
-    const diagnostics = diagnose("　「本文」", noIndentBeforeOpeningBracketRule());
+describe("createParagraphOpeningRule", () => {
+  test("reports the offending option when given an empty bracket set", () => {
+    const result = createParagraphOpeningRule({ openingBrackets: "" });
 
-    expect(only(diagnostics).range.display).toEqual({ start: 0, end: 1 });
+    expect.assert(result.ok === false, "expected createParagraphOpeningRule to reject");
+    expect(result.error).toMatchObject({
+      kind: "InvalidRuleOptions",
+      ruleId: "kg/paragraph-opening",
+      option: "openingBrackets",
+    });
   });
 
-  test("accepts a bracket paragraph that is not indented", () => {
-    const diagnostics = diagnose("「本文」", noIndentBeforeOpeningBracketRule());
+  test("treats a character outside the configured brackets as prose", () => {
+    const rule = createParagraphOpeningRule({ openingBrackets: "《" });
+    expect.assert(rule.ok, "fixture did not build");
 
-    expect(diagnostics).toEqual([]);
+    const diagnostics = diagnose("　《本文》\n　「本文」", rule.value);
+
+    expect(only(diagnostics)).toMatchObject({
+      message: "括弧から始まる段落を字下げすることはできません",
+      range: { display: { start: 0, end: 1 } },
+    });
   });
 });
 
@@ -178,6 +230,12 @@ describe("dashCharacterRule", () => {
     expect(only(diagnostics).range.display).toEqual({ start: 3, end: 5 });
   });
 
+  test("reports fullwidth hyphen-minus", () => {
+    const diagnostics = diagnose("　そう－－ですか", dashCharacterRule());
+
+    expect(only(diagnostics).range.display).toEqual({ start: 3, end: 5 });
+  });
+
   test("leaves a repeated choonpu to its own rule", () => {
     const diagnostics = diagnose("　そーーですか", dashCharacterRule());
 
@@ -198,11 +256,31 @@ describe("fullwidthJapanesePunctuationRule", () => {
   test("warns about halfwidth parentheses beside Japanese", () => {
     const diagnostics = diagnose("　本文(注)", fullwidthJapanesePunctuationRule());
 
-    expect(diagnostics).toHaveLength(2);
-    expect(diagnostics.map(({ severity }) => severity)).toEqual(["warning", "warning"]);
-    expect(diagnostics[0]?.message).toBe(
-      "日本語の前後に半角の「(」があります。全角にすべきか確認してください",
-    );
+    expect(diagnostics.map(({ severity, message }) => ({ severity, message }))).toEqual([
+      {
+        severity: "warning",
+        message: "日本語の前後に半角の「(」があります。全角にすべきか確認してください",
+      },
+      {
+        severity: "warning",
+        message: "日本語の前後に半角の「)」があります。全角にすべきか確認してください",
+      },
+    ]);
+  });
+
+  test("reports a halfwidth exclamation mark beside Japanese", () => {
+    const diagnostics = diagnose("　すごい!", fullwidthJapanesePunctuationRule());
+
+    expect(only(diagnostics)).toMatchObject({
+      severity: "error",
+      message: "半角の「!」があります。日本語の句読点・括弧・感嘆符・疑問符は全角にしてください",
+    });
+  });
+
+  test("leaves halfwidth marks in Latin text alone", () => {
+    const diagnostics = diagnose("　Hello! Why?", fullwidthJapanesePunctuationRule());
+
+    expect(diagnostics).toEqual([]);
   });
 
   test("leaves halfwidth punctuation in Latin text alone", () => {
@@ -269,6 +347,17 @@ describe("consistentKanjiOpeningRule", () => {
 describe("createConsistentKanjiOpeningRule", () => {
   test("reports the offending option when a pair is incomplete", () => {
     const result = createConsistentKanjiOpeningRule({ pairs: [{ closed: "", opened: "こと" }] });
+
+    expect.assert(result.ok === false, "expected createConsistentKanjiOpeningRule to reject");
+    expect(result.error).toMatchObject({
+      kind: "InvalidRuleOptions",
+      ruleId: "kg/consistent-kanji-opening",
+      option: "pairs",
+    });
+  });
+
+  test("rejects a pair whose two spellings are identical", () => {
+    const result = createConsistentKanjiOpeningRule({ pairs: [{ closed: "事", opened: "事" }] });
 
     expect.assert(result.ok === false, "expected createConsistentKanjiOpeningRule to reject");
     expect(result.error).toMatchObject({

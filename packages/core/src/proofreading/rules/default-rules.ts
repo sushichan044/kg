@@ -9,9 +9,7 @@ import { minusBeforeNumberRule } from "./minus-before-number";
 import { noConsecutiveChoonpuRule } from "./no-consecutive-choonpu";
 import { noConsecutiveInterpunctRule } from "./no-consecutive-interpunct";
 import { noConsecutivePunctuationRule } from "./no-consecutive-punctuation";
-import { noIndentBeforeOpeningBracketRule } from "./no-indent-before-opening-bracket";
-import { paragraphIndentWidthRule } from "./paragraph-indent-width";
-import { paragraphLeadingCharacterRule } from "./paragraph-leading-character";
+import { paragraphOpeningRule } from "./paragraph-opening";
 import { punctuationBeforeClosingQuoteRule } from "./punctuation-before-closing-quote";
 import { spaceAfterQuestionOrExclamationRule } from "./space-after-question-or-exclamation";
 import { variantCharacterRule } from "./variant-character";
@@ -25,9 +23,7 @@ import { variantCharacterRule } from "./variant-character";
  */
 export function createDefaultProofreadingRules(): readonly ParsedProofreadingRule[] {
   return [
-    paragraphLeadingCharacterRule(),
-    paragraphIndentWidthRule(),
-    noIndentBeforeOpeningBracketRule(),
+    paragraphOpeningRule(),
     punctuationBeforeClosingQuoteRule(),
     spaceAfterQuestionOrExclamationRule(),
     evenEllipsisRule(),
