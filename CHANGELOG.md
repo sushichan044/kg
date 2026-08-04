@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/sushichan044/kg/compare/v0.2.0...v0.2.1) (2026-08-04)
+
+
+### Features
+
+* add Kakuyomu notation support ([#51](https://github.com/sushichan044/kg/issues/51)) ([acd3384](https://github.com/sushichan044/kg/commit/acd33841454b5d4634a56d13b380761c98801897))
+
 ## [0.2.0](https://github.com/sushichan044/kg/compare/v0.1.1...v0.2.0) (2026-08-04)
 
 
