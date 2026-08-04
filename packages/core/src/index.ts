@@ -74,9 +74,22 @@ export type {
 } from "./proofreading/proofreading-rule";
 export type { ProofreadingRuleContext } from "./proofreading/proofreading-rule-context";
 
+export {
+  consistentKanjiOpeningRule,
+  createConsistentKanjiOpeningRule,
+} from "./proofreading/rules/consistent-kanji-opening";
+export type {
+  ConsistentKanjiOpeningOptions,
+  KanjiOpeningPair,
+} from "./proofreading/rules/consistent-kanji-opening";
+export { consistentLatinWidthRule } from "./proofreading/rules/consistent-latin-width";
+export { consistentNumeralWidthRule } from "./proofreading/rules/consistent-numeral-width";
+export { dashCharacterRule } from "./proofreading/rules/dash-character";
 export { createDefaultProofreadingRules } from "./proofreading/rules/default-rules";
+export { ellipsisCharacterRule } from "./proofreading/rules/ellipsis-character";
 export { evenDashRule } from "./proofreading/rules/even-dash";
 export { evenEllipsisRule } from "./proofreading/rules/even-ellipsis";
+export { fullwidthJapanesePunctuationRule } from "./proofreading/rules/fullwidth-japanese-punctuation";
 export {
   createMaxArabicNumeralDigitsRule,
   maxArabicNumeralDigitsRule,
@@ -86,6 +99,8 @@ export { minusBeforeNumberRule } from "./proofreading/rules/minus-before-number"
 export { noConsecutiveChoonpuRule } from "./proofreading/rules/no-consecutive-choonpu";
 export { noConsecutiveInterpunctRule } from "./proofreading/rules/no-consecutive-interpunct";
 export { noConsecutivePunctuationRule } from "./proofreading/rules/no-consecutive-punctuation";
+export { noIndentBeforeOpeningBracketRule } from "./proofreading/rules/no-indent-before-opening-bracket";
+export { paragraphIndentWidthRule } from "./proofreading/rules/paragraph-indent-width";
 export {
   createParagraphLeadingCharacterRule,
   paragraphLeadingCharacterRule,
