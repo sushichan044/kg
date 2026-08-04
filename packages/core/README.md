@@ -63,7 +63,8 @@ element has source, display, and grapheme ranges; empty placement elements use
 Parsers implement `ManuscriptParser`. Composers implement `ManuscriptComposer`
 and provide Valibot schemas for their settings and layout. Proofreading rules
 carry `kind: "parsed"` or `kind: "composed"` to declare which manuscript they
-need, and report findings through `context.report`.
+need, and report findings through `context.report`. A report may name a
+`severity`; omitting it means `error`.
 
 A plugin signals its own failure with a `Rejection` — a plain reason string.
 Core turns that into a variant of the stage's error union, so plugins never
@@ -88,9 +89,38 @@ Grapheme ranges index the normalized grapheme array. Diagnostics include
 one-based source line and column positions, so renderers do not need to search
 or recalculate locations.
 
-The default proofreading rules report common Japanese novel-style issues and
-Unicode variation sequences. Diagnostics do not modify the source and do not
-contain automatic fixes.
+## Proofreading rules
+
+`createDefaultProofreadingRules()` returns the rules whose answer does not
+depend on the work: paragraph indentation, spacing after `！` and `？`, ellipsis
+and dash forms and counts, repeated punctuation, halfwidth Japanese
+punctuation, Arabic numeral length, and Unicode variation sequences.
+
+Rules that depend on the work's own conventions are exported individually and
+report `warning` instead of `error`, so a caller opts into them:
+
+```ts
+import {
+  consistentKanjiOpeningRule,
+  consistentLatinWidthRule,
+  consistentNumeralWidthRule,
+  createConsistentKanjiOpeningRule,
+  createDefaultProofreadingRules,
+} from "@sushichan044/kg-core";
+
+const rules = [
+  ...createDefaultProofreadingRules(),
+  consistentNumeralWidthRule(),
+  consistentLatinWidthRule(),
+  consistentKanjiOpeningRule(),
+];
+```
+
+`createConsistentKanjiOpeningRule({ pairs })` replaces the built-in kanji and
+kana pairs; like every configurable rule it returns a `ManuscriptResult` and
+fails with `InvalidRuleOptions` rather than dropping bad options.
+
+Diagnostics do not modify the source and do not contain automatic fixes.
 
 ## Browser support
 
