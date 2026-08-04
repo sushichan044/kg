@@ -2,8 +2,9 @@ import { ManuscriptCompositionSettings } from "@sushichan044/kg-core";
 import * as v from "valibot";
 
 const APP_STATE_KEY = "kg.app.state.v1";
-const PREFERENCES_KEY = "kg.manuscript.preferences.v4";
-const LEGACY_PREFERENCES_KEY = "kg.manuscript.preferences.v3";
+const PREFERENCES_KEY = "kg.manuscript.preferences.v5";
+const LEGACY_PREFERENCES_V4_KEY = "kg.manuscript.preferences.v4";
+const LEGACY_PREFERENCES_V3_KEY = "kg.manuscript.preferences.v3";
 const PAGE_KEY_PREFIX = "kg.app.page.v1:";
 
 const readonlyObject = <const TEntries extends v.ObjectEntries>(entries: TEntries) =>
@@ -36,6 +37,15 @@ const ManuscriptPreferencesV3Schema = readonlyObject({
 });
 
 const ManuscriptPreferencesSchema = readonlyObject({
+  version: v.literal(5),
+  notation: v.union([v.literal("pixiv"), v.literal("kakuyomu")]),
+  composition: ManuscriptCompositionSettings.schema,
+  zoom: v.pipe(v.number(), v.finite(), v.minValue(1)),
+  fit: v.boolean(),
+  presets: v.pipe(v.array(ManuscriptPresetSchema), v.readonly()),
+});
+
+const ManuscriptPreferencesV4Schema = readonlyObject({
   version: v.literal(4),
   composition: ManuscriptCompositionSettings.schema,
   zoom: v.pipe(v.number(), v.finite(), v.minValue(1)),
@@ -48,10 +58,12 @@ const PageSchema = v.pipe(v.number(), v.integer(), v.minValue(0));
 export type AppState = v.InferOutput<typeof AppStateSchema>;
 export type ManuscriptPreset = v.InferOutput<typeof ManuscriptPresetSchema>;
 export type ManuscriptPreferences = v.InferOutput<typeof ManuscriptPreferencesSchema>;
+export type ManuscriptNotation = ManuscriptPreferences["notation"];
 
 export const DEFAULT_APP_STATE: AppState = { version: 1, selectedPath: null };
 export const DEFAULT_MANUSCRIPT_PREFERENCES: ManuscriptPreferences = {
-  version: 4,
+  version: 5,
+  notation: "pixiv",
   composition: ManuscriptCompositionSettings.defaults,
   zoom: 100,
   fit: false,
@@ -86,15 +98,19 @@ export function loadManuscriptPreferences(): ManuscriptPreferences {
     const current = v.safeParse(ManuscriptPreferencesSchema, readJson(PREFERENCES_KEY));
     if (current.success) return current.output;
 
-    const legacy = v.safeParse(ManuscriptPreferencesV3Schema, readJson(LEGACY_PREFERENCES_KEY));
-    if (!legacy.success) return DEFAULT_MANUSCRIPT_PREFERENCES;
+    const v4 = v.safeParse(ManuscriptPreferencesV4Schema, readJson(LEGACY_PREFERENCES_V4_KEY));
+    if (v4.success) return { ...v4.output, version: 5, notation: "pixiv" };
+
+    const v3 = v.safeParse(ManuscriptPreferencesV3Schema, readJson(LEGACY_PREFERENCES_V3_KEY));
+    if (!v3.success) return DEFAULT_MANUSCRIPT_PREFERENCES;
 
     return {
-      version: 4,
-      composition: legacy.output.composition,
-      zoom: legacy.output.zoom.kind === "fixed" ? legacy.output.zoom.percent : 100,
-      fit: legacy.output.zoom.kind === "fit",
-      presets: legacy.output.presets,
+      version: 5,
+      notation: "pixiv",
+      composition: v3.output.composition,
+      zoom: v3.output.zoom.kind === "fixed" ? v3.output.zoom.percent : 100,
+      fit: v3.output.zoom.kind === "fit",
+      presets: v3.output.presets,
     };
   } catch {
     return DEFAULT_MANUSCRIPT_PREFERENCES;
