@@ -140,7 +140,7 @@ function toDiagnostics(
       ManuscriptDiagnostic.of({
         source,
         origin: { kind: "rule", id },
-        severity: "error",
+        severity: report.severity ?? "error",
         code: report.messageId,
         message: interpolate(template, report.data),
         range: report.range,

@@ -74,6 +74,28 @@ describe("proofreadManuscript", () => {
     });
   });
 
+  test("carries the severity a report names instead of defaulting to error", () => {
+    const rule = {
+      kind: "parsed",
+      meta: { id: "example/confirmation", messages: { confirm: "確認してください" } },
+      check: (manuscript, context) => {
+        const firstGrapheme = manuscript.graphemes[0];
+        expect.assert(firstGrapheme !== undefined, "manuscript has no first grapheme");
+
+        context.report({
+          range: firstGrapheme.range,
+          messageId: "confirm",
+          severity: "warning",
+        });
+      },
+    } as const satisfies ParsedProofreadingRule;
+
+    expect(proofreadManuscript(parsed("本文"), { rules: [rule] })).toMatchObject({
+      ok: true,
+      value: [{ severity: "warning" }],
+    });
+  });
+
   test("names the offending ID when two rules share one", () => {
     expect(proofreadManuscript(parsed("本文"), { rules: [noopRule, noopRule] })).toEqual({
       ok: false,
