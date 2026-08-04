@@ -96,15 +96,17 @@ jobs:
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
-          key: "${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-chromium-headless-shell"
+          key: "${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-chromium-headless-shell-webkit"
 
+      # The viewer is tested in WebKit too: vertical writing, ruby, and text-emphasis are where
+      # engines differ most, and a Chromium-only run has already let a broken reading through.
       - name: Install Playwright Browser
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: pnpm --filter kg-frontend exec playwright install --with-deps --only-shell chromium
+        run: pnpm --filter kg-frontend exec playwright install --with-deps --only-shell chromium webkit
 
       - name: Install Playwright system dependencies
         if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: pnpm --filter kg-frontend exec playwright install-deps chromium-headless-shell
+        run: pnpm --filter kg-frontend exec playwright install-deps chromium-headless-shell webkit
 
       - name: Browser tests
         run: vp run --filter @sushichan044/kg-viewer --filter kg-frontend test --project '*-browser'

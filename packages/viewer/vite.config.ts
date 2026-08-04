@@ -19,7 +19,9 @@ export const viewerTestProjects = [
         enabled: true,
         provider: playwright(),
         headless: true,
-        instances: [{ browser: "chromium" }],
+        // WebKit as well as Chromium: this package lives on vertical writing, ruby, and
+        // text-emphasis, which is exactly where engines diverge.
+        instances: [{ browser: "chromium" }, { browser: "webkit" }],
       },
     },
   }),
@@ -33,7 +35,10 @@ export default defineConfig({
       dts: {
         tsgo: true,
       },
-      entry: ["src/index.ts", "src/styles.css"],
+      // The stylesheets ship as plain assets straight from src (see package.json
+      // exports): pack merges every CSS entry into one file, which cannot express
+      // the structural/theme split, and these sheets need no transpiling.
+      entry: ["src/index.ts"],
       fixedExtension: true,
       format: "esm",
       fromVite: true,
@@ -50,7 +55,7 @@ export default defineConfig({
   run: {
     tasks: {
       build: {
-        command: "node scripts/generate-style-content.mjs && vp fmt && vp pack",
+        command: "vp pack",
         dependsOn: [{ task: "build", from: "dependencies" }],
       },
       check: {
@@ -74,8 +79,8 @@ export default defineConfig({
     },
   },
   test: {
-    // viewer-unit currently has no plain *.test.ts(x) files — everything here is
-    // browser-mode only — so an empty project shouldn't fail a filtered `--project` run.
+    // Most of this package can only be tested in a browser, so a filtered `--project` run may
+    // legitimately match nothing.
     passWithNoTests: true,
     projects: viewerTestProjects,
   },

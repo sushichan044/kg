@@ -1,0 +1,247 @@
+/* Layout physics for the vertical-writing manuscript grid: the rules the viewer
+   cannot render without. Declares no colors, so it composes with any theme.
+
+   Deliberately unlayered and selected by class. Layered rules lose to unlayered
+   ones no matter how specific they are, so a `@layer` here would let a host
+   page's `* { box-sizing }` or `button { padding }` reset silently break the
+   grid. Class selectors outrank those element and universal selectors instead.
+   Override a rule on purpose with an equally specific selector loaded after
+   this file. theme.css follows the same boundary for its default look. */
+
+.kgv-viewer {
+  /* How much of its cell a glyph fills. Ruby size and placement are derived from it, so the three
+     cannot drift apart. See .kgv-glyph for why it is below 1. */
+  --kgv-glyph-scale: 0.82;
+
+  box-sizing: border-box;
+  min-inline-size: 0;
+  min-block-size: 0;
+  block-size: 100%;
+  font-style: normal;
+  font-weight: 400;
+}
+
+.kgv-visually-hidden {
+  position: absolute;
+  clip-path: inset(50%);
+  overflow: clip;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  white-space: nowrap;
+}
+
+.kgv-viewport {
+  box-sizing: border-box;
+  min-inline-size: 0;
+  min-block-size: 0;
+  block-size: 100%;
+  overflow: auto;
+  /* The fit-zoom effect measures this padding, so it needs a value even when
+     theme.css — which declares --kgv-padding — is not loaded. */
+  padding: var(--kgv-padding, 2rem);
+  overscroll-behavior: contain;
+}
+
+.kgv-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  inline-size: max-content;
+  min-inline-size: 100%;
+  gap: 2rem;
+}
+
+.kgv-page {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  inline-size: var(--kgv-page-width);
+  block-size: var(--kgv-page-height);
+  flex: none;
+}
+
+@supports (content-visibility: auto) {
+  .kgv-page[data-offscreen] {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 60rem;
+  }
+}
+
+.kgv-page-grid {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--kgv-cell-size) * 2);
+}
+
+.kgv-stage {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  gap: var(--kgv-line-gap);
+}
+
+.kgv-line {
+  display: flex;
+  flex-direction: column;
+}
+
+.kgv-cell {
+  position: relative;
+  /* Keeps a themed border inside the cell instead of growing the grid pitch. */
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  inline-size: var(--kgv-cell-size);
+  block-size: var(--kgv-cell-size);
+}
+
+.kgv-annotation {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  inline-size: var(--kgv-cell-size);
+}
+
+/* The <rt> is here for the semantics; the box inside it does the placing. Contributing no box of
+   its own keeps it out of the engine's ruby layout, which would otherwise reserve space for a
+   reading that is positioned elsewhere. */
+.kgv-annotation[data-annotation="ruby"] rt {
+  display: contents;
+}
+
+/* The reading runs beside the line rather than in it, so it is taken out of flow and placed at the
+   line's edge. An auto width keeps it about one ruby em across — narrow enough to sit in the gap
+   beside the line instead of covering the line written before it. Which end of the run it is pinned
+   to depends on the fit, below. */
+.kgv-ruby {
+  position: absolute;
+  left: 100%;
+  /* One flex box per reading character, so the line runs down the reading in this vertical flow and
+     nothing depends on how an engine spaces characters. */
+  display: flex;
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  font-family: var(--kgv-manuscript-font);
+  /* Half the size of the characters it annotates, the usual proportion for ruby. */
+  font-size: calc(var(--kgv-cell-size) * var(--kgv-glyph-scale) / 2);
+  line-height: 1;
+}
+
+.kgv-ruby-character {
+  display: grid;
+  place-items: center;
+}
+
+/* One reading character per base character: each belongs to the character below it, so give every
+   character an equal share of the run — one cell each — and centre it in that share. */
+.kgv-annotation[data-ruby-fit="mono"] .kgv-ruby {
+  top: 0;
+  bottom: 0;
+}
+
+.kgv-annotation[data-ruby-fit="mono"] .kgv-ruby-character {
+  flex: 1;
+}
+
+/* Any other count belongs to the compound rather than to a single character, so spread it over the
+   whole base, first and last character at either end.
+
+   A glyph sits centred in its cell, so the base characters start and end inside the cells at either
+   end of the run. Inset by that margin to bracket the characters rather than the cells, which keeps
+   the reading from spilling past them. */
+.kgv-annotation[data-ruby-fit="group"] .kgv-ruby {
+  top: calc(var(--kgv-cell-size) * (1 - var(--kgv-glyph-scale)) / 2);
+  bottom: calc(var(--kgv-cell-size) * (1 - var(--kgv-glyph-scale)) / 2);
+  /* A lone character has no gaps to spread, so centre it on the base instead. */
+  justify-content: center;
+}
+
+.kgv-annotation[data-ruby-fit="group"] .kgv-ruby:has(.kgv-ruby-character + .kgv-ruby-character) {
+  justify-content: space-between;
+}
+
+/* Keeps the emphasis mark beside the glyph rather than overlapping it. */
+.kgv-annotation[data-annotation="emphasis"] {
+  text-emphasis-position: over right;
+}
+
+.kgv-annotation[data-annotation="bold"] {
+  font-weight: 700;
+}
+
+.kgv-annotation[data-annotation="italic"] {
+  font-style: italic;
+}
+
+.kgv-glyph {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-family: var(--kgv-manuscript-font);
+  /* --kgv-cell-size is the mass-me pitch (derived from the specified point
+     size) that drives the page/margin math; glyphs render smaller than the
+     full cell so characters keep breathing room instead of touching every
+     edge, matching how printed manuscript paper actually looks. */
+  font-size: calc(var(--kgv-cell-size) * var(--kgv-glyph-scale));
+  line-height: 1;
+}
+
+/* Inheritance is not a specificity contest: these reach the characters from the host page's `body`
+   however the viewer is selected, and extra tracking or recasing pushes them out of their cells. */
+.kgv-glyph,
+.kgv-ruby {
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-indent: 0;
+  text-transform: none;
+}
+
+.kgv-glyph-upright {
+  text-orientation: upright;
+}
+
+.kgv-diagnostic-marker {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.kgv-diagnostics {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kgv-diagnostics button {
+  box-sizing: border-box;
+  display: grid;
+  inline-size: 100%;
+  /* WCAG 2.5.8 target size. */
+  min-block-size: 2rem;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.kgv-diagnostics-empty {
+  margin: 0;
+}
+
+@media (pointer: coarse) {
+  .kgv-diagnostics button {
+    min-inline-size: 2.75rem;
+    min-block-size: 2.75rem;
+  }
+}

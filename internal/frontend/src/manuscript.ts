@@ -16,7 +16,6 @@ import type {
   ManuscriptCompositionSettings,
   ManuscriptDiagnostic,
 } from "@sushichan044/kg-core";
-import type { ZoomMode } from "@sushichan044/kg-viewer";
 
 import type { ManuscriptPreferences, ManuscriptPreset } from "./lib/storage";
 
@@ -29,7 +28,7 @@ export type ManuscriptState = Readonly<{
 export type ManuscriptAction =
   | Readonly<{ kind: "document.replace"; text: string }>
   | Readonly<{ kind: "composition.replace"; composition: ManuscriptCompositionSettings }>
-  | Readonly<{ kind: "zoom.replace"; zoom: ZoomMode }>
+  | Readonly<{ kind: "zoom.replace"; zoom: number; fit: boolean }>
   | Readonly<{ kind: "preset.apply"; preset: ManuscriptPreset }>
   | Readonly<{ kind: "preset.save"; preset: ManuscriptPreset }>
   | Readonly<{ kind: "preset.delete"; name: string }>
@@ -51,7 +50,10 @@ export function manuscriptReducer(
       };
     }
     case "zoom.replace": {
-      return { ...state, preferences: { ...state.preferences, zoom: action.zoom } };
+      return {
+        ...state,
+        preferences: { ...state.preferences, zoom: action.zoom, fit: action.fit },
+      };
     }
     case "preset.apply": {
       return {

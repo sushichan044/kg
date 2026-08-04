@@ -17,30 +17,43 @@ import {
 } from "react";
 import type { CSSProperties, ForwardedRef, ReactNode } from "react";
 
-import { ZoomMode } from "./ZoomMode";
+import { fitZoom } from "./fit-zoom";
 
 const NO_DIAGNOSTICS: readonly ManuscriptDiagnostic[] = [];
+
+const DEFAULT_ZOOM = {
+  value: 100,
+  min: 1,
+  max: Number.MAX_SAFE_INTEGER,
+  step: 1,
+} satisfies Omit<ManuscriptViewerZoom, "onChange">;
 
 export type ManuscriptViewerProps = Readonly<{
   composed: GridComposedManuscript;
   diagnostics?: readonly ManuscriptDiagnostic[];
   activeDiagnosticId?: string | null;
-  zoom?: ZoomMode;
+  zoom?: ManuscriptViewerZoom;
+  fit?: boolean;
   ariaLabel?: string;
   className?: string;
   onViewEvent?: (event: ManuscriptViewEvent) => void;
   onDiagnosticSelect?: (diagnostic: ManuscriptDiagnostic) => void;
 }>;
 
-export type ManuscriptViewEvent =
-  | Readonly<{ kind: "visible-page.change"; page: number }>
-  | Readonly<{ kind: "effective-zoom.change"; percent: number }>;
+export type ManuscriptViewerZoom = Readonly<{
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+}>;
+
+export type ManuscriptViewEvent = Readonly<{ kind: "visible-page.change"; page: number }>;
 
 export type ManuscriptViewHandle = Readonly<{
   scrollToPage: (index: number) => void;
   scrollToDiagnostic: (id: string) => void;
   getVisiblePage: () => number;
-  getEffectiveZoomPercent: () => number;
 }>;
 
 type ManuscriptStyle = CSSProperties & {
@@ -122,39 +135,86 @@ function fragmentCells(cells: readonly RenderedCell[]): CellFragment[] {
   return fragments;
 }
 
+const graphemes = new Intl.Segmenter("ja", { granularity: "grapheme" });
+
+type ReadingCharacter = Readonly<{ character: string; offset: number }>;
+
+/**
+ * A reading, split so each character can be placed on its own. Letter-spacing would be shorter, but
+ * engines disagree on where the space around a character goes in a vertical flow; one box per
+ * character leaves nothing to disagree about. The offset identifies a character even when the
+ * reading repeats one.
+ */
+function readingCharacters(reading: string): ReadingCharacter[] {
+  return [...graphemes.segment(reading)].map(({ segment, index }) => ({
+    character: segment,
+    offset: index,
+  }));
+}
+
 type AnnotationFragmentProps = Readonly<{
   annotation: ManuscriptAnnotation;
+  /**
+   * Offset and length of the cells this fragment covers within the complete annotation base.
+   */
+  baseOffset: number;
+  baseCharacters: number;
   children: ReactNode;
 }>;
 
-function AnnotationFragment({ annotation, children }: AnnotationFragmentProps) {
+function AnnotationFragment({
+  annotation,
+  baseOffset,
+  baseCharacters,
+  children,
+}: AnnotationFragmentProps) {
   switch (annotation.kind) {
     case "bold": {
       return (
-        <strong className="kgv-annotation kgv-annotation-bold" data-annotation="bold">
+        <strong className="kgv-annotation" data-annotation="bold">
           {children}
         </strong>
       );
     }
     case "italic": {
       return (
-        <em className="kgv-annotation kgv-annotation-italic" data-annotation="italic">
+        <em className="kgv-annotation" data-annotation="italic">
           {children}
         </em>
       );
     }
     case "ruby": {
+      const reading = readingCharacters(annotation.reading);
+      const annotationBaseCharacters =
+        annotation.range.graphemes.end - annotation.range.graphemes.start;
+      // One reading character per base character belongs to the character below it — mono ruby.
+      // Any other count belongs to the compound as a whole — group ruby. structural.css places the
+      // two differently.
+      const fit = reading.length === annotationBaseCharacters ? "mono" : "group";
+      const fragmentReading =
+        fit === "mono" ? reading.slice(baseOffset, baseOffset + baseCharacters) : reading;
       return (
-        <ruby className="kgv-annotation kgv-annotation-ruby" data-annotation="ruby">
+        <ruby className="kgv-annotation" data-annotation="ruby" data-ruby-fit={fit}>
           {children}
-          <rt aria-hidden="true">{annotation.reading}</rt>
+          {/* The reading is placed by the box inside the <rt> rather than by the <rt> itself:
+              engines lay ruby text out themselves and disagree about how much of that a stylesheet
+              may take over, but they all treat a plain span as a plain span. */}
+          <rt aria-hidden="true">
+            <span className="kgv-ruby">
+              {fragmentReading.map(({ character, offset }) => (
+                <span key={offset} className="kgv-ruby-character">
+                  {character}
+                </span>
+              ))}
+            </span>
+          </rt>
         </ruby>
       );
     }
     case "emphasis": {
       return (
         <span
-          className="kgv-annotation kgv-annotation-emphasis"
+          className="kgv-annotation"
           data-annotation="emphasis"
           style={{ textEmphasis: cssString(annotation.mark) }}
         >
@@ -165,10 +225,20 @@ function AnnotationFragment({ annotation, children }: AnnotationFragmentProps) {
   }
 }
 
-function wrapAnnotations(annotations: readonly ManuscriptAnnotation[], children: ReactNode) {
+function wrapAnnotations(
+  annotations: readonly ManuscriptAnnotation[],
+  baseStart: number,
+  baseCharacters: number,
+  children: ReactNode,
+) {
   return annotations.reduceRight<ReactNode>(
     (wrapped, annotation) => (
-      <AnnotationFragment key={annotationKey(annotation)} annotation={annotation}>
+      <AnnotationFragment
+        key={annotationKey(annotation)}
+        annotation={annotation}
+        baseOffset={baseStart - annotation.range.graphemes.start}
+        baseCharacters={baseCharacters}
+      >
         {wrapped}
       </AnnotationFragment>
     ),
@@ -181,7 +251,8 @@ function ManuscriptViewerComponent(
     composed,
     diagnostics = NO_DIAGNOSTICS,
     activeDiagnosticId = null,
-    zoom = ZoomMode.defaults,
+    zoom,
+    fit = false,
     ariaLabel = "原稿プレビュー",
     className,
     onViewEvent,
@@ -195,9 +266,10 @@ function ManuscriptViewerComponent(
   const diagnosticRefs = useRef(new Map<string, HTMLElement>());
   const pendingPageRef = useRef<number | null>(null);
   const visiblePageRef = useRef(0);
-  const effectivePercentRef = useRef<number>(zoom.kind === "fixed" ? zoom.percent : 100);
-  const [fitPercent, setFitPercent] = useState(100);
-  const effectivePercent = zoom.kind === "fixed" ? zoom.percent : fitPercent;
+  const [uncontrolledZoom, setUncontrolledZoom] = useState(DEFAULT_ZOOM.value);
+  const { max, min, step } = zoom ?? DEFAULT_ZOOM;
+  const value = zoom?.value ?? uncontrolledZoom;
+  const onChange = zoom?.onChange ?? setUncontrolledZoom;
   const selectedFont = FontPreset.of(composed.settings.appearance.fontPreset);
 
   const scrollToPage = useCallback(
@@ -224,7 +296,6 @@ function ManuscriptViewerComponent(
       scrollToPage,
       scrollToDiagnostic,
       getVisiblePage: () => visiblePageRef.current,
-      getEffectiveZoomPercent: () => effectivePercentRef.current,
     }),
     [scrollToDiagnostic, scrollToPage],
   );
@@ -250,7 +321,7 @@ function ManuscriptViewerComponent(
   );
 
   useEffect(() => {
-    if (zoom.kind !== "fit") return;
+    if (!fit) return;
     const viewport = viewportRef.current;
     if (viewport === null) return;
     const updateFitPercent = () => {
@@ -263,8 +334,16 @@ function ManuscriptViewerComponent(
         viewport.clientHeight -
         Number.parseFloat(style.paddingBlockStart) -
         Number.parseFloat(style.paddingBlockEnd);
-      setFitPercent(
-        ZoomMode.fitPagePercent(width, height, geometry.paperWidthMm, geometry.paperHeightMm),
+      onChange(
+        fitZoom({
+          viewportWidthPx: width,
+          viewportHeightPx: height,
+          paperWidthMm: geometry.paperWidthMm,
+          paperHeightMm: geometry.paperHeightMm,
+          min,
+          max,
+          step,
+        }),
       );
     };
     updateFitPercent();
@@ -273,12 +352,7 @@ function ManuscriptViewerComponent(
     return () => {
       observer.disconnect();
     };
-  }, [geometry.paperHeightMm, geometry.paperWidthMm, zoom.kind]);
-
-  useEffect(() => {
-    effectivePercentRef.current = effectivePercent;
-    onViewEvent?.({ kind: "effective-zoom.change", percent: effectivePercent });
-  }, [effectivePercent, onViewEvent]);
+  }, [fit, geometry.paperHeightMm, geometry.paperWidthMm, max, min, onChange, step]);
 
   useEffect(() => {
     if (pendingPageRef.current !== null) scrollToPage(pendingPageRef.current);
@@ -312,13 +386,13 @@ function ManuscriptViewerComponent(
 
   const style: ManuscriptStyle = useMemo(
     () => ({
-      "--kgv-cell-size": `${geometry.cellSizeMm * (effectivePercent / 100)}mm`,
-      "--kgv-line-gap": `${geometry.lineGapMm * (effectivePercent / 100)}mm`,
+      "--kgv-cell-size": `${geometry.cellSizeMm * (value / 100)}mm`,
+      "--kgv-line-gap": `${geometry.lineGapMm * (value / 100)}mm`,
       "--kgv-manuscript-font": selectedFont.family,
-      "--kgv-page-height": `${geometry.paperHeightMm * (effectivePercent / 100)}mm`,
-      "--kgv-page-width": `${geometry.paperWidthMm * (effectivePercent / 100)}mm`,
+      "--kgv-page-height": `${geometry.paperHeightMm * (value / 100)}mm`,
+      "--kgv-page-width": `${geometry.paperWidthMm * (value / 100)}mm`,
     }),
-    [effectivePercent, geometry, selectedFont.family],
+    [geometry, selectedFont.family, value],
   );
 
   const renderCell = (cellId: string, cell: GridCell) => {
@@ -354,6 +428,7 @@ function ManuscriptViewerComponent(
             }}
             type="button"
             className="kgv-diagnostic-marker"
+            data-diagnostic-id={first.id}
             aria-label={`${first.location.start.line}行${first.location.start.column}列: ${first.message}`}
             onClick={() => onDiagnosticSelect?.(first)}
           />
@@ -392,7 +467,12 @@ function ManuscriptViewerComponent(
                             rendered
                           ) : (
                             <span key={fragment.id} className="kgv-annotation-stack">
-                              {wrapAnnotations(fragment.annotations, rendered)}
+                              {wrapAnnotations(
+                                fragment.annotations,
+                                fragment.cells[0]?.cell.range?.graphemes.start ?? 0,
+                                fragment.cells.length,
+                                rendered,
+                              )}
                             </span>
                           );
                         })}

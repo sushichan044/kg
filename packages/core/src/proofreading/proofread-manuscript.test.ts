@@ -12,7 +12,8 @@ import { createMaxArabicNumeralDigitsRule } from "./rules/max-arabic-numeral-dig
 
 function parsed(source: string) {
   const result = parseManuscript(source);
-  if (!result.ok) throw new Error("fixture did not parse");
+  expect.assert(result.ok, "fixture did not parse");
+
   return result.value;
 }
 
@@ -21,7 +22,8 @@ function composed(source: string): GridComposedManuscript {
     composer: manuscriptGridComposer,
     settings: ManuscriptCompositionSettings.defaults,
   });
-  if (!result.ok) throw new Error("fixture did not compose");
+  expect.assert(result.ok, "fixture did not compose");
+
   return result.value;
 }
 
@@ -37,8 +39,7 @@ describe("proofreadManuscript", () => {
       rules: createDefaultProofreadingRules(),
     });
 
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
+    expect.assert(result.ok, "expected proofreadManuscript to succeed");
     expect(result.value).toHaveLength(1);
     expect(result.value[0]).toMatchObject({
       origin: { kind: "rule", id: "kg/paragraph-leading-character" },
@@ -56,10 +57,13 @@ describe("proofreadManuscript", () => {
         messages: { first: "先頭は {{ value }} です" },
       },
       check: (manuscript, context) => {
+        const firstGrapheme = manuscript.graphemes[0];
+        expect.assert(firstGrapheme !== undefined, "manuscript has no first grapheme");
+
         context.report({
-          range: manuscript.graphemes[0]!.range,
+          range: firstGrapheme.range,
           messageId: "first",
-          data: { value: manuscript.graphemes[0]!.value },
+          data: { value: firstGrapheme.value },
         });
       },
     } as const satisfies ParsedProofreadingRule;
@@ -102,8 +106,7 @@ describe("proofreadManuscript", () => {
 
     const result = proofreadManuscript(parsed("本文"), { rules: [rule] });
 
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
+    expect.assert(result.ok === false, "expected proofreadManuscript to report a failure");
     expect(result.error).toMatchObject({
       kind: "InvalidReport",
       ruleId: "example/broken-report",
@@ -115,7 +118,10 @@ describe("proofreadManuscript", () => {
       kind: "parsed",
       meta: { id: "example/undeclared", messages: {} },
       check: (manuscript, context) => {
-        context.report({ range: manuscript.graphemes[0]!.range, messageId: "missing" });
+        const firstGrapheme = manuscript.graphemes[0];
+        expect.assert(firstGrapheme !== undefined, "manuscript has no first grapheme");
+
+        context.report({ range: firstGrapheme.range, messageId: "missing" });
       },
     } as const satisfies ParsedProofreadingRule;
 
@@ -173,8 +179,7 @@ describe("createMaxArabicNumeralDigitsRule", () => {
   test("reports the offending option when given a non-integer digit limit", () => {
     const result = createMaxArabicNumeralDigitsRule({ maxDigits: 0 });
 
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
+    expect.assert(result.ok === false, "expected createMaxArabicNumeralDigitsRule to reject");
     expect(result.error).toMatchObject({
       kind: "InvalidRuleOptions",
       ruleId: "kg/max-arabic-numeral-digits",
@@ -184,13 +189,15 @@ describe("createMaxArabicNumeralDigitsRule", () => {
 
   test("honours a configured digit limit", () => {
     const rule = createMaxArabicNumeralDigitsRule({ maxDigits: 4 });
-    if (!rule.ok) throw new Error("fixture did not build");
+    expect.assert(rule.ok, "fixture did not build");
 
     const result = proofreadManuscript(parsed("　12345と123"), { rules: [rule.value] });
 
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
+    expect.assert(result.ok, "expected proofreadManuscript to succeed");
     expect(result.value).toHaveLength(1);
-    expect(result.value[0]?.range.display).toEqual({ start: 1, end: 6 });
+
+    const firstDiagnostic = result.value[0];
+    expect.assert(firstDiagnostic !== undefined, "expected at least one diagnostic");
+    expect(firstDiagnostic.range.display).toEqual({ start: 1, end: 6 });
   });
 });

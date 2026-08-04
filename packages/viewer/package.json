@@ -27,6 +27,7 @@
   "funding": "https://github.com/sponsors/sushichan044",
   "files": [
     "dist",
+    "src/*.css",
     "README.md",
     "LICENSE",
     "styles.d.ts"
@@ -40,9 +41,17 @@
       "types": "./dist/index.d.mts",
       "import": "./dist/index.mjs"
     },
+    "./structural.css": {
+      "types": "./styles.d.ts",
+      "default": "./src/structural.css"
+    },
     "./styles.css": {
       "types": "./styles.d.ts",
-      "default": "./dist/style.css"
+      "default": "./src/styles.css"
+    },
+    "./theme.css": {
+      "types": "./styles.d.ts",
+      "default": "./src/theme.css"
     },
     "./package.json": "./package.json"
   },
@@ -52,8 +61,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
-    "prepublishOnly": "vp run build",
-    "generate-style-content": "node scripts/generate-style-content.mjs"
+    "prepublishOnly": "vp run build"
   },
   "dependencies": {
     "@sushichan044/kg-core": "workspace:*"
@@ -74,8 +82,7 @@
     "vitest-browser-react": "catalog:dev"
   },
   "peerDependencies": {
-    "react": "^18.3.1 || ^19.0.0",
-    "react-dom": "^18.3.1 || ^19.0.0"
+    "react": "^18.3.1 || ^19.0.0"
   },
   "engines": {
     "node": ">=22.12.0"
