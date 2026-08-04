@@ -85,9 +85,9 @@ test("connects proofreading feedback to the drawer and manuscript cells", async 
 
   await drawer.getByRole("list").getByRole("button").nth(3).click();
   await vi.waitFor(() => {
-    const iframe = screen.container.querySelector<HTMLIFrameElement>("iframe");
-    expect(iframe?.contentDocument?.querySelectorAll("[data-diagnostic-active]")).toHaveLength(4);
+    expect(screen.container.querySelectorAll("[data-diagnostic-active]")).toHaveLength(4);
   });
+  expect(screen.container.querySelector("iframe")).toBeNull();
 });
 
 // The mobile toolbar only becomes visible below the 52rem (832px) breakpoint;
@@ -250,26 +250,23 @@ test("renders pixiv notation after the initial load and a file reload", async ()
   novelSource = pixivSource;
   const screen = await render(<App />);
 
-  const viewerDocument = () =>
-    screen.container.querySelector<HTMLIFrameElement>("iframe")?.contentDocument;
   await vi.waitFor(() => {
-    expect(viewerDocument()?.querySelectorAll("[data-annotation]")).toHaveLength(4);
-    expect(
-      viewerDocument()?.querySelector(".kgv-visually-hidden")?.textContent.replace(/\n+$/, ""),
-    ).toBe("漢字太字斜体強調");
+    expect(screen.container.querySelectorAll("[data-annotation]")).toHaveLength(4);
+    const hiddenText = screen.container.querySelector(".kgv-visually-hidden");
+    expect.assert(hiddenText !== null, "accessible viewer text did not render");
+    expect(hiddenText.textContent.replace(/\n+$/, "")).toBe("漢字太字斜体強調");
   });
-  expect(viewerDocument()?.body.textContent).not.toContain("[[rb:");
+  expect(screen.container.textContent).not.toContain("[[rb:");
+  expect(screen.container.querySelector("iframe")).toBeNull();
 
   novelSource = "[b:再読込]";
   FakeEventSource.latest?.emit("file-changed", JSON.stringify({ id: "novel" }));
 
   await vi.waitFor(() => {
-    expect(viewerDocument()?.querySelectorAll('[data-annotation="bold"] .kgv-cell')).toHaveLength(
-      3,
-    );
-    expect(
-      viewerDocument()?.querySelector(".kgv-visually-hidden")?.textContent.replace(/\n+$/, ""),
-    ).toBe("再読込");
+    expect(screen.container.querySelectorAll('[data-annotation="bold"] .kgv-cell')).toHaveLength(3);
+    const hiddenText = screen.container.querySelector(".kgv-visually-hidden");
+    expect.assert(hiddenText !== null, "accessible viewer text did not render after reload");
+    expect(hiddenText.textContent.replace(/\n+$/, "")).toBe("再読込");
   });
-  expect(viewerDocument()?.body.textContent).not.toContain("[b:");
+  expect(screen.container.textContent).not.toContain("[b:");
 });

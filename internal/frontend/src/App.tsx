@@ -1,10 +1,5 @@
 import type { ManuscriptDiagnostic } from "@sushichan044/kg-core";
-import {
-  DiagnosticList,
-  IframeIsolation,
-  ManuscriptViewer,
-  themeStyles,
-} from "@sushichan044/kg-viewer";
+import { DiagnosticList, ManuscriptViewer } from "@sushichan044/kg-viewer";
 import type { ManuscriptViewEvent, ManuscriptViewHandle } from "@sushichan044/kg-viewer";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
@@ -370,25 +365,23 @@ function Workspace() {
             {loadedDocument?.id !== selectedId ? (
               <p className="preview__loading">読み込み中…</p>
             ) : processed.ok ? (
-              <IframeIsolation styles={{ kind: "structural", css: themeStyles }}>
-                <ManuscriptViewer
-                  ref={viewRef}
-                  composed={processed.value.composed}
-                  diagnostics={diagnostics}
-                  activeDiagnosticId={activeDiagnosticId}
-                  zoom={{ value: zoom, min: 50, max: 150, step: 25, onChange: setFitZoom }}
-                  fit={manuscript.preferences.fit}
-                  onViewEvent={onViewEvent}
-                  onDiagnosticSelect={(diagnostic) => {
-                    dispatch({ kind: "diagnostic.select", id: diagnostic.id });
-                    if (window.matchMedia("(max-width: 52rem)").matches) {
-                      setDiagnosticsSheetOpen(true);
-                    } else {
-                      setDiagnosticDrawerOpen(true);
-                    }
-                  }}
-                />
-              </IframeIsolation>
+              <ManuscriptViewer
+                ref={viewRef}
+                composed={processed.value.composed}
+                diagnostics={diagnostics}
+                activeDiagnosticId={activeDiagnosticId}
+                zoom={{ value: zoom, min: 50, max: 150, step: 25, onChange: setFitZoom }}
+                fit={manuscript.preferences.fit}
+                onViewEvent={onViewEvent}
+                onDiagnosticSelect={(diagnostic) => {
+                  dispatch({ kind: "diagnostic.select", id: diagnostic.id });
+                  if (window.matchMedia("(max-width: 52rem)").matches) {
+                    setDiagnosticsSheetOpen(true);
+                  } else {
+                    setDiagnosticDrawerOpen(true);
+                  }
+                }}
+              />
             ) : (
               <div className="preview__failure" role="alert">
                 <strong>原稿を処理できませんでした。</strong>

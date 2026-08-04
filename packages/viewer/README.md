@@ -119,8 +119,8 @@ distort a fixed-size cell (`letter-spacing`, `word-spacing`, `text-indent`,
 `text-transform`, font weight, and font style), since inheritance reaches the
 glyphs regardless of specificity. It fixes the box model of sized elements and
 keeps semantic bold and italic annotations intact without the optional theme.
-Browser suites render the viewer directly and through `IframeIsolation` under
-host resets to keep this contract from regressing.
+Browser suites render the viewer under host resets to keep this contract from
+regressing.
 
 ### DOM contract
 
@@ -185,30 +185,6 @@ works when rendered outside `.kgv-viewer`.
 composed geometry and the effective zoom. Read them to stay aligned with the
 grid; do not assign them, since the layout and the fit-zoom measurement depend
 on the values the component computes.
-
-### Isolated rendering
-
-`IframeIsolation` renders children into an iframe built from `srcDoc`, giving
-them a document of their own that the host page's stylesheets do not reach. The
-iframe is deliberately not sandboxed: it stays same-origin so the component can
-portal React children into it. It injects `structural.css` and nothing else by
-default:
-
-```tsx
-import { IframeIsolation, ManuscriptViewer, themeStyles } from "@sushichan044/kg-viewer";
-
-<IframeIsolation styles={{ kind: "structural", css: themeStyles }}>
-  <ManuscriptViewer composed={composed} />
-</IframeIsolation>;
-```
-
-`styles` accepts `{ kind: "structural", css? }` to append CSS after the
-structural rules, or `{ kind: "custom", css }` to supply every rule yourself.
-`structuralStyles` and `themeStyles` are also exported as plain strings for
-shadow roots and server-rendered `<style>` tags.
-
-Applications that own the whole page usually do not need this component:
-render `ManuscriptViewer` directly so the page's own cascade reaches it.
 
 `DiagnosticList` is a convenience, not infrastructure. Building your own list
 from `ManuscriptDiagnostic[]` is expected when you want different markup.

@@ -18,8 +18,8 @@ import "./structural.css";
 
 /**
  * Rules a plain-CSS application is likely to ship, written the way such applications write them:
- * bare element selectors and a universal reset, loaded after the viewer's own stylesheet. Rendering
- * without iframe isolation means the grid has to survive exactly this.
+ * bare element selectors and a universal reset, loaded after the viewer's own stylesheet. The grid
+ * has to survive exactly this in the host document.
  */
 const hostStyles = `
   *,
