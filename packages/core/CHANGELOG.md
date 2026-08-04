@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0](https://github.com/sushichan044/kg/compare/kg-core-v0.4.1...kg-core-v0.5.0) (2026-08-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* kg/paragraph-leading-character is replaced by kg/paragraph-opening, and ParagraphLeadingCharacterOptions.allowedCharacters becomes ParagraphOpeningOptions.openingBrackets.
+
+### Features
+
+* expand the built-in proofreading rules to cover Japanese novel style ([#56](https://github.com/sushichan044/kg/issues/56)) ([9e74604](https://github.com/sushichan044/kg/commit/9e74604503a84aa848398d518bb20c88d7d30ae6))
+
 ## [0.4.1](https://github.com/sushichan044/kg/compare/kg-core-v0.4.0...kg-core-v0.4.1) (2026-08-04)
 
 

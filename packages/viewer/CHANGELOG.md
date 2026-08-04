@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.5.0](https://github.com/sushichan044/kg/compare/kg-viewer-v0.4.1...kg-viewer-v0.5.0) (2026-08-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **viewer:** draw the ruling, the text, and the diagnostics as layers ([#59](https://github.com/sushichan044/kg/issues/59))
+
+### Features
+
+* **viewer:** draw the ruling, the text, and the diagnostics as layers ([#59](https://github.com/sushichan044/kg/issues/59)) ([a03440d](https://github.com/sushichan044/kg/commit/a03440da2e9315744cc2cdf610772536466a9e4c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @sushichan044/kg-core bumped to 0.5.0
+
 ## [0.4.1](https://github.com/sushichan044/kg/compare/kg-viewer-v0.4.0...kg-viewer-v0.4.1) (2026-08-04)
 
 
