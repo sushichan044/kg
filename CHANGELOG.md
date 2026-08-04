@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.0](https://github.com/sushichan044/kg/compare/v0.2.1...v0.3.0) (2026-08-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **viewer:** draw the ruling, the text, and the diagnostics as layers ([#59](https://github.com/sushichan044/kg/issues/59))
+* kg/paragraph-leading-character is replaced by kg/paragraph-opening, and ParagraphLeadingCharacterOptions.allowedCharacters becomes ParagraphOpeningOptions.openingBrackets.
+
+### Features
+
+* expand the built-in proofreading rules to cover Japanese novel style ([#56](https://github.com/sushichan044/kg/issues/56)) ([9e74604](https://github.com/sushichan044/kg/commit/9e74604503a84aa848398d518bb20c88d7d30ae6))
+* **viewer:** draw the ruling, the text, and the diagnostics as layers ([#59](https://github.com/sushichan044/kg/issues/59)) ([a03440d](https://github.com/sushichan044/kg/commit/a03440da2e9315744cc2cdf610772536466a9e4c))
+
+
+### Bug Fixes
+
+* **release:** create tags for draft package releases ([#54](https://github.com/sushichan044/kg/issues/54)) ([4b44f15](https://github.com/sushichan044/kg/commit/4b44f1597d1ada98d9344cb3239bc12b2d4311ad))
+
 ## [0.2.1](https://github.com/sushichan044/kg/compare/v0.2.0...v0.2.1) (2026-08-04)
 
 
