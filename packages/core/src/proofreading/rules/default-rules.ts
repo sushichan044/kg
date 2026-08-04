@@ -1,12 +1,10 @@
 import type { ParsedProofreadingRule } from "../proofreading-rule";
-import { dashCharacterRule } from "./dash-character";
+import { dashRule } from "./dash";
 import { ellipsisCharacterRule } from "./ellipsis-character";
-import { evenDashRule } from "./even-dash";
 import { evenEllipsisRule } from "./even-ellipsis";
 import { fullwidthJapanesePunctuationRule } from "./fullwidth-japanese-punctuation";
 import { maxArabicNumeralDigitsRule } from "./max-arabic-numeral-digits";
 import { minusBeforeNumberRule } from "./minus-before-number";
-import { noConsecutiveChoonpuRule } from "./no-consecutive-choonpu";
 import { noConsecutiveInterpunctRule } from "./no-consecutive-interpunct";
 import { noConsecutivePunctuationRule } from "./no-consecutive-punctuation";
 import { paragraphOpeningRule } from "./paragraph-opening";
@@ -27,12 +25,10 @@ export function createDefaultProofreadingRules(): readonly ParsedProofreadingRul
     punctuationBeforeClosingQuoteRule(),
     spaceAfterQuestionOrExclamationRule(),
     evenEllipsisRule(),
-    evenDashRule(),
+    dashRule(),
     ellipsisCharacterRule(),
-    dashCharacterRule(),
     noConsecutivePunctuationRule(),
     noConsecutiveInterpunctRule(),
-    noConsecutiveChoonpuRule(),
     minusBeforeNumberRule(),
     maxArabicNumeralDigitsRule(),
     fullwidthJapanesePunctuationRule(),

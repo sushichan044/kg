@@ -94,8 +94,8 @@ or recalculate locations.
 `createDefaultProofreadingRules()` returns the rules whose answer does not
 depend on the work: how a paragraph opens and how far it is indented,
 punctuation before a closing bracket, spacing after `！` and `？`, ellipsis and
-dash forms and counts, repeated punctuation, repeated interpuncts and choonpu, a
-minus sign that no number follows, halfwidth Japanese punctuation, Arabic
+dash forms and counts, repeated punctuation and interpuncts, a minus sign that
+no number follows, halfwidth Japanese punctuation, Arabic
 numeral length, and Unicode variation sequences.
 
 Rules that depend on the work's own conventions are exported individually and
@@ -121,6 +121,11 @@ const rules = [
 `createConsistentKanjiOpeningRule({ pairs })` replaces the built-in kanji and
 kana pairs; like every configurable rule it returns a `ManuscriptResult` and
 fails with `InvalidRuleOptions` rather than dropping bad options.
+
+`dashRule()` prefers `―` (U+2015). Use `createDashRule({ preferred: "—" })` or
+`createDashRule({ preferred: "─" })` when a work uses U+2014 or U+2500 instead.
+The selected character must appear in even-length runs. Repeated choonpu (`ー`)
+are not treated as dashes.
 
 Diagnostics do not modify the source and do not contain automatic fixes.
 
