@@ -17,6 +17,7 @@ This file provides guidance to Coding Agents when working with code in this repo
 
 - Prefer [Extending test context with `test.extend()`](https://vitest.dev/guide/test-context.md) rather than beforeEach/afterEach.
 - Use [`expect.assert()](https://vitest.dev/api/expect.html#assert) for assert premises rather than conditional / optional-chain / non-null statements.
+- Follow `kamae` or `kamae-review` skill for TypeScript logic and domain modeling.
 
 <!--VITE PLUS START-->
 
