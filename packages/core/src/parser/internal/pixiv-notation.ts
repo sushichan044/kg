@@ -1,4 +1,5 @@
 import { graphemeSegmenter } from "../../internal/segmenter";
+import { lineEnd } from "./line-end";
 
 type TrimmedContent = Readonly<{ text: string; sourceStart: number }>;
 
@@ -16,17 +17,6 @@ function trimContent(text: string, sourceStart: number): TrimmedContent {
   const trimmedStart = text.trimStart();
   const leadingLength = text.length - trimmedStart.length;
   return { text: trimmedStart.trimEnd(), sourceStart: sourceStart + leadingLength };
-}
-
-/**
- * Tags never span lines, so a candidate closing delimiter past the line end does not count.
- */
-export function lineEnd(source: string, start: number): number {
-  const lf = source.indexOf("\n", start);
-  const cr = source.indexOf("\r", start);
-  if (lf === -1) return cr === -1 ? source.length : cr;
-  if (cr === -1) return lf;
-  return Math.min(lf, cr);
 }
 
 function closingIndex(source: string, start: number, closing: string): number | undefined {

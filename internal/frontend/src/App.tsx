@@ -100,8 +100,13 @@ function initialManuscriptState(): ManuscriptState {
 function Workspace() {
   const [manuscript, dispatch] = useReducer(manuscriptReducer, undefined, initialManuscriptState);
   const processed = useMemo(
-    () => processManuscript(manuscript.source, manuscript.preferences.composition),
-    [manuscript.preferences.composition, manuscript.source],
+    () =>
+      processManuscript(
+        manuscript.source,
+        manuscript.preferences.composition,
+        manuscript.preferences.notation,
+      ),
+    [manuscript.preferences.composition, manuscript.preferences.notation, manuscript.source],
   );
   const diagnostics = processed.ok ? processed.value.diagnostics : [];
   const activeDiagnosticId = diagnostics.some(({ id }) => id === manuscript.activeDiagnosticId)
@@ -266,10 +271,14 @@ function Workspace() {
 
   const settings = processed.ok ? (
     <SettingsPanel
+      notation={manuscript.preferences.notation}
       composition={manuscript.preferences.composition}
       composed={processed.value.composed}
       presets={manuscript.preferences.presets}
       status={status}
+      onNotationChange={(notation) => {
+        commitPreferenceAction({ kind: "notation.replace", notation });
+      }}
       onCompositionChange={(composition) => {
         commitPreferenceAction({ kind: "composition.replace", composition });
       }}
@@ -294,10 +303,14 @@ function Workspace() {
         {processed.ok ? (
           <SettingsPanel
             idPrefix="desktop-"
+            notation={manuscript.preferences.notation}
             composition={manuscript.preferences.composition}
             composed={processed.value.composed}
             presets={manuscript.preferences.presets}
             status={status}
+            onNotationChange={(notation) => {
+              commitPreferenceAction({ kind: "notation.replace", notation });
+            }}
             onCompositionChange={(composition) => {
               commitPreferenceAction({ kind: "composition.replace", composition });
             }}

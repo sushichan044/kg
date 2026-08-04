@@ -37,6 +37,7 @@ export { parseManuscript } from "./parser/parse-manuscript";
 export type { ParseManuscriptOptions } from "./parser/parse-manuscript";
 export { ParsedGrapheme } from "./parser/parsed-grapheme";
 export { ParsedManuscript } from "./parser/parsed-manuscript";
+export { kakuyomuParser } from "./parser/kakuyomu-parser";
 export { pixivParser } from "./parser/pixiv-parser";
 export { plainTextParser } from "./parser/plain-text-parser";
 

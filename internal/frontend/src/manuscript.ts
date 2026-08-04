@@ -7,6 +7,7 @@ import {
   ManuscriptResult,
   ParseError,
   parseManuscript,
+  kakuyomuParser,
   pixivParser,
   ProofreadError,
   proofreadManuscript,
@@ -17,7 +18,7 @@ import type {
   ManuscriptDiagnostic,
 } from "@sushichan044/kg-core";
 
-import type { ManuscriptPreferences, ManuscriptPreset } from "./lib/storage";
+import type { ManuscriptNotation, ManuscriptPreferences, ManuscriptPreset } from "./lib/storage";
 
 export type ManuscriptState = Readonly<{
   source: string;
@@ -28,6 +29,7 @@ export type ManuscriptState = Readonly<{
 export type ManuscriptAction =
   | Readonly<{ kind: "document.replace"; text: string }>
   | Readonly<{ kind: "composition.replace"; composition: ManuscriptCompositionSettings }>
+  | Readonly<{ kind: "notation.replace"; notation: ManuscriptNotation }>
   | Readonly<{ kind: "zoom.replace"; zoom: number; fit: boolean }>
   | Readonly<{ kind: "preset.apply"; preset: ManuscriptPreset }>
   | Readonly<{ kind: "preset.save"; preset: ManuscriptPreset }>
@@ -46,6 +48,13 @@ export function manuscriptReducer(
       return {
         ...state,
         preferences: { ...state.preferences, composition: action.composition },
+        activeDiagnosticId: null,
+      };
+    }
+    case "notation.replace": {
+      return {
+        ...state,
+        preferences: { ...state.preferences, notation: action.notation },
         activeDiagnosticId: null,
       };
     }
@@ -123,8 +132,10 @@ export const ProcessManuscriptError = {
 export function processManuscript(
   source: string,
   composition: ManuscriptCompositionSettings,
+  notation: ManuscriptNotation,
 ): ManuscriptResult<ProcessedManuscript, ProcessManuscriptError> {
-  const parsed = parseManuscript(source, { parser: pixivParser });
+  const parser = notation === "pixiv" ? pixivParser : kakuyomuParser;
+  const parsed = parseManuscript(source, { parser });
   if (!parsed.ok) return ManuscriptResult.fail({ stage: "parse", error: parsed.error });
 
   const composed = composeManuscript(parsed.value, {

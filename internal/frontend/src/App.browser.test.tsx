@@ -15,6 +15,7 @@ const source = [
   "　数字は2026年のままになっている。",
 ].join("\n");
 const pixivSource = "[[rb:漢字 > かんじ]][b:太字][i:斜体][[emphasismark:強調>・]]";
+const kakuyomuSource = "漢字《かんじ》";
 
 const files = [
   { id: "novel", path: "testdata/novel.txt" },
@@ -308,4 +309,28 @@ test("renders pixiv notation after the initial load and a file reload", async ({
     expect(hiddenText.textContent.replace(/\n+$/, "")).toBe("再読込");
   });
   expect(screen.container.textContent).not.toContain("[b:");
+});
+
+test("switches the persisted notation parser without auto-detecting source", async ({
+  novelSource,
+}) => {
+  novelSource.current = kakuyomuSource;
+  await page.viewport(1280, 800);
+  const screen = await render(<App />);
+
+  await vi.waitFor(() => {
+    expect(screen.container.querySelectorAll("[data-annotation]")).toHaveLength(0);
+  });
+
+  const kakuyomu = screen.container.querySelector<HTMLInputElement>("#desktop-notation-kakuyomu");
+  expect.assert(kakuyomu !== null, "Kakuyomu notation choice did not render");
+  kakuyomu.click();
+
+  await vi.waitFor(() => {
+    expect(screen.container.querySelectorAll('[data-annotation="ruby"]')).toHaveLength(1);
+  });
+  expect(JSON.parse(localStorage.getItem("kg.manuscript.preferences.v5") ?? "null")).toMatchObject({
+    version: 5,
+    notation: "kakuyomu",
+  });
 });

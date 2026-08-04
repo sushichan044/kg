@@ -11,7 +11,7 @@ import {
 import type { GridComposedManuscript } from "@sushichan044/kg-core";
 import { useState } from "react";
 
-import type { ManuscriptPreset } from "../lib/storage";
+import type { ManuscriptNotation, ManuscriptPreset } from "../lib/storage";
 
 type ZoomControlsProps = Readonly<{
   zoom: number;
@@ -124,11 +124,13 @@ export function ViewerToolbar({
 }
 
 type SettingsPanelProps = Readonly<{
+  notation: ManuscriptNotation;
   composition: ManuscriptCompositionSettings;
   composed: GridComposedManuscript;
   presets: readonly ManuscriptPreset[];
   status: string;
   idPrefix?: string;
+  onNotationChange: (notation: ManuscriptNotation) => void;
   onCompositionChange: (composition: ManuscriptCompositionSettings) => void;
   onPresetApply: (preset: ManuscriptPreset) => void;
   onPresetSave: (preset: ManuscriptPreset) => void;
@@ -146,11 +148,13 @@ function numericValue(value: string): number | null {
 }
 
 export function SettingsPanel({
+  notation,
   composition,
   composed,
   presets,
   status,
   idPrefix = "",
+  onNotationChange,
   onCompositionChange,
   onPresetApply,
   onPresetSave,
@@ -187,6 +191,28 @@ export function SettingsPanel({
 
   return (
     <div className="settings-panel">
+      <fieldset className="notation-controls">
+        <legend>記法</legend>
+        {(
+          [
+            ["pixiv", "Pixiv"],
+            ["kakuyomu", "カクヨム"],
+          ] as const satisfies ReadonlyArray<readonly [ManuscriptNotation, string]>
+        ).map(([value, label]) => (
+          <label key={value} htmlFor={`${idPrefix}notation-${value}`}>
+            <input
+              id={`${idPrefix}notation-${value}`}
+              name={`${idPrefix}notation`}
+              type="radio"
+              checked={notation === value}
+              onChange={() => {
+                onNotationChange(value);
+              }}
+            />
+            {label}
+          </label>
+        ))}
+      </fieldset>
       <fieldset className="controls">
         <legend>原稿用紙</legend>
         {(

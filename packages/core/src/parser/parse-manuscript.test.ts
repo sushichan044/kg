@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vite-plus/test";
 
 import { ManuscriptResult } from "../result/manuscript-result";
+import { kakuyomuParser } from "./kakuyomu-parser";
 import type { ManuscriptParser } from "./manuscript-parser";
 import { parseManuscript } from "./parse-manuscript";
 import { pixivParser } from "./pixiv-parser";
@@ -78,6 +79,90 @@ describe("parseManuscript", () => {
         },
       },
     ]);
+  });
+
+  test("normalizes Kakuyomu explicit and implicit ruby plus emphasis", () => {
+    const source = "😀冴えない彼女《ヒロイン》の｜etc《えとせとら》と《《強調》》";
+    const result = parseManuscript(source, { parser: kakuyomuParser });
+
+    expect.assert(result.ok, "expected parseManuscript to succeed");
+    expect(result.warnings).toEqual([]);
+    expect(result.value.displayText).toBe("😀冴えない彼女のetcと強調");
+    expect(result.value.annotations).toEqual([
+      {
+        kind: "ruby",
+        reading: "ヒロイン",
+        range: {
+          source: { start: 6, end: 14 },
+          display: { start: 6, end: 8 },
+          graphemes: { start: 5, end: 7 },
+        },
+      },
+      {
+        kind: "ruby",
+        reading: "えとせとら",
+        range: {
+          source: { start: 15, end: 26 },
+          display: { start: 9, end: 12 },
+          graphemes: { start: 8, end: 11 },
+        },
+      },
+      {
+        kind: "emphasis",
+        mark: "・",
+        range: {
+          source: { start: 27, end: 33 },
+          display: { start: 13, end: 15 },
+          graphemes: { start: 12, end: 14 },
+        },
+      },
+    ]);
+  });
+
+  test("recovers invalid Kakuyomu notation and honours its literal escape", () => {
+    const source = "｜《漢字《》\r\n漢字《かんじ\n《《傍点";
+    const result = parseManuscript(source, { parser: kakuyomuParser });
+
+    expect.assert(result.ok, "expected parseManuscript to succeed");
+    expect(result.value.displayText).toBe("《漢字《》\r\n漢字《かんじ\n《《傍点");
+    expect(result.warnings).toHaveLength(3);
+    expect(result.warnings.map(({ origin, severity }) => [origin, severity])).toEqual([
+      [{ kind: "parser", id: "kg/kakuyomu" }, "warning"],
+      [{ kind: "parser", id: "kg/kakuyomu" }, "warning"],
+      [{ kind: "parser", id: "kg/kakuyomu" }, "warning"],
+    ]);
+  });
+
+  test("enforces Kakuyomu ruby length limits while accepting the half-width marker", () => {
+    const maximumBase = "漢".repeat(20);
+    const maximumReading = "あ".repeat(50);
+    const tooLongBase = "漢".repeat(21);
+    const source = `${maximumBase}《${maximumReading}》|ABC《えーびーしー》${tooLongBase}《よみ》`;
+    const result = parseManuscript(source, { parser: kakuyomuParser });
+
+    expect.assert(result.ok, "expected parseManuscript to succeed");
+    expect(result.value.displayText).toBe(`${maximumBase}ABC${tooLongBase}《よみ》`);
+    expect(result.value.annotations).toEqual([
+      {
+        kind: "ruby",
+        reading: maximumReading,
+        range: {
+          source: { start: 0, end: 72 },
+          display: { start: 0, end: 20 },
+          graphemes: { start: 0, end: 20 },
+        },
+      },
+      {
+        kind: "ruby",
+        reading: "えーびーしー",
+        range: {
+          source: { start: 72, end: 84 },
+          display: { start: 20, end: 23 },
+          graphemes: { start: 20, end: 23 },
+        },
+      },
+    ]);
+    expect(result.warnings).toHaveLength(1);
   });
 
   test("recovers unknown or malformed Pixiv notation as text with warnings", () => {
