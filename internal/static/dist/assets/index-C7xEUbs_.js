@@ -15,9 +15,12 @@ Error generating stack: `+e.message+`
 `&&i!==`\r`){r+=1;continue}t.push({text:e.slice(n,r),start:n}),r+=i===`\r`&&e[r+1]===`
 `?2:1,n=r}return t.push({text:e.slice(n),start:n}),t}var Mn={start:0,end:0};function Nn(e,t,n){let r=e.graphemes.filter(({range:e})=>e.display.start<n&&e.display.end>t),i=r[0],a=r.at(-1);if(i===void 0||a===void 0)return F.of({source:Mn,display:{start:t,end:n},graphemes:Mn});let o=F.merge(r.map(({range:e})=>e));return F.of({source:{start:i.range.source.start+Pn(t-i.range.display.start,i.range),end:n===a.range.display.end?a.range.source.end:a.range.source.start+Pn(n-a.range.display.start,a.range)},display:{start:t,end:n},graphemes:o?.graphemes??Mn})}function Pn(e,t){return Math.min(e,t.source.end-t.source.start)}function Fn(e,t){let n=e.graphemes.filter(({range:e})=>e.source.start<t.end&&e.source.end>t.start),r=e.annotations.find(({range:e})=>e.source.start<=t.start&&e.source.end>=t.end),i=F.merge(n.map(({range:e})=>e))??r?.range??null;return F.of({source:t,display:i?.display??Mn,graphemes:i?.graphemes??Mn})}var In=`default`;function Ln(e,t,n){return{kind:`parsed`,meta:{id:e,messages:{[In]:t}},check:(e,t)=>{n(e,e=>{t.report({range:e,messageId:In})})}}}function Rn(e){return Ln(e.id,e.message,(t,n)=>{for(let r of jn(t.displayText)){e.pattern.lastIndex=0;let i=e.pattern.exec(r.text);for(;i!==null;){if(e.accept?.(i)??!0){let e=r.start+i.index;n(Nn(t,e,e+i[0].length))}i=e.pattern.exec(r.text)}}})}var zn=()=>Rn({id:`kg/even-dash`,pattern:/―+/gu,accept:e=>e[0].length%2==1,message:`連続するダッシュの数は偶数にしてください`}),Bn=()=>Rn({id:`kg/even-ellipsis`,pattern:/…+/gu,accept:e=>e[0].length%2==1,message:`連続する三点リーダーの数は偶数にしてください`}),Vn=`kg/max-arabic-numeral-digits`,Hn=2;function Un(e){return Rn({id:Vn,pattern:/([0-9０-９]+)(?:[.．]([0-9０-９]+))?/gu,accept:t=>(t[1]?.length??0)>e||(t[2]?.length??0)>e,message:`${e}桁を超えるアラビア数字が使われています`})}var Wn=()=>Un(Hn),Gn=()=>Rn({id:`kg/minus-before-number`,pattern:/−(?![0-9０-９〇一二三四五六七八九十])/gu,message:`マイナス記号の直後には数字が必要です`}),Kn=()=>Rn({id:`kg/no-consecutive-choonpu`,pattern:/ーー+/gu,message:`長音符が連続しています`}),qn=()=>Rn({id:`kg/no-consecutive-interpunct`,pattern:/・・+/gu,message:`中黒が連続しています`}),Jn=()=>Rn({id:`kg/no-consecutive-punctuation`,pattern:/。。+|、、+/gu,message:`句読点が連続しています`}),Yn=`kg/paragraph-leading-character`,Xn=`段落の先頭には全角スペースまたは開き括弧が必要です`,Zn=`　「『〖〈《（(“"‘'［[〔｛{＜<`;function Qn(e){return Ln(Yn,Xn,(t,n)=>{for(let r of jn(t.displayText)){let i=r.text[0];if(i===void 0||e.includes(i))continue;let a=(r.text.codePointAt(0)??0)>65535?2:1;n(Nn(t,r.start,r.start+a))}})}var $n=()=>Qn(Zn),er=()=>Rn({id:`kg/punctuation-before-closing-quote`,pattern:/[。、]+(?=[」』〗〉》）)”"’'］\]〕｝}＞>])/gu,message:`閉じ括弧の直前に句読点を置くことはできません`}),tr=()=>Rn({id:`kg/space-after-question-or-exclamation`,pattern:/[？！](?![ 　？！」』〗〉》）)”"’'］\]〕｝}＞>]|$)/gu,message:`感嘆符または疑問符の直後には空白か閉じ括弧が必要です`});function nr(e){let t=e.codePointAt(0);return t===void 0?!1:t>=6155&&t<=6157||t===6159||t>=65024&&t<=65039||t>=63744&&t<=64255||t>=194560&&t<=195103||t>=917760&&t<=917999}var rr=()=>Ln(`kg/variant-character`,`異体字または字形選択子が使われています`,(e,t)=>{for(let{index:n,segment:r}of St.segment(e.source))Array.from(r).some(nr)&&t(Fn(e,{start:n,end:n+r.length}))});function ir(){return[$n(),er(),tr(),Bn(),zn(),Jn(),qn(),Kn(),Gn(),Wn(),rr()]}function ar({diagnostics:e,activeDiagnosticId:t=null,onSelect:n,emptyMessage:r=`診断はありません。`,className:i}){return e.length===0?(0,_.jsx)(`p`,{className:[`kgv-diagnostics-empty`,i].filter(Boolean).join(` `),children:r}):(0,_.jsx)(`ol`,{className:[`kgv-diagnostics`,i].filter(Boolean).join(` `),children:e.map(e=>(0,_.jsx)(`li`,{"data-diagnostic-origin":e.origin.kind,"data-diagnostic-severity":e.severity,children:(0,_.jsxs)(`button`,{type:`button`,"aria-current":e.id===t?`true`:void 0,onClick:()=>n?.(e),children:[(0,_.jsxs)(`span`,{className:`kgv-diagnostic-location`,children:[e.location.start.line,`行 `,e.location.start.column,`列`]}),(0,_.jsx)(`span`,{children:e.message})]})},e.id))})}var or=`.kgv-viewer {
   --kgv-glyph-scale: .82;
+  box-sizing: border-box;
   block-size: 100%;
   min-block-size: 0;
   min-inline-size: 0;
+  font-style: normal;
+  font-weight: 400;
 }
 
 .kgv-visually-hidden {
@@ -33,6 +36,7 @@ Error generating stack: `+e.message+`
 }
 
 .kgv-viewport {
+  box-sizing: border-box;
   block-size: 100%;
   min-block-size: 0;
   min-inline-size: 0;
@@ -51,6 +55,7 @@ Error generating stack: `+e.message+`
 }
 
 .kgv-page {
+  box-sizing: border-box;
   inline-size: var(--kgv-page-width);
   block-size: var(--kgv-page-height);
   flex: none;
@@ -143,6 +148,14 @@ Error generating stack: `+e.message+`
   text-emphasis-position: over;
 }
 
+.kgv-annotation[data-annotation="bold"] {
+  font-weight: 700;
+}
+
+.kgv-annotation[data-annotation="italic"] {
+  font-style: italic;
+}
+
 .kgv-glyph {
   writing-mode: vertical-rl;
   text-orientation: mixed;
@@ -182,12 +195,14 @@ Error generating stack: `+e.message+`
 }
 
 .kgv-diagnostics button {
+  box-sizing: border-box;
   min-block-size: 2rem;
   inline-size: 100%;
   color: inherit;
   font: inherit;
   text-align: start;
   cursor: pointer;
+  margin: 0;
   display: grid;
 }
 
@@ -201,108 +216,98 @@ Error generating stack: `+e.message+`
     min-inline-size: 2.75rem;
   }
 }
-`,sr=`@layer kg-viewer.theme {
-  :where(.kgv-viewer) {
-    --kgv-surface: #d8d0c2;
-    --kgv-paper: #f7efd8;
-    --kgv-text: #2f2a24;
-    --kgv-text-muted: #57504a;
-    --kgv-grid: #d8c7a6;
-    --kgv-accent: #9b3f32;
-    --kgv-controls-surface: #eee8dc;
-    --kgv-padding: 2rem;
-    color: var(--kgv-text);
-    background: var(--kgv-surface);
+`,sr=`.kgv-viewer {
+  --kgv-surface: #d8d0c2;
+  --kgv-paper: #f7efd8;
+  --kgv-text: #2f2a24;
+  --kgv-text-muted: #57504a;
+  --kgv-grid: #d8c7a6;
+  --kgv-accent: #9b3f32;
+  --kgv-controls-surface: #eee8dc;
+  --kgv-padding: 2rem;
+  color: var(--kgv-text);
+  background: var(--kgv-surface);
+}
+
+.kgv-page {
+  background: var(--kgv-paper);
+  box-shadow: 0 1px 4px #00000026;
+}
+
+.kgv-page[data-overflow] {
+  outline: 2px dashed var(--kgv-accent);
+  outline-offset: 3px;
+}
+
+.kgv-line {
+  border-inline-end: 1px solid var(--kgv-grid);
+  border-block-end: 1px solid var(--kgv-grid);
+}
+
+.kgv-cell {
+  border-block-start: 1px solid var(--kgv-grid);
+  border-inline-start: 1px solid var(--kgv-grid);
+}
+
+.kgv-cell[data-diagnostic] {
+  background: color-mix(in oklab, var(--kgv-accent) 16%, transparent);
+  box-shadow: inset 0 -.13em 0 var(--kgv-accent);
+}
+
+.kgv-cell[data-diagnostic-active] {
+  outline: 2px solid var(--kgv-accent);
+  outline-offset: -2px;
+}
+
+.kgv-diagnostic-marker:focus-visible {
+  outline: 3px solid var(--kgv-accent);
+  outline-offset: 2px;
+}
+
+.kgv-diagnostics {
+  gap: .4rem;
+}
+
+.kgv-diagnostics button {
+  background: var(--kgv-controls-surface, #eee8dc);
+  border: 1px solid #2f2a2459;
+  border-radius: 3px;
+  padding: .55rem;
+}
+
+.kgv-diagnostics button:focus-visible {
+  outline: 3px solid var(--kgv-accent, #9b3f32);
+  outline-offset: 2px;
+}
+
+.kgv-diagnostics button[aria-current="true"] {
+  border-color: var(--kgv-accent, #9b3f32);
+  outline: 1px solid var(--kgv-accent, #9b3f32);
+}
+
+.kgv-diagnostic-location {
+  color: var(--kgv-text-muted, #57504a);
+  font-variant-numeric: tabular-nums;
+  font-size: .8rem;
+}
+
+.kgv-diagnostics-empty {
+  color: var(--kgv-text-muted, #57504a);
+}
+
+@media (forced-colors: active) {
+  .kgv-cell, .kgv-line {
+    border-color: canvastext;
   }
 
-  :where(.kgv-page) {
-    background: var(--kgv-paper);
-    box-shadow: 0 1px 4px #00000026;
-  }
-
-  :where(.kgv-page[data-overflow]) {
-    outline: 2px dashed var(--kgv-accent);
-    outline-offset: 3px;
-  }
-
-  :where(.kgv-line) {
-    border-inline-end: 1px solid var(--kgv-grid);
-    border-block-end: 1px solid var(--kgv-grid);
-  }
-
-  :where(.kgv-cell) {
-    border-block-start: 1px solid var(--kgv-grid);
-    border-inline-start: 1px solid var(--kgv-grid);
-  }
-
-  :where(.kgv-cell[data-diagnostic]) {
-    background: color-mix(in oklab, var(--kgv-accent) 16%, transparent);
-    box-shadow: inset 0 -.13em 0 var(--kgv-accent);
-  }
-
-  :where(.kgv-cell[data-diagnostic-active]) {
-    outline: 2px solid var(--kgv-accent);
+  .kgv-cell[data-diagnostic] {
     outline-offset: -2px;
+    outline: 2px dashed highlight;
   }
 
-  :where(.kgv-annotation[data-annotation="bold"]) {
-    font-weight: 700;
-  }
-
-  :where(.kgv-annotation[data-annotation="italic"]) {
-    font-style: italic;
-  }
-
-  :where(.kgv-diagnostic-marker):focus-visible {
-    outline: 3px solid var(--kgv-accent);
-    outline-offset: 2px;
-  }
-
-  :where(.kgv-diagnostics) {
-    gap: .4rem;
-  }
-
-  :where(.kgv-diagnostics button) {
-    background: var(--kgv-controls-surface, #eee8dc);
-    border: 1px solid #2f2a2459;
-    border-radius: 3px;
-    padding: .55rem;
-  }
-
-  :where(.kgv-diagnostics button):focus-visible {
-    outline: 3px solid var(--kgv-accent, #9b3f32);
-    outline-offset: 2px;
-  }
-
-  :where(.kgv-diagnostics button[aria-current="true"]) {
-    border-color: var(--kgv-accent, #9b3f32);
-    outline: 1px solid var(--kgv-accent, #9b3f32);
-  }
-
-  :where(.kgv-diagnostic-location) {
-    color: var(--kgv-text-muted, #57504a);
-    font-variant-numeric: tabular-nums;
-    font-size: .8rem;
-  }
-
-  :where(.kgv-diagnostics-empty) {
-    color: var(--kgv-text-muted, #57504a);
-  }
-
-  @media (forced-colors: active) {
-    :where(.kgv-cell, .kgv-line) {
-      border-color: canvastext;
-    }
-
-    :where(.kgv-cell[data-diagnostic]) {
-      outline-offset: -2px;
-      outline: 2px dashed highlight;
-    }
-
-    :where(.kgv-diagnostics button[aria-current="true"]) {
-      border-color: highlight;
-      outline-color: highlight;
-    }
+  .kgv-diagnostics button[aria-current="true"] {
+    border-color: highlight;
+    outline-color: highlight;
   }
 }
 `,cr=or,lr=sr;function ur(e){return e===void 0?[]:typeof e==`string`?[e]:e}var dr={defaults:{kind:`structural`},toCssText:e=>{switch(e.kind){case`structural`:return[cr,...ur(e.css)].join(`
