@@ -42,7 +42,7 @@ describe("proofreadManuscript", () => {
     expect.assert(result.ok, "expected proofreadManuscript to succeed");
     expect(result.value).toHaveLength(1);
     expect(result.value[0]).toMatchObject({
-      origin: { kind: "rule", id: "kg/paragraph-leading-character" },
+      origin: { kind: "rule", id: "kg/paragraph-opening" },
       severity: "error",
       range: { source: { start: 5, end: 6 } },
       location: { start: { offset: 5, line: 2, column: 1 } },
@@ -71,6 +71,28 @@ describe("proofreadManuscript", () => {
     expect(proofreadManuscript(parsed("本文"), { rules: [rule] })).toMatchObject({
       ok: true,
       value: [{ message: "先頭は 本 です", origin: { id: "example/first-character" } }],
+    });
+  });
+
+  test("carries the severity a report names instead of defaulting to error", () => {
+    const rule = {
+      kind: "parsed",
+      meta: { id: "example/confirmation", messages: { confirm: "確認してください" } },
+      check: (manuscript, context) => {
+        const firstGrapheme = manuscript.graphemes[0];
+        expect.assert(firstGrapheme !== undefined, "manuscript has no first grapheme");
+
+        context.report({
+          range: firstGrapheme.range,
+          messageId: "confirm",
+          severity: "warning",
+        });
+      },
+    } as const satisfies ParsedProofreadingRule;
+
+    expect(proofreadManuscript(parsed("本文"), { rules: [rule] })).toMatchObject({
+      ok: true,
+      value: [{ severity: "warning" }],
     });
   });
 
