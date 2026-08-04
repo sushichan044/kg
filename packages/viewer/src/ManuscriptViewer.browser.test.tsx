@@ -228,19 +228,39 @@ test("spreads a ruby reading across exactly the characters it annotates", async 
   // The group reading is inset from its first and last cells by the same margin that makes glyphs
   // smaller than their cells. Cell geometry is stable across font fallbacks; glyph rectangles are
   // not, even with identical font-size and line-height declarations.
-  const base = screen.container.querySelector<HTMLElement>('[data-annotation="ruby"]')!;
+  const base = screen.container.querySelector<HTMLElement>('[data-annotation="ruby"]');
+  expect.assert(base !== null, "ruby annotation did not render");
+
   const baseGlyphs = Array.from(base.querySelectorAll<HTMLElement>(".kgv-glyph"));
-  const first = baseGlyphs[0]!.closest<HTMLElement>(".kgv-cell")!.getBoundingClientRect();
-  const last = baseGlyphs.at(-1)!.closest<HTMLElement>(".kgv-cell")!.getBoundingClientRect();
-  const reading = screen.container.querySelector<HTMLElement>(".kgv-ruby")!;
-  const viewer = screen.container.querySelector<HTMLElement>(".kgv-viewer")!;
+  const firstGlyph = baseGlyphs[0];
+  const lastGlyph = baseGlyphs.at(-1);
+  expect.assert(firstGlyph !== undefined, "ruby base has no first glyph");
+  expect.assert(lastGlyph !== undefined, "ruby base has no last glyph");
+
+  const firstCell = firstGlyph.closest<HTMLElement>(".kgv-cell");
+  const lastCell = lastGlyph.closest<HTMLElement>(".kgv-cell");
+  expect.assert(firstCell !== null, "first ruby glyph is not inside a cell");
+  expect.assert(lastCell !== null, "last ruby glyph is not inside a cell");
+
+  const reading = screen.container.querySelector<HTMLElement>(".kgv-ruby");
+  const viewer = screen.container.querySelector<HTMLElement>(".kgv-viewer");
+  expect.assert(reading !== null, "ruby reading did not render");
+  expect.assert(viewer !== null, "viewer did not render");
+
   const glyphScale = Number.parseFloat(
     getComputedStyle(viewer).getPropertyValue("--kgv-glyph-scale"),
   );
-  const inset = (first.height * (1 - glyphScale)) / 2;
+  expect.assert(Number.isFinite(glyphScale), "viewer has no finite glyph scale");
 
-  expect(Math.abs(reading.getBoundingClientRect().top - first.top - inset)).toBeLessThan(1);
-  expect(Math.abs(reading.getBoundingClientRect().bottom - last.bottom + inset)).toBeLessThan(1);
+  const firstRect = firstCell.getBoundingClientRect();
+  const lastRect = lastCell.getBoundingClientRect();
+  const readingRect = reading.getBoundingClientRect();
+  const inset = (firstRect.height * (1 - glyphScale)) / 2;
+  const topOffset = Math.abs(readingRect.top - firstRect.top - inset);
+  const bottomOffset = Math.abs(readingRect.bottom - lastRect.bottom + inset);
+
+  expect(topOffset).toBeLessThan(1);
+  expect(bottomOffset).toBeLessThan(1);
 });
 
 test("sets a ruby reading at half the size of the characters it annotates", async () => {

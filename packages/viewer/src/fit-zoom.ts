@@ -22,6 +22,16 @@ export function fitZoom({
   max,
   step,
 }: FitZoomOptions): number {
+  if (
+    !Number.isFinite(min) ||
+    !Number.isFinite(max) ||
+    !Number.isFinite(step) ||
+    min < 1 ||
+    max < min ||
+    step <= 0
+  ) {
+    throw new RangeError("Invalid zoom configuration");
+  }
   if (viewportWidthPx <= 0 || viewportHeightPx <= 0) return min;
 
   const fitPercent = Math.min(
