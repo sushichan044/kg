@@ -1,5 +1,6 @@
 import { FontPreset } from "@sushichan044/kg-core";
 import type {
+  DiagnosticSeverity,
   GridCell,
   GridComposedManuscript,
   GridPage,
@@ -64,6 +65,15 @@ type ManuscriptStyle = CSSProperties & {
   "--kgv-page-width": string;
 };
 
+/**
+ * A band is placed in cells rather than in a length, so the stylesheet resolves it against the cell
+ * size that is already scaled by the zoom.
+ */
+type BandStyle = CSSProperties & {
+  "--kgv-band-length": number;
+  "--kgv-band-offset": number;
+};
+
 const uprightGlyphPattern = /^(?:\p{Script=Latin}|[0-9])/u;
 
 function pageText(page: GridPage): string {
@@ -76,15 +86,32 @@ function pageText(page: GridPage): string {
     .join("\n");
 }
 
+function covers(cell: GridCell, diagnostic: ManuscriptDiagnostic): boolean {
+  if (cell.range === null) return false;
+  const sourceRange = cell.range.source;
+  return (
+    diagnostic.range.source.start < sourceRange.end &&
+    diagnostic.range.source.end > sourceRange.start
+  );
+}
+
 function diagnosticsForCell(
   cell: GridCell,
   diagnostics: readonly ManuscriptDiagnostic[],
 ): ManuscriptDiagnostic[] {
-  if (cell.range === null) return [];
-  const sourceRange = cell.range.source;
-  return diagnostics.filter(
-    ({ range }) => range.source.start < sourceRange.end && range.source.end > sourceRange.start,
-  );
+  return diagnostics.filter((diagnostic) => covers(cell, diagnostic));
+}
+
+/**
+ * The strongest severity covering a cell. A cell inside two diagnostics carries the worse of the
+ * two rather than whichever the caller happened to list first.
+ */
+function cellSeverity(
+  diagnostics: readonly ManuscriptDiagnostic[],
+): DiagnosticSeverity | undefined {
+  if (diagnostics.length === 0) return undefined;
+
+  return diagnostics.some(({ severity }) => severity === "error") ? "error" : "warning";
 }
 
 function startsInCell(cell: GridCell, diagnostic: ManuscriptDiagnostic): boolean {
@@ -100,6 +127,47 @@ function joinClassNames(...names: Array<string | undefined>): string {
 }
 
 type RenderedCell = Readonly<{ id: string; cell: GridCell }>;
+
+type DiagnosticBand = Readonly<{
+  diagnostic: ManuscriptDiagnostic;
+  /**
+   * Where the run starts and how long it is, counted in cells from the head of the line.
+   */
+  offset: number;
+  length: number;
+  /**
+   * Whether the diagnostic starts in this line, which is the band that carries its control.
+   */
+  startsHere: boolean;
+}>;
+
+/**
+ * One band per diagnostic reaching the line, covering every cell it touches. Longer bands come
+ * first so a band nested inside another paints — and answers to a click — on top of it.
+ */
+function diagnosticBands(
+  cells: readonly RenderedCell[],
+  diagnostics: readonly ManuscriptDiagnostic[],
+): DiagnosticBand[] {
+  const bands: DiagnosticBand[] = [];
+  for (const diagnostic of diagnostics) {
+    let offset = -1;
+    let end = -1;
+    let startsHere = false;
+    for (const [index, { cell }] of cells.entries()) {
+      if (!covers(cell, diagnostic)) continue;
+
+      if (offset < 0) offset = index;
+      end = index;
+      startsHere ||= startsInCell(cell, diagnostic);
+    }
+    if (offset < 0) continue;
+
+    bands.push({ diagnostic, offset, length: end - offset + 1, startsHere });
+  }
+
+  return bands.sort((left, right) => left.offset - right.offset || right.length - left.length);
+}
 
 type CellFragment = Readonly<{
   id: string;
@@ -395,10 +463,13 @@ function ManuscriptViewerComponent(
     [geometry, selectedFont.family, value],
   );
 
+  /**
+   * A cell carries how its own character is marked. The decoration covering a range of characters
+   * belongs to the diagnostic band instead, so neither can restyle the other by accident.
+   */
   const renderCell = (cellId: string, cell: GridCell) => {
     if (cell.value === null) return <span key={cellId} className="kgv-cell" />;
     const cellDiagnostics = diagnosticsForCell(cell, diagnostics);
-    const first = cellDiagnostics.find((item) => startsInCell(cell, item));
     const active = cellDiagnostics.some(({ id }) => id === activeDiagnosticId);
     return (
       <span
@@ -406,7 +477,7 @@ function ManuscriptViewerComponent(
         className="kgv-cell"
         data-diagnostic={cellDiagnostics.length > 0 ? "" : undefined}
         data-diagnostic-active={active ? "" : undefined}
-        data-diagnostic-severity={first?.severity}
+        data-diagnostic-severity={cellSeverity(cellDiagnostics)}
       >
         <span
           className={joinClassNames(
@@ -417,23 +488,47 @@ function ManuscriptViewerComponent(
         >
           {cell.value}
         </span>
-        {first !== undefined && (
-          <button
-            ref={(element) => {
-              for (const item of cellDiagnostics) {
-                if (!startsInCell(cell, item)) continue;
-                if (element === null) diagnosticRefs.current.delete(item.id);
-                else diagnosticRefs.current.set(item.id, element);
-              }
-            }}
-            type="button"
-            className="kgv-diagnostic-marker"
-            data-diagnostic-id={first.id}
-            aria-label={`${first.location.start.line}行${first.location.start.column}列: ${first.message}`}
-            onClick={() => onDiagnosticSelect?.(first)}
-          />
-        )}
       </span>
+    );
+  };
+
+  const renderBand = ({ diagnostic, offset, length, startsHere }: DiagnosticBand) => {
+    const style: BandStyle = { "--kgv-band-length": length, "--kgv-band-offset": offset };
+    const active = diagnostic.id === activeDiagnosticId;
+
+    // A diagnostic split across lines keeps one control, on the band it starts in, so assistive
+    // technology is offered the finding once however the grid happened to break it.
+    if (!startsHere) {
+      return (
+        <span
+          key={diagnostic.id}
+          className="kgv-diagnostic-band"
+          data-diagnostic-id={diagnostic.id}
+          data-diagnostic-severity={diagnostic.severity}
+          data-diagnostic-active={active ? "" : undefined}
+          data-diagnostic-continued=""
+          style={style}
+          aria-hidden="true"
+        />
+      );
+    }
+
+    return (
+      <button
+        key={diagnostic.id}
+        ref={(element) => {
+          if (element === null) diagnosticRefs.current.delete(diagnostic.id);
+          else diagnosticRefs.current.set(diagnostic.id, element);
+        }}
+        type="button"
+        className="kgv-diagnostic-band"
+        data-diagnostic-id={diagnostic.id}
+        data-diagnostic-severity={diagnostic.severity}
+        data-diagnostic-active={active ? "" : undefined}
+        style={style}
+        aria-label={`${diagnostic.location.start.line}行${diagnostic.location.start.column}列: ${diagnostic.message}`}
+        onClick={() => onDiagnosticSelect?.(diagnostic)}
+      />
     );
   };
 
@@ -457,27 +552,38 @@ function ManuscriptViewerComponent(
               <div className="kgv-page-grid">
                 {stages.map(({ id: stageId, lines }) => (
                   <div key={stageId} className="kgv-stage">
-                    {lines.map(({ id: lineId, cells }) => (
-                      <div key={lineId} className="kgv-line">
-                        {fragmentCells(cells).map((fragment) => {
-                          const rendered = fragment.cells.map(({ id: cellId, cell }) =>
-                            renderCell(cellId, cell),
-                          );
-                          return fragment.annotations.length === 0 ? (
-                            rendered
-                          ) : (
-                            <span key={fragment.id} className="kgv-annotation-stack">
-                              {wrapAnnotations(
-                                fragment.annotations,
-                                fragment.cells[0]?.cell.range?.graphemes.start ?? 0,
-                                fragment.cells.length,
-                                rendered,
-                              )}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    ))}
+                    {lines.map(({ id: lineId, cells }) => {
+                      const bands = diagnosticBands(cells, diagnostics);
+                      return (
+                        <div key={lineId} className="kgv-line">
+                          <span className="kgv-line-rules" aria-hidden="true">
+                            {cells.map(({ id: cellId }) => (
+                              <span key={cellId} className="kgv-rule-cell" />
+                            ))}
+                          </span>
+                          {fragmentCells(cells).map((fragment) => {
+                            const rendered = fragment.cells.map(({ id: cellId, cell }) =>
+                              renderCell(cellId, cell),
+                            );
+                            return fragment.annotations.length === 0 ? (
+                              rendered
+                            ) : (
+                              <span key={fragment.id} className="kgv-annotation-stack">
+                                {wrapAnnotations(
+                                  fragment.annotations,
+                                  fragment.cells[0]?.cell.range?.graphemes.start ?? 0,
+                                  fragment.cells.length,
+                                  rendered,
+                                )}
+                              </span>
+                            );
+                          })}
+                          {bands.length > 0 && (
+                            <span className="kgv-line-diagnostics">{bands.map(renderBand)}</span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 ))}
               </div>

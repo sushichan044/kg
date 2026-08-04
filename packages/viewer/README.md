@@ -133,15 +133,41 @@ div.kgv-viewer
             └── div.kgv-page-grid
                 └── div.kgv-stage
                     └── div.kgv-line
-                        ├── span.kgv-annotation-stack     ← only around annotated runs
+                        ├── span.kgv-line-rules              ← the ruling, one box per cell
+                        │   └── span.kgv-rule-cell
+                        ├── span.kgv-annotation-stack        ← only around annotated runs
                         │   └── strong|em|ruby|span.kgv-annotation
-                        │       └── rt                    ← ruby only
+                        │       └── rt                       ← ruby only
                         │           └── span.kgv-ruby
                         │               └── span.kgv-ruby-character
-                        └── span.kgv-cell
-                            ├── span.kgv-glyph
-                            └── button.kgv-diagnostic-marker  ← only where a diagnostic starts
+                        ├── span.kgv-cell
+                        │   └── span.kgv-glyph
+                        └── span.kgv-line-diagnostics        ← only when a diagnostic reaches here
+                            └── button|span.kgv-diagnostic-band
 ```
+
+The ruling, the text, and the diagnostics are three layers rather than one set of
+boxes. `.kgv-line-rules` and `.kgv-line-diagnostics` are taken out of flow and
+sized by the line, so nothing a stylesheet paints on them can move the grid off
+the geometry the composer calculated. They cover each other in document order —
+ruling, then text, then diagnostics — so no rule needs a `z-index`.
+
+Ruling this way also keeps a rule from being drawn twice: every rule belongs to
+exactly one `.kgv-rule-cell`, which draws its own head and sides, and the last
+box of a line closes the foot. Restyle the ruling by restyling that box, or drop
+the ruling entirely with `.kgv-line-rules { display: none }`.
+
+One `.kgv-diagnostic-band` covers the cells a diagnostic reaches in one line,
+placed from `--kgv-band-offset` and `--kgv-band-length` (both counted in cells),
+so a finding spanning several characters is decorated once instead of once per
+character. Overlapping findings get a band each, the narrower one on top. The
+band a diagnostic starts in is a `<button>` carrying its `aria-label` and
+selection; where a finding continues onto the next line the band is an inert
+`<span data-diagnostic-continued>`, so one finding is offered as one control.
+
+Because the diagnostic layer covers the text, keep a band's fill translucent —
+the default theme tints with `color-mix()` and marks the side of the line the
+ruby does not use.
 
 `DiagnosticList` renders `ol.kgv-diagnostics > li > button`, with
 `span.kgv-diagnostic-location` inside each button, or
@@ -149,23 +175,29 @@ div.kgv-viewer
 
 State is exposed as attributes rather than modifier classes:
 
-| Attribute                  | On                        | Values                                          |
-| -------------------------- | ------------------------- | ----------------------------------------------- |
-| `data-page-index`          | `.kgv-page`               | zero-based page number                          |
-| `data-overflow`            | `.kgv-page`               | present when the grid exceeds the paper         |
-| `data-offscreen`           | `.kgv-page`               | present on pages eligible for skipped rendering |
-| `data-annotation`          | `.kgv-annotation`         | `bold`, `italic`, `ruby`, `emphasis`            |
-| `data-ruby-fit`            | `.kgv-annotation`         | `mono`, `group`                                 |
-| `data-diagnostic`          | `.kgv-cell`               | present when a diagnostic covers the cell       |
-| `data-diagnostic-active`   | `.kgv-cell`               | present when that diagnostic is selected        |
-| `data-diagnostic-severity` | `.kgv-cell`, `li`         | `warning`, `error`                              |
-| `data-diagnostic-origin`   | `li`                      | `parser`, `rule`                                |
-| `data-diagnostic-id`       | `.kgv-diagnostic-marker`  | id of the diagnostic the marker stands for      |
-| `aria-current`             | `.kgv-diagnostics button` | `true` on the selected item                     |
+| Attribute                   | On                                        | Values                                          |
+| --------------------------- | ----------------------------------------- | ----------------------------------------------- |
+| `data-page-index`           | `.kgv-page`                               | zero-based page number                          |
+| `data-overflow`             | `.kgv-page`                               | present when the grid exceeds the paper         |
+| `data-offscreen`            | `.kgv-page`                               | present on pages eligible for skipped rendering |
+| `data-annotation`           | `.kgv-annotation`                         | `bold`, `italic`, `ruby`, `emphasis`            |
+| `data-ruby-fit`             | `.kgv-annotation`                         | `mono`, `group`                                 |
+| `data-diagnostic`           | `.kgv-cell`                               | present when a diagnostic covers the cell       |
+| `data-diagnostic-active`    | `.kgv-cell`, `.kgv-diagnostic-band`       | present when that diagnostic is selected        |
+| `data-diagnostic-severity`  | `.kgv-cell`, `.kgv-diagnostic-band`, `li` | `warning`, `error`                              |
+| `data-diagnostic-origin`    | `li`                                      | `parser`, `rule`                                |
+| `data-diagnostic-id`        | `.kgv-diagnostic-band`                    | id of the diagnostic the band stands for        |
+| `data-diagnostic-continued` | `.kgv-diagnostic-band`                    | present on a band whose finding started earlier |
+| `aria-current`              | `.kgv-diagnostics button`                 | `true` on the selected item                     |
 
-`data-diagnostic-id` is what makes the markers addressable without a callback per
+A cell says how its own character is marked; use it to restyle the character, for
+example `.kgv-cell[data-diagnostic] .kgv-glyph { color: … }`. The decoration of
+the range itself belongs to the band, so the two cannot restyle each other by
+accident. A cell covered by more than one finding carries the worse severity.
+
+`data-diagnostic-id` is what makes the bands addressable without a callback per
 interaction: look the id up in the `diagnostics` you passed in to drive a hover
-tooltip, a deep link, or an assertion. The marker's `aria-label` already carries
+tooltip, a deep link, or an assertion. The band's `aria-label` already carries
 the position and message for assistive technology.
 
 Emphasis marks are the one exception: the mark character is per-instance data,
@@ -178,7 +210,7 @@ default look. `DiagnosticList` reads them with literal fallbacks, so it also
 works when rendered outside `.kgv-viewer`.
 
 `--kgv-surface`, `--kgv-paper`, `--kgv-text`, `--kgv-text-muted`, `--kgv-grid`,
-`--kgv-accent`, `--kgv-controls-surface`, `--kgv-padding`.
+`--kgv-rule-width`, `--kgv-accent`, `--kgv-controls-surface`, `--kgv-padding`.
 
 `ManuscriptViewer` sets `--kgv-cell-size`, `--kgv-line-gap`, `--kgv-page-width`,
 `--kgv-page-height`, and `--kgv-manuscript-font` on `.kgv-stack` from the

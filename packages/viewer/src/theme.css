@@ -22,6 +22,7 @@
   --kgv-accent: #9b3f32;
   --kgv-controls-surface: #eee8dc;
   --kgv-padding: 2rem;
+  --kgv-rule-width: 1px;
 
   color: var(--kgv-text);
   background: var(--kgv-surface);
@@ -37,27 +38,38 @@
   outline-offset: 3px;
 }
 
-.kgv-line {
-  border-inline-end: 1px solid var(--kgv-grid);
-  border-block-end: 1px solid var(--kgv-grid);
+/* The ruling of one line. Each box of the ruling layer draws its own head and sides, and the last
+   one closes the foot, so every rule is painted once — never doubled by the neighbour, and never
+   widening the line, since these boxes carry no text and are out of flow.
+
+   A repeating gradient over the whole line would express this in one declaration, but engines tile
+   a repeating gradient at whole device pixels: at a fractional cell pitch that silently drops
+   roughly every fifth rule. Painting each rule as a border of its own box keeps them all. */
+.kgv-rule-cell {
+  border-block-start: var(--kgv-rule-width) solid var(--kgv-grid);
+  border-inline: var(--kgv-rule-width) solid var(--kgv-grid);
 }
 
-.kgv-cell {
-  border-block-start: 1px solid var(--kgv-grid);
-  border-inline-start: 1px solid var(--kgv-grid);
+.kgv-rule-cell:last-child {
+  border-block-end: var(--kgv-rule-width) solid var(--kgv-grid);
 }
 
-.kgv-cell[data-diagnostic] {
+/* A tint over the run plus a mark down the side the ruby does not use. The band is painted above
+   the characters so its whole area can answer to a click, so the tint stays translucent and the
+   mark stays out of the cells. Its thickness comes from the cell rather than from an em, since the
+   band inherits the line's font size rather than the glyph's. */
+.kgv-diagnostic-band {
   background: color-mix(in oklab, var(--kgv-accent) 16%, transparent);
-  box-shadow: inset 0 -0.13em 0 var(--kgv-accent);
+  box-shadow: inset calc(var(--kgv-cell-size) * 0.13) 0 0 var(--kgv-accent);
 }
 
-.kgv-cell[data-diagnostic-active] {
+/* Drawn inside the band so the selection cannot reach into the channel the ruby uses. */
+.kgv-diagnostic-band[data-diagnostic-active] {
   outline: 2px solid var(--kgv-accent);
   outline-offset: -2px;
 }
 
-.kgv-diagnostic-marker:focus-visible {
+button.kgv-diagnostic-band:focus-visible {
   outline: 3px solid var(--kgv-accent);
   outline-offset: 2px;
 }
@@ -93,18 +105,22 @@
   color: var(--kgv-text-muted, #57504a);
 }
 
-/* The diagnostic cell underline and the active-item accent above are drawn with
-   box-shadow and color, both of which forced-colors strips or replaces, so the
-   same states are restated here with system colors. */
+/* The diagnostic tint and the active-item accent above are drawn with author colors and
+   box-shadow, which forced-colors replaces or strips, so the same states are restated here with
+   system colors. */
 @media (forced-colors: active) {
-  .kgv-cell,
-  .kgv-line {
+  .kgv-rule-cell {
     border-color: CanvasText;
   }
 
-  .kgv-cell[data-diagnostic] {
+  .kgv-diagnostic-band {
     outline: 2px dashed Highlight;
     outline-offset: -2px;
+  }
+
+  .kgv-diagnostic-band[data-diagnostic-active] {
+    outline-style: solid;
+    outline-color: Highlight;
   }
 
   .kgv-diagnostics button[aria-current="true"] {
