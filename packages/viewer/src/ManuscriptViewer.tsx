@@ -6,41 +6,47 @@ import type {
   ManuscriptAnnotation,
   ManuscriptDiagnostic,
 } from "@sushichan044/kg-core";
-import {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from "react";
 import type { CSSProperties, ForwardedRef, ReactNode } from "react";
 
-import { ZoomMode } from "./ZoomMode";
+import { fitZoom } from "./fit-zoom";
 
 const NO_DIAGNOSTICS: readonly ManuscriptDiagnostic[] = [];
+
+const DEFAULT_ZOOM: ManuscriptViewerZoom = {
+  value: 100,
+  min: 1,
+  max: Number.MAX_SAFE_INTEGER,
+  step: 1,
+  onChange: () => {},
+};
 
 export type ManuscriptViewerProps = Readonly<{
   composed: GridComposedManuscript;
   diagnostics?: readonly ManuscriptDiagnostic[];
   activeDiagnosticId?: string | null;
-  zoom?: ZoomMode;
+  zoom?: ManuscriptViewerZoom;
+  fit?: boolean;
   ariaLabel?: string;
   className?: string;
   onViewEvent?: (event: ManuscriptViewEvent) => void;
   onDiagnosticSelect?: (diagnostic: ManuscriptDiagnostic) => void;
 }>;
 
-export type ManuscriptViewEvent =
-  | Readonly<{ kind: "visible-page.change"; page: number }>
-  | Readonly<{ kind: "effective-zoom.change"; percent: number }>;
+export type ManuscriptViewerZoom = Readonly<{
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+}>;
+
+export type ManuscriptViewEvent = Readonly<{ kind: "visible-page.change"; page: number }>;
 
 export type ManuscriptViewHandle = Readonly<{
   scrollToPage: (index: number) => void;
   scrollToDiagnostic: (id: string) => void;
   getVisiblePage: () => number;
-  getEffectiveZoomPercent: () => number;
 }>;
 
 type ManuscriptStyle = CSSProperties & {
@@ -226,7 +232,8 @@ function ManuscriptViewerComponent(
     composed,
     diagnostics = NO_DIAGNOSTICS,
     activeDiagnosticId = null,
-    zoom = ZoomMode.defaults,
+    zoom = DEFAULT_ZOOM,
+    fit = false,
     ariaLabel = "原稿プレビュー",
     className,
     onViewEvent,
@@ -240,9 +247,7 @@ function ManuscriptViewerComponent(
   const diagnosticRefs = useRef(new Map<string, HTMLElement>());
   const pendingPageRef = useRef<number | null>(null);
   const visiblePageRef = useRef(0);
-  const effectivePercentRef = useRef<number>(zoom.kind === "fixed" ? zoom.percent : 100);
-  const [fitPercent, setFitPercent] = useState(100);
-  const effectivePercent = zoom.kind === "fixed" ? zoom.percent : fitPercent;
+  const { max, min, onChange, step, value } = zoom;
   const selectedFont = FontPreset.of(composed.settings.appearance.fontPreset);
 
   const scrollToPage = useCallback(
@@ -269,7 +274,6 @@ function ManuscriptViewerComponent(
       scrollToPage,
       scrollToDiagnostic,
       getVisiblePage: () => visiblePageRef.current,
-      getEffectiveZoomPercent: () => effectivePercentRef.current,
     }),
     [scrollToDiagnostic, scrollToPage],
   );
@@ -295,7 +299,7 @@ function ManuscriptViewerComponent(
   );
 
   useEffect(() => {
-    if (zoom.kind !== "fit") return;
+    if (!fit) return;
     const viewport = viewportRef.current;
     if (viewport === null) return;
     const updateFitPercent = () => {
@@ -308,8 +312,16 @@ function ManuscriptViewerComponent(
         viewport.clientHeight -
         Number.parseFloat(style.paddingBlockStart) -
         Number.parseFloat(style.paddingBlockEnd);
-      setFitPercent(
-        ZoomMode.fitPagePercent(width, height, geometry.paperWidthMm, geometry.paperHeightMm),
+      onChange(
+        fitZoom({
+          viewportWidthPx: width,
+          viewportHeightPx: height,
+          paperWidthMm: geometry.paperWidthMm,
+          paperHeightMm: geometry.paperHeightMm,
+          min,
+          max,
+          step,
+        }),
       );
     };
     updateFitPercent();
@@ -318,12 +330,7 @@ function ManuscriptViewerComponent(
     return () => {
       observer.disconnect();
     };
-  }, [geometry.paperHeightMm, geometry.paperWidthMm, zoom.kind]);
-
-  useEffect(() => {
-    effectivePercentRef.current = effectivePercent;
-    onViewEvent?.({ kind: "effective-zoom.change", percent: effectivePercent });
-  }, [effectivePercent, onViewEvent]);
+  }, [fit, geometry.paperHeightMm, geometry.paperWidthMm, max, min, onChange, step]);
 
   useEffect(() => {
     if (pendingPageRef.current !== null) scrollToPage(pendingPageRef.current);
@@ -357,13 +364,13 @@ function ManuscriptViewerComponent(
 
   const style: ManuscriptStyle = useMemo(
     () => ({
-      "--kgv-cell-size": `${geometry.cellSizeMm * (effectivePercent / 100)}mm`,
-      "--kgv-line-gap": `${geometry.lineGapMm * (effectivePercent / 100)}mm`,
+      "--kgv-cell-size": `${geometry.cellSizeMm * (value / 100)}mm`,
+      "--kgv-line-gap": `${geometry.lineGapMm * (value / 100)}mm`,
       "--kgv-manuscript-font": selectedFont.family,
-      "--kgv-page-height": `${geometry.paperHeightMm * (effectivePercent / 100)}mm`,
-      "--kgv-page-width": `${geometry.paperWidthMm * (effectivePercent / 100)}mm`,
+      "--kgv-page-height": `${geometry.paperHeightMm * (value / 100)}mm`,
+      "--kgv-page-width": `${geometry.paperWidthMm * (value / 100)}mm`,
     }),
-    [effectivePercent, geometry, selectedFont.family],
+    [geometry, selectedFont.family, value],
   );
 
   const renderCell = (cellId: string, cell: GridCell) => {

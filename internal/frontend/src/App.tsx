@@ -112,9 +112,7 @@ function Workspace() {
   const activeDiagnosticId = diagnostics.some(({ id }) => id === manuscript.activeDiagnosticId)
     ? manuscript.activeDiagnosticId
     : null;
-  const [effectiveZoomPercent, setEffectiveZoomPercent] = useState<number>(
-    manuscript.preferences.zoom.kind === "fixed" ? manuscript.preferences.zoom.percent : 100,
-  );
+  const [zoom, setZoom] = useState(manuscript.preferences.zoom);
   const [appState, setAppState] = useState(loadInitialAppState);
   const [files, setFiles] = useState<readonly FileEntry[]>([]);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
@@ -240,14 +238,30 @@ function Workspace() {
 
   const onViewEvent = useCallback(
     (event: ManuscriptViewEvent) => {
-      if (event.kind === "visible-page.change" && selectedPath !== null) {
-        savePage(selectedPath, event.page);
-      } else if (event.kind === "effective-zoom.change") {
-        setEffectiveZoomPercent(event.percent);
-      }
+      if (selectedPath !== null) savePage(selectedPath, event.page);
     },
     [selectedPath],
   );
+
+  const setFitZoom = useCallback((value: number) => {
+    setZoom(value);
+  }, []);
+
+  const changeZoom = useCallback(
+    (value: number) => {
+      setZoom(value);
+      commitPreferenceAction({ kind: "zoom.replace", zoom: value, fit: false });
+    },
+    [commitPreferenceAction],
+  );
+
+  const enableFit = useCallback(() => {
+    commitPreferenceAction({
+      kind: "zoom.replace",
+      zoom: manuscriptRef.current.preferences.zoom,
+      fit: true,
+    });
+  }, [commitPreferenceAction]);
 
   const selectDiagnostic = useCallback((diagnostic: ManuscriptDiagnostic) => {
     dispatch({ kind: "diagnostic.select", id: diagnostic.id });
@@ -316,11 +330,10 @@ function Workspace() {
                 documentLabel={selectedFile.path}
                 composed={processed.value.composed}
                 diagnosticCount={diagnostics.length}
-                zoom={manuscript.preferences.zoom}
-                effectivePercent={effectiveZoomPercent}
-                onChange={(zoom) => {
-                  commitPreferenceAction({ kind: "zoom.replace", zoom });
-                }}
+                zoom={zoom}
+                fit={manuscript.preferences.fit}
+                onZoomChange={changeZoom}
+                onFitChange={enableFit}
                 onDiagnosticsOpen={() => {
                   setDiagnosticDrawerOpen((open) => !open);
                 }}
@@ -363,7 +376,8 @@ function Workspace() {
                   composed={processed.value.composed}
                   diagnostics={diagnostics}
                   activeDiagnosticId={activeDiagnosticId}
-                  zoom={manuscript.preferences.zoom}
+                  zoom={{ value: zoom, min: 50, max: 150, step: 25, onChange: setFitZoom }}
+                  fit={manuscript.preferences.fit}
                   onViewEvent={onViewEvent}
                   onDiagnosticSelect={(diagnostic) => {
                     dispatch({ kind: "diagnostic.select", id: diagnostic.id });
@@ -426,11 +440,10 @@ function Workspace() {
         <ZoomControls
           verbose
           className="mobile-zoom"
-          zoom={manuscript.preferences.zoom}
-          effectivePercent={effectiveZoomPercent}
-          onChange={(zoom) => {
-            commitPreferenceAction({ kind: "zoom.replace", zoom });
-          }}
+          zoom={zoom}
+          fit={manuscript.preferences.fit}
+          onZoomChange={changeZoom}
+          onFitChange={enableFit}
         />
         {settings}
       </Sheet>

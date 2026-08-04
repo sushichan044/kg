@@ -9,18 +9,20 @@ import {
   PaperSizeId,
 } from "@sushichan044/kg-core";
 import type { GridComposedManuscript } from "@sushichan044/kg-core";
-import { ZoomMode } from "@sushichan044/kg-viewer";
 import { useState } from "react";
 
 import type { ManuscriptPreset } from "../lib/storage";
 
 type ZoomControlsProps = Readonly<{
-  zoom: ZoomMode;
-  effectivePercent: number;
+  zoom: number;
+  fit: boolean;
   verbose?: boolean;
   className?: string;
-  onChange: (zoom: ZoomMode) => void;
+  onZoomChange: (zoom: number) => void;
+  onFitChange: (fit: boolean) => void;
 }>;
+
+const ZOOM = { min: 50, max: 150, step: 25 } as const;
 
 function classNames(...values: Array<string | undefined>): string {
   return values.filter(Boolean).join(" ");
@@ -28,13 +30,14 @@ function classNames(...values: Array<string | undefined>): string {
 
 export function ZoomControls({
   zoom,
-  effectivePercent,
+  fit,
   verbose = false,
   className,
-  onChange,
+  onZoomChange,
+  onFitChange,
 }: ZoomControlsProps) {
-  const zoomOut = ZoomMode.adjacentLevel(effectivePercent, "out");
-  const zoomIn = ZoomMode.adjacentLevel(effectivePercent, "in");
+  const zoomOut = zoom > ZOOM.min ? Math.max(ZOOM.min, zoom - ZOOM.step) : null;
+  const zoomIn = zoom < ZOOM.max ? Math.min(ZOOM.max, zoom + ZOOM.step) : null;
   return (
     <div
       className={classNames(
@@ -49,27 +52,27 @@ export function ZoomControls({
         aria-label="縮小"
         disabled={zoomOut === null}
         onClick={() => {
-          if (zoomOut !== null) onChange({ kind: "fixed", percent: zoomOut });
+          if (zoomOut !== null) onZoomChange(zoomOut);
         }}
       >
         −
       </button>
-      <output aria-label="現在のズーム">{Math.round(effectivePercent)}%</output>
+      <output aria-label="現在のズーム">{Math.round(zoom)}%</output>
       <button
         type="button"
         aria-label="拡大"
         disabled={zoomIn === null}
         onClick={() => {
-          if (zoomIn !== null) onChange({ kind: "fixed", percent: zoomIn });
+          if (zoomIn !== null) onZoomChange(zoomIn);
         }}
       >
         ＋
       </button>
       <button
         type="button"
-        aria-pressed={zoom.kind === "fit"}
+        aria-pressed={fit}
         onClick={() => {
-          onChange({ kind: "fit" });
+          onFitChange(true);
         }}
       >
         {verbose ? "ページに合わせる" : "全体"}

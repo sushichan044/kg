@@ -31,9 +31,20 @@ type ViewerFixtureOptions = Readonly<{
   parser?: ManuscriptParser;
 }>;
 
+const defaultZoom = {
+  value: 100,
+  min: 50,
+  max: 150,
+  step: 25,
+  onChange: () => {},
+};
+
+type ViewerFixtureProps = Omit<ManuscriptViewerProps, "composed" | "diagnostics" | "zoom"> &
+  Readonly<{ zoom?: ManuscriptViewerProps["zoom"] }>;
+
 async function renderViewer(
   options: ViewerFixtureOptions,
-  props: Omit<ManuscriptViewerProps, "composed" | "diagnostics"> = {},
+  { zoom = defaultZoom, ...props }: ViewerFixtureProps = {},
 ) {
   const parsed = parseManuscript(options.text ?? "", { parser: options.parser });
   if (!parsed.ok) throw new Error("fixture did not parse");
@@ -52,7 +63,7 @@ async function renderViewer(
   if (!proofread.ok) throw new Error("fixture did not proofread");
   const diagnostics = [...parsed.warnings, ...proofread.value];
   const screen = await render(
-    <ManuscriptViewer composed={composed.value} diagnostics={diagnostics} {...props} />,
+    <ManuscriptViewer composed={composed.value} diagnostics={diagnostics} zoom={zoom} {...props} />,
   );
 
   return { composed: composed.value, diagnostics, screen };
@@ -330,7 +341,7 @@ test("scales cells to a magnification outside the built-in scale", async () => {
       settings,
       appearance: { ...ManuscriptAppearanceSettings.defaults, fontSizePt: 10 },
     },
-    { zoom: { kind: "fixed", percent: 90 } },
+    { zoom: { ...defaultZoom, value: 90 } },
   );
 
   const cell = screen.container.querySelector<HTMLElement>(".kgv-cell");

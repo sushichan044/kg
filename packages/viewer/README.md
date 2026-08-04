@@ -23,7 +23,7 @@ import "@sushichan044/kg-viewer/styles.css";
     composed={composed}
     diagnostics={diagnostics}
     activeDiagnosticId={activeDiagnosticId}
-    zoom={zoom}
+    zoom={{ value: zoom, min: 50, max: 150, step: 25, onChange: setZoom }}
     onDiagnosticSelect={(diagnostic) => setActiveDiagnosticId(diagnostic.id)}
   />
   <DiagnosticList
@@ -39,16 +39,29 @@ settings management. The consuming application owns those operations and
 passes immutable snapshots through controlled props.
 
 `ManuscriptViewer` exposes a ref handle for DOM-only navigation, including
-scrolling to a page or diagnostic. It reports visible-page and effective-zoom
-changes through `onViewEvent` without storing them in the manuscript snapshot.
+scrolling to a page or diagnostic. It reports visible-page changes through
+`onViewEvent` without storing them in the manuscript snapshot.
 
-Zoom is a controlled `ZoomMode`: either `{ kind: "fixed", percent }` or
-`{ kind: "fit" }`, which the viewer resolves against its own viewport. `percent`
-is whatever magnification you ask for — no scale, no floor, and no ceiling, so a
-slider or a pinch gesture works as well as buttons, and `fit` grows a page as far
-as the viewport allows. Clamp it yourself if your layout wants a limit. The
-`ZoomMode` companion offers `defaults`, `fitPagePercent`, and `adjacentLevel` for
-stepping through a scale — `ZOOM_LEVELS` by default, or one you pass in.
+Zoom is controlled by one numeric object. The viewer always renders `value`; it
+does not prescribe a toolbar or any appearance for one. Set `fit` when a whole
+page should stay visible: on mount and viewport resize, the viewer calculates the
+largest value within `min` and `max`, rounded down from `min` to `step`, then
+passes it to `onChange`.
+
+```tsx
+const [zoom, setZoom] = useState(100);
+const [fit, setFit] = useState(true);
+
+<ManuscriptViewer
+  composed={composed}
+  zoom={{ value: zoom, min: 50, max: 150, step: 25, onChange: setZoom }}
+  fit={fit}
+/>;
+```
+
+An application may use the same values for any UI it prefers. For example, a
+manual zoom button can call `setFit(false)` and then `setZoom(zoom + 25)`; a
+separate "fit page" button can call `setFit(true)`.
 
 Bold, italic, and emphasis annotations render as typed React elements;
 annotation content is never inserted as HTML. Overlapping annotations are
