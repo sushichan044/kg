@@ -92,9 +92,11 @@ or recalculate locations.
 ## Proofreading rules
 
 `createDefaultProofreadingRules()` returns the rules whose answer does not
-depend on the work: paragraph indentation, spacing after `！` and `？`, ellipsis
-and dash forms and counts, repeated punctuation, halfwidth Japanese
-punctuation, Arabic numeral length, and Unicode variation sequences.
+depend on the work: how a paragraph opens and how far it is indented,
+punctuation before a closing bracket, spacing after `！` and `？`, ellipsis and
+dash forms and counts, repeated punctuation, repeated interpuncts and choonpu, a
+minus sign that no number follows, halfwidth Japanese punctuation, Arabic
+numeral length, and Unicode variation sequences.
 
 Rules that depend on the work's own conventions are exported individually and
 report `warning` instead of `error`, so a caller opts into them:
