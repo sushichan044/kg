@@ -260,7 +260,8 @@ test("renders pixiv notation after the initial load and a file reload", async ()
   expect(screen.container.querySelector("iframe")).toBeNull();
 
   novelSource = "[b:再読込]";
-  FakeEventSource.latest?.emit("file-changed", JSON.stringify({ id: "novel" }));
+  expect.assert(FakeEventSource.latest !== undefined, "event source did not initialize");
+  FakeEventSource.latest.emit("file-changed", JSON.stringify({ id: "novel" }));
 
   await vi.waitFor(() => {
     expect(screen.container.querySelectorAll('[data-annotation="bold"] .kgv-cell')).toHaveLength(3);
