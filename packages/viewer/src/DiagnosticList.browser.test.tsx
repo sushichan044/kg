@@ -10,27 +10,33 @@ import { DiagnosticList } from "./DiagnosticList";
 
 function diagnostics() {
   const parsed = parseManuscript("問題");
-  if (!parsed.ok) throw new Error("fixture setup failed");
+  expect.assert(parsed.ok, "fixture setup failed");
+
   const result = proofreadManuscript(parsed.value, { rules: createDefaultProofreadingRules() });
-  if (!result.ok) throw new Error("fixture did not proofread");
+  expect.assert(result.ok, "fixture did not proofread");
+
   return result.value;
 }
 
 test("renders controlled diagnostics and reports selection", async () => {
   const items = diagnostics();
+  const firstItem = items[0];
+  expect.assert(firstItem !== undefined, "fixture produced no diagnostics");
   let selected = "";
+
   const screen = await render(
     <DiagnosticList
       diagnostics={items}
-      activeDiagnosticId={items[0]?.id}
+      activeDiagnosticId={firstItem.id}
       onSelect={(item) => {
         selected = item.id;
       }}
     />,
   );
-
   const button = screen.getByRole("list").getByRole("button").first();
   await expect.element(button).toHaveAttribute("aria-current", "true");
+
   await button.click();
-  expect(selected).toBe(items[0]?.id);
+
+  expect(selected).toBe(firstItem.id);
 });

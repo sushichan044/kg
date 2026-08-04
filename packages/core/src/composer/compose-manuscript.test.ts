@@ -11,7 +11,8 @@ import type { ManuscriptComposer } from "./manuscript-composer";
 
 function parsed(source: string) {
   const result = parseManuscript(source);
-  if (!result.ok) throw new Error("fixture did not parse");
+  expect.assert(result.ok, "fixture did not parse");
+
   return result.value;
 }
 
@@ -59,15 +60,27 @@ describe("composeManuscript", () => {
       settings: settings(),
     });
 
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
+    expect.assert(result.ok, "expected composeManuscript to succeed");
     expect(result.value.composerId).toBe("kg/grid");
     expect(result.value.settings).toEqual(settings());
     expect(result.value.parsed.source).toBe(source);
-    const page = result.value.layout.pages[0]!;
-    expect(page.range?.source).toEqual({ start: 0, end: 12 });
-    expect(page.stages[0]?.range?.graphemes).toEqual({ start: 0, end: 12 });
-    expect(page.stages[0]?.lines[1]?.cells[0]).toMatchObject({
+
+    const page = result.value.layout.pages[0];
+    expect.assert(page !== undefined, "grid layout has no first page");
+    expect.assert(page.range !== null, "first page has no range");
+    expect(page.range.source).toEqual({ start: 0, end: 12 });
+
+    const stage = page.stages[0];
+    expect.assert(stage !== undefined, "first page has no first stage");
+    expect.assert(stage.range !== null, "first stage has no range");
+    expect(stage.range.graphemes).toEqual({ start: 0, end: 12 });
+
+    const line = stage.lines[1];
+    expect.assert(line !== undefined, "first stage has no second line");
+
+    const firstCell = line.cells[0];
+    expect.assert(firstCell !== undefined, "second line has no first cell");
+    expect(firstCell).toMatchObject({
       value: "さ",
       range: {
         source: { start: 10, end: 11 },
@@ -75,21 +88,27 @@ describe("composeManuscript", () => {
         graphemes: { start: 10, end: 11 },
       },
     });
-    expect(page.stages[0]?.lines[1]?.cells[2]?.range).toBeNull();
+
+    const thirdCell = line.cells[2];
+    expect.assert(thirdCell !== undefined, "second line has no third cell");
+    expect(thirdCell.range).toBeNull();
     expect(globalThis.structuredClone(result.value)).toEqual(result.value);
   });
 
   test("composes displayed Pixiv text while preserving annotations", () => {
     const parseResult = parseManuscript("[b:太字]", { parser: pixivParser });
-    if (!parseResult.ok) throw new Error("fixture did not parse");
+    expect.assert(parseResult.ok, "fixture did not parse");
+
     const result = composeManuscript(parseResult.value, {
       composer: manuscriptGridComposer,
       settings: settings(),
     });
 
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.value.layout.pages[0]?.stages[0]?.lines[0]?.cells[0]).toMatchObject({
+    expect.assert(result.ok, "expected composeManuscript to succeed");
+
+    const firstCell = result.value.layout.pages[0]?.stages[0]?.lines[0]?.cells[0];
+    expect.assert(firstCell !== undefined, "grid layout has no first cell");
+    expect(firstCell).toMatchObject({
       value: "太",
       annotations: [{ kind: "bold" }],
     });
@@ -103,13 +122,13 @@ describe("composeManuscript", () => {
         stage: { leading: 5, trailing: 5 },
       },
     };
+
     const result = composeManuscript(parsed("本文"), {
       composer: manuscriptGridComposer,
       settings: invalid,
     });
 
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
+    expect.assert(result.ok === false, "expected composeManuscript to report a failure");
     expect(result.error).toMatchObject({ kind: "InvalidSettings", composerId: "kg/grid" });
   });
 
@@ -133,8 +152,7 @@ describe("composeManuscript", () => {
       settings: { prefix: ">" },
     });
 
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
+    expect.assert(result.ok === false, "expected composeManuscript to report a failure");
     expect(result.error).toMatchObject({
       kind: "InvalidComposerOutput",
       composerId: "example/broken",

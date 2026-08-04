@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test, vi } from "vite-plus/test";
+import { expect, test as base, vi } from "vite-plus/test";
 import { page } from "vite-plus/test/browser";
 import { render } from "vitest-browser-react";
 
@@ -15,7 +15,6 @@ const source = [
   "　数字は2026年のままになっている。",
 ].join("\n");
 const pixivSource = "[[rb:漢字 > かんじ]][b:太字][i:斜体][[emphasismark:強調>・]]";
-let novelSource = source;
 
 const files = [
   { id: "novel", path: "testdata/novel.txt" },
@@ -46,30 +45,42 @@ class FakeEventSource {
   close() {}
 }
 
-beforeEach(() => {
-  window.history.replaceState(null, "", "/");
-  localStorage.clear();
-  sessionStorage.clear();
-  novelSource = source;
-  FakeEventSource.latest = undefined;
-  vi.stubGlobal("EventSource", FakeEventSource);
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (input: RequestInfo | URL) => {
-      const url = input instanceof Request ? input.url : input.toString();
-      if (url.endsWith("/_/api/files")) {
-        return new Response(JSON.stringify(files), {
-          headers: { "content-type": "application/json" },
-        });
-      }
+type Fixtures = {
+  novelSource: { current: string };
+  browserEnvironment: undefined;
+};
 
-      return new Response(url.includes("/shared/") ? "共有本文" : novelSource);
-    }),
-  );
-});
+const test = base.extend<Fixtures>({
+  novelSource: async ({}, use) => {
+    await use({ current: source });
+  },
+  browserEnvironment: [
+    async ({ novelSource }, use) => {
+      window.history.replaceState(null, "", "/");
+      localStorage.clear();
+      sessionStorage.clear();
+      FakeEventSource.latest = undefined;
+      vi.stubGlobal("EventSource", FakeEventSource);
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (input: RequestInfo | URL) => {
+          const url = input instanceof Request ? input.url : input.toString();
+          if (url.endsWith("/_/api/files")) {
+            return new Response(JSON.stringify(files), {
+              headers: { "content-type": "application/json" },
+            });
+          }
 
-afterEach(() => {
-  vi.unstubAllGlobals();
+          return new Response(url.includes("/shared/") ? "共有本文" : novelSource.current);
+        }),
+      );
+
+      await use(undefined);
+
+      vi.unstubAllGlobals();
+    },
+    { auto: true },
+  ],
 });
 
 test("connects proofreading feedback to the drawer and manuscript cells", async () => {
@@ -78,12 +89,14 @@ test("connects proofreading feedback to the drawer and manuscript cells", async 
 
   const diagnosticsTrigger = screen.getByRole("button", { name: "診断 4件" });
   await expect.element(diagnosticsTrigger).toBeVisible();
+
   await diagnosticsTrigger.click();
 
   const drawer = screen.getByRole("complementary", { name: "診断" });
   await expect.element(drawer).toBeVisible();
 
   await drawer.getByRole("list").getByRole("button").nth(3).click();
+
   await vi.waitFor(() => {
     expect(screen.container.querySelectorAll("[data-diagnostic-active]")).toHaveLength(4);
   });
@@ -97,9 +110,9 @@ test("opens compact file, settings, and diagnostics sheets", async () => {
   const screen = await render(<App />);
 
   await vi.waitFor(() => {
-    expect(screen.container.querySelector(".mobile-toolbar strong")?.textContent).toBe(
-      "testdata/novel.txt",
-    );
+    const label = screen.container.querySelector(".mobile-toolbar strong");
+    expect.assert(label !== null, "mobile toolbar label did not render");
+    expect(label.textContent).toBe("testdata/novel.txt");
   });
 
   const buttons = Array.from(
@@ -131,7 +144,9 @@ test("opens the file selected by the URL and preserves unrelated URL state", asy
   const screen = await render(<App />);
 
   await vi.waitFor(() => {
-    expect(screen.container.querySelector(".toolbar-label")?.textContent).toBe("共有 原稿.txt");
+    const label = screen.container.querySelector(".toolbar-label");
+    expect.assert(label !== null, "toolbar label did not render");
+    expect(label.textContent).toBe("共有 原稿.txt");
   });
   expect(new URL(window.location.href).searchParams.get("file")).toBe("共有 原稿.txt");
   expect(new URL(window.location.href).searchParams.get("mode")).toBe("preview");
@@ -147,9 +162,17 @@ test("updates the shared URL when another file is selected", async () => {
   const screen = await render(<App />);
 
   await vi.waitFor(() => {
-    expect(screen.container.querySelector(".toolbar-label")?.textContent).toBe("共有 原稿.txt");
+    const label = screen.container.querySelector(".toolbar-label");
+    expect.assert(label !== null, "toolbar label did not render");
+    expect(label.textContent).toBe("共有 原稿.txt");
   });
-  screen.container.querySelector<HTMLButtonElement>(".sidebar .file-list__item")?.click();
+
+  const fileListItem = screen.container.querySelector<HTMLButtonElement>(
+    ".sidebar .file-list__item",
+  );
+  expect.assert(fileListItem !== null, "sidebar has no file list item");
+
+  fileListItem.click();
 
   await vi.waitFor(() => {
     expect(new URL(window.location.href).searchParams.get("file")).toBe("testdata/novel.txt");
@@ -164,9 +187,9 @@ test("normalizes an unknown URL file to the first available file", async () => {
   const screen = await render(<App />);
 
   await vi.waitFor(() => {
-    expect(screen.container.querySelector(".toolbar-label")?.textContent).toBe(
-      "testdata/novel.txt",
-    );
+    const label = screen.container.querySelector(".toolbar-label");
+    expect.assert(label !== null, "toolbar label did not render");
+    expect(label.textContent).toBe("testdata/novel.txt");
     expect(new URL(window.location.href).searchParams.get("file")).toBe("testdata/novel.txt");
   });
 });
@@ -188,15 +211,20 @@ test("synchronizes the URL after a failed initial catalog load is refreshed", as
       return new Response("共有本文");
     }),
   );
+
   const screen = await render(<App />);
 
   await vi.waitFor(() => {
     expect(FakeEventSource.latest).toBeDefined();
   });
-  FakeEventSource.latest?.emit("update", "{}");
+  expect.assert(FakeEventSource.latest !== undefined, "event source did not initialize");
+
+  FakeEventSource.latest.emit("update", "{}");
 
   await vi.waitFor(() => {
-    expect(screen.container.querySelector(".toolbar-label")?.textContent).toBe("共有 原稿.txt");
+    const label = screen.container.querySelector(".toolbar-label");
+    expect.assert(label !== null, "toolbar label did not render");
+    expect(label.textContent).toBe("共有 原稿.txt");
     expect(new URL(window.location.href).searchParams.get("file")).toBe("共有 原稿.txt");
   });
 });
@@ -225,14 +253,20 @@ test("keeps the newest catalog when an older request finishes last", async () =>
       return Promise.resolve(new Response("共有本文"));
     }),
   );
+
   const screen = await render(<App />);
 
   await vi.waitFor(() => {
     expect(FakeEventSource.latest).toBeDefined();
   });
-  FakeEventSource.latest?.emit("update", "{}");
+  expect.assert(FakeEventSource.latest !== undefined, "event source did not initialize");
+
+  FakeEventSource.latest.emit("update", "{}");
+
   await vi.waitFor(() => {
-    expect(screen.container.querySelector(".toolbar-label")?.textContent).toBe("共有 原稿.txt");
+    const label = screen.container.querySelector(".toolbar-label");
+    expect.assert(label !== null, "toolbar label did not render");
+    expect(label.textContent).toBe("共有 原稿.txt");
   });
 
   resolveInitialCatalog(
@@ -242,12 +276,15 @@ test("keeps the newest catalog when an older request finishes last", async () =>
   );
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  expect(screen.container.querySelector(".toolbar-label")?.textContent).toBe("共有 原稿.txt");
+  const label = screen.container.querySelector(".toolbar-label");
+  expect.assert(label !== null, "toolbar label did not render");
+  expect(label.textContent).toBe("共有 原稿.txt");
   expect(new URL(window.location.href).searchParams.get("file")).toBe("共有 原稿.txt");
 });
 
-test("renders pixiv notation after the initial load and a file reload", async () => {
-  novelSource = pixivSource;
+test("renders pixiv notation after the initial load and a file reload", async ({ novelSource }) => {
+  novelSource.current = pixivSource;
+
   const screen = await render(<App />);
 
   await vi.waitFor(() => {
@@ -259,8 +296,9 @@ test("renders pixiv notation after the initial load and a file reload", async ()
   expect(screen.container.textContent).not.toContain("[[rb:");
   expect(screen.container.querySelector("iframe")).toBeNull();
 
-  novelSource = "[b:再読込]";
+  novelSource.current = "[b:再読込]";
   expect.assert(FakeEventSource.latest !== undefined, "event source did not initialize");
+
   FakeEventSource.latest.emit("file-changed", JSON.stringify({ id: "novel" }));
 
   await vi.waitFor(() => {

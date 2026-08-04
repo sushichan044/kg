@@ -47,7 +47,8 @@ async function renderViewer(
   { zoom = defaultZoom, ...props }: ViewerFixtureProps = {},
 ) {
   const parsed = parseManuscript(options.text ?? "", { parser: options.parser });
-  if (!parsed.ok) throw new Error("fixture did not parse");
+  expect.assert(parsed.ok, "fixture did not parse");
+
   const composed = composeManuscript(parsed.value, {
     composer: manuscriptGridComposer,
     settings: {
@@ -56,11 +57,13 @@ async function renderViewer(
       appearance: options.appearance ?? ManuscriptCompositionSettings.defaults.appearance,
     },
   });
-  if (!composed.ok) throw new Error("fixture setup failed");
+  expect.assert(composed.ok, "fixture setup failed");
+
   const proofread = proofreadManuscript(composed.value, {
     rules: createDefaultProofreadingRules(),
   });
-  if (!proofread.ok) throw new Error("fixture did not proofread");
+  expect.assert(proofread.ok, "fixture did not proofread");
+
   const diagnostics = [...parsed.warnings, ...proofread.value];
   const screen = await render(
     <ManuscriptViewer composed={composed.value} diagnostics={diagnostics} zoom={zoom} {...props} />,
@@ -74,13 +77,21 @@ test("renders the first grapheme in the top-right cell with square geometry", as
 
   const cells = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-cell"));
   const occupied = cells.filter((cell) => cell.textContent !== "");
-  expect(occupied[0]?.textContent).toBe("あ");
-  expect(occupied[1]?.textContent).toBe("い");
-  const firstRect = cells[0]?.getBoundingClientRect();
-  expect(firstRect?.width).toBeCloseTo(firstRect?.height ?? 0, 0);
-  expect(cells[10]?.getBoundingClientRect().left).toBeLessThan(
-    cells[0]?.getBoundingClientRect().left ?? 0,
-  );
+  const firstOccupied = occupied[0];
+  const secondOccupied = occupied[1];
+  expect.assert(firstOccupied !== undefined, "grid has no first occupied cell");
+  expect.assert(secondOccupied !== undefined, "grid has no second occupied cell");
+
+  const firstCell = cells[0];
+  const eleventhCell = cells[10];
+  expect.assert(firstCell !== undefined, "grid has no first cell");
+  expect.assert(eleventhCell !== undefined, "grid has no eleventh cell");
+
+  expect(firstOccupied.textContent).toBe("あ");
+  expect(secondOccupied.textContent).toBe("い");
+  const firstRect = firstCell.getBoundingClientRect();
+  expect(firstRect.width).toBeCloseTo(firstRect.height, 0);
+  expect(eleventhCell.getBoundingClientRect().left).toBeLessThan(firstRect.left);
 });
 
 test("marks diagnostics and selects them without changing the manuscript", async () => {
@@ -95,9 +106,13 @@ test("marks diagnostics and selects them without changing the manuscript", async
     },
   );
 
+  const firstDiagnostic = diagnostics[0];
+  expect.assert(firstDiagnostic !== undefined, "fixture produced no diagnostics");
   expect(screen.container.querySelectorAll("[data-diagnostic]")).not.toHaveLength(0);
+
   await screen.getByRole("button").first().click();
-  expect(selected).toBe(diagnostics[0]?.id);
+
+  expect(selected).toBe(firstDiagnostic.id);
   expect(screen.container.textContent).toContain(text);
 });
 
@@ -105,7 +120,8 @@ test("marks an entire emoji variation sequence as one diagnostic", async () => {
   const { diagnostics, screen } = await renderViewer({ text: "　⭐️", settings });
 
   const diagnostic = diagnostics.find(({ origin }) => origin.id === "kg/variant-character");
-  expect(diagnostic?.range.source).toEqual({ start: 1, end: 3 });
+  expect.assert(diagnostic !== undefined, "fixture produced no variant-character diagnostic");
+  expect(diagnostic.range.source).toEqual({ start: 1, end: 3 });
 
   const occupiedCells = Array.from(
     screen.container.querySelectorAll<HTMLElement>(".kgv-cell"),
@@ -128,12 +144,17 @@ test("selects the diagnostic that starts in the clicked cell when ranges are nes
   );
 
   const nested = diagnostics.find(({ origin }) => origin.id === "kg/no-consecutive-punctuation");
+  expect.assert(nested !== undefined, "fixture produced no nested punctuation diagnostic");
   expect(diagnostics).toHaveLength(2);
 
   const markers = screen.container.querySelectorAll<HTMLButtonElement>(".kgv-diagnostic-marker");
   expect(markers).toHaveLength(2);
-  markers[1]?.click();
-  expect(selected).toBe(nested?.id);
+  const secondMarker = markers[1];
+  expect.assert(secondMarker !== undefined, "grid has no second diagnostic marker");
+
+  secondMarker.click();
+
+  expect(selected).toBe(nested.id);
 });
 
 test("names the diagnostic each marker stands for", async () => {
@@ -155,19 +176,26 @@ test("renders the four supported pixiv notation forms without exposing their tag
   const bold = screen.container.querySelector<HTMLElement>('[data-annotation="bold"]');
   const italic = screen.container.querySelector<HTMLElement>('[data-annotation="italic"]');
   const emphasis = screen.container.querySelector<HTMLElement>('[data-annotation="emphasis"]');
-  const rubyReading = ruby?.querySelector<HTMLElement>(".kgv-ruby");
+  expect.assert(ruby !== null, "ruby annotation did not render");
+  expect.assert(bold !== null, "bold annotation did not render");
+  expect.assert(italic !== null, "italic annotation did not render");
+  expect.assert(emphasis !== null, "emphasis annotation did not render");
 
-  expect(rubyReading?.textContent).toBe("かんじ");
+  const rubyReading = ruby.querySelector<HTMLElement>(".kgv-ruby");
+  expect.assert(rubyReading !== null, "ruby reading did not render");
+
+  const hiddenText = screen.container.querySelector(".kgv-visually-hidden");
+  expect.assert(hiddenText !== null, "accessible viewer text did not render");
+
+  expect(rubyReading.textContent).toBe("かんじ");
   // Where the reading sits along its base is pinned by the two tests below this one.
-  expect(rubyReading?.getBoundingClientRect().left).toBeGreaterThanOrEqual(
-    ruby?.getBoundingClientRect().right ?? 0,
+  expect(rubyReading.getBoundingClientRect().left).toBeGreaterThanOrEqual(
+    ruby.getBoundingClientRect().right,
   );
-  expect(getComputedStyle(bold!).fontWeight).toBe("700");
-  expect(getComputedStyle(italic!).fontStyle).toBe("italic");
-  expect(getComputedStyle(emphasis!).textEmphasisStyle).toContain("・");
-  expect(
-    screen.container.querySelector(".kgv-visually-hidden")?.textContent.replace(/\n+$/, ""),
-  ).toBe("漢字太字斜体強調");
+  expect(getComputedStyle(bold).fontWeight).toBe("700");
+  expect(getComputedStyle(italic).fontStyle).toBe("italic");
+  expect(getComputedStyle(emphasis).textEmphasisStyle).toContain("・");
+  expect(hiddenText.textContent.replace(/\n+$/, "")).toBe("漢字太字斜体強調");
   expect(screen.container.textContent).not.toContain("[[rb:");
   expect(screen.container.textContent).not.toContain("[b:");
   expect(screen.container.textContent).not.toContain("[i:");
@@ -181,11 +209,16 @@ test("keeps a ruby reading within the gap beside its own line", async () => {
     parser: pixivParser,
   });
 
-  const cell = screen.container.querySelector<HTMLElement>(".kgv-cell")!.getBoundingClientRect();
-  const base = screen.container
-    .querySelector<HTMLElement>('[data-annotation="ruby"]')!
-    .getBoundingClientRect();
-  const reading = screen.container.querySelector<HTMLElement>(".kgv-ruby")!.getBoundingClientRect();
+  const cellElement = screen.container.querySelector<HTMLElement>(".kgv-cell");
+  const baseElement = screen.container.querySelector<HTMLElement>('[data-annotation="ruby"]');
+  const readingElement = screen.container.querySelector<HTMLElement>(".kgv-ruby");
+  expect.assert(cellElement !== null, "cell did not render");
+  expect.assert(baseElement !== null, "ruby annotation did not render");
+  expect.assert(readingElement !== null, "ruby reading did not render");
+
+  const cell = cellElement.getBoundingClientRect();
+  const base = baseElement.getBoundingClientRect();
+  const reading = readingElement.getBoundingClientRect();
 
   // The reading starts where its base ends…
   expect(reading.left).toBeGreaterThanOrEqual(base.right);
@@ -201,7 +234,8 @@ test("centres each reading character on its own cell when the counts match", asy
     parser: pixivParser,
   });
 
-  const base = screen.container.querySelector<HTMLElement>('[data-annotation="ruby"]')!;
+  const base = screen.container.querySelector<HTMLElement>('[data-annotation="ruby"]');
+  expect.assert(base !== null, "ruby annotation did not render");
   expect(base.dataset.rubyFit).toBe("mono");
 
   const cells = Array.from(base.querySelectorAll<HTMLElement>(".kgv-cell"));
@@ -213,7 +247,12 @@ test("centres each reading character on its own cell when the counts match", asy
 
   expect(reading).toHaveLength(cells.length);
   for (const [index, cell] of cells.entries()) {
-    expect(centreOf(reading[index]!)).toBeCloseTo(centreOf(cell), 0);
+    const readingCharacter = reading[index];
+    expect.assert(
+      readingCharacter !== undefined,
+      `ruby reading has no character at index ${index}`,
+    );
+    expect(centreOf(readingCharacter)).toBeCloseTo(centreOf(cell), 0);
   }
 });
 
@@ -270,8 +309,10 @@ test("sets a ruby reading at half the size of the characters it annotates", asyn
     parser: pixivParser,
   });
 
-  const glyph = screen.container.querySelector<HTMLElement>(".kgv-glyph")!;
-  const reading = screen.container.querySelector<HTMLElement>(".kgv-ruby")!;
+  const glyph = screen.container.querySelector<HTMLElement>(".kgv-glyph");
+  const reading = screen.container.querySelector<HTMLElement>(".kgv-ruby");
+  expect.assert(glyph !== null, "glyph did not render");
+  expect.assert(reading !== null, "ruby reading did not render");
 
   expect(Number.parseFloat(getComputedStyle(reading).fontSize)).toBeCloseTo(
     Number.parseFloat(getComputedStyle(glyph).fontSize) / 2,
@@ -288,12 +329,17 @@ test("splits annotations at line boundaries and repeats ruby readings", async ()
 
   const rubyFragments = screen.container.querySelectorAll<HTMLElement>('[data-annotation="ruby"]');
   expect(rubyFragments).toHaveLength(2);
-  expect(Array.from(rubyFragments, (ruby) => ruby.querySelector(".kgv-ruby")?.textContent)).toEqual(
-    [
-      "いちにさんしごろくしちはちきゅうじゅういちに",
-      "いちにさんしごろくしちはちきゅうじゅういちに",
-    ],
-  );
+  expect(
+    Array.from(rubyFragments, (ruby) => {
+      const reading = ruby.querySelector(".kgv-ruby");
+      expect.assert(reading !== null, "ruby fragment has no reading");
+
+      return reading.textContent;
+    }),
+  ).toEqual([
+    "いちにさんしごろくしちはちきゅうじゅういちに",
+    "いちにさんしごろくしちはちきゅうじゅういちに",
+  ]);
   expect(Array.from(rubyFragments, (ruby) => ruby.querySelectorAll(".kgv-cell").length)).toEqual([
     10, 2,
   ]);
@@ -307,8 +353,10 @@ test("escapes an emphasis mark before using it as a CSS string", async () => {
   });
 
   const emphasis = screen.container.querySelector<HTMLElement>('[data-annotation="emphasis"]');
-  expect(getComputedStyle(emphasis!).textEmphasisStyle).toContain('"');
-  expect(emphasis?.textContent).toBe("引用");
+  expect.assert(emphasis !== null, "emphasis annotation did not render");
+
+  expect(getComputedStyle(emphasis).textEmphasisStyle).toContain('"');
+  expect(emphasis.textContent).toBe("引用");
 });
 
 test("keeps diagnostic selection working for decorated source ranges", async () => {
@@ -350,8 +398,10 @@ test("renders a cell whose size in pixels matches the specified point size at 10
   });
 
   const cell = screen.container.querySelector<HTMLElement>(".kgv-cell");
+  expect.assert(cell !== null, "cell did not render");
+
   // 10pt = 10 * (96 / 72) CSS px ≈ 13.33px.
-  expect(cell?.getBoundingClientRect().width).toBeCloseTo((10 * 96) / 72, 0);
+  expect(cell.getBoundingClientRect().width).toBeCloseTo((10 * 96) / 72, 0);
 });
 
 test("scales cells to a magnification outside the built-in scale", async () => {
@@ -365,7 +415,9 @@ test("scales cells to a magnification outside the built-in scale", async () => {
   );
 
   const cell = screen.container.querySelector<HTMLElement>(".kgv-cell");
-  expect(cell?.getBoundingClientRect().width).toBeCloseTo(((10 * 96) / 72) * 0.9, 0);
+  expect.assert(cell !== null, "cell did not render");
+
+  expect(cell.getBoundingClientRect().width).toBeCloseTo(((10 * 96) / 72) * 0.9, 0);
 });
 
 test("renders each vertical line as an independent grid with a half-em gap", async () => {
@@ -376,16 +428,21 @@ test("renders each vertical line as an independent grid with a half-em gap", asy
   });
 
   const lines = screen.container.querySelectorAll<HTMLElement>(".kgv-line");
-  const first = lines[0]?.getBoundingClientRect();
-  const second = lines[1]?.getBoundingClientRect();
-  const cellSize = lines[0]?.querySelector<HTMLElement>(".kgv-cell")?.getBoundingClientRect().width;
+  const firstLine = lines[0];
+  const secondLine = lines[1];
+  expect.assert(firstLine !== undefined, "grid has no first line");
+  expect.assert(secondLine !== undefined, "grid has no second line");
 
-  expect(first?.right).toBeGreaterThan(second?.right ?? 0);
-  expect((first?.left ?? 0) - (second?.left ?? 0)).toBeCloseTo(
-    (first?.width ?? 0) + (cellSize ?? 0) * 0.5,
-    0,
-  );
-  expect(getComputedStyle(lines[0]!).borderInlineEndWidth).toBe("1px");
+  const firstLineCell = firstLine.querySelector<HTMLElement>(".kgv-cell");
+  expect.assert(firstLineCell !== null, "first line has no cell");
+
+  const first = firstLine.getBoundingClientRect();
+  const second = secondLine.getBoundingClientRect();
+  const cellSize = firstLineCell.getBoundingClientRect().width;
+
+  expect(first.right).toBeGreaterThan(second.right);
+  expect(first.left - second.left).toBeCloseTo(first.width + cellSize * 0.5, 0);
+  expect(getComputedStyle(firstLine).borderInlineEndWidth).toBe("1px");
 });
 
 test("renders offset-reserved leading cells as empty", async () => {
@@ -398,9 +455,14 @@ test("renders offset-reserved leading cells as empty", async () => {
   const { screen } = await renderViewer({ text: "あいうえ", settings, offsets });
 
   const lines = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-line"));
-  const firstLineCells = Array.from(lines[0]?.querySelectorAll<HTMLElement>(".kgv-cell") ?? []);
+  const firstLine = lines[0];
+  const secondLine = lines[1];
+  expect.assert(firstLine !== undefined, "grid has no first line");
+  expect.assert(secondLine !== undefined, "grid has no second line");
+
+  const firstLineCells = Array.from(firstLine.querySelectorAll<HTMLElement>(".kgv-cell"));
   expect(firstLineCells.every((cell) => cell.textContent === "")).toBe(true);
 
-  const secondLineCells = Array.from(lines[1]?.querySelectorAll<HTMLElement>(".kgv-cell") ?? []);
+  const secondLineCells = Array.from(secondLine.querySelectorAll<HTMLElement>(".kgv-cell"));
   expect(secondLineCells.slice(0, 3).map((cell) => cell.textContent)).toEqual(["あ", "い", "う"]);
 });

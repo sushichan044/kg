@@ -1,4 +1,4 @@
-import { beforeEach, expect, test } from "vite-plus/test";
+import { expect, test as base } from "vite-plus/test";
 
 import {
   DEFAULT_APP_STATE,
@@ -11,9 +11,16 @@ import {
   savePage,
 } from "./storage";
 
-beforeEach(() => {
-  localStorage.clear();
-  sessionStorage.clear();
+const test = base.extend<{ clearedStorage: undefined }>({
+  clearedStorage: [
+    async ({}, use) => {
+      localStorage.clear();
+      sessionStorage.clear();
+
+      await use(undefined);
+    },
+    { auto: true },
+  ],
 });
 
 test("returns defaults when current state is absent", () => {
@@ -34,6 +41,7 @@ test("stores frontend-owned composition, zoom, and presets", () => {
 
   expect(saveAppState({ version: 1, selectedPath: "draft.txt" })).toBe(true);
   expect(saveManuscriptPreferences(preferences)).toBe(true);
+
   expect(loadAppState().selectedPath).toBe("draft.txt");
   expect(loadManuscriptPreferences().composition.grid.charsPerLine).toBe(30);
   expect(loadManuscriptPreferences().zoom).toBe(125);
@@ -45,6 +53,7 @@ test("does not parse v2 manuscript preferences", () => {
     "kg.manuscript.preferences.v2",
     JSON.stringify({ version: 2, settings: { charsPerLine: 30 } }),
   );
+
   expect(loadManuscriptPreferences()).toEqual(DEFAULT_MANUSCRIPT_PREFERENCES);
 });
 
@@ -56,18 +65,21 @@ test("migrates v3 fixed and fit zoom preferences", () => {
     presets: [],
   };
   localStorage.setItem("kg.manuscript.preferences.v3", JSON.stringify(fixed));
+
   expect(loadManuscriptPreferences()).toMatchObject({ version: 4, zoom: 125, fit: false });
 
   localStorage.setItem(
     "kg.manuscript.preferences.v3",
     JSON.stringify({ ...fixed, zoom: { kind: "fit" } }),
   );
+
   expect(loadManuscriptPreferences()).toMatchObject({ version: 4, zoom: 100, fit: true });
 });
 
 test("rejects malformed or incomplete v4 payloads", () => {
   localStorage.setItem("kg.app.state.v1", "{");
   localStorage.setItem("kg.manuscript.preferences.v4", JSON.stringify({ version: 4 }));
+
   expect(loadAppState()).toEqual(DEFAULT_APP_STATE);
   expect(loadManuscriptPreferences()).toEqual(DEFAULT_MANUSCRIPT_PREFERENCES);
 });
@@ -91,6 +103,7 @@ test("rejects v4 composition settings that violate cross-field offset constraint
 
 test("round-trips the visible page per document for the current session", () => {
   savePage("draft.txt", 3);
+
   expect(loadPage("draft.txt")).toBe(3);
   expect(loadPage("other.txt")).toBe(0);
 });
@@ -99,5 +112,6 @@ test("keeps the stored page when asked to save an invalid page index", () => {
   savePage("draft.txt", 3);
   savePage("draft.txt", -1);
   savePage("draft.txt", 1.5);
+
   expect(loadPage("draft.txt")).toBe(3);
 });

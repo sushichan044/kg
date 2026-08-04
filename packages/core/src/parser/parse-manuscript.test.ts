@@ -10,8 +10,7 @@ describe("parseManuscript", () => {
   test("uses the plain text parser by default and preserves UTF-16 mappings", () => {
     const result = parseManuscript("A😀\r\n家");
 
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
+    expect.assert(result.ok, "expected parseManuscript to succeed");
     expect(result.warnings).toEqual([]);
     expect(result.value).toEqual({
       source: "A😀\r\n家",
@@ -58,8 +57,7 @@ describe("parseManuscript", () => {
     const source = "😀[b:𠮷野][[rb:漢字>かんじ]]";
     const result = parseManuscript(source, { parser: pixivParser });
 
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
+    expect.assert(result.ok, "expected parseManuscript to succeed");
     expect(result.value.displayText).toBe("😀𠮷野漢字");
     expect(result.value.annotations).toEqual([
       {
@@ -85,8 +83,7 @@ describe("parseManuscript", () => {
   test("recovers unknown or malformed Pixiv notation as text with warnings", () => {
     const result = parseManuscript("[unknown:text]\n[b:broken", { parser: pixivParser });
 
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
+    expect.assert(result.ok, "expected parseManuscript to succeed");
     expect(result.value.displayText).toBe("[unknown:text]\n[b:broken");
     expect(result.warnings.map(({ origin, severity }) => [origin, severity])).toEqual([
       [{ kind: "parser", id: "kg/pixiv" }, "warning"],
@@ -119,8 +116,7 @@ describe("parseManuscript", () => {
     };
     const result = parseManuscript("source", { parser });
 
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
+    expect.assert(result.ok === false, "expected parseManuscript to report a failure");
     expect(result.error.kind).toBe("InvalidParserOutput");
   });
 

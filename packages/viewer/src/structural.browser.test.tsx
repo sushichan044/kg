@@ -60,18 +60,21 @@ const hostStyles = `
 
 async function renderWithHostStyles(text: string, parser?: ManuscriptParser) {
   const parsed = parseManuscript(text, { parser });
-  if (!parsed.ok) throw new Error("fixture did not parse");
+  expect.assert(parsed.ok, "fixture did not parse");
+
   const composed = composeManuscript(parsed.value, {
     composer: manuscriptGridComposer,
     settings: ManuscriptCompositionSettings.defaults,
   });
-  if (!composed.ok) throw new Error("fixture did not compose");
+  expect.assert(composed.ok, "fixture did not compose");
+
   const proofread = proofreadManuscript(composed.value, {
     rules: createDefaultProofreadingRules(),
   });
-  if (!proofread.ok) throw new Error("fixture did not proofread");
+  expect.assert(proofread.ok, "fixture did not proofread");
+
   const diagnostics = [...parsed.warnings, ...proofread.value];
-  if (diagnostics.length === 0) throw new Error("fixture produced no diagnostics");
+  expect.assert(diagnostics.length > 0, "fixture produced no diagnostics");
 
   const screen = await render(
     <>
@@ -82,7 +85,8 @@ async function renderWithHostStyles(text: string, parser?: ManuscriptParser) {
   );
   const query = <T extends HTMLElement>(selector: string) => {
     const element = screen.container.querySelector<T>(selector);
-    if (element === null) throw new Error(`missing ${selector}`);
+    expect.assert(element !== null, `missing ${selector}`);
+
     return element;
   };
   return { query, styleOf: (selector: string) => getComputedStyle(query(selector)) };

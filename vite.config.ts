@@ -85,6 +85,19 @@ export default defineConfig({
           "no-empty-pattern": ["error", { allowObjectPatternsAsParameters: true }],
         },
       },
+      {
+        files: [
+          "internal/frontend/src/lib/storage.browser.test.ts",
+          "internal/frontend/src/App.browser.test.tsx",
+        ],
+        rules: {
+          // oxlint's vitest plugin (oxlint 1.75) does not trace bindings through
+          // `test.extend()`, so it treats every `expect` in a test built from the
+          // extended `test` as standalone. Re-enable once oxlint follows the chain:
+          // https://oxc.rs/docs/guide/usage/linter/plugins.html#supported-plugins
+          "vitest/no-standalone-expect": "off",
+        },
+      },
     ],
   },
 
