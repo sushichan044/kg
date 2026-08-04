@@ -39,13 +39,9 @@ const defaultZoom = {
   onChange: () => {},
 };
 
-type ViewerFixtureProps = Omit<ManuscriptViewerProps, "composed" | "diagnostics" | "zoom"> &
-  Readonly<{ zoom?: ManuscriptViewerProps["zoom"] }>;
+type ViewerFixtureProps = Omit<ManuscriptViewerProps, "composed" | "diagnostics">;
 
-async function renderViewer(
-  options: ViewerFixtureOptions,
-  { zoom = defaultZoom, ...props }: ViewerFixtureProps = {},
-) {
+async function renderViewer(options: ViewerFixtureOptions, props: ViewerFixtureProps = {}) {
   const parsed = parseManuscript(options.text ?? "", { parser: options.parser });
   expect.assert(parsed.ok, "fixture did not parse");
 
@@ -66,7 +62,7 @@ async function renderViewer(
 
   const diagnostics = [...parsed.warnings, ...proofread.value];
   const screen = await render(
-    <ManuscriptViewer composed={composed.value} diagnostics={diagnostics} zoom={zoom} {...props} />,
+    <ManuscriptViewer composed={composed.value} diagnostics={diagnostics} {...props} />,
   );
 
   return { composed: composed.value, diagnostics, screen };
@@ -345,6 +341,26 @@ test("splits annotations at line boundaries and repeats ruby readings", async ()
   ]);
 });
 
+test("splits a mono ruby reading between the line fragments it belongs to", async () => {
+  const { screen } = await renderViewer({
+    text: "[[rb:あいうえおかきくけこさし > アイウエオカキクケコサシ]]",
+    settings,
+    parser: pixivParser,
+  });
+
+  const rubyFragments = screen.container.querySelectorAll<HTMLElement>('[data-annotation="ruby"]');
+
+  expect(Array.from(rubyFragments, (ruby) => ruby.dataset.rubyFit)).toEqual(["mono", "mono"]);
+  expect(
+    Array.from(rubyFragments, (ruby) => {
+      const reading = ruby.querySelector(".kgv-ruby");
+      expect.assert(reading !== null, "ruby fragment has no reading");
+
+      return reading.textContent;
+    }),
+  ).toEqual(["アイウエオカキクケコ", "サシ"]);
+});
+
 test("escapes an emphasis mark before using it as a CSS string", async () => {
   const { screen } = await renderViewer({
     text: '[[emphasismark:引用>"]] ',
@@ -418,6 +434,34 @@ test("scales cells to a magnification outside the built-in scale", async () => {
   expect.assert(cell !== null, "cell did not render");
 
   expect(cell.getBoundingClientRect().width).toBeCloseTo(((10 * 96) / 72) * 0.9, 0);
+});
+
+test("fits the page when fit is enabled without a controlled zoom", async () => {
+  const { screen } = await renderViewer({ text: "あ", settings }, { fit: true });
+  screen.container.style.inlineSize = "200px";
+  screen.container.style.blockSize = "200px";
+
+  const viewport = screen.container.querySelector<HTMLElement>(".kgv-viewport");
+  const page = screen.container.querySelector<HTMLElement>(".kgv-page");
+  expect.assert(viewport !== null, "viewer has no viewport");
+  expect.assert(page !== null, "viewer has no page");
+
+  await expect
+    .poll(() => {
+      const style = getComputedStyle(viewport);
+      const availableWidth =
+        viewport.clientWidth -
+        Number.parseFloat(style.paddingInlineStart) -
+        Number.parseFloat(style.paddingInlineEnd);
+      const availableHeight =
+        viewport.clientHeight -
+        Number.parseFloat(style.paddingBlockStart) -
+        Number.parseFloat(style.paddingBlockEnd);
+      const pageRectangle = page.getBoundingClientRect();
+
+      return pageRectangle.width <= availableWidth && pageRectangle.height <= availableHeight;
+    })
+    .toBe(true);
 });
 
 test("renders each vertical line as an independent grid with a half-em gap", async () => {

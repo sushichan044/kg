@@ -6,20 +6,27 @@ import type {
   ManuscriptAnnotation,
   ManuscriptDiagnostic,
 } from "@sushichan044/kg-core";
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { CSSProperties, ForwardedRef, ReactNode } from "react";
 
 import { fitZoom } from "./fit-zoom";
 
 const NO_DIAGNOSTICS: readonly ManuscriptDiagnostic[] = [];
 
-const DEFAULT_ZOOM: ManuscriptViewerZoom = {
+const DEFAULT_ZOOM = {
   value: 100,
   min: 1,
   max: Number.MAX_SAFE_INTEGER,
   step: 1,
-  onChange: () => {},
-};
+} satisfies Omit<ManuscriptViewerZoom, "onChange">;
 
 export type ManuscriptViewerProps = Readonly<{
   composed: GridComposedManuscript;
@@ -148,13 +155,19 @@ function readingCharacters(reading: string): ReadingCharacter[] {
 type AnnotationFragmentProps = Readonly<{
   annotation: ManuscriptAnnotation;
   /**
-   * Cells this fragment covers. A reading repeats when its base is split across lines.
+   * Offset and length of the cells this fragment covers within the complete annotation base.
    */
+  baseOffset: number;
   baseCharacters: number;
   children: ReactNode;
 }>;
 
-function AnnotationFragment({ annotation, baseCharacters, children }: AnnotationFragmentProps) {
+function AnnotationFragment({
+  annotation,
+  baseOffset,
+  baseCharacters,
+  children,
+}: AnnotationFragmentProps) {
   switch (annotation.kind) {
     case "bold": {
       return (
@@ -172,10 +185,14 @@ function AnnotationFragment({ annotation, baseCharacters, children }: Annotation
     }
     case "ruby": {
       const reading = readingCharacters(annotation.reading);
+      const annotationBaseCharacters =
+        annotation.range.graphemes.end - annotation.range.graphemes.start;
       // One reading character per base character belongs to the character below it — mono ruby.
       // Any other count belongs to the compound as a whole — group ruby. structural.css places the
       // two differently.
-      const fit = reading.length === baseCharacters ? "mono" : "group";
+      const fit = reading.length === annotationBaseCharacters ? "mono" : "group";
+      const fragmentReading =
+        fit === "mono" ? reading.slice(baseOffset, baseOffset + baseCharacters) : reading;
       return (
         <ruby className="kgv-annotation" data-annotation="ruby" data-ruby-fit={fit}>
           {children}
@@ -184,7 +201,7 @@ function AnnotationFragment({ annotation, baseCharacters, children }: Annotation
               may take over, but they all treat a plain span as a plain span. */}
           <rt aria-hidden="true">
             <span className="kgv-ruby">
-              {reading.map(({ character, offset }) => (
+              {fragmentReading.map(({ character, offset }) => (
                 <span key={offset} className="kgv-ruby-character">
                   {character}
                 </span>
@@ -210,6 +227,7 @@ function AnnotationFragment({ annotation, baseCharacters, children }: Annotation
 
 function wrapAnnotations(
   annotations: readonly ManuscriptAnnotation[],
+  baseStart: number,
   baseCharacters: number,
   children: ReactNode,
 ) {
@@ -218,6 +236,7 @@ function wrapAnnotations(
       <AnnotationFragment
         key={annotationKey(annotation)}
         annotation={annotation}
+        baseOffset={baseStart - annotation.range.graphemes.start}
         baseCharacters={baseCharacters}
       >
         {wrapped}
@@ -232,7 +251,7 @@ function ManuscriptViewerComponent(
     composed,
     diagnostics = NO_DIAGNOSTICS,
     activeDiagnosticId = null,
-    zoom = DEFAULT_ZOOM,
+    zoom,
     fit = false,
     ariaLabel = "原稿プレビュー",
     className,
@@ -247,7 +266,10 @@ function ManuscriptViewerComponent(
   const diagnosticRefs = useRef(new Map<string, HTMLElement>());
   const pendingPageRef = useRef<number | null>(null);
   const visiblePageRef = useRef(0);
-  const { max, min, onChange, step, value } = zoom;
+  const [uncontrolledZoom, setUncontrolledZoom] = useState(DEFAULT_ZOOM.value);
+  const { max, min, step } = zoom ?? DEFAULT_ZOOM;
+  const value = zoom?.value ?? uncontrolledZoom;
+  const onChange = zoom?.onChange ?? setUncontrolledZoom;
   const selectedFont = FontPreset.of(composed.settings.appearance.fontPreset);
 
   const scrollToPage = useCallback(
@@ -447,6 +469,7 @@ function ManuscriptViewerComponent(
                             <span key={fragment.id} className="kgv-annotation-stack">
                               {wrapAnnotations(
                                 fragment.annotations,
+                                fragment.cells[0]?.cell.range?.graphemes.start ?? 0,
                                 fragment.cells.length,
                                 rendered,
                               )}
