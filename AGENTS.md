@@ -4,6 +4,10 @@ This file provides guidance to Coding Agents when working with code in this repo
 
 ---
 
+## Generic Coding Standard
+
+- Use arrange-act-assert pattern and insert proper newlines for readability.
+
 ## Golang Coding Standard
 
 - use `testify` for testing and assertions.

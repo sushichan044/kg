@@ -1,1 +1,0 @@
-/Users/sushichan044/workspace/github.com/sushichan044/kg/.agents/skills/golang-security/references/logging.md

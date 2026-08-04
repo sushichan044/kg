@@ -140,24 +140,18 @@ const TaxiRequest = {
 
   describe: (request: TaxiRequest): string => {
     switch (request.kind) {
-      case "Waiting": {
+      case "Waiting":
         return `Waiting (created ${request.createdAt.toISOString()})`;
-      }
-      case "EnRoute": {
+      case "EnRoute":
         return `Driver ${request.driverId} en route`;
-      }
-      case "InTrip": {
+      case "InTrip":
         return `In trip since ${request.startedAt.toISOString()}`;
-      }
-      case "Completed": {
+      case "Completed":
         return `Completed at ${request.completedAt.toISOString()}`;
-      }
-      case "Cancelled": {
+      case "Cancelled":
         return `Cancelled: ${request.reason}`;
-      }
-      default: {
+      default:
         return assertNever(request);
-      }
     }
   },
 } as const;
