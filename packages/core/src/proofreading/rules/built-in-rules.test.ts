@@ -10,7 +10,8 @@ import {
 } from "./consistent-kanji-opening";
 import { consistentLatinWidthRule } from "./consistent-latin-width";
 import { consistentNumeralWidthRule } from "./consistent-numeral-width";
-import { dashCharacterRule } from "./dash-character";
+import { createDashRule, dashRule } from "./dash";
+import { createDefaultProofreadingRules } from "./default-rules";
 import { ellipsisCharacterRule } from "./ellipsis-character";
 import { fullwidthJapanesePunctuationRule } from "./fullwidth-japanese-punctuation";
 import { createParagraphOpeningRule, paragraphOpeningRule } from "./paragraph-opening";
@@ -32,6 +33,16 @@ function only(diagnostics: readonly ManuscriptDiagnostic[]): ManuscriptDiagnosti
   expect.assert(first !== undefined, "expected one diagnostic");
 
   return first;
+}
+
+function diagnoseWithDefaults(source: string): readonly ManuscriptDiagnostic[] {
+  const parsed = parseManuscript(source);
+  expect.assert(parsed.ok, "fixture did not parse");
+
+  const result = proofreadManuscript(parsed.value, { rules: createDefaultProofreadingRules() });
+  expect.assert(result.ok, "expected proofreadManuscript to succeed");
+
+  return result.value;
 }
 
 describe("paragraphOpeningRule", () => {
@@ -217,27 +228,111 @@ describe("ellipsisCharacterRule", () => {
   });
 });
 
-describe("dashCharacterRule", () => {
-  test("reports em dashes standing in for a dash", () => {
-    const diagnostics = diagnose("　そう——ですか", dashCharacterRule());
+describe("dashRule", () => {
+  test("accepts an even run of the default dash", () => {
+    const diagnostics = diagnose("　そう――ですか", dashRule());
 
-    expect(only(diagnostics).range.display).toEqual({ start: 3, end: 5 });
+    expect(diagnostics).toEqual([]);
+  });
+
+  test("reports an odd run of the default dash", () => {
+    const diagnostics = diagnose("　そう―ですか", dashRule());
+
+    expect(only(diagnostics)).toMatchObject({
+      id: "rule:kg/dash:even-count:3:4",
+      origin: { id: "kg/dash" },
+      message: "連続するダッシュの数は偶数にしてください",
+      range: { display: { start: 3, end: 4 } },
+    });
+  });
+
+  test("reports em dashes when the default dash is preferred", () => {
+    const diagnostics = diagnose("　そう——ですか", dashRule());
+
+    expect(only(diagnostics)).toMatchObject({
+      id: "rule:kg/dash:character:3:5",
+      origin: { id: "kg/dash" },
+      message: "ダッシュには「―」を使ってください",
+      range: { display: { start: 3, end: 5 } },
+    });
   });
 
   test("reports repeated hyphens", () => {
-    const diagnostics = diagnose("　そう--ですか", dashCharacterRule());
+    const diagnostics = diagnose("　そう--ですか", dashRule());
 
     expect(only(diagnostics).range.display).toEqual({ start: 3, end: 5 });
   });
 
-  test("reports fullwidth hyphen-minus", () => {
-    const diagnostics = diagnose("　そう－－ですか", dashCharacterRule());
+  test.each(["–", "─", "━", "﹣", "－"])("reports the non-preferred dash %s", (dash) => {
+    const diagnostics = diagnose(`　そう${dash}${dash}ですか`, dashRule());
 
-    expect(only(diagnostics).range.display).toEqual({ start: 3, end: 5 });
+    expect(only(diagnostics)).toMatchObject({
+      id: "rule:kg/dash:character:3:5",
+      message: "ダッシュには「―」を使ってください",
+    });
   });
 
-  test("leaves a repeated choonpu to its own rule", () => {
-    const diagnostics = diagnose("　そーーですか", dashCharacterRule());
+  test("accepts a single ASCII hyphen", () => {
+    const diagnostics = diagnose("　A-B", dashRule());
+
+    expect(diagnostics).toEqual([]);
+  });
+
+  test("reports a mixed run only as a character error", () => {
+    const diagnostics = diagnose("　そう―—―ですか", dashRule());
+
+    expect(only(diagnostics)).toMatchObject({
+      id: "rule:kg/dash:character:3:6",
+      range: { display: { start: 3, end: 6 } },
+    });
+  });
+
+  test("leaves repeated choonpu alone", () => {
+    const diagnostics = diagnose("　そーーですか", dashRule());
+
+    expect(diagnostics).toEqual([]);
+  });
+});
+
+describe("createDashRule", () => {
+  test.each([
+    { preferred: "—" as const, alternative: "―" },
+    { preferred: "─" as const, alternative: "—" },
+  ])("honours $preferred as the preferred dash", ({ preferred, alternative }) => {
+    const result = createDashRule({ preferred });
+    expect.assert(result.ok, "fixture did not build");
+
+    const accepted = diagnose(`　そう${preferred}${preferred}ですか`, result.value);
+    const odd = diagnose(`　そう${preferred}ですか`, result.value);
+    const rejected = diagnose(`　そう${alternative}${alternative}ですか`, result.value);
+
+    expect(accepted).toEqual([]);
+    expect(only(odd)).toMatchObject({
+      id: "rule:kg/dash:even-count:3:4",
+      message: "連続するダッシュの数は偶数にしてください",
+    });
+    expect(only(rejected)).toMatchObject({
+      id: "rule:kg/dash:character:3:5",
+      message: `ダッシュには「${preferred}」を使ってください`,
+    });
+  });
+
+  test("rejects a character that is not a supported dash", () => {
+    // JavaScript callers are not protected by DashOptions, so the runtime boundary must reject it.
+    const result = createDashRule({ preferred: "ー" as never });
+
+    expect.assert(result.ok === false, "expected createDashRule to reject");
+    expect(result.error).toMatchObject({
+      kind: "InvalidRuleOptions",
+      ruleId: "kg/dash",
+      option: "preferred",
+    });
+  });
+});
+
+describe("createDefaultProofreadingRules", () => {
+  test("allows repeated choonpu", () => {
+    const diagnostics = diagnoseWithDefaults("　そーーですか");
 
     expect(diagnostics).toEqual([]);
   });

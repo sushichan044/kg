@@ -84,10 +84,10 @@ export type {
 } from "./proofreading/rules/consistent-kanji-opening";
 export { consistentLatinWidthRule } from "./proofreading/rules/consistent-latin-width";
 export { consistentNumeralWidthRule } from "./proofreading/rules/consistent-numeral-width";
-export { dashCharacterRule } from "./proofreading/rules/dash-character";
+export { createDashRule, dashRule } from "./proofreading/rules/dash";
+export type { DashOptions } from "./proofreading/rules/dash";
 export { createDefaultProofreadingRules } from "./proofreading/rules/default-rules";
 export { ellipsisCharacterRule } from "./proofreading/rules/ellipsis-character";
-export { evenDashRule } from "./proofreading/rules/even-dash";
 export { evenEllipsisRule } from "./proofreading/rules/even-ellipsis";
 export { fullwidthJapanesePunctuationRule } from "./proofreading/rules/fullwidth-japanese-punctuation";
 export {
@@ -96,7 +96,6 @@ export {
 } from "./proofreading/rules/max-arabic-numeral-digits";
 export type { MaxArabicNumeralDigitsOptions } from "./proofreading/rules/max-arabic-numeral-digits";
 export { minusBeforeNumberRule } from "./proofreading/rules/minus-before-number";
-export { noConsecutiveChoonpuRule } from "./proofreading/rules/no-consecutive-choonpu";
 export { noConsecutiveInterpunctRule } from "./proofreading/rules/no-consecutive-interpunct";
 export { noConsecutivePunctuationRule } from "./proofreading/rules/no-consecutive-punctuation";
 export {
