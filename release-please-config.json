@@ -14,14 +14,16 @@
       "component": "kg-core",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
-      "draft": true
+      "draft": true,
+      "force-tag-creation": true
     },
     "packages/viewer": {
       "release-type": "node",
       "component": "kg-viewer",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
-      "draft": true
+      "draft": true,
+      "force-tag-creation": true
     }
   },
   "plugins": [
