@@ -52,7 +52,17 @@ function suggestPlainForm(segment: string): string | undefined {
     })
     .join("");
 
-  const normalized = (withoutSelectors === "" ? segment : withoutSelectors).normalize("NFKC");
+  if (withoutSelectors === "") return undefined;
+
+  const normalized = Array.from(withoutSelectors)
+    .map((character) => {
+      const codePoint = character.codePointAt(0);
+      return codePoint !== undefined && isCompatibilityIdeograph(codePoint)
+        ? character.normalize("NFKC")
+        : character;
+    })
+    .join("");
+
   return normalized === segment ? undefined : normalized;
 }
 

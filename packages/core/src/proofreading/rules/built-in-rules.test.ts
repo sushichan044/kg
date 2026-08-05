@@ -515,6 +515,14 @@ describe("variantCharacterRule", () => {
     });
   });
 
+  test("keeps a fullwidth base character fullwidth instead of NFKC-folding it to ASCII", () => {
+    const diagnostics = diagnose("\u{FF21}\u{FE0F}", variantCharacterRule());
+
+    expect(only(diagnostics)).toMatchObject({
+      message: "異体字または字形選択子が使われています。「\u{FF21}」ではありませんか？",
+    });
+  });
+
   test("falls back to the plain message when no suggestion differs from the input", () => {
     const diagnostics = diagnose("᠋", variantCharacterRule());
 
