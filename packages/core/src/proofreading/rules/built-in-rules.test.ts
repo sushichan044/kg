@@ -16,6 +16,7 @@ import { ellipsisCharacterRule } from "./ellipsis-character";
 import { fullwidthJapanesePunctuationRule } from "./fullwidth-japanese-punctuation";
 import { createParagraphOpeningRule, paragraphOpeningRule } from "./paragraph-opening";
 import { spaceAfterQuestionOrExclamationRule } from "./space-after-question-or-exclamation";
+import { variantCharacterRule } from "./variant-character";
 
 function diagnose(source: string, rule: ParsedProofreadingRule): readonly ManuscriptDiagnostic[] {
   const parsed = parseManuscript(source);
@@ -471,5 +472,54 @@ describe("createConsistentKanjiOpeningRule", () => {
     const diagnostics = diagnose("　その事とそのこと", rule.value);
 
     expect(only(diagnostics).range.display).toEqual({ start: 3, end: 4 });
+  });
+});
+
+describe("variantCharacterRule", () => {
+  test("stays quiet on a plain character with no selector", () => {
+    const diagnostics = diagnose("☆彡", variantCharacterRule());
+
+    expect(diagnostics).toEqual([]);
+  });
+
+  test("suggests the plain form for a star with an emoji presentation selector", () => {
+    const diagnostics = diagnose("☆️彡", variantCharacterRule());
+
+    expect(only(diagnostics)).toMatchObject({
+      message: "異体字または字形選択子が使われています。「☆」ではありませんか？",
+      range: { source: { start: 0, end: 2 } },
+    });
+  });
+
+  test("suggests the plain form for a star with a text presentation selector", () => {
+    const diagnostics = diagnose("☆︎彡", variantCharacterRule());
+
+    expect(only(diagnostics)).toMatchObject({
+      message: "異体字または字形選択子が使われています。「☆」ではありませんか？",
+    });
+  });
+
+  test("suggests the base kanji for an ideographic variation sequence", () => {
+    const diagnostics = diagnose("辻\u{E0100}", variantCharacterRule());
+
+    expect(only(diagnostics)).toMatchObject({
+      message: "異体字または字形選択子が使われています。「辻」ではありませんか？",
+    });
+  });
+
+  test("suggests the unified form for a CJK compatibility ideograph", () => {
+    const diagnostics = diagnose("\u{F900}", variantCharacterRule());
+
+    expect(only(diagnostics)).toMatchObject({
+      message: "異体字または字形選択子が使われています。「\u{8C48}」ではありませんか？",
+    });
+  });
+
+  test("falls back to the plain message when no suggestion differs from the input", () => {
+    const diagnostics = diagnose("᠋", variantCharacterRule());
+
+    expect(only(diagnostics)).toMatchObject({
+      message: "異体字または字形選択子が使われています",
+    });
   });
 });
