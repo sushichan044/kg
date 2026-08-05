@@ -1,12 +1,11 @@
 # kg
 
-`kg` is a local browser previewer for Japanese novels and short stories written
-as plain-text files. It watches the source files, lays them out on a vertical
-manuscript grid, and refreshes the browser as the files change.
+`kg` is a toolkit for programmatically handling Japanese novel texts.
+It allows for parsing, normalization of proprietary notation used on web novel platforms, and column formatting with layout settings.
+It also provides writing-assist preview tools, a CLI, and more.
 
-The preview is an approximate visual check rather than print-ready typesetting.
-It intentionally leaves line-breaking and novel-style errors in place so the
-writer corrects the original manuscript.
+> [!TIP]
+> `kg` means `karigumi` and `kaguya`.
 
 ## Installation
 
