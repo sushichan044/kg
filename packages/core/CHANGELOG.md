@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/sushichan044/kg/compare/kg-core-v0.6.0...kg-core-v0.6.1) (2026-08-05)
+
+
+### Bug Fixes
+
+* **proofreading:** suggest a plain form for variant-character findings ([#67](https://github.com/sushichan044/kg/issues/67)) ([6f2135b](https://github.com/sushichan044/kg/commit/6f2135b9b5fcddb55d06b2a9c2377726c39c5bbc))
+
 ## [0.6.0](https://github.com/sushichan044/kg/compare/kg-core-v0.5.0...kg-core-v0.6.0) (2026-08-04)
 
 

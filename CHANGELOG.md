@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/sushichan044/kg/compare/v0.4.0...v0.4.1) (2026-08-05)
+
+
+### Bug Fixes
+
+* **proofreading:** suggest a plain form for variant-character findings ([#67](https://github.com/sushichan044/kg/issues/67)) ([6f2135b](https://github.com/sushichan044/kg/commit/6f2135b9b5fcddb55d06b2a9c2377726c39c5bbc))
+
 ## [0.4.0](https://github.com/sushichan044/kg/compare/v0.3.0...v0.4.0) (2026-08-04)
 
 
