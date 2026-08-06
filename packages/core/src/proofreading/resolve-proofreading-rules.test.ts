@@ -27,7 +27,7 @@ describe("resolveProofreadingRules", () => {
   });
 
   test("skips a rule the config never mentions", () => {
-    const resolved = resolveProofreadingRules({ rules: { "kg/dash": "on" } });
+    const resolved = resolveProofreadingRules({ rules: { "kg/dash": "error" } });
 
     expect(ids(resolved)).toEqual(["kg/dash"]);
   });
@@ -41,17 +41,8 @@ describe("resolveProofreadingRules", () => {
     expect(result.value).toEqual([]);
   });
 
-  test("on keeps the rule's own default severity", () => {
-    const resolved = resolveProofreadingRules({ rules: { "kg/consistent-kanji-opening": "on" } });
-    expect.assert(resolved.ok, "expected resolveProofreadingRules to succeed");
-
-    const result = proofreadManuscript(parsed("　出来る\n　できる"), { rules: resolved.value });
-    expect.assert(result.ok, "expected proofreadManuscript to succeed");
-    expect(result.value).toMatchObject([{ severity: "warning" }]);
-  });
-
-  test("an explicit severity overrides the rule's own default", () => {
-    const resolved = resolveProofreadingRules({ rules: { "kg/paragraph-opening": "warning" } });
+  test("warn produces a warning-severity report even for a rule with no severity of its own", () => {
+    const resolved = resolveProofreadingRules({ rules: { "kg/paragraph-opening": "warn" } });
     expect.assert(resolved.ok, "expected resolveProofreadingRules to succeed");
 
     const result = proofreadManuscript(parsed("本文"), { rules: resolved.value });
@@ -59,9 +50,20 @@ describe("resolveProofreadingRules", () => {
     expect(result.value).toMatchObject([{ severity: "warning" }]);
   });
 
-  test("an explicit severity applies to every report the rule produces", () => {
+  test("error forces an error-severity report even for a rule that reports warning on its own", () => {
     const resolved = resolveProofreadingRules({
-      rules: { "kg/fullwidth-japanese-punctuation": "warning" },
+      rules: { "kg/consistent-kanji-opening": "error" },
+    });
+    expect.assert(resolved.ok, "expected resolveProofreadingRules to succeed");
+
+    const result = proofreadManuscript(parsed("　出来る\n　できる"), { rules: resolved.value });
+    expect.assert(result.ok, "expected proofreadManuscript to succeed");
+    expect(result.value).toMatchObject([{ severity: "error" }]);
+  });
+
+  test("a chosen level applies to every report the rule produces", () => {
+    const resolved = resolveProofreadingRules({
+      rules: { "kg/fullwidth-japanese-punctuation": "warn" },
     });
     expect.assert(resolved.ok, "expected resolveProofreadingRules to succeed");
 
@@ -75,7 +77,7 @@ describe("resolveProofreadingRules", () => {
 
   test("rejects an unknown rule ID", () => {
     const resolved = resolveProofreadingRules({
-      rules: { "kg/no-such-rule": "on" } as never,
+      rules: { "kg/no-such-rule": "error" } as never,
     });
 
     expect.assert(resolved.ok === false, "expected resolveProofreadingRules to reject");
@@ -84,7 +86,7 @@ describe("resolveProofreadingRules", () => {
 
   test("rejects options for a rule that does not take any", () => {
     const resolved = resolveProofreadingRules({
-      rules: { "kg/ellipsis-character": ["on", {}] as never },
+      rules: { "kg/ellipsis-character": ["error", {}] as never },
     });
 
     expect.assert(resolved.ok === false, "expected resolveProofreadingRules to reject");
@@ -96,7 +98,7 @@ describe("resolveProofreadingRules", () => {
 
   test("rejects invalid options for a rule that takes them", () => {
     const resolved = resolveProofreadingRules({
-      rules: { "kg/dash": ["on", { preferred: "ー" }] as never },
+      rules: { "kg/dash": ["error", { preferred: "ー" }] as never },
     });
 
     expect.assert(resolved.ok === false, "expected resolveProofreadingRules to reject");
@@ -135,7 +137,7 @@ describe("resolveProofreadingRules", () => {
 describe("resolveProofreadingRules: rejected options carried over from individual rule factories", () => {
   test("rejects an empty openingBrackets set", () => {
     const resolved = resolveProofreadingRules({
-      rules: { "kg/paragraph-opening": ["on", { openingBrackets: "" }] },
+      rules: { "kg/paragraph-opening": ["error", { openingBrackets: "" }] },
     });
 
     expect.assert(resolved.ok === false, "expected resolveProofreadingRules to reject");
@@ -147,7 +149,7 @@ describe("resolveProofreadingRules: rejected options carried over from individua
 
   test("rejects a non-integer digit limit", () => {
     const resolved = resolveProofreadingRules({
-      rules: { "kg/max-arabic-numeral-digits": ["on", { maxDigits: 0 }] },
+      rules: { "kg/max-arabic-numeral-digits": ["error", { maxDigits: 0 }] },
     });
 
     expect.assert(resolved.ok === false, "expected resolveProofreadingRules to reject");
@@ -160,7 +162,7 @@ describe("resolveProofreadingRules: rejected options carried over from individua
   test("rejects an incomplete kanji/kana pair", () => {
     const resolved = resolveProofreadingRules({
       rules: {
-        "kg/consistent-kanji-opening": ["on", { pairs: [{ closed: "", opened: "こと" }] }],
+        "kg/consistent-kanji-opening": ["warn", { pairs: [{ closed: "", opened: "こと" }] }],
       },
     });
 
@@ -174,7 +176,7 @@ describe("resolveProofreadingRules: rejected options carried over from individua
   test("rejects a pair whose two spellings are identical", () => {
     const resolved = resolveProofreadingRules({
       rules: {
-        "kg/consistent-kanji-opening": ["on", { pairs: [{ closed: "事", opened: "事" }] }],
+        "kg/consistent-kanji-opening": ["warn", { pairs: [{ closed: "事", opened: "事" }] }],
       },
     });
 

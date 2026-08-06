@@ -43,9 +43,10 @@ validated. Proofreading rules declare which manuscript they inspect through a
 Built-in proofreading rules are registered as definitions — an ID, an optional
 options schema, and a factory — not as instances. `resolveProofreadingRules`
 turns an ID-keyed config into rule instances, the way ESLint and textlint
-resolve a config into a rule set. A config's severity, when given, overrides
-the severity a rule's own reports choose; omitting it keeps the rule's
-default.
+resolve a config into a rule set. A config entry is a flat `"off" | "warn" |
+"error"` level; `"warn"` and `"error"` both enable the rule and set every
+report it produces to that severity, so a rule's own report severity never
+decides the outcome once it runs through config.
 
 Source, display, and grapheme ranges share one structural representation but
 use distinct branded types. Source and display offsets are zero-based,

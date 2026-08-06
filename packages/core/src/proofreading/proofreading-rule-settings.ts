@@ -1,14 +1,13 @@
 import type * as v from "valibot";
 
-import type { DiagnosticSeverity } from "../diagnostic/diagnostic-severity";
 import type { ProofreadingRuleRegistry } from "./rules/registry";
 
 /**
- * `"off"` disables the rule. `"on"` runs it at the severity its own reports choose. `"warning"` and
- * `"error"` override every report the rule produces, the way config wins over a rule's own default
- * in ESLint and textlint.
+ * `"off"` disables the rule. `"warn"` and `"error"` both enable it and set every report it produces
+ * to that severity — the same flat, three-value shape ESLint and textlint use, with no separate
+ * "on" that would otherwise leave a rule's own default severity as a second, hidden axis.
  */
-export type ProofreadingRuleLevel = "off" | "on" | DiagnosticSeverity;
+export type ProofreadingRuleLevel = "off" | "warn" | "error";
 
 /**
  * The options a definition's `create` accepts, or `never` for a definition that takes none. `never`

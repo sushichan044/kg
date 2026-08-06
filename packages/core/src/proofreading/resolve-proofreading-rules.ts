@@ -1,16 +1,16 @@
 import * as v from "valibot";
 
-import { DiagnosticSeverity } from "../diagnostic/diagnostic-severity";
+import type { DiagnosticSeverity } from "../diagnostic/diagnostic-severity";
 import { readonlyObject } from "../internal/schema";
 import { ManuscriptResult } from "../result/manuscript-result";
 import { ValidationIssue } from "../result/validation-issue";
 import type { ProofreadingConfigError } from "./proofreading-config-error";
 import type { ParsedProofreadingRule } from "./proofreading-rule";
 import type { ProofreadingRuleContext } from "./proofreading-rule-context";
-import type { ProofreadingRuleSettings } from "./proofreading-rule-settings";
+import type { ProofreadingRuleLevel, ProofreadingRuleSettings } from "./proofreading-rule-settings";
 import { proofreadingRuleRegistry } from "./rules/registry";
 
-const LevelSchema = v.union([v.picklist(["off", "on"]), DiagnosticSeverity.schema]);
+const LevelSchema = v.picklist(["off", "warn", "error"]);
 
 /**
  * Validated loosely on purpose: whether a rule takes an options tuple, and what shape those options
@@ -31,6 +31,11 @@ export type ProofreadingConfig = Readonly<{ rules: ProofreadingRuleSettings }>;
 const registryById: ReadonlyMap<string, (typeof proofreadingRuleRegistry)[number]> = new Map(
   proofreadingRuleRegistry.map((definition) => [definition.id, definition]),
 );
+
+const SEVERITY_BY_LEVEL: Readonly<Record<"warn" | "error", DiagnosticSeverity>> = {
+  warn: "warning",
+  error: "error",
+};
 
 /**
  * Wraps a rule so every report it produces carries `severity`, overriding whatever severity the
@@ -58,9 +63,9 @@ function withSeverity(
  * Resolves a rule ID → setting config into rule instances the way `proofreadManuscript` expects
  * them, applying options and severity per rule the way ESLint and textlint apply per-rule config.
  *
- * `"off"` and an absent entry both skip the rule. `"on"` keeps the rule's own report severity;
- * `"warning"` and `"error"` override every report the rule produces, config winning over the rule's
- * own default the way it does in ESLint and textlint.
+ * `"off"` and an absent entry both skip the rule. `"warn"` and `"error"` both enable the rule and
+ * set every report it produces to that severity, so a rule's own report severity is never the
+ * deciding factor once it runs through config.
  */
 export function resolveProofreadingRules(
   config: ProofreadingConfig,
@@ -88,7 +93,8 @@ export function resolveProofreadingRules(
     const setting = settings[definition.id];
     if (setting === undefined) continue;
 
-    const [level, rawOptions] = typeof setting === "string" ? [setting, undefined] : setting;
+    const [level, rawOptions]: readonly [ProofreadingRuleLevel, unknown] =
+      typeof setting === "string" ? [setting, undefined] : setting;
     if (level === "off") continue;
 
     let rule: ParsedProofreadingRule;
@@ -115,7 +121,7 @@ export function resolveProofreadingRules(
       rule = definition.create();
     }
 
-    rules.push(level === "on" ? rule : withSeverity(rule, level));
+    rules.push(withSeverity(rule, SEVERITY_BY_LEVEL[level]));
   }
 
   return ManuscriptResult.succeed(rules);

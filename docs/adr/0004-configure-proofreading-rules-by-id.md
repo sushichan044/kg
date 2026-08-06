@@ -47,16 +47,17 @@ const rules = resolveProofreadingRules({
   rules: {
     ...recommendedProofreadingRules,
     "kg/dash": ["error", { preferred: "―" }],
-    "kg/consistent-kanji-opening": "warning",
+    "kg/consistent-kanji-opening": "warn",
     "kg/max-arabic-numeral-digits": "off",
   },
 });
 ```
 
-1 ルールの設定値は `"off" | "on" | "warning" | "error"`、または options を伴うタプル `[level, options]`。
-`"on"` はルール自身の report が選ぶ severity をそのまま使う。
-`"warning"` と `"error"` はそのルールが出す全ての report の severity を上書きする。
-config が明示した severity が勝ち、明示しなければ report の severity がルール側の既定値として残る。
+1 ルールの設定値は `"off" | "warn" | "error"`、または options を伴うタプル `[level, options]`。
+`"off"` と未指定はどちらもそのルールを走らせない。
+`"warn"` と `"error"` はどちらもルールを有効にし、そのルールが出す全ての report の severity をその値に揃える。
+report 側の severity は、config を経由せずルールを直接使う場合の既定値でしかない。
+config を経由した瞬間、report 側の severity は意味を持たなくなる。
 
 プリセットは `extends` のような専用機構を持たず、ただの settings オブジェクトとして export する。
 呼び出し側のスプレッドで合成でき、TypeScript がその場で型検査する。
@@ -65,7 +66,7 @@ config が明示した severity が勝ち、明示しなければ report の sev
 export const recommendedProofreadingRules: ProofreadingRuleSettings = { ... };
 export const allProofreadingRules: ProofreadingRuleSettings = {
   ...recommendedProofreadingRules,
-  "kg/consistent-kanji-opening": "on",
+  "kg/consistent-kanji-opening": "warn",
   ...
 };
 ```
@@ -94,6 +95,8 @@ config の解決は原稿ごとに再実行する必要がなく、composer 固�
 
 severity を config 側の決定として持つ整理は、ESLint と textlint がどちらも同じ選択をしている。
 ルールは message だけを選び、config が最終的な重大度を決める。
+level を `"off" | "warn" | "error"` の 3 値に閉じたのも同じ理由で、on/off という有効化の軸と warning/error という重大度の軸を分けて持たせると、"on はルール自身の重大度を残す" という第三の状態が生まれ、読み手が確認しないと分からない。
+ESLint の `0/1/2`(`"off"/"warn"/"error"`)と同じ 1 軸 3 値に閉じることで、config を読むだけでそのルールがどう振る舞うかが決まる。
 
 プリセットを settings オブジェクトのまま export する選択は、`extends` チェーンや merge 専用ロジックを持たない代わりに、TypeScript の構造的型検査とスプレッドだけで合成を検証できる。
 
@@ -115,6 +118,13 @@ config の解決と実行を別関数に分けた方が、それぞれの契約�
 ### severity をレベルとオプションを分けたオブジェクト形にする
 
 `{ severity?: ..., options?: ... }` は省略の意図が読み取りやすいが、ESLint/textlint の見た目から離れ、config の記述量が増える。
+
+### `"on"` を残し、有効化と severity を別軸にする
+
+最初の実装では `"off" | "on" | "warning" | "error"` の 4 値を使い、`"on"` はルール自身の report が選ぶ severity をそのまま使う、という設計にした。
+実装してみると、有効化（off/on）と重大度（warning/error）という 2 つの軸が config の読み手に伝わりづらく、「on のときだけ実際の severity がルール側に隠れている」という非対称さが残った。
+実際には組み込みルールは 1 ルールにつき 1 つの severity しか報告しないため（`kg/fullwidth-japanese-punctuation` の分割もこれを徹底するための変更）、"ルール自身の report 側 severity を config が経由後も参照する" 場面は存在しない。
+`"on"` を削って `"off" | "warn" | "error"` の 1 軸 3 値に閉じても、表現力は落ちない。
 
 ### 独自ルール定義の登録を今回のスコープに含める
 

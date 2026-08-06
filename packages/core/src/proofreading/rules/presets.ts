@@ -13,31 +13,31 @@ import { resolveProofreadingRules } from "../resolve-proofreading-rules";
  * checks the result without any dedicated merge logic.
  */
 export const recommendedProofreadingRules: ProofreadingRuleSettings = {
-  "kg/paragraph-opening": "on",
-  "kg/punctuation-before-closing-quote": "on",
-  "kg/space-after-question-or-exclamation": "on",
-  "kg/even-ellipsis": "on",
-  "kg/dash": "on",
-  "kg/ellipsis-character": "on",
-  "kg/no-consecutive-punctuation": "on",
-  "kg/no-consecutive-interpunct": "on",
-  "kg/minus-before-number": "on",
-  "kg/max-arabic-numeral-digits": "on",
-  "kg/fullwidth-japanese-punctuation": "on",
-  "kg/halfwidth-punctuation-near-japanese": "on",
-  "kg/variant-character": "on",
+  "kg/paragraph-opening": "error",
+  "kg/punctuation-before-closing-quote": "error",
+  "kg/space-after-question-or-exclamation": "error",
+  "kg/even-ellipsis": "error",
+  "kg/dash": "error",
+  "kg/ellipsis-character": "error",
+  "kg/no-consecutive-punctuation": "error",
+  "kg/no-consecutive-interpunct": "error",
+  "kg/minus-before-number": "error",
+  "kg/max-arabic-numeral-digits": "error",
+  "kg/fullwidth-japanese-punctuation": "error",
+  "kg/halfwidth-punctuation-near-japanese": "warn",
+  "kg/variant-character": "error",
 };
 
 /**
  * Every built-in rule, including the ones that depend on the work's own conventions — which width
- * numerals and Latin letters take, whether a word is written in kanji or kana. Those rules report
- * `warning` by default, so opting in through this preset does not silently start failing a build.
+ * numerals and Latin letters take, whether a word is written in kanji or kana. Those rules are
+ * `warn`, not `error`, so opting in through this preset does not silently start failing a build.
  */
 export const allProofreadingRules: ProofreadingRuleSettings = {
   ...recommendedProofreadingRules,
-  "kg/consistent-kanji-opening": "on",
-  "kg/consistent-latin-width": "on",
-  "kg/consistent-numeral-width": "on",
+  "kg/consistent-kanji-opening": "warn",
+  "kg/consistent-latin-width": "warn",
+  "kg/consistent-numeral-width": "warn",
 };
 
 /**

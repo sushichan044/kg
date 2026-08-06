@@ -64,10 +64,11 @@ Parsers implement `ManuscriptParser`. Composers implement `ManuscriptComposer`
 and provide Valibot schemas for their settings and layout. Proofreading rules
 carry `kind: "parsed"` or `kind: "composed"` to declare which manuscript they
 need, and report findings through `context.report`. A report may name a
-`severity`; omitting it means `error`. A rule's own severity is only its
-default: config resolved through `resolveProofreadingRules` (see "Proofreading
-rules" below) can override it per rule, the way ESLint and textlint let config
-win over a rule's own default.
+`severity`; omitting it means `error`. This is a fallback for a rule used
+directly, outside config: a rule resolved through `resolveProofreadingRules`
+(see "Proofreading rules" below) always reports at the severity its config
+entry names, the way ESLint and textlint work — a rule itself has no severity
+opinion once config decides.
 
 A plugin signals its own failure with a `Rejection` — a plain reason string.
 Core turns that into a variant of the stage's error union, so plugins never
@@ -111,7 +112,7 @@ const rules = resolveProofreadingRules({
   rules: {
     ...recommendedProofreadingRules,
     "kg/dash": ["error", { preferred: "―" }],
-    "kg/consistent-kanji-opening": "warning",
+    "kg/consistent-kanji-opening": "warn",
     "kg/max-arabic-numeral-digits": "off",
   },
 });
@@ -120,12 +121,13 @@ if (!rules.ok) throw new Error(ProofreadingConfigError.describe(rules.error));
 const proofread = proofreadManuscript(composed.value, { rules: rules.value });
 ```
 
-A config entry is a bare level (`"off" | "on" | "warning" | "error"`) or, for a
-rule that takes options, a `[level, options]` tuple. `"off"` and an absent
-entry both skip the rule. `"on"` keeps the rule's own report severity;
-`"warning"` and `"error"` override every report the rule produces. An unknown
-rule ID or invalid options fail explicitly through `ProofreadingConfigError`
-rather than being dropped.
+A config entry is a bare level (`"off" | "warn" | "error"`, the same flat
+shape ESLint and textlint use) or, for a rule that takes options, a
+`[level, options]` tuple. `"off"` and an absent entry both skip the rule;
+`"warn"` and `"error"` both enable it and set every report it produces to that
+severity — a rule's own report severity is never the deciding factor once it
+runs through config. An unknown rule ID or invalid options fail explicitly
+through `ProofreadingConfigError` rather than being dropped.
 
 `recommendedProofreadingRules` is a plain settings object — not a config with
 an `extends` mechanism — holding the rules whose answer does not depend on the
