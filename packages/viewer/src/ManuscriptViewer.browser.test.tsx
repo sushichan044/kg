@@ -2,7 +2,7 @@ import {
   ManuscriptAppearanceSettings,
   ManuscriptCompositionSettings,
   composeManuscript,
-  createDefaultProofreadingRules,
+  createRecommendedProofreadingRules,
   manuscriptGridComposer,
   parseManuscript,
   pixivParser,
@@ -65,7 +65,7 @@ async function renderViewer(options: ViewerFixtureOptions, props: ViewerFixtureP
   expect.assert(composed.ok, "fixture setup failed");
 
   const proofread = proofreadManuscript(composed.value, {
-    rules: createDefaultProofreadingRules(),
+    rules: createRecommendedProofreadingRules(),
   });
   expect.assert(proofread.ok, "fixture did not proofread");
 

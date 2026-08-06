@@ -40,6 +40,13 @@ layout; core pairs that layout with the manuscript and the settings it already
 validated. Proofreading rules declare which manuscript they inspect through a
 `kind` discriminant on the rule itself.
 
+Built-in proofreading rules are registered as definitions — an ID, an optional
+options schema, and a factory — not as instances. `resolveProofreadingRules`
+turns an ID-keyed config into rule instances, the way ESLint and textlint
+resolve a config into a rule set. A config's severity, when given, overrides
+the severity a rule's own reports choose; omitting it keeps the rule's
+default.
+
 Source, display, and grapheme ranges share one structural representation but
 use distinct branded types. Source and display offsets are zero-based,
 end-exclusive UTF-16 offsets. Grapheme offsets index the parsed grapheme array.

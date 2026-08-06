@@ -1,7 +1,7 @@
 import {
   ManuscriptCompositionSettings,
   composeManuscript,
-  createDefaultProofreadingRules,
+  createRecommendedProofreadingRules,
   manuscriptGridComposer,
   parseManuscript,
   pixivParser,
@@ -69,7 +69,7 @@ async function renderWithHostStyles(text: string, parser?: ManuscriptParser) {
   expect.assert(composed.ok, "fixture did not compose");
 
   const proofread = proofreadManuscript(composed.value, {
-    rules: createDefaultProofreadingRules(),
+    rules: createRecommendedProofreadingRules(),
   });
   expect.assert(proofread.ok, "fixture did not proofread");
 

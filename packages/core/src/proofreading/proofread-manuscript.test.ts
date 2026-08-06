@@ -7,8 +7,7 @@ import type { GridComposedManuscript } from "../composer/grid-composer";
 import { parseManuscript } from "../parser/parse-manuscript";
 import { proofreadManuscript } from "./proofread-manuscript";
 import type { ComposedProofreadingRule, ParsedProofreadingRule } from "./proofreading-rule";
-import { createDefaultProofreadingRules } from "./rules/default-rules";
-import { createMaxArabicNumeralDigitsRule } from "./rules/max-arabic-numeral-digits";
+import { createRecommendedProofreadingRules } from "./rules/presets";
 
 function parsed(source: string) {
   const result = parseManuscript(source);
@@ -36,7 +35,7 @@ const noopRule = {
 describe("proofreadManuscript", () => {
   test("runs the built-in rules and derives raw locations across CRLF", () => {
     const result = proofreadManuscript(parsed("　正常\r\n問題"), {
-      rules: createDefaultProofreadingRules(),
+      rules: createRecommendedProofreadingRules(),
     });
 
     expect.assert(result.ok, "expected proofreadManuscript to succeed");
@@ -194,32 +193,5 @@ describe("proofreadManuscript", () => {
 
     expect(result.ok).toBe(true);
     expect(seen).toEqual(["parsed", "composed:1"]);
-  });
-});
-
-describe("createMaxArabicNumeralDigitsRule", () => {
-  test("reports the offending option when given a non-integer digit limit", () => {
-    const result = createMaxArabicNumeralDigitsRule({ maxDigits: 0 });
-
-    expect.assert(result.ok === false, "expected createMaxArabicNumeralDigitsRule to reject");
-    expect(result.error).toMatchObject({
-      kind: "InvalidRuleOptions",
-      ruleId: "kg/max-arabic-numeral-digits",
-      option: "maxDigits",
-    });
-  });
-
-  test("honours a configured digit limit", () => {
-    const rule = createMaxArabicNumeralDigitsRule({ maxDigits: 4 });
-    expect.assert(rule.ok, "fixture did not build");
-
-    const result = proofreadManuscript(parsed("　12345と123"), { rules: [rule.value] });
-
-    expect.assert(result.ok, "expected proofreadManuscript to succeed");
-    expect(result.value).toHaveLength(1);
-
-    const firstDiagnostic = result.value[0];
-    expect.assert(firstDiagnostic !== undefined, "expected at least one diagnostic");
-    expect(firstDiagnostic.range.display).toEqual({ start: 1, end: 6 });
   });
 });

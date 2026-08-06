@@ -1,9 +1,8 @@
 import * as v from "valibot";
 
-import { ManuscriptResult } from "../../result/manuscript-result";
-import { ValidationIssue } from "../../result/validation-issue";
-import type { InvalidRuleOptions } from "../invalid-rule-options";
+import { readonlyObject } from "../../internal/schema";
 import type { ParsedProofreadingRule } from "../proofreading-rule";
+import { defineProofreadingRule } from "../proofreading-rule-definition";
 import { OPENING_BRACKETS } from "./internal/brackets";
 import { isDecorationLine } from "./internal/decoration-line";
 import { splitDisplayLines } from "./internal/display-line";
@@ -18,9 +17,9 @@ const MESSAGES = {
   "unexpected-indent": "括弧から始まる段落を字下げすることはできません",
 } as const;
 
-const OpeningBracketsSchema = v.pipe(v.string(), v.nonEmpty());
-
-export type ParagraphOpeningOptions = Readonly<{ openingBrackets?: string }>;
+const ParagraphOpeningOptionsSchema = readonlyObject({
+  openingBrackets: v.optional(v.pipe(v.string(), v.nonEmpty()), OPENING_BRACKETS),
+});
 
 /**
  * How a paragraph opens, judged as one decision: a paragraph that opens with a bracket carries no
@@ -58,24 +57,8 @@ function build(openingBrackets: string): ParsedProofreadingRule {
   };
 }
 
-export const paragraphOpeningRule = (): ParsedProofreadingRule => build(OPENING_BRACKETS);
-
-export function createParagraphOpeningRule(
-  options: ParagraphOpeningOptions = {},
-): ManuscriptResult<ParsedProofreadingRule, InvalidRuleOptions> {
-  if (options.openingBrackets === undefined) {
-    return ManuscriptResult.succeed(paragraphOpeningRule());
-  }
-
-  const brackets = v.safeParse(OpeningBracketsSchema, options.openingBrackets);
-  if (!brackets.success) {
-    return ManuscriptResult.fail({
-      kind: "InvalidRuleOptions",
-      ruleId: RULE_ID,
-      option: "openingBrackets",
-      issues: ValidationIssue.from(brackets.issues),
-    });
-  }
-
-  return ManuscriptResult.succeed(build(brackets.output));
-}
+export const paragraphOpeningRuleDefinition = defineProofreadingRule({
+  id: RULE_ID,
+  optionsSchema: v.optional(ParagraphOpeningOptionsSchema, {}),
+  create: ({ openingBrackets }) => build(openingBrackets),
+});

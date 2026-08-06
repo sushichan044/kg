@@ -2,7 +2,7 @@ import {
   assertNever,
   ComposeError,
   composeManuscript,
-  createDefaultProofreadingRules,
+  createRecommendedProofreadingRules,
   manuscriptGridComposer,
   ManuscriptResult,
   ParseError,
@@ -145,7 +145,7 @@ export function processManuscript(
   if (!composed.ok) return ManuscriptResult.fail({ stage: "compose", error: composed.error });
 
   const proofread = proofreadManuscript(composed.value, {
-    rules: createDefaultProofreadingRules(),
+    rules: createRecommendedProofreadingRules(),
   });
   if (!proofread.ok) return ManuscriptResult.fail({ stage: "proofread", error: proofread.error });
 

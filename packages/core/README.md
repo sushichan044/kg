@@ -19,7 +19,7 @@ pnpm add @sushichan044/kg-core
 import {
   ComposeError,
   composeManuscript,
-  createDefaultProofreadingRules,
+  createRecommendedProofreadingRules,
   ManuscriptCompositionSettings,
   manuscriptGridComposer,
   ParseError,
@@ -40,7 +40,7 @@ const composed = composeManuscript(parsed.value, {
 if (!composed.ok) throw new Error(ComposeError.describe(composed.error));
 
 const proofread = proofreadManuscript(composed.value, {
-  rules: createDefaultProofreadingRules(),
+  rules: createRecommendedProofreadingRules(),
 });
 if (!proofread.ok) throw new Error(ProofreadError.describe(proofread.error));
 
@@ -64,7 +64,10 @@ Parsers implement `ManuscriptParser`. Composers implement `ManuscriptComposer`
 and provide Valibot schemas for their settings and layout. Proofreading rules
 carry `kind: "parsed"` or `kind: "composed"` to declare which manuscript they
 need, and report findings through `context.report`. A report may name a
-`severity`; omitting it means `error`.
+`severity`; omitting it means `error`. A rule's own severity is only its
+default: config resolved through `resolveProofreadingRules` (see "Proofreading
+rules" below) can override it per rule, the way ESLint and textlint let config
+win over a rule's own default.
 
 A plugin signals its own failure with a `Rejection` — a plain reason string.
 Core turns that into a variant of the stage's error union, so plugins never
@@ -91,41 +94,59 @@ or recalculate locations.
 
 ## Proofreading rules
 
-`createDefaultProofreadingRules()` returns the rules whose answer does not
-depend on the work: how a paragraph opens and how far it is indented,
-punctuation before a closing bracket, spacing after `！` and `？`, ellipsis and
-dash forms and counts, repeated punctuation and interpuncts, a minus sign that
-no number follows, halfwidth Japanese punctuation, Arabic
-numeral length, and Unicode variation sequences.
-
-Rules that depend on the work's own conventions are exported individually and
-report `warning` instead of `error`, so a caller opts into them:
+Every built-in rule is registered as a definition — an ID, an optional Valibot
+options schema, and a factory — rather than an instance. A config resolves
+which rules run, at what severity, and with which options, the way ESLint and
+textlint configs do by rule ID:
 
 ```ts
 import {
-  consistentKanjiOpeningRule,
-  consistentLatinWidthRule,
-  consistentNumeralWidthRule,
-  createConsistentKanjiOpeningRule,
-  createDefaultProofreadingRules,
+  proofreadManuscript,
+  recommendedProofreadingRules,
+  resolveProofreadingRules,
+  ProofreadingConfigError,
 } from "@sushichan044/kg-core";
 
-const rules = [
-  ...createDefaultProofreadingRules(),
-  consistentNumeralWidthRule(),
-  consistentLatinWidthRule(),
-  consistentKanjiOpeningRule(),
-];
+const rules = resolveProofreadingRules({
+  rules: {
+    ...recommendedProofreadingRules,
+    "kg/dash": ["error", { preferred: "―" }],
+    "kg/consistent-kanji-opening": "warning",
+    "kg/max-arabic-numeral-digits": "off",
+  },
+});
+if (!rules.ok) throw new Error(ProofreadingConfigError.describe(rules.error));
+
+const proofread = proofreadManuscript(composed.value, { rules: rules.value });
 ```
 
-`createConsistentKanjiOpeningRule({ pairs })` replaces the built-in kanji and
-kana pairs; like every configurable rule it returns a `ManuscriptResult` and
-fails with `InvalidRuleOptions` rather than dropping bad options.
+A config entry is a bare level (`"off" | "on" | "warning" | "error"`) or, for a
+rule that takes options, a `[level, options]` tuple. `"off"` and an absent
+entry both skip the rule. `"on"` keeps the rule's own report severity;
+`"warning"` and `"error"` override every report the rule produces. An unknown
+rule ID or invalid options fail explicitly through `ProofreadingConfigError`
+rather than being dropped.
 
-`dashRule()` prefers `―` (U+2015). Use `createDashRule({ preferred: "—" })` or
-`createDashRule({ preferred: "─" })` when a work uses U+2014 or U+2500 instead.
-The selected character must appear in even-length runs. Repeated choonpu (`ー`)
-are not treated as dashes.
+`recommendedProofreadingRules` is a plain settings object — not a config with
+an `extends` mechanism — holding the rules whose answer does not depend on the
+work: how a paragraph opens and how far it is indented, punctuation before a
+closing bracket, spacing after `！` and `？`, ellipsis and dash forms and
+counts, repeated punctuation and interpuncts, a minus sign that no number
+follows, halfwidth Japanese punctuation, Arabic numeral length, and Unicode
+variation sequences. `createRecommendedProofreadingRules()` resolves it
+directly, for a caller that wants the defaults with no config of its own.
+
+`allProofreadingRules` additionally includes the rules that depend on the
+work's own conventions — which width numerals and Latin letters take, whether
+a word is written in kanji or kana (`kg/consistent-numeral-width`,
+`kg/consistent-latin-width`, `kg/consistent-kanji-opening`). Those rules report
+`warning` by default, so opting in through this preset does not silently start
+failing a build.
+
+`kg/dash` prefers `―` (U+2015) by default; pass `{ preferred: "—" }` or
+`{ preferred: "─" }` when a work uses U+2014 or U+2500 instead. The selected
+character must appear in even-length runs. Repeated choonpu (`ー`) are not
+treated as dashes.
 
 Diagnostics do not modify the source and do not contain automatic fixes.
 

@@ -1,9 +1,8 @@
 import * as v from "valibot";
 
-import { ManuscriptResult } from "../../result/manuscript-result";
-import { ValidationIssue } from "../../result/validation-issue";
-import type { InvalidRuleOptions } from "../invalid-rule-options";
+import { readonlyObject } from "../../internal/schema";
 import type { ParsedProofreadingRule } from "../proofreading-rule";
+import { defineProofreadingRule } from "../proofreading-rule-definition";
 import { splitDisplayLines } from "./internal/display-line";
 import { displayRange } from "./internal/rule-range";
 
@@ -16,7 +15,9 @@ const DASH_LIKE_RUN = /[—–―─━﹣－-]+/gu;
 type DashCharacter = v.InferOutput<typeof DashCharacterSchema>;
 type DashMessageId = "character" | "even-count";
 
-export type DashOptions = Readonly<{ preferred?: DashCharacter }>;
+const DashOptionsSchema = readonlyObject({
+  preferred: v.optional(DashCharacterSchema, DEFAULT_PREFERRED),
+});
 
 const EVEN_COUNT_MESSAGE = "連続するダッシュの数は偶数にしてください";
 
@@ -60,24 +61,8 @@ function build(preferred: DashCharacter): ParsedProofreadingRule {
   };
 }
 
-export const dashRule = (): ParsedProofreadingRule => build(DEFAULT_PREFERRED);
-
-export function createDashRule(
-  options: DashOptions = {},
-): ManuscriptResult<ParsedProofreadingRule, InvalidRuleOptions> {
-  if (options.preferred === undefined) {
-    return ManuscriptResult.succeed(dashRule());
-  }
-
-  const preferred = v.safeParse(DashCharacterSchema, options.preferred);
-  if (!preferred.success) {
-    return ManuscriptResult.fail({
-      kind: "InvalidRuleOptions",
-      ruleId: RULE_ID,
-      option: "preferred",
-      issues: ValidationIssue.from(preferred.issues),
-    });
-  }
-
-  return ManuscriptResult.succeed(build(preferred.output));
-}
+export const dashRuleDefinition = defineProofreadingRule({
+  id: RULE_ID,
+  optionsSchema: v.optional(DashOptionsSchema, {}),
+  create: ({ preferred }) => build(preferred),
+});

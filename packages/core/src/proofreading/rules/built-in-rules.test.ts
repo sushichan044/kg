@@ -3,26 +3,21 @@ import { describe, expect, test } from "vite-plus/test";
 import type { ManuscriptDiagnostic } from "../../diagnostic/manuscript-diagnostic";
 import { parseManuscript } from "../../parser/parse-manuscript";
 import { proofreadManuscript } from "../proofread-manuscript";
-import type { ParsedProofreadingRule } from "../proofreading-rule";
-import {
-  consistentKanjiOpeningRule,
-  createConsistentKanjiOpeningRule,
-} from "./consistent-kanji-opening";
-import { consistentLatinWidthRule } from "./consistent-latin-width";
-import { consistentNumeralWidthRule } from "./consistent-numeral-width";
-import { createDashRule, dashRule } from "./dash";
-import { createDefaultProofreadingRules } from "./default-rules";
-import { ellipsisCharacterRule } from "./ellipsis-character";
-import { fullwidthJapanesePunctuationRule } from "./fullwidth-japanese-punctuation";
-import { createParagraphOpeningRule, paragraphOpeningRule } from "./paragraph-opening";
-import { spaceAfterQuestionOrExclamationRule } from "./space-after-question-or-exclamation";
-import { variantCharacterRule } from "./variant-character";
+import type { ProofreadingRuleSettings } from "../proofreading-rule-settings";
+import { resolveProofreadingRules } from "../resolve-proofreading-rules";
+import { createRecommendedProofreadingRules } from "./presets";
 
-function diagnose(source: string, rule: ParsedProofreadingRule): readonly ManuscriptDiagnostic[] {
+function diagnose(
+  source: string,
+  rules: ProofreadingRuleSettings,
+): readonly ManuscriptDiagnostic[] {
   const parsed = parseManuscript(source);
   expect.assert(parsed.ok, "fixture did not parse");
 
-  const result = proofreadManuscript(parsed.value, { rules: [rule] });
+  const resolved = resolveProofreadingRules({ rules });
+  expect.assert(resolved.ok, "expected resolveProofreadingRules to succeed");
+
+  const result = proofreadManuscript(parsed.value, { rules: resolved.value });
   expect.assert(result.ok, "expected proofreadManuscript to succeed");
 
   return result.value;
@@ -40,15 +35,17 @@ function diagnoseWithDefaults(source: string): readonly ManuscriptDiagnostic[] {
   const parsed = parseManuscript(source);
   expect.assert(parsed.ok, "fixture did not parse");
 
-  const result = proofreadManuscript(parsed.value, { rules: createDefaultProofreadingRules() });
+  const result = proofreadManuscript(parsed.value, {
+    rules: createRecommendedProofreadingRules(),
+  });
   expect.assert(result.ok, "expected proofreadManuscript to succeed");
 
   return result.value;
 }
 
-describe("paragraphOpeningRule", () => {
+describe("kg/paragraph-opening", () => {
   test("reports prose that is not indented", () => {
-    const diagnostics = diagnose("本文", paragraphOpeningRule());
+    const diagnostics = diagnose("本文", { "kg/paragraph-opening": "on" });
 
     expect(only(diagnostics)).toMatchObject({
       message: "段落の先頭には全角スペースまたは開き括弧が必要です",
@@ -57,7 +54,7 @@ describe("paragraphOpeningRule", () => {
   });
 
   test("reports a halfwidth space where the indent belongs", () => {
-    const diagnostics = diagnose(" 本文", paragraphOpeningRule());
+    const diagnostics = diagnose(" 本文", { "kg/paragraph-opening": "on" });
 
     expect(only(diagnostics)).toMatchObject({
       message: "段落の先頭には全角スペースまたは開き括弧が必要です",
@@ -66,7 +63,7 @@ describe("paragraphOpeningRule", () => {
   });
 
   test("reports a tab where the indent belongs", () => {
-    const diagnostics = diagnose("\t本文", paragraphOpeningRule());
+    const diagnostics = diagnose("\t本文", { "kg/paragraph-opening": "on" });
 
     expect(only(diagnostics)).toMatchObject({
       message: "段落の先頭には全角スペースまたは開き括弧が必要です",
@@ -75,13 +72,13 @@ describe("paragraphOpeningRule", () => {
   });
 
   test("accepts exactly one ideographic space", () => {
-    const diagnostics = diagnose("　本文", paragraphOpeningRule());
+    const diagnostics = diagnose("　本文", { "kg/paragraph-opening": "on" });
 
     expect(diagnostics).toEqual([]);
   });
 
   test("reports an indent wider than one ideographic space", () => {
-    const diagnostics = diagnose("　　本文", paragraphOpeningRule());
+    const diagnostics = diagnose("　　本文", { "kg/paragraph-opening": "on" });
 
     expect(only(diagnostics)).toMatchObject({
       message: "段落冒頭の字下げは全角スペース1字にしてください",
@@ -90,7 +87,7 @@ describe("paragraphOpeningRule", () => {
   });
 
   test("reports an ideographic space followed by a halfwidth space", () => {
-    const diagnostics = diagnose("　 本文", paragraphOpeningRule());
+    const diagnostics = diagnose("　 本文", { "kg/paragraph-opening": "on" });
 
     expect(only(diagnostics)).toMatchObject({
       message: "段落冒頭の字下げは全角スペース1字にしてください",
@@ -99,13 +96,13 @@ describe("paragraphOpeningRule", () => {
   });
 
   test("accepts a paragraph that opens with a bracket", () => {
-    const diagnostics = diagnose("「本文」", paragraphOpeningRule());
+    const diagnostics = diagnose("「本文」", { "kg/paragraph-opening": "on" });
 
     expect(diagnostics).toEqual([]);
   });
 
   test("reports the indent before a paragraph that opens with a bracket", () => {
-    const diagnostics = diagnose("　「本文」", paragraphOpeningRule());
+    const diagnostics = diagnose("　「本文」", { "kg/paragraph-opening": "on" });
 
     expect(only(diagnostics)).toMatchObject({
       message: "括弧から始まる段落を字下げすることはできません",
@@ -114,7 +111,7 @@ describe("paragraphOpeningRule", () => {
   });
 
   test("reports a halfwidth indent before a bracket once, not as two findings", () => {
-    const diagnostics = diagnose(" 「本文」", paragraphOpeningRule());
+    const diagnostics = diagnose(" 「本文」", { "kg/paragraph-opening": "on" });
 
     expect(only(diagnostics)).toMatchObject({
       message: "括弧から始まる段落を字下げすることはできません",
@@ -123,35 +120,21 @@ describe("paragraphOpeningRule", () => {
   });
 
   test("leaves a line made only of decoration symbols alone", () => {
-    const diagnostics = diagnose("　本文\n＊　＊　＊\n　本文", paragraphOpeningRule());
+    const diagnostics = diagnose("　本文\n＊　＊　＊\n　本文", { "kg/paragraph-opening": "on" });
 
     expect(diagnostics).toEqual([]);
   });
 
   test("leaves a line of spaces alone", () => {
-    const diagnostics = diagnose("　本文\n　　\n　本文", paragraphOpeningRule());
+    const diagnostics = diagnose("　本文\n　　\n　本文", { "kg/paragraph-opening": "on" });
 
     expect(diagnostics).toEqual([]);
   });
-});
 
-describe("createParagraphOpeningRule", () => {
-  test("reports the offending option when given an empty bracket set", () => {
-    const result = createParagraphOpeningRule({ openingBrackets: "" });
-
-    expect.assert(result.ok === false, "expected createParagraphOpeningRule to reject");
-    expect(result.error).toMatchObject({
-      kind: "InvalidRuleOptions",
-      ruleId: "kg/paragraph-opening",
-      option: "openingBrackets",
+  test("treats a character outside the configured openingBrackets as prose", () => {
+    const diagnostics = diagnose("　《本文》\n　「本文」", {
+      "kg/paragraph-opening": ["on", { openingBrackets: "《" }],
     });
-  });
-
-  test("treats a character outside the configured brackets as prose", () => {
-    const rule = createParagraphOpeningRule({ openingBrackets: "《" });
-    expect.assert(rule.ok, "fixture did not build");
-
-    const diagnostics = diagnose("　《本文》\n　「本文」", rule.value);
 
     expect(only(diagnostics)).toMatchObject({
       message: "括弧から始まる段落を字下げすることはできません",
@@ -160,9 +143,11 @@ describe("createParagraphOpeningRule", () => {
   });
 });
 
-describe("spaceAfterQuestionOrExclamationRule", () => {
+describe("kg/space-after-question-or-exclamation", () => {
   test("reports the whole run of marks when no gap follows", () => {
-    const diagnostics = diagnose("　えっ！？そんな", spaceAfterQuestionOrExclamationRule());
+    const diagnostics = diagnose("　えっ！？そんな", {
+      "kg/space-after-question-or-exclamation": "on",
+    });
 
     expect(only(diagnostics)).toMatchObject({
       message: "感嘆符または疑問符の直後には全角スペースか閉じ括弧が必要です",
@@ -171,13 +156,17 @@ describe("spaceAfterQuestionOrExclamationRule", () => {
   });
 
   test("accepts exactly one ideographic space", () => {
-    const diagnostics = diagnose("　えっ！　そんな", spaceAfterQuestionOrExclamationRule());
+    const diagnostics = diagnose("　えっ！　そんな", {
+      "kg/space-after-question-or-exclamation": "on",
+    });
 
     expect(diagnostics).toEqual([]);
   });
 
   test("reports two ideographic spaces", () => {
-    const diagnostics = diagnose("　えっ！　　そんな", spaceAfterQuestionOrExclamationRule());
+    const diagnostics = diagnose("　えっ！　　そんな", {
+      "kg/space-after-question-or-exclamation": "on",
+    });
 
     expect(only(diagnostics)).toMatchObject({
       message: "感嘆符または疑問符の直後の空白は全角スペース1字にしてください",
@@ -186,7 +175,9 @@ describe("spaceAfterQuestionOrExclamationRule", () => {
   });
 
   test("reports a halfwidth space", () => {
-    const diagnostics = diagnose("　えっ！ そんな", spaceAfterQuestionOrExclamationRule());
+    const diagnostics = diagnose("　えっ！ そんな", {
+      "kg/space-after-question-or-exclamation": "on",
+    });
 
     expect(only(diagnostics).message).toBe(
       "感嘆符または疑問符の直後の空白は全角スペース1字にしてください",
@@ -194,13 +185,15 @@ describe("spaceAfterQuestionOrExclamationRule", () => {
   });
 
   test("accepts a closing bracket right after the marks", () => {
-    const diagnostics = diagnose("「えっ！」", spaceAfterQuestionOrExclamationRule());
+    const diagnostics = diagnose("「えっ！」", { "kg/space-after-question-or-exclamation": "on" });
 
     expect(diagnostics).toEqual([]);
   });
 
   test("reports a space between the marks and a closing bracket", () => {
-    const diagnostics = diagnose("「えっ！　」", spaceAfterQuestionOrExclamationRule());
+    const diagnostics = diagnose("「えっ！　」", {
+      "kg/space-after-question-or-exclamation": "on",
+    });
 
     expect(only(diagnostics)).toMatchObject({
       message: "閉じ括弧の直前に空白を置くことはできません",
@@ -209,35 +202,37 @@ describe("spaceAfterQuestionOrExclamationRule", () => {
   });
 
   test("accepts marks at the end of a line", () => {
-    const diagnostics = diagnose("　えっ！\n　本文", spaceAfterQuestionOrExclamationRule());
+    const diagnostics = diagnose("　えっ！\n　本文", {
+      "kg/space-after-question-or-exclamation": "on",
+    });
 
     expect(diagnostics).toEqual([]);
   });
 });
 
-describe("ellipsisCharacterRule", () => {
+describe("kg/ellipsis-character", () => {
   test("reports halfwidth periods standing in for an ellipsis", () => {
-    const diagnostics = diagnose("　そう...ですか", ellipsisCharacterRule());
+    const diagnostics = diagnose("　そう...ですか", { "kg/ellipsis-character": "on" });
 
     expect(only(diagnostics).range.display).toEqual({ start: 3, end: 6 });
   });
 
   test("reports a midline horizontal ellipsis", () => {
-    const diagnostics = diagnose("　そう⋯ですか", ellipsisCharacterRule());
+    const diagnostics = diagnose("　そう⋯ですか", { "kg/ellipsis-character": "on" });
 
     expect(only(diagnostics).range.display).toEqual({ start: 3, end: 4 });
   });
 });
 
-describe("dashRule", () => {
+describe("kg/dash", () => {
   test("accepts an even run of the default dash", () => {
-    const diagnostics = diagnose("　そう――ですか", dashRule());
+    const diagnostics = diagnose("　そう――ですか", { "kg/dash": "on" });
 
     expect(diagnostics).toEqual([]);
   });
 
   test("reports an odd run of the default dash", () => {
-    const diagnostics = diagnose("　そう―ですか", dashRule());
+    const diagnostics = diagnose("　そう―ですか", { "kg/dash": "on" });
 
     expect(only(diagnostics)).toMatchObject({
       id: "rule:kg/dash:even-count:3:4",
@@ -248,7 +243,7 @@ describe("dashRule", () => {
   });
 
   test("reports em dashes when the default dash is preferred", () => {
-    const diagnostics = diagnose("　そう——ですか", dashRule());
+    const diagnostics = diagnose("　そう——ですか", { "kg/dash": "on" });
 
     expect(only(diagnostics)).toMatchObject({
       id: "rule:kg/dash:character:3:5",
@@ -259,13 +254,13 @@ describe("dashRule", () => {
   });
 
   test("reports repeated hyphens", () => {
-    const diagnostics = diagnose("　そう--ですか", dashRule());
+    const diagnostics = diagnose("　そう--ですか", { "kg/dash": "on" });
 
     expect(only(diagnostics).range.display).toEqual({ start: 3, end: 5 });
   });
 
   test.each(["–", "─", "━", "﹣", "－"])("reports the non-preferred dash %s", (dash) => {
-    const diagnostics = diagnose(`　そう${dash}${dash}ですか`, dashRule());
+    const diagnostics = diagnose(`　そう${dash}${dash}ですか`, { "kg/dash": "on" });
 
     expect(only(diagnostics)).toMatchObject({
       id: "rule:kg/dash:character:3:5",
@@ -274,13 +269,13 @@ describe("dashRule", () => {
   });
 
   test("accepts a single ASCII hyphen", () => {
-    const diagnostics = diagnose("　A-B", dashRule());
+    const diagnostics = diagnose("　A-B", { "kg/dash": "on" });
 
     expect(diagnostics).toEqual([]);
   });
 
   test("reports a mixed run only as a character error", () => {
-    const diagnostics = diagnose("　そう―—―ですか", dashRule());
+    const diagnostics = diagnose("　そう―—―ですか", { "kg/dash": "on" });
 
     expect(only(diagnostics)).toMatchObject({
       id: "rule:kg/dash:character:3:6",
@@ -289,23 +284,20 @@ describe("dashRule", () => {
   });
 
   test("leaves repeated choonpu alone", () => {
-    const diagnostics = diagnose("　そーーですか", dashRule());
+    const diagnostics = diagnose("　そーーですか", { "kg/dash": "on" });
 
     expect(diagnostics).toEqual([]);
   });
-});
 
-describe("createDashRule", () => {
   test.each([
     { preferred: "—" as const, alternative: "―" },
     { preferred: "─" as const, alternative: "—" },
-  ])("honours $preferred as the preferred dash", ({ preferred, alternative }) => {
-    const result = createDashRule({ preferred });
-    expect.assert(result.ok, "fixture did not build");
+  ])("honours $preferred as the configured preferred dash", ({ preferred, alternative }) => {
+    const rules: ProofreadingRuleSettings = { "kg/dash": ["on", { preferred }] };
 
-    const accepted = diagnose(`　そう${preferred}${preferred}ですか`, result.value);
-    const odd = diagnose(`　そう${preferred}ですか`, result.value);
-    const rejected = diagnose(`　そう${alternative}${alternative}ですか`, result.value);
+    const accepted = diagnose(`　そう${preferred}${preferred}ですか`, rules);
+    const odd = diagnose(`　そう${preferred}ですか`, rules);
+    const rejected = diagnose(`　そう${alternative}${alternative}ですか`, rules);
 
     expect(accepted).toEqual([]);
     expect(only(odd)).toMatchObject({
@@ -317,21 +309,19 @@ describe("createDashRule", () => {
       message: `ダッシュには「${preferred}」を使ってください`,
     });
   });
+});
 
-  test("rejects a character that is not a supported dash", () => {
-    // JavaScript callers are not protected by DashOptions, so the runtime boundary must reject it.
-    const result = createDashRule({ preferred: "ー" as never });
-
-    expect.assert(result.ok === false, "expected createDashRule to reject");
-    expect(result.error).toMatchObject({
-      kind: "InvalidRuleOptions",
-      ruleId: "kg/dash",
-      option: "preferred",
+describe("kg/max-arabic-numeral-digits", () => {
+  test("honours a configured digit limit", () => {
+    const diagnostics = diagnose("　12345と123", {
+      "kg/max-arabic-numeral-digits": ["on", { maxDigits: 4 }],
     });
+
+    expect(only(diagnostics).range.display).toEqual({ start: 1, end: 6 });
   });
 });
 
-describe("createDefaultProofreadingRules", () => {
+describe("createRecommendedProofreadingRules", () => {
   test("allows repeated choonpu", () => {
     const diagnostics = diagnoseWithDefaults("　そーーですか");
 
@@ -339,9 +329,9 @@ describe("createDefaultProofreadingRules", () => {
   });
 });
 
-describe("fullwidthJapanesePunctuationRule", () => {
+describe("kg/fullwidth-japanese-punctuation", () => {
   test("reports halfwidth kana punctuation as an error", () => {
-    const diagnostics = diagnose("　こんにちは｡", fullwidthJapanesePunctuationRule());
+    const diagnostics = diagnose("　こんにちは｡", { "kg/fullwidth-japanese-punctuation": "on" });
 
     expect(only(diagnostics)).toMatchObject({
       severity: "error",
@@ -349,8 +339,27 @@ describe("fullwidthJapanesePunctuationRule", () => {
     });
   });
 
+  test("reports a halfwidth exclamation mark beside Japanese", () => {
+    const diagnostics = diagnose("　すごい!", { "kg/fullwidth-japanese-punctuation": "on" });
+
+    expect(only(diagnostics)).toMatchObject({
+      severity: "error",
+      message: "半角の「!」があります。日本語の句読点・括弧・感嘆符・疑問符は全角にしてください",
+    });
+  });
+
+  test("leaves halfwidth marks in Latin text alone", () => {
+    const diagnostics = diagnose("　Hello! Why?", { "kg/fullwidth-japanese-punctuation": "on" });
+
+    expect(diagnostics).toEqual([]);
+  });
+});
+
+describe("kg/halfwidth-punctuation-near-japanese", () => {
   test("warns about halfwidth parentheses beside Japanese", () => {
-    const diagnostics = diagnose("　本文(注)", fullwidthJapanesePunctuationRule());
+    const diagnostics = diagnose("　本文(注)", {
+      "kg/halfwidth-punctuation-near-japanese": "on",
+    });
 
     expect(diagnostics.map(({ severity, message }) => ({ severity, message }))).toEqual([
       {
@@ -364,37 +373,38 @@ describe("fullwidthJapanesePunctuationRule", () => {
     ]);
   });
 
-  test("reports a halfwidth exclamation mark beside Japanese", () => {
-    const diagnostics = diagnose("　すごい!", fullwidthJapanesePunctuationRule());
-
-    expect(only(diagnostics)).toMatchObject({
-      severity: "error",
-      message: "半角の「!」があります。日本語の句読点・括弧・感嘆符・疑問符は全角にしてください",
-    });
-  });
-
-  test("leaves halfwidth marks in Latin text alone", () => {
-    const diagnostics = diagnose("　Hello! Why?", fullwidthJapanesePunctuationRule());
-
-    expect(diagnostics).toEqual([]);
-  });
-
   test("leaves halfwidth punctuation in Latin text alone", () => {
-    const diagnostics = diagnose("　Hello, world.", fullwidthJapanesePunctuationRule());
+    const diagnostics = diagnose("　Hello, world.", {
+      "kg/halfwidth-punctuation-near-japanese": "on",
+    });
 
     expect(diagnostics).toEqual([]);
   });
 
   test("leaves periods standing in for an ellipsis to the ellipsis rule", () => {
-    const diagnostics = diagnose("　そう...ですか", fullwidthJapanesePunctuationRule());
+    const diagnostics = diagnose("　そう...ですか", {
+      "kg/halfwidth-punctuation-near-japanese": "on",
+    });
 
     expect(diagnostics).toEqual([]);
   });
+
+  test("can be turned off independently of kg/fullwidth-japanese-punctuation", () => {
+    const diagnostics = diagnose("　本文(注)｡", {
+      "kg/fullwidth-japanese-punctuation": "on",
+      "kg/halfwidth-punctuation-near-japanese": "off",
+    });
+
+    expect(only(diagnostics)).toMatchObject({
+      severity: "error",
+      message: "半角の「｡」があります。日本語の句読点・括弧・感嘆符・疑問符は全角にしてください",
+    });
+  });
 });
 
-describe("consistentNumeralWidthRule", () => {
+describe("kg/consistent-numeral-width", () => {
   test("warns once at the first halfwidth numeral when both widths appear", () => {
-    const diagnostics = diagnose("　1と１と2", consistentNumeralWidthRule());
+    const diagnostics = diagnose("　1と１と2", { "kg/consistent-numeral-width": "on" });
 
     expect(only(diagnostics)).toMatchObject({
       severity: "warning",
@@ -404,15 +414,15 @@ describe("consistentNumeralWidthRule", () => {
   });
 
   test("stays quiet when only one width appears", () => {
-    const diagnostics = diagnose("　1と2", consistentNumeralWidthRule());
+    const diagnostics = diagnose("　1と2", { "kg/consistent-numeral-width": "on" });
 
     expect(diagnostics).toEqual([]);
   });
 });
 
-describe("consistentLatinWidthRule", () => {
+describe("kg/consistent-latin-width", () => {
   test("warns once when both latin widths appear", () => {
-    const diagnostics = diagnose("　AとＡ", consistentLatinWidthRule());
+    const diagnostics = diagnose("　AとＡ", { "kg/consistent-latin-width": "on" });
 
     expect(only(diagnostics)).toMatchObject({
       severity: "warning",
@@ -421,9 +431,9 @@ describe("consistentLatinWidthRule", () => {
   });
 });
 
-describe("consistentKanjiOpeningRule", () => {
+describe("kg/consistent-kanji-opening", () => {
   test("warns at the kanji form when the kana form is also used", () => {
-    const diagnostics = diagnose("　出来る\n　できる", consistentKanjiOpeningRule());
+    const diagnostics = diagnose("　出来る\n　できる", { "kg/consistent-kanji-opening": "on" });
 
     expect(only(diagnostics)).toMatchObject({
       severity: "warning",
@@ -434,56 +444,29 @@ describe("consistentKanjiOpeningRule", () => {
   });
 
   test("stays quiet when only the kanji form is used", () => {
-    const diagnostics = diagnose("　出来る", consistentKanjiOpeningRule());
+    const diagnostics = diagnose("　出来る", { "kg/consistent-kanji-opening": "on" });
 
     expect(diagnostics).toEqual([]);
   });
-});
-
-describe("createConsistentKanjiOpeningRule", () => {
-  test("reports the offending option when a pair is incomplete", () => {
-    const result = createConsistentKanjiOpeningRule({ pairs: [{ closed: "", opened: "こと" }] });
-
-    expect.assert(result.ok === false, "expected createConsistentKanjiOpeningRule to reject");
-    expect(result.error).toMatchObject({
-      kind: "InvalidRuleOptions",
-      ruleId: "kg/consistent-kanji-opening",
-      option: "pairs",
-    });
-  });
-
-  test("rejects a pair whose two spellings are identical", () => {
-    const result = createConsistentKanjiOpeningRule({ pairs: [{ closed: "事", opened: "事" }] });
-
-    expect.assert(result.ok === false, "expected createConsistentKanjiOpeningRule to reject");
-    expect(result.error).toMatchObject({
-      kind: "InvalidRuleOptions",
-      ruleId: "kg/consistent-kanji-opening",
-      option: "pairs",
-    });
-  });
 
   test("honours configured pairs", () => {
-    const rule = createConsistentKanjiOpeningRule({
-      pairs: [{ closed: "事", opened: "こと" }],
+    const diagnostics = diagnose("　その事とそのこと", {
+      "kg/consistent-kanji-opening": ["on", { pairs: [{ closed: "事", opened: "こと" }] }],
     });
-    expect.assert(rule.ok, "fixture did not build");
-
-    const diagnostics = diagnose("　その事とそのこと", rule.value);
 
     expect(only(diagnostics).range.display).toEqual({ start: 3, end: 4 });
   });
 });
 
-describe("variantCharacterRule", () => {
+describe("kg/variant-character", () => {
   test("stays quiet on a plain character with no selector", () => {
-    const diagnostics = diagnose("☆彡", variantCharacterRule());
+    const diagnostics = diagnose("☆彡", { "kg/variant-character": "on" });
 
     expect(diagnostics).toEqual([]);
   });
 
   test("suggests the plain form for a star with an emoji presentation selector", () => {
-    const diagnostics = diagnose("☆️彡", variantCharacterRule());
+    const diagnostics = diagnose("☆️彡", { "kg/variant-character": "on" });
 
     expect(only(diagnostics)).toMatchObject({
       message: "異体字または字形選択子が使われています。「☆」ではありませんか？",
@@ -492,7 +475,7 @@ describe("variantCharacterRule", () => {
   });
 
   test("suggests the plain form for a star with a text presentation selector", () => {
-    const diagnostics = diagnose("☆︎彡", variantCharacterRule());
+    const diagnostics = diagnose("☆︎彡", { "kg/variant-character": "on" });
 
     expect(only(diagnostics)).toMatchObject({
       message: "異体字または字形選択子が使われています。「☆」ではありませんか？",
@@ -500,7 +483,7 @@ describe("variantCharacterRule", () => {
   });
 
   test("suggests the base kanji for an ideographic variation sequence", () => {
-    const diagnostics = diagnose("辻\u{E0100}", variantCharacterRule());
+    const diagnostics = diagnose("辻\u{E0100}", { "kg/variant-character": "on" });
 
     expect(only(diagnostics)).toMatchObject({
       message: "異体字または字形選択子が使われています。「辻」ではありませんか？",
@@ -508,7 +491,7 @@ describe("variantCharacterRule", () => {
   });
 
   test("suggests the unified form for a CJK compatibility ideograph", () => {
-    const diagnostics = diagnose("\u{F900}", variantCharacterRule());
+    const diagnostics = diagnose("\u{F900}", { "kg/variant-character": "on" });
 
     expect(only(diagnostics)).toMatchObject({
       message: "異体字または字形選択子が使われています。「\u{8C48}」ではありませんか？",
@@ -516,7 +499,7 @@ describe("variantCharacterRule", () => {
   });
 
   test("keeps a fullwidth base character fullwidth instead of NFKC-folding it to ASCII", () => {
-    const diagnostics = diagnose("\u{FF21}\u{FE0F}", variantCharacterRule());
+    const diagnostics = diagnose("\u{FF21}\u{FE0F}", { "kg/variant-character": "on" });
 
     expect(only(diagnostics)).toMatchObject({
       message: "異体字または字形選択子が使われています。「\u{FF21}」ではありませんか？",
@@ -524,7 +507,7 @@ describe("variantCharacterRule", () => {
   });
 
   test("falls back to the plain message when no suggestion differs from the input", () => {
-    const diagnostics = diagnose("᠋", variantCharacterRule());
+    const diagnostics = diagnose("᠋", { "kg/variant-character": "on" });
 
     expect(only(diagnostics)).toMatchObject({
       message: "異体字または字形選択子が使われています",

@@ -1,5 +1,6 @@
 import { graphemeSegmenter } from "../../internal/segmenter";
 import type { ParsedProofreadingRule } from "../proofreading-rule";
+import { defineProofreadingRule } from "../proofreading-rule-definition";
 import { sourceRange } from "./internal/rule-range";
 
 const RULE_ID = "kg/variant-character";
@@ -69,20 +70,27 @@ function suggestPlainForm(segment: string): string | undefined {
 /**
  * Scans the source rather than the display text: notation removal must not hide a variant.
  */
-export const variantCharacterRule = (): ParsedProofreadingRule => ({
-  kind: "parsed",
-  meta: { id: RULE_ID, messages: MESSAGES },
-  check: (manuscript, context) => {
-    for (const { index, segment } of graphemeSegmenter.segment(manuscript.source)) {
-      if (!Array.from(segment).some(isVariantCharacter)) continue;
+function build(): ParsedProofreadingRule {
+  return {
+    kind: "parsed",
+    meta: { id: RULE_ID, messages: MESSAGES },
+    check: (manuscript, context) => {
+      for (const { index, segment } of graphemeSegmenter.segment(manuscript.source)) {
+        if (!Array.from(segment).some(isVariantCharacter)) continue;
 
-      const range = sourceRange(manuscript, { start: index, end: index + segment.length });
-      const suggestion = suggestPlainForm(segment);
-      if (suggestion === undefined) {
-        context.report({ range, messageId: "default" });
-      } else {
-        context.report({ range, messageId: "with-suggestion", data: { suggestion } });
+        const range = sourceRange(manuscript, { start: index, end: index + segment.length });
+        const suggestion = suggestPlainForm(segment);
+        if (suggestion === undefined) {
+          context.report({ range, messageId: "default" });
+        } else {
+          context.report({ range, messageId: "with-suggestion", data: { suggestion } });
+        }
       }
-    }
-  },
+    },
+  };
+}
+
+export const variantCharacterRuleDefinition = defineProofreadingRule({
+  id: RULE_ID,
+  create: build,
 });

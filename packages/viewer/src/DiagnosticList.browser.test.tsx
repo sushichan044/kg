@@ -1,5 +1,5 @@
 import {
-  createDefaultProofreadingRules,
+  createRecommendedProofreadingRules,
   parseManuscript,
   proofreadManuscript,
 } from "@sushichan044/kg-core";
@@ -12,7 +12,7 @@ function diagnostics() {
   const parsed = parseManuscript("問題");
   expect.assert(parsed.ok, "fixture setup failed");
 
-  const result = proofreadManuscript(parsed.value, { rules: createDefaultProofreadingRules() });
+  const result = proofreadManuscript(parsed.value, { rules: createRecommendedProofreadingRules() });
   expect.assert(result.ok, "fixture did not proofread");
 
   return result.value;

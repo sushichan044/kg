@@ -1,10 +1,8 @@
 import * as v from "valibot";
 
 import { readonlyObject } from "../../internal/schema";
-import { ManuscriptResult } from "../../result/manuscript-result";
-import { ValidationIssue } from "../../result/validation-issue";
-import type { InvalidRuleOptions } from "../invalid-rule-options";
 import type { ParsedProofreadingRule } from "../proofreading-rule";
+import { defineProofreadingRule } from "../proofreading-rule-definition";
 import { defineParsedRule } from "./internal/define-rule";
 import { displayRange } from "./internal/rule-range";
 
@@ -41,7 +39,9 @@ const DEFAULT_PAIRS: readonly KanjiOpeningPair[] = [
   { closed: "方が", opened: "ほうが" },
 ];
 
-export type ConsistentKanjiOpeningOptions = Readonly<{ pairs?: readonly KanjiOpeningPair[] }>;
+const ConsistentKanjiOpeningOptionsSchema = readonlyObject({
+  pairs: v.optional(PairsSchema, DEFAULT_PAIRS),
+});
 
 /**
  * Reports the first kanji occurrence of every pair the manuscript also writes in kana. Whether the
@@ -63,24 +63,8 @@ function build(pairs: readonly KanjiOpeningPair[]): ParsedProofreadingRule {
   });
 }
 
-export const consistentKanjiOpeningRule = (): ParsedProofreadingRule => build(DEFAULT_PAIRS);
-
-export function createConsistentKanjiOpeningRule(
-  options: ConsistentKanjiOpeningOptions = {},
-): ManuscriptResult<ParsedProofreadingRule, InvalidRuleOptions> {
-  if (options.pairs === undefined) {
-    return ManuscriptResult.succeed(consistentKanjiOpeningRule());
-  }
-
-  const pairs = v.safeParse(PairsSchema, options.pairs);
-  if (!pairs.success) {
-    return ManuscriptResult.fail({
-      kind: "InvalidRuleOptions",
-      ruleId: RULE_ID,
-      option: "pairs",
-      issues: ValidationIssue.from(pairs.issues),
-    });
-  }
-
-  return ManuscriptResult.succeed(build(pairs.output));
-}
+export const consistentKanjiOpeningRuleDefinition = defineProofreadingRule({
+  id: RULE_ID,
+  optionsSchema: v.optional(ConsistentKanjiOpeningOptionsSchema, {}),
+  create: ({ pairs }) => build(pairs),
+});
