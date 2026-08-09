@@ -81,8 +81,8 @@ const uprightGlyphPattern = /^(?:\p{Script=Latin}|[0-9])/u;
 function pageText(page: GridPage): string {
   return page.stages
     .flatMap(({ lines }) =>
-      lines.map(({ cells }) =>
-        cells.flatMap(({ value }) => (value === null ? [] : [value])).join(""),
+      lines.map(({ cells, hanging }) =>
+        [...cells, ...hanging].flatMap(({ value }) => (value === null ? [] : [value])).join(""),
       ),
     )
     .join("\n");
@@ -419,6 +419,10 @@ function ManuscriptViewerComponent(
               id: `page:${pageIndex}:stage:${stageIndex}:line:${lineIndex}:cell:${cellIndex}`,
               cell,
             })),
+            hanging: line.hanging.map((cell, cellIndex) => ({
+              id: `page:${pageIndex}:stage:${stageIndex}:line:${lineIndex}:hanging:${cellIndex}`,
+              cell,
+            })),
           })),
         })),
       })),
@@ -529,6 +533,28 @@ function ManuscriptViewerComponent(
     );
   };
 
+  /**
+   * A run of cells, fragmented so consecutive cells sharing the same annotations share one wrapper
+   * instead of each nesting its own. Shared by ordinary cells and hanging punctuation so the latter
+   * keeps whatever annotation covers it.
+   */
+  const renderCellRun = (cells: readonly RenderedCell[]) =>
+    fragmentCells(cells).map((fragment) => {
+      const rendered = fragment.cells.map(({ id: cellId, cell }) => renderCell(cellId, cell));
+      return fragment.annotations.length === 0 ? (
+        rendered
+      ) : (
+        <span key={fragment.id} className="kgv-annotation-stack">
+          {wrapAnnotations(
+            fragment.annotations,
+            fragment.cells[0]?.cell.range?.graphemes.start ?? 0,
+            fragment.cells.length,
+            rendered,
+          )}
+        </span>
+      );
+    });
+
   const renderBand = ({ diagnostic, offset, length, lane, lanes, startsHere }: DiagnosticBand) => {
     const style: BandStyle = {
       "--kgv-band-lane": lane,
@@ -594,8 +620,8 @@ function ManuscriptViewerComponent(
               <div className="kgv-page-grid">
                 {stages.map(({ id: stageId, lines }) => (
                   <div key={stageId} className="kgv-stage">
-                    {lines.map(({ id: lineId, cells }) => {
-                      const bands = diagnosticBands(cells, diagnostics);
+                    {lines.map(({ id: lineId, cells, hanging }) => {
+                      const bands = diagnosticBands([...cells, ...hanging], diagnostics);
                       return (
                         <div key={lineId} className="kgv-line">
                           <span className="kgv-line-rules" aria-hidden="true">
@@ -603,23 +629,10 @@ function ManuscriptViewerComponent(
                               <span key={cellId} className="kgv-rule-cell" />
                             ))}
                           </span>
-                          {fragmentCells(cells).map((fragment) => {
-                            const rendered = fragment.cells.map(({ id: cellId, cell }) =>
-                              renderCell(cellId, cell),
-                            );
-                            return fragment.annotations.length === 0 ? (
-                              rendered
-                            ) : (
-                              <span key={fragment.id} className="kgv-annotation-stack">
-                                {wrapAnnotations(
-                                  fragment.annotations,
-                                  fragment.cells[0]?.cell.range?.graphemes.start ?? 0,
-                                  fragment.cells.length,
-                                  rendered,
-                                )}
-                              </span>
-                            );
-                          })}
+                          {renderCellRun(cells)}
+                          {hanging.length > 0 && (
+                            <span className="kgv-line-hanging">{renderCellRun(hanging)}</span>
+                          )}
                           {bands.length > 0 && (
                             <span className="kgv-line-diagnostics">{bands.map(renderBand)}</span>
                           )}

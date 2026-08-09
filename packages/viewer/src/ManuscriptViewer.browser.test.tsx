@@ -1,6 +1,7 @@
 import {
   ManuscriptAppearanceSettings,
   ManuscriptCompositionSettings,
+  ManuscriptRange,
   composeManuscript,
   createDefaultProofreadingRules,
   manuscriptGridComposer,
@@ -10,6 +11,7 @@ import {
 } from "@sushichan044/kg-core";
 import type {
   GridSettings,
+  KinsokuSettings,
   ManuscriptDiagnostic,
   ManuscriptOffsets,
   ManuscriptParser,
@@ -33,6 +35,7 @@ type ViewerFixtureOptions = Readonly<{
   settings?: GridSettings;
   offsets?: ManuscriptOffsets;
   appearance?: ManuscriptAppearanceSettings;
+  kinsoku?: KinsokuSettings;
   parser?: ManuscriptParser;
   /**
    * Stands in for a rule set the fixture cannot produce, such as two rules reporting one span.
@@ -60,6 +63,7 @@ async function renderViewer(options: ViewerFixtureOptions, props: ViewerFixtureP
       grid: options.settings ?? ManuscriptCompositionSettings.defaults.grid,
       offsets: options.offsets ?? ManuscriptCompositionSettings.defaults.offsets,
       appearance: options.appearance ?? ManuscriptCompositionSettings.defaults.appearance,
+      kinsoku: options.kinsoku ?? ManuscriptCompositionSettings.defaults.kinsoku,
     },
   });
   expect.assert(composed.ok, "fixture setup failed");
@@ -265,14 +269,32 @@ test("covers exactly the cells a diagnostic reaches with one band", async () => 
 });
 
 test("bands a diagnostic that runs past a line end once per line, with one control", async () => {
-  // 。。 lands on the last cell of the first line and the first cell of the next one.
+  // こ lands on the last cell of the first line and さ on the first cell of the next one. Neither
+  // is a kinsoku character, so the wrap is a plain boundary; the diagnostic is synthesized (via
+  // reportedAs) to straddle it, since no built-in rule flags two ordinary characters like this.
+  const text = "あいうえおかきくけこさ";
   const { diagnostics, screen } = await renderViewer({
-    text: "あいうえおかきくけ。。",
+    text,
     settings,
+    reportedAs: (found) => {
+      const first = found[0];
+      expect.assert(first !== undefined, "fixture produced no diagnostics");
+
+      return [
+        {
+          ...first,
+          range: ManuscriptRange.of({
+            source: { start: 9, end: 11 },
+            display: { start: 9, end: 11 },
+            graphemes: { start: 9, end: 11 },
+          }),
+        },
+      ];
+    },
   });
 
-  const split = diagnostics.find(({ origin }) => origin.id === "kg/no-consecutive-punctuation");
-  expect.assert(split !== undefined, "fixture produced no punctuation diagnostic");
+  const split = diagnostics[0];
+  expect.assert(split !== undefined, "fixture produced no diagnostic");
 
   const bands = Array.from(
     screen.container.querySelectorAll<HTMLElement>(
@@ -283,6 +305,64 @@ test("bands a diagnostic that runs past a line end once per line, with one contr
   expect(bands).toHaveLength(2);
   expect(bands.filter((band) => band.tagName === "BUTTON")).toHaveLength(1);
   expect(bands.filter((band) => band.dataset.diagnosticContinued !== undefined)).toHaveLength(1);
+});
+
+test("renders hanging punctuation as its own cell outside the line's grid", async () => {
+  // こ fills the tenth and last cell of the line; the following 。 hangs off it instead of
+  // starting the next line, so it renders in .kgv-line-hanging rather than among the ten cells.
+  const { screen } = await renderViewer({ text: "あいうえおかきくけこ。さ", settings });
+
+  const firstLine = screen.container.querySelector<HTMLElement>(".kgv-line");
+  expect.assert(firstLine !== null, "grid has no first line");
+
+  expect(firstLine.querySelectorAll(".kgv-cell")).toHaveLength(settings.charsPerLine + 1);
+
+  const hangingLayer = firstLine.querySelector<HTMLElement>(".kgv-line-hanging");
+  expect.assert(hangingLayer !== null, "first line has no hanging layer");
+
+  const hangingCells = Array.from(hangingLayer.querySelectorAll<HTMLElement>(".kgv-cell"));
+  expect(hangingCells).toHaveLength(1);
+  expect(hangingCells[0]?.textContent).toBe("。");
+});
+
+test("bands a diagnostic that points at hanging punctuation", async () => {
+  const text = "あいうえおかきくけこ。さ";
+  const { diagnostics, screen } = await renderViewer({
+    text,
+    settings,
+    // Points the diagnostic at 。 (index 10), which kinsoku hangs off the first line, since no
+    // built-in rule flags a single fullwidth period on its own.
+    reportedAs: (found) => {
+      const first = found[0];
+      expect.assert(first !== undefined, "fixture produced no diagnostics");
+
+      return [
+        {
+          ...first,
+          range: ManuscriptRange.of({
+            source: { start: 10, end: 11 },
+            display: { start: 10, end: 11 },
+            graphemes: { start: 10, end: 11 },
+          }),
+        },
+      ];
+    },
+  });
+
+  const diagnostic = diagnostics[0];
+  expect.assert(diagnostic !== undefined, "fixture produced no diagnostic");
+
+  const band = screen.container.querySelector<HTMLElement>(
+    `.kgv-diagnostic-band[data-diagnostic-id="${diagnostic.id}"]`,
+  );
+  const hangingCell = screen.container.querySelector<HTMLElement>(".kgv-line-hanging .kgv-cell");
+  expect.assert(band !== null, "grid has no band for the hanging diagnostic");
+  expect.assert(hangingCell !== null, "grid has no hanging cell");
+
+  const bandRect = band.getBoundingClientRect();
+  const cellRect = hangingCell.getBoundingClientRect();
+  expect(bandRect.top).toBeCloseTo(cellRect.top, 0);
+  expect(bandRect.bottom).toBeCloseTo(cellRect.bottom, 0);
 });
 
 test("renders the four supported pixiv notation forms without exposing their tags", async () => {
@@ -640,6 +720,24 @@ test("keeps the themed grid on the geometry the composer calculated", async () =
     0,
   );
   expect(line.getBoundingClientRect().height).toBeCloseTo(settings.charsPerLine * cellSize, 0);
+});
+
+test("keeps a line's size on the geometry even when it hangs punctuation off it", async () => {
+  const { screen } = await renderViewer({ text: "あいうえおかきくけこ。さ", settings });
+
+  const cell = screen.container.querySelector<HTMLElement>(".kgv-cell");
+  const firstLine = screen.container.querySelector<HTMLElement>(".kgv-line");
+  expect.assert(cell !== null, "grid has no cell");
+  expect.assert(firstLine !== null, "grid has no first line");
+  expect.assert(
+    firstLine.querySelector(".kgv-line-hanging") !== null,
+    "first line has no hanging layer to exercise",
+  );
+
+  // The hanging layer sits out of flow, so the line stays exactly as tall as its ten own cells —
+  // the same geometry it would have with no hanging punctuation at all.
+  const cellSize = cell.getBoundingClientRect().width;
+  expect(firstLine.getBoundingClientRect().height).toBeCloseTo(settings.charsPerLine * cellSize, 0);
 });
 
 test("renders offset-reserved leading cells as empty", async () => {
