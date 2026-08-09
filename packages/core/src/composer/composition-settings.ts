@@ -3,6 +3,7 @@ import * as v from "valibot";
 import { ManuscriptAppearanceSettings } from "../appearance/appearance-settings";
 import { readonlyObject } from "../internal/schema";
 import { GridSettings } from "./grid-settings";
+import { KinsokuSettings } from "./kinsoku-settings";
 import { LineOffset } from "./line-offset";
 import { ManuscriptOffsets } from "./manuscript-offsets";
 
@@ -11,6 +12,9 @@ const ManuscriptCompositionSettingsSchema = v.pipe(
     grid: GridSettings.schema,
     offsets: ManuscriptOffsets.schema,
     appearance: ManuscriptAppearanceSettings.schema,
+    // Optional with a default, not a required field: settings saved by the frontend before this
+    // field existed must keep validating, so a missing key falls back instead of being rejected.
+    kinsoku: v.optional(KinsokuSettings.schema, KinsokuSettings.defaults),
   }),
   v.check(
     ({ grid, offsets }) =>
@@ -34,6 +38,7 @@ export const ManuscriptCompositionSettings = {
     grid: GridSettings.defaults,
     offsets: ManuscriptOffsets.defaults,
     appearance: ManuscriptAppearanceSettings.defaults,
+    kinsoku: KinsokuSettings.defaults,
   } as const satisfies ManuscriptCompositionSettings,
 
   is: (value: unknown): value is ManuscriptCompositionSettings =>

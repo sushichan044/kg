@@ -54,6 +54,7 @@ export { GridLine } from "./composer/grid-line";
 export { GridPage } from "./composer/grid-page";
 export { GridSettings } from "./composer/grid-settings";
 export { GridStage } from "./composer/grid-stage";
+export { KinsokuSettings } from "./composer/kinsoku-settings";
 export { LineOffset } from "./composer/line-offset";
 export type { ManuscriptComposer } from "./composer/manuscript-composer";
 export { ManuscriptGeometry } from "./composer/manuscript-geometry";
