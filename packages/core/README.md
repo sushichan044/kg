@@ -58,6 +58,21 @@ geometry, statistics, and page/stage/line/cell hierarchy. Every occupied
 element has source, display, and grapheme ranges; empty placement elements use
 `null`.
 
+The grid composer applies kinsoku shori at every wrap boundary by default: it
+never starts a line with a prohibited character such as `」` or `。`, never ends
+one with `「`, and keeps a non-separable run such as `——` together. Leading
+`、。，．` hang off the line instead of taking a cell of their own. A manuscript's
+own line breaks are left alone — kinsoku only ever moves a boundary the grid
+composer chose. Set `kinsoku.enabled` or `kinsoku.hangingPunctuation` to
+`false` in `ManuscriptCompositionSettings` to opt out of either:
+
+```ts
+const settings = {
+  ...ManuscriptCompositionSettings.defaults,
+  kinsoku: { enabled: true, hangingPunctuation: false },
+};
+```
+
 ## Extensions and validation
 
 Parsers implement `ManuscriptParser`. Composers implement `ManuscriptComposer`
