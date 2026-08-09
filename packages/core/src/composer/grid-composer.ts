@@ -9,6 +9,8 @@ import type { GridCell } from "./grid-cell";
 import { GridLine } from "./grid-line";
 import { GridPage } from "./grid-page";
 import { GridStage } from "./grid-stage";
+import { resolveLineBreak } from "./internal/kinsoku";
+import type { KinsokuSettings } from "./kinsoku-settings";
 import { LineOffset } from "./line-offset";
 import type { ManuscriptComposer } from "./manuscript-composer";
 import { ManuscriptGeometry } from "./manuscript-geometry";
@@ -52,14 +54,34 @@ function toCells(
 }
 
 /**
- * Wraps one source line across as many grid lines as its length requires.
+ * Wraps one source line across as many grid lines as its length requires. A fixed grid cannot
+ * tighten a line to make room, so kinsoku only ever pushes a wrap boundary earlier — never later
+ * than the plain charsPerLine slice — either by hanging trailing punctuation off the line or by
+ * carrying one or more characters to the next line instead.
  */
-function wrapLine(cells: readonly GridCell[], charsPerLine: number): GridLine[] {
+function wrapLine(
+  cells: readonly GridCell[],
+  charsPerLine: number,
+  kinsoku: KinsokuSettings,
+): GridLine[] {
   if (cells.length === 0) return [GridLine.padded([], charsPerLine)];
 
-  return Array.from({ length: Math.ceil(cells.length / charsPerLine) }, (_unused, index) =>
-    GridLine.padded(cells.slice(index * charsPerLine, (index + 1) * charsPerLine), charsPerLine),
-  );
+  const lines: GridLine[] = [];
+  let index = 0;
+  while (index < cells.length) {
+    const tentativeEnd = Math.min(index + charsPerLine, cells.length);
+    // The manuscript's own line end is not a wrap boundary, so kinsoku never applies to it.
+    if (!kinsoku.enabled || tentativeEnd === cells.length) {
+      lines.push(GridLine.padded(cells.slice(index, tentativeEnd), charsPerLine));
+      index = tentativeEnd;
+      continue;
+    }
+
+    const { end, hanging } = resolveLineBreak(cells, index, tentativeEnd, kinsoku);
+    lines.push(GridLine.padded(cells.slice(index, end), charsPerLine, hanging));
+    index = end + hanging.length;
+  }
+  return lines;
 }
 
 function blankLines(count: number, charsPerLine: number): GridLine[] {
@@ -114,7 +136,9 @@ function composeGrid(
   const { charsPerLine } = settings.grid;
   const sourceLines = displayedLines(manuscript.graphemes);
   const cellLines = sourceLines.map((line) => toCells(line, manuscript.annotations));
-  const manuscriptLines = cellLines.flatMap((cells) => wrapLine(cells, charsPerLine));
+  const manuscriptLines = cellLines.flatMap((cells) =>
+    wrapLine(cells, charsPerLine, settings.kinsoku),
+  );
 
   const pages = buildPages(
     [
