@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/sushichan044/kg/compare/kg-core-v0.6.1...kg-core-v0.6.2) (2026-08-23)
+
+
+### Features
+
+* **composer:** hang punctuation gaps at wrap boundaries ([#74](https://github.com/sushichan044/kg/issues/74)) ([ab45fff](https://github.com/sushichan044/kg/commit/ab45fff41a98ef4b55ba3cbec1872ed0c70ca87f))
+
 ## [0.6.1](https://github.com/sushichan044/kg/compare/kg-core-v0.6.0...kg-core-v0.6.1) (2026-08-05)
 
 

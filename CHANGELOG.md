@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/sushichan044/kg/compare/v0.4.1...v0.4.2) (2026-08-23)
+
+
+### Features
+
+* **composer:** hang punctuation gaps at wrap boundaries ([#74](https://github.com/sushichan044/kg/issues/74)) ([ab45fff](https://github.com/sushichan044/kg/commit/ab45fff41a98ef4b55ba3cbec1872ed0c70ca87f))
+
 ## [0.4.1](https://github.com/sushichan044/kg/compare/v0.4.0...v0.4.1) (2026-08-05)
 
 
