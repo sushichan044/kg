@@ -1,3 +1,4 @@
+import { questionOrExclamationSpacings } from "../internal/question-or-exclamation-spacing";
 import { NamespacedId } from "../namespaced-id";
 import { ManuscriptAnnotation } from "../parser/annotation/manuscript-annotation";
 import type { ParsedGrapheme } from "../parser/parsed-grapheme";
@@ -51,15 +52,46 @@ function toCells(
   }));
 }
 
+function hangingGapIndexes(sourceLine: readonly ParsedGrapheme[]): ReadonlySet<number> {
+  const line = sourceLine.map(({ value }) => value).join("");
+  const gapStarts = new Set(
+    questionOrExclamationSpacings(line)
+      .filter((spacing) => spacing.kind === "valid")
+      .map(({ gap }) => gap.start),
+  );
+  const indexes = new Set<number>();
+  let offset = 0;
+
+  for (const [index, grapheme] of sourceLine.entries()) {
+    if (gapStarts.has(offset)) indexes.add(index);
+    offset += grapheme.value.length;
+  }
+
+  return indexes;
+}
+
 /**
- * Wraps one source line across as many grid lines as its length requires.
+ * Wraps one source line across as many grid lines as its length requires. A valid gap after ！ or ？
+ * that would start a wrapped line is consumed as hanging punctuation instead of occupying a cell.
  */
-function wrapLine(cells: readonly GridCell[], charsPerLine: number): GridLine[] {
+function wrapLine(
+  cells: readonly GridCell[],
+  charsPerLine: number,
+  hangingGaps: ReadonlySet<number>,
+): GridLine[] {
   if (cells.length === 0) return [GridLine.padded([], charsPerLine)];
 
-  return Array.from({ length: Math.ceil(cells.length / charsPerLine) }, (_unused, index) =>
-    GridLine.padded(cells.slice(index * charsPerLine, (index + 1) * charsPerLine), charsPerLine),
-  );
+  const lines: GridLine[] = [];
+  let cursor = 0;
+  while (cursor < cells.length) {
+    if (lines.length > 0 && hangingGaps.has(cursor)) cursor += 1;
+    if (cursor >= cells.length) break;
+
+    lines.push(GridLine.padded(cells.slice(cursor, cursor + charsPerLine), charsPerLine));
+    cursor += charsPerLine;
+  }
+
+  return lines;
 }
 
 function blankLines(count: number, charsPerLine: number): GridLine[] {
@@ -113,8 +145,9 @@ function composeGrid(
 ): ManuscriptResult<ManuscriptGridLayout, never> {
   const { charsPerLine } = settings.grid;
   const sourceLines = displayedLines(manuscript.graphemes);
-  const cellLines = sourceLines.map((line) => toCells(line, manuscript.annotations));
-  const manuscriptLines = cellLines.flatMap((cells) => wrapLine(cells, charsPerLine));
+  const manuscriptLines = sourceLines.flatMap((line) =>
+    wrapLine(toCells(line, manuscript.annotations), charsPerLine, hangingGapIndexes(line)),
+  );
 
   const pages = buildPages(
     [
@@ -129,7 +162,7 @@ function composeGrid(
     pages,
     geometry: ManuscriptGeometry.of(settings.grid, settings.appearance),
     stats: {
-      chars: cellLines.reduce((total, cells) => total + cells.length, 0),
+      chars: sourceLines.reduce((total, line) => total + line.length, 0),
       sourceLines: sourceLines.length,
       pages: pages.length,
     },
