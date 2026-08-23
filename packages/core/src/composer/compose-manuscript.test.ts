@@ -127,9 +127,12 @@ describe("composeManuscript", () => {
 
     expect.assert(result.ok, "expected composeManuscript to succeed");
 
-    const lines = result.value.layout.pages[0]?.stages[0]?.lines;
-    const firstLine = lines?.[0];
-    const secondLine = lines?.[1];
+    const page = result.value.layout.pages[0];
+    expect.assert(page !== undefined, "grid layout has no first page");
+    const stage = page.stages[0];
+    expect.assert(stage !== undefined, "grid layout has no first stage");
+    const firstLine = stage.lines[0];
+    const secondLine = stage.lines[1];
     expect.assert(firstLine !== undefined, "grid layout has no first line");
     expect.assert(secondLine !== undefined, "grid layout has no second line");
 
@@ -155,9 +158,12 @@ describe("composeManuscript", () => {
 
     expect.assert(result.ok, "expected composeManuscript to succeed");
 
-    const lines = result.value.layout.pages[0]?.stages[0]?.lines;
+    const page = result.value.layout.pages[0];
+    expect.assert(page !== undefined, "grid layout has no first page");
+    const stage = page.stages[0];
+    expect.assert(stage !== undefined, "grid layout has no first stage");
     const lineIndex = source.length > 10 ? 1 : 0;
-    const line = lines?.[lineIndex];
+    const line = stage.lines[lineIndex];
     expect.assert(line !== undefined, "grid layout has no expected line");
 
     expect(occupiedText(line)).toBe(expectedLine);
@@ -171,7 +177,11 @@ describe("composeManuscript", () => {
 
     expect.assert(result.ok, "expected composeManuscript to succeed");
 
-    const secondLine = result.value.layout.pages[0]?.stages[0]?.lines[1];
+    const page = result.value.layout.pages[0];
+    expect.assert(page !== undefined, "grid layout has no first page");
+    const stage = page.stages[0];
+    expect.assert(stage !== undefined, "grid layout has no first stage");
+    const secondLine = stage.lines[1];
     expect.assert(secondLine !== undefined, "grid layout has no second line");
 
     expect(occupiedText(secondLine)).toBe("　続き");
