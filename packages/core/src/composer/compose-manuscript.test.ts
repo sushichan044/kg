@@ -30,6 +30,10 @@ function settings(
   };
 }
 
+function occupiedText(line: { cells: ReadonlyArray<{ value: string | null }> }): string {
+  return line.cells.flatMap(({ value }) => (value === null ? [] : [value])).join("");
+}
+
 type LabelLayout = { label: string };
 
 /**
@@ -112,6 +116,75 @@ describe("composeManuscript", () => {
       value: "太",
       annotations: [{ kind: "bold" }],
     });
+  });
+
+  test("omits a valid gap after question or exclamation marks at a wrap boundary", () => {
+    const source = "あいうえおかきく！？　続き";
+    const result = composeManuscript(parsed(source), {
+      composer: manuscriptGridComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composeManuscript to succeed");
+
+    const page = result.value.layout.pages[0];
+    expect.assert(page !== undefined, "grid layout has no first page");
+    const stage = page.stages[0];
+    expect.assert(stage !== undefined, "grid layout has no first stage");
+    const firstLine = stage.lines[0];
+    const secondLine = stage.lines[1];
+    expect.assert(firstLine !== undefined, "grid layout has no first line");
+    expect.assert(secondLine !== undefined, "grid layout has no second line");
+
+    expect(occupiedText(firstLine)).toBe("あいうえおかきく！？");
+    expect(occupiedText(secondLine)).toBe("続き");
+    expect(secondLine.cells[0]).toMatchObject({
+      value: "続",
+      range: { source: { start: 11, end: 12 } },
+    });
+    expect(result.value.parsed.source).toBe(source);
+    expect(result.value.layout.stats.chars).toBe(13);
+  });
+
+  test.each([
+    ["a gap within a grid line", "あ！　続き", "あ！　続き"],
+    ["two gaps rejected by proofreading", "あいうえおかきくけ！　　続き", "　　続き"],
+    ["a gap before a closing bracket", "あいうえおかきくけ！　」", "　」"],
+  ])("preserves %s", (_case, source, expectedLine) => {
+    const result = composeManuscript(parsed(source), {
+      composer: manuscriptGridComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composeManuscript to succeed");
+
+    const page = result.value.layout.pages[0];
+    expect.assert(page !== undefined, "grid layout has no first page");
+    const stage = page.stages[0];
+    expect.assert(stage !== undefined, "grid layout has no first stage");
+    const lineIndex = source.length > 10 ? 1 : 0;
+    const line = stage.lines[lineIndex];
+    expect.assert(line !== undefined, "grid layout has no expected line");
+
+    expect(occupiedText(line)).toBe(expectedLine);
+  });
+
+  test("preserves indentation after a source line break", () => {
+    const result = composeManuscript(parsed("あいうえおかきくけ！\n　続き"), {
+      composer: manuscriptGridComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composeManuscript to succeed");
+
+    const page = result.value.layout.pages[0];
+    expect.assert(page !== undefined, "grid layout has no first page");
+    const stage = page.stages[0];
+    expect.assert(stage !== undefined, "grid layout has no first stage");
+    const secondLine = stage.lines[1];
+    expect.assert(secondLine !== undefined, "grid layout has no second line");
+
+    expect(occupiedText(secondLine)).toBe("　続き");
   });
 
   test("returns a composition failure instead of clamping unusable offsets", () => {

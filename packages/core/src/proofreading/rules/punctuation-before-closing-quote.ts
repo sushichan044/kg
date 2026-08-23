@@ -1,5 +1,5 @@
+import { characterClass, CLOSING_BRACKETS } from "../../internal/japanese-brackets";
 import type { ParsedProofreadingRule } from "../proofreading-rule";
-import { characterClass, CLOSING_BRACKETS } from "./internal/brackets";
 import { defineMatchRule } from "./internal/define-rule";
 
 const PATTERN = new RegExp(`[。、]+(?=[${characterClass(CLOSING_BRACKETS)}])`, "gu");

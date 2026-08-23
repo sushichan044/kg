@@ -1,14 +1,14 @@
 import * as v from "valibot";
 
+import { OPENING_BRACKETS } from "../../internal/japanese-brackets";
+import { IDEOGRAPHIC_SPACE, leadingSpaces } from "../../internal/japanese-spaces";
 import { ManuscriptResult } from "../../result/manuscript-result";
 import { ValidationIssue } from "../../result/validation-issue";
 import type { InvalidRuleOptions } from "../invalid-rule-options";
 import type { ParsedProofreadingRule } from "../proofreading-rule";
-import { OPENING_BRACKETS } from "./internal/brackets";
 import { isDecorationLine } from "./internal/decoration-line";
 import { splitDisplayLines } from "./internal/display-line";
 import { displayRange } from "./internal/rule-range";
-import { IDEOGRAPHIC_SPACE, leadingSpaces } from "./internal/spaces";
 
 const RULE_ID = "kg/paragraph-opening";
 
