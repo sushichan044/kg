@@ -1,8 +1,8 @@
+import { assertNever } from "../../assert-never";
+import { questionOrExclamationSpacings } from "../../internal/question-or-exclamation-spacing";
 import type { ParsedProofreadingRule } from "../proofreading-rule";
-import { CLOSING_BRACKETS } from "./internal/brackets";
 import { splitDisplayLines } from "./internal/display-line";
 import { displayRange } from "./internal/rule-range";
-import { IDEOGRAPHIC_SPACE, leadingSpaces } from "./internal/spaces";
 
 const RULE_ID = "kg/space-after-question-or-exclamation";
 
@@ -11,11 +11,6 @@ const MESSAGES = {
   "space-width": "感嘆符または疑問符の直後の空白は全角スペース1字にしてください",
   "before-closing-bracket": "閉じ括弧の直前に空白を置くことはできません",
 } as const;
-
-/**
- * Runs, not single marks: `！？` is one mark and takes one gap, so the gap belongs after the run.
- */
-const MARKS = /[？！]+/gu;
 
 /**
  * Checks the gap that follows every run of ！ or ？. A run at the end of a line or right before a
@@ -30,24 +25,30 @@ export const spaceAfterQuestionOrExclamationRule = (): ParsedProofreadingRule =>
     };
 
     for (const line of splitDisplayLines(manuscript.displayText)) {
-      for (const marks of line.text.matchAll(MARKS)) {
-        const marksEnd = marks.index + marks[0].length;
-        const next = line.text[marksEnd];
-        if (next === undefined || CLOSING_BRACKETS.includes(next)) continue;
-
-        const spaces = leadingSpaces(line.text.slice(marksEnd));
-        if (spaces === "") {
-          report(line.start + marks.index, line.start + marksEnd, "default");
-          continue;
-        }
-
-        const following = line.text[marksEnd + spaces.length];
-        const spacesStart = line.start + marksEnd;
-        const spacesEnd = spacesStart + spaces.length;
-        if (following !== undefined && CLOSING_BRACKETS.includes(following)) {
-          report(spacesStart, spacesEnd, "before-closing-bracket");
-        } else if (spaces !== IDEOGRAPHIC_SPACE) {
-          report(spacesStart, spacesEnd, "space-width");
+      for (const spacing of questionOrExclamationSpacings(line.text)) {
+        switch (spacing.kind) {
+          case "valid": {
+            break;
+          }
+          case "missing": {
+            report(line.start + spacing.marks.start, line.start + spacing.marks.end, "default");
+            break;
+          }
+          case "invalid-space": {
+            report(line.start + spacing.gap.start, line.start + spacing.gap.end, "space-width");
+            break;
+          }
+          case "before-closing-bracket": {
+            report(
+              line.start + spacing.gap.start,
+              line.start + spacing.gap.end,
+              "before-closing-bracket",
+            );
+            break;
+          }
+          default: {
+            assertNever(spacing);
+          }
         }
       }
     }
