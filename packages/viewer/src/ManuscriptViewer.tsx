@@ -257,6 +257,26 @@ function readingCharacters(reading: string): ReadingCharacter[] {
   }));
 }
 
+/**
+ * The share of a reading that belongs beside one line fragment. Using rounded cumulative boundaries
+ * keeps adjacent fragments contiguous while balancing a group reading in proportion to the base
+ * characters each fragment contains. For mono ruby the counts match, so this is the same one-to-one
+ * slice.
+ */
+function fragmentReadingCharacters(
+  reading: readonly ReadingCharacter[],
+  baseOffset: number,
+  baseCharacters: number,
+  annotationBaseCharacters: number,
+): readonly ReadingCharacter[] {
+  const start = Math.round((baseOffset * reading.length) / annotationBaseCharacters);
+  const end = Math.round(
+    ((baseOffset + baseCharacters) * reading.length) / annotationBaseCharacters,
+  );
+
+  return reading.slice(start, end);
+}
+
 type AnnotationFragmentProps = Readonly<{
   annotation: ManuscriptAnnotation;
   /**
@@ -296,8 +316,12 @@ function AnnotationFragment({
       // Any other count belongs to the compound as a whole — group ruby. structural.css places the
       // two differently.
       const fit = reading.length === annotationBaseCharacters ? "mono" : "group";
-      const fragmentReading =
-        fit === "mono" ? reading.slice(baseOffset, baseOffset + baseCharacters) : reading;
+      const fragmentReading = fragmentReadingCharacters(
+        reading,
+        baseOffset,
+        baseCharacters,
+        annotationBaseCharacters,
+      );
       return (
         <ruby className="kgv-annotation" data-annotation="ruby" data-ruby-fit={fit}>
           {children}

@@ -77,6 +77,11 @@ reading character per base character, so each sits on the character it belongs t
 and `group` otherwise, so the reading spreads across the compound with its first
 and last character at either end.
 
+When a ruby annotation crosses a grid line, each line receives only its share of
+the reading. Mono ruby splits one-to-one with its base characters; group ruby
+splits at the nearest proportional grapheme boundary, without repeating or
+dropping reading characters.
+
 Every vertical manuscript line is an independent grid with a half-em gap. The
 gap scales with zoom and is included in the core geometry used to center the
 grid on the selected paper size.
