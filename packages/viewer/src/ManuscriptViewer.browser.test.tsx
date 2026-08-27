@@ -437,26 +437,26 @@ test("sets a ruby reading at half the size of the characters it annotates", asyn
   );
 });
 
-test("splits annotations at line boundaries and repeats ruby readings", async () => {
+test("splits a group ruby reading proportionally at line boundaries", async () => {
+  const reading = "いちにさんしごろくしちはちきゅうじゅういちに";
   const { screen } = await renderViewer({
-    text: "[[rb:一二三四五六七八九十一二 > いちにさんしごろくしちはちきゅうじゅういちに]]",
+    text: `[[rb:一二三四五六七八九十一二 > ${reading}]]`,
     settings,
     parser: pixivParser,
   });
 
   const rubyFragments = screen.container.querySelectorAll<HTMLElement>('[data-annotation="ruby"]');
-  expect(rubyFragments).toHaveLength(2);
-  expect(
-    Array.from(rubyFragments, (ruby) => {
-      const reading = ruby.querySelector(".kgv-ruby");
-      expect.assert(reading !== null, "ruby fragment has no reading");
+  const fragmentReadings = Array.from(rubyFragments, (ruby) => {
+    const fragmentReading = ruby.querySelector(".kgv-ruby");
+    expect.assert(fragmentReading !== null, "ruby fragment has no reading");
 
-      return reading.textContent;
-    }),
-  ).toEqual([
-    "いちにさんしごろくしちはちきゅうじゅういちに",
-    "いちにさんしごろくしちはちきゅうじゅういちに",
-  ]);
+    return fragmentReading.textContent;
+  });
+
+  expect(rubyFragments).toHaveLength(2);
+  expect(Array.from(rubyFragments, (ruby) => ruby.dataset.rubyFit)).toEqual(["group", "group"]);
+  expect(fragmentReadings).toEqual(["いちにさんしごろくしちはちきゅうじゅ", "ういちに"]);
+  expect(fragmentReadings.join("")).toBe(reading);
   expect(Array.from(rubyFragments, (ruby) => ruby.querySelectorAll(".kgv-cell").length)).toEqual([
     10, 2,
   ]);
