@@ -23,6 +23,7 @@ import { NovelLine as NovelLineContract } from "./novel-line";
 import { NovelPage } from "./novel-page";
 import { NovelStage } from "./novel-stage";
 import type { PositionedGrapheme, SuppressedGrapheme } from "./positioned-grapheme";
+import type { VerticalTextPresentation } from "./vertical-text-presentation";
 
 const COMPOSER_ID = NamespacedId.of("kg/novel");
 
@@ -32,8 +33,16 @@ const LINE_START_PROHIBITED = new Set(
 const LINE_END_PROHIBITED = new Set(`${OPENING_BRACKETS}【〘〝｟«`);
 const HANGING_PUNCTUATION = new Set("、。，．！？");
 const INSEPARABLE_PAIRS = new Set(["……", "――", "──", "〳〵"]);
+const ASCII_ALPHANUMERIC = /^[A-Za-z0-9]$/u;
+const ASCII_TWO_DIGITS = /^[0-9]{2}$/u;
+const UPRIGHT_LATIN_ABBREVIATION = /^(?:[A-Z]+|[A-Z][a-z]{1,2})$/u;
+const FULLWIDTH_ALPHANUMERIC = /^[Ａ-Ｚａ-ｚ０-９]$/u;
 
-type Atom = Readonly<{ grapheme: ParsedGrapheme; advanceEm: number }>;
+type Atom = Readonly<{
+  grapheme: ParsedGrapheme;
+  advanceEm: number;
+  presentation: VerticalTextPresentation;
+}>;
 
 type MeasuredSourceLine = Readonly<{
   atoms: readonly Atom[];
@@ -41,6 +50,56 @@ type MeasuredSourceLine = Readonly<{
 }>;
 
 export type NovelComposedManuscript = ComposedManuscript<NovelCompositionSettings, NovelLayout>;
+
+function presentation(
+  kind: VerticalTextPresentation["kind"],
+  graphemes: readonly ParsedGrapheme[],
+): VerticalTextPresentation | undefined {
+  const groupRange = ManuscriptRange.merge(graphemes.map(({ range }) => range));
+  return groupRange === null ? undefined : { kind, groupRange };
+}
+
+function presentedSourceLine(
+  sourceLine: readonly ParsedGrapheme[],
+): Array<Readonly<{ grapheme: ParsedGrapheme; presentation: VerticalTextPresentation }>> {
+  const presented: Array<
+    Readonly<{ grapheme: ParsedGrapheme; presentation: VerticalTextPresentation }>
+  > = [];
+  let cursor = 0;
+
+  while (cursor < sourceLine.length) {
+    const first = sourceLine[cursor];
+    if (first === undefined) break;
+
+    if (!ASCII_ALPHANUMERIC.test(first.value)) {
+      const itemPresentation = presentation(
+        FULLWIDTH_ALPHANUMERIC.test(first.value) ? "upright" : "mixed",
+        [first],
+      );
+      if (itemPresentation !== undefined) {
+        presented.push({ grapheme: first, presentation: itemPresentation });
+      }
+      cursor += 1;
+      continue;
+    }
+
+    const start = cursor;
+    while (ASCII_ALPHANUMERIC.test(sourceLine[cursor]?.value ?? "")) cursor += 1;
+    const run = sourceLine.slice(start, cursor);
+    const text = run.map(({ value }) => value).join("");
+    const kind = ASCII_TWO_DIGITS.test(text)
+      ? "tate-chu-yoko"
+      : text.length === 1 || UPRIGHT_LATIN_ABBREVIATION.test(text)
+        ? "upright"
+        : "sideways";
+    const runPresentation = presentation(kind, run);
+    if (runPresentation !== undefined) {
+      presented.push(...run.map((grapheme) => ({ grapheme, presentation: runPresentation })));
+    }
+  }
+
+  return presented;
+}
 
 function displayedLines(graphemes: readonly ParsedGrapheme[]): ParsedGrapheme[][] {
   const lines: ParsedGrapheme[][] = [[]];
@@ -89,13 +148,17 @@ function measure(
   text: string,
   role: "base" | "ruby",
   settings: NovelCompositionSettings,
+  presentationKind?: VerticalTextPresentation["kind"],
 ): number | undefined {
-  const value = measurer({
+  const context = {
     text,
-    role,
     fontPreset: settings.appearance.fontPreset,
     writingMode: "vertical-rl",
-  });
+  } as const;
+  const value =
+    role === "base"
+      ? measurer({ ...context, role, presentation: presentationKind ?? "mixed" })
+      : measurer({ ...context, role });
 
   return Number.isFinite(value) && value >= 0 ? value : undefined;
 }
@@ -106,15 +169,17 @@ function measureSourceLine(
   settings: NovelCompositionSettings,
   measurer: InlineMeasurer,
 ): MeasuredSourceLine | undefined {
-  const mutable = sourceLine.map((grapheme) => {
-    const advanceEm = measure(measurer, grapheme.value, "base", settings);
-    return advanceEm === undefined ? undefined : { grapheme, advanceEm };
+  const mutable = presentedSourceLine(sourceLine).map(({ grapheme, presentation }) => {
+    const advanceEm = measure(measurer, grapheme.value, "base", settings, presentation.kind);
+    return advanceEm === undefined ? undefined : { grapheme, advanceEm, presentation };
   });
   if (mutable.some((atom) => atom === undefined)) return undefined;
 
-  const atoms: Array<{ grapheme: ParsedGrapheme; advanceEm: number }> = mutable.flatMap((atom) =>
-    atom === undefined ? [] : [atom],
-  );
+  const atoms: Array<{
+    grapheme: ParsedGrapheme;
+    advanceEm: number;
+    presentation: VerticalTextPresentation;
+  }> = mutable.flatMap((atom) => (atom === undefined ? [] : [atom]));
 
   for (const annotation of annotations) {
     if (annotation.kind !== "ruby") continue;
@@ -181,6 +246,14 @@ function breakInsideFittableGroupRuby(
   });
 }
 
+function samePresentationGroup(left: Atom, right: Atom): boolean {
+  return (
+    left.presentation.groupRange.graphemes.start ===
+      right.presentation.groupRange.graphemes.start &&
+    left.presentation.groupRange.graphemes.end === right.presentation.groupRange.graphemes.end
+  );
+}
+
 function legalBoundary(
   atoms: readonly Atom[],
   annotations: readonly ManuscriptAnnotation[],
@@ -192,6 +265,7 @@ function legalBoundary(
   if (left === undefined || right === undefined) return true;
 
   return (
+    !samePresentationGroup(left, right) &&
     !LINE_END_PROHIBITED.has(left.grapheme.value) &&
     !LINE_START_PROHIBITED.has(right.grapheme.value) &&
     !INSEPARABLE_PAIRS.has(left.grapheme.value + right.grapheme.value) &&
@@ -347,18 +421,21 @@ function positionedLine(
   baseAdvances: ReadonlyMap<number, number>,
 ): NovelLine {
   let offsetEm = 0;
-  const graphemes = atoms.map(({ grapheme, advanceEm }, index): PositionedGrapheme => {
-    const positioned: PositionedGrapheme = {
-      kind: "grapheme",
-      value: grapheme.value,
-      range: grapheme.range,
-      offsetEm,
-      advanceEm,
-      disposition: dispositions.has(index) ? "hanging" : "placed",
-    };
-    offsetEm += advanceEm;
-    return positioned;
-  });
+  const graphemes = atoms.map(
+    ({ grapheme, advanceEm, presentation }, index): PositionedGrapheme => {
+      const positioned: PositionedGrapheme = {
+        kind: "grapheme",
+        value: grapheme.value,
+        range: grapheme.range,
+        offsetEm,
+        advanceEm,
+        disposition: dispositions.has(index) ? "hanging" : "placed",
+        presentation,
+      };
+      offsetEm += advanceEm;
+      return positioned;
+    },
+  );
 
   return {
     range: ManuscriptRange.merge([
@@ -416,12 +493,22 @@ function wrapSourceLine(
     let advance = 0;
     while (cursor < sourceLine.atoms.length) {
       const atom = sourceLine.atoms[cursor];
-      if (
-        atom === undefined ||
-        (cursor > start && advance + atom.advanceEm > settings.flow.lineLengthEm)
-      ) {
-        break;
+      if (atom === undefined) break;
+      const previous = sourceLine.atoms[cursor - 1];
+      const beginsPresentationGroup =
+        previous === undefined || !samePresentationGroup(previous, atom);
+      if (cursor > start && beginsPresentationGroup) {
+        let groupAdvance = 0;
+        for (let index = cursor; index < sourceLine.atoms.length; index += 1) {
+          const member = sourceLine.atoms[index];
+          if (member === undefined || !samePresentationGroup(atom, member)) break;
+          groupAdvance += member.advanceEm;
+        }
+        if (advance + groupAdvance > settings.flow.lineLengthEm) break;
       }
+
+      const exceedsLine = cursor > start && advance + atom.advanceEm > settings.flow.lineLengthEm;
+      if (exceedsLine && (previous === undefined || !samePresentationGroup(previous, atom))) break;
       advance += atom.advanceEm;
       cursor += 1;
     }

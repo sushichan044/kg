@@ -85,6 +85,66 @@ describe("composeManuscript", () => {
     expect(globalThis.structuredClone(result.value)).toEqual(result.value);
   });
 
+  test("models JLReq vertical presentations before positioning text", () => {
+    const result = composeManuscript(parsed("あBGMいWebうeditorえ12おＷ"), {
+      composer: novelComposer,
+      settings: settings({ lineLengthEm: 20 }),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const line = contentLines(result.value)[0];
+    expect.assert(line !== undefined, "layout has no content line");
+    expect(
+      line.graphemes.map(({ value, advanceEm, presentation }) => ({
+        value,
+        advanceEm,
+        presentation: presentation.kind,
+      })),
+    ).toEqual([
+      { value: "あ", advanceEm: 1, presentation: "mixed" },
+      { value: "B", advanceEm: 1, presentation: "upright" },
+      { value: "G", advanceEm: 1, presentation: "upright" },
+      { value: "M", advanceEm: 1, presentation: "upright" },
+      { value: "い", advanceEm: 1, presentation: "mixed" },
+      { value: "W", advanceEm: 1, presentation: "upright" },
+      { value: "e", advanceEm: 1, presentation: "upright" },
+      { value: "b", advanceEm: 1, presentation: "upright" },
+      { value: "う", advanceEm: 1, presentation: "mixed" },
+      { value: "e", advanceEm: 0.5, presentation: "sideways" },
+      { value: "d", advanceEm: 0.5, presentation: "sideways" },
+      { value: "i", advanceEm: 0.5, presentation: "sideways" },
+      { value: "t", advanceEm: 0.5, presentation: "sideways" },
+      { value: "o", advanceEm: 0.5, presentation: "sideways" },
+      { value: "r", advanceEm: 0.5, presentation: "sideways" },
+      { value: "え", advanceEm: 1, presentation: "mixed" },
+      { value: "1", advanceEm: 0.5, presentation: "tate-chu-yoko" },
+      { value: "2", advanceEm: 0.5, presentation: "tate-chu-yoko" },
+      { value: "お", advanceEm: 1, presentation: "mixed" },
+      { value: "Ｗ", advanceEm: 1, presentation: "upright" },
+    ]);
+  });
+
+  test("moves an unbreakable vertical presentation group to the next line", () => {
+    const result = composeManuscript(parsed(`${"あ".repeat(9)}BGM`), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    expect(contentLines(result.value).map(lineText)).toEqual(["あ".repeat(9), "BGM"]);
+  });
+
+  test("keeps an oversized Western word unbroken on its own line", () => {
+    const word = "abcdefghijklmnopqrstuv";
+    const result = composeManuscript(parsed(`あ${word}い`), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    expect(contentLines(result.value).map(lineText)).toEqual(["あ", word, "い"]);
+  });
+
   test("emits annotation fragments instead of asking the viewer to infer them", () => {
     const parseResult = parseManuscript("[b:太字][[rb:漢字>かんじ]]", { parser: pixivParser });
     expect.assert(parseResult.ok, "fixture did not parse");

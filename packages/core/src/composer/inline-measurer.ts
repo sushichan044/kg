@@ -2,13 +2,19 @@ import { eastAsianWidth } from "get-east-asian-width";
 
 import type { FontPresetId } from "../appearance/font-preset-id";
 import { graphemeSegmenter } from "../internal/segmenter";
+import type { VerticalTextPresentation } from "./vertical-text-presentation";
 
-export type InlineMeasureRequest = Readonly<{
+type InlineMeasureContext = Readonly<{
   text: string;
-  role: "base" | "ruby";
   fontPreset: FontPresetId;
   writingMode: "vertical-rl";
 }>;
+
+export type InlineMeasureRequest = InlineMeasureContext &
+  (
+    | Readonly<{ role: "base"; presentation: VerticalTextPresentation["kind"] }>
+    | Readonly<{ role: "ruby" }>
+  );
 
 export type InlineMeasurer = (request: InlineMeasureRequest) => number;
 
@@ -26,11 +32,13 @@ function graphemeWidth(grapheme: string): number {
 /**
  * Deterministic Japanese-context measurement in logical em units.
  */
-export const logicalInlineMeasurer: InlineMeasurer = ({ text, role }) => {
+export const logicalInlineMeasurer: InlineMeasurer = (request) => {
+  const { text } = request;
   const width = [...graphemeSegmenter.segment(text)].reduce(
     (total, { segment }) => total + graphemeWidth(segment),
     0,
   );
 
-  return role === "ruby" ? width / 2 : width;
+  if (request.role === "ruby") return width / 2;
+  return request.presentation === "upright" ? [...graphemeSegmenter.segment(text)].length : width;
 };

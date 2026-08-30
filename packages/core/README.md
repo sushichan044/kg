@@ -60,9 +60,17 @@ graphemes, suppressed source graphemes, and annotation fragments. The composer
 owns Japanese line-start and line-end restrictions, inseparable punctuation,
 hanging punctuation, question/exclamation gap suppression, and ruby placement.
 
-The default logical measurer uses East Asian Width in a Japanese context, so a
-fullwidth grapheme advances by one em and ordinary ASCII by half an em. Supply a
-synchronous measurer when the caller has more accurate font metrics:
+The composer classifies vertical text before measuring and breaking lines. Following
+[JLReq](https://www.w3.org/TR/jlreq/#handling_of_western_text_in_vertical_writing),
+upright Latin initials and abbreviations advance by one em per character, Western
+words remain unbroken and render sideways, and two ASCII digits form one
+tate-chu-yoko unit. The resulting `VerticalTextPresentation` is carried by every
+positioned grapheme, so renderers do not need to infer orientation independently.
+
+The default logical measurer uses East Asian Width in a Japanese context. Upright
+ASCII advances by one em; proportional ASCII and the members of a tate-chu-yoko unit
+advance by half an em. Supply a synchronous measurer when the caller has more accurate
+font metrics. Base-text requests also include the selected `presentation`:
 
 ```ts
 const composer = createNovelComposer({

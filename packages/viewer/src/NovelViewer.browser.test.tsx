@@ -74,16 +74,34 @@ const test = base.extend<{ renderViewer: typeof renderViewer }>({
   },
 });
 
-test("renders positioned graphemes in vertical reading order", async ({ renderViewer }) => {
-  const { screen } = await renderViewer({ text: "あAい", flow });
+test("gives upright Latin initials a full-width vertical advance", async ({ renderViewer }) => {
+  const { screen } = await renderViewer({ text: "あBGMい", flow });
   const cells = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-cell"));
-  expect(cells.map(({ textContent }) => textContent)).toEqual(["あ", "A", "い"]);
+  expect(cells.map(({ textContent }) => textContent)).toEqual(["あ", "B", "G", "M", "い"]);
 
-  const [first, latin, last] = cells.map((cell) => cell.getBoundingClientRect());
-  expect.assert(first !== undefined && latin !== undefined && last !== undefined);
-  expect(latin.top).toBeCloseTo(first.bottom, 1);
-  expect(last.top).toBeCloseTo(latin.bottom, 1);
-  expect(latin.height).toBeCloseTo(first.height / 2, 1);
+  const [japanese, ...rest] = cells;
+  expect.assert(japanese !== undefined, "viewer has no Japanese cell");
+  const japaneseBounds = japanese.getBoundingClientRect();
+  for (const cell of rest) {
+    const cellBounds = cell.getBoundingClientRect();
+    const glyph = cell.querySelector<HTMLElement>(".kgv-glyph");
+    expect.assert(glyph !== null, "cell has no glyph");
+    const glyphBounds = glyph.getBoundingClientRect();
+
+    expect(cellBounds.height).toBeCloseTo(japaneseBounds.height, 1);
+    expect(glyphBounds.top).toBeGreaterThanOrEqual(cellBounds.top - 0.5);
+    expect(glyphBounds.bottom).toBeLessThanOrEqual(cellBounds.bottom + 0.5);
+  }
+});
+
+test("composes a two-digit number as one tate-chu-yoko cell", async ({ renderViewer }) => {
+  const { screen } = await renderViewer({ text: "あ12い", flow });
+  const cells = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-cell"));
+
+  expect(cells.map(({ textContent }) => textContent)).toEqual(["あ", "12", "い"]);
+  const [japanese, digits] = cells.map((cell) => cell.getBoundingClientRect());
+  expect.assert(japanese !== undefined && digits !== undefined);
+  expect(digits.height).toBeCloseTo(japanese.height, 1);
 });
 
 test("shows a nominal grid without letting it change text coordinates", async () => {
@@ -223,7 +241,7 @@ test("keeps a split diagnostic as one control with continuation bands", async ({
   renderViewer,
 }) => {
   const { diagnostics, screen } = await renderViewer({
-    text: `${"あ".repeat(9)}2026`,
+    text: `${"あ".repeat(9)}２０２６`,
     flow,
   });
   const diagnostic = diagnostics.find(({ origin }) => origin.id === "kg/max-arabic-numeral-digits");

@@ -7,6 +7,7 @@ import type {
   NovelLine,
   NovelPage,
   PositionedGrapheme,
+  VerticalTextPresentation,
 } from "@sushichan044/kg-core";
 import {
   forwardRef,
@@ -77,8 +78,6 @@ type BandStyle = CSSProperties & {
   "--kgv-band-offset": number;
 };
 
-const uprightGlyphPattern = /^(?:\p{Script=Latin}|[0-9])/u;
-
 function pageText(page: NovelPage): string {
   return page.stages
     .flatMap(({ lines }) =>
@@ -110,14 +109,13 @@ function annotationKey(annotation: ComposedAnnotationFragment): string {
   return `${annotation.kind}:${annotation.annotationRange.source.start}:${annotation.annotationRange.source.end}`;
 }
 
-function annotationsForGrapheme(
+function annotationsForRange(
   line: NovelLine,
-  grapheme: PositionedGrapheme,
+  range: PositionedGrapheme["range"],
 ): readonly ComposedAnnotationFragment[] {
   return line.annotations.filter(
     (annotation) =>
-      annotation.kind !== "ruby" &&
-      ManuscriptRange.overlaps(annotation.fragmentRange, grapheme.range),
+      annotation.kind !== "ruby" && ManuscriptRange.overlaps(annotation.fragmentRange, range),
   );
 }
 
@@ -173,6 +171,84 @@ type RenderedGrapheme = Readonly<{
   grapheme: PositionedGrapheme;
   diagnostics: readonly ManuscriptDiagnostic[];
 }>;
+type RenderedCell = Readonly<{
+  value: string;
+  range: PositionedGrapheme["range"];
+  offsetEm: number;
+  advanceEm: number;
+  disposition: PositionedGrapheme["disposition"];
+  presentation: VerticalTextPresentation["kind"];
+  diagnostics: readonly ManuscriptDiagnostic[];
+}>;
+
+function samePresentationGroup(left: PositionedGrapheme, right: PositionedGrapheme): boolean {
+  return (
+    left.presentation.kind === right.presentation.kind &&
+    left.presentation.groupRange.graphemes.start ===
+      right.presentation.groupRange.graphemes.start &&
+    left.presentation.groupRange.graphemes.end === right.presentation.groupRange.graphemes.end
+  );
+}
+
+function renderedCells(graphemes: readonly RenderedGrapheme[]): RenderedCell[] {
+  const groups: RenderedGrapheme[][] = [];
+  for (const entry of graphemes) {
+    const previous = groups.at(-1);
+    const first = previous?.[0];
+    if (
+      entry.grapheme.presentation.kind === "tate-chu-yoko" &&
+      previous !== undefined &&
+      first !== undefined &&
+      samePresentationGroup(first.grapheme, entry.grapheme)
+    ) {
+      previous.push(entry);
+    } else {
+      groups.push([entry]);
+    }
+  }
+
+  return groups.flatMap((group): RenderedCell[] => {
+    const first = group[0];
+    const last = group.at(-1);
+    if (first === undefined || last === undefined) return [];
+    const combinesPresentation = first.grapheme.presentation.kind === "tate-chu-yoko";
+    const diagnostics = new Map<string, ManuscriptDiagnostic>();
+    for (const entry of group) {
+      for (const diagnostic of entry.diagnostics) diagnostics.set(diagnostic.id, diagnostic);
+    }
+
+    return [
+      {
+        value: group.map(({ grapheme }) => grapheme.value).join(""),
+        range: combinesPresentation ? first.grapheme.presentation.groupRange : first.grapheme.range,
+        offsetEm: first.grapheme.offsetEm,
+        advanceEm: last.grapheme.offsetEm + last.grapheme.advanceEm - first.grapheme.offsetEm,
+        disposition: group.some(({ grapheme }) => grapheme.disposition === "hanging")
+          ? "hanging"
+          : "placed",
+        presentation: first.grapheme.presentation.kind,
+        diagnostics: [...diagnostics.values()],
+      },
+    ];
+  });
+}
+
+function presentationClass(kind: VerticalTextPresentation["kind"]): string | undefined {
+  switch (kind) {
+    case "mixed": {
+      return undefined;
+    }
+    case "upright": {
+      return "kgv-glyph-upright";
+    }
+    case "sideways": {
+      return "kgv-glyph-sideways";
+    }
+    case "tate-chu-yoko": {
+      return "kgv-glyph-tate-chu-yoko";
+    }
+  }
+}
 
 function assignBandLanes(placed: readonly PlacedBand[]): DiagnosticBand[] {
   const groups: PlacedBand[][] = [];
@@ -426,7 +502,7 @@ function NovelViewerComponent(
             return {
               id: `page:${pageIndex}:stage:${stageIndex}:line:${lineIndex}`,
               bands,
-              graphemes,
+              cells: renderedCells(graphemes),
               line,
             };
           }),
@@ -506,7 +582,7 @@ function NovelViewerComponent(
               <div className="kgv-page-grid">
                 {stages.map((stage) => (
                   <div key={stage.id} className="kgv-stage">
-                    {stage.lines.map(({ id: lineId, bands, graphemes, line }) => {
+                    {stage.lines.map(({ id: lineId, bands, cells, line }) => {
                       return (
                         <div key={lineId} className="kgv-line">
                           {showGrid && (
@@ -520,34 +596,34 @@ function NovelViewerComponent(
                             </span>
                           )}
                           <span className="kgv-line-text" aria-hidden="true">
-                            {graphemes.map(({ diagnostics: found, grapheme }) => {
+                            {cells.map((cell) => {
+                              const found = cell.diagnostics;
                               const active = found.some(({ id }) => id === activeDiagnosticId);
                               return (
                                 <span
-                                  key={grapheme.range.graphemes.start}
+                                  key={cell.range.graphemes.start}
                                   className="kgv-cell"
-                                  data-disposition={grapheme.disposition}
+                                  data-disposition={cell.disposition}
+                                  data-presentation={cell.presentation}
                                   data-diagnostic={found.length > 0 ? "" : undefined}
                                   data-diagnostic-active={active ? "" : undefined}
                                   data-diagnostic-severity={graphemeSeverity(found)}
                                   style={
                                     {
-                                      "--kgv-item-offset": grapheme.offsetEm,
-                                      "--kgv-item-advance": grapheme.advanceEm,
+                                      "--kgv-item-offset": cell.offsetEm,
+                                      "--kgv-item-advance": cell.advanceEm,
                                     } as PositionedStyle
                                   }
                                 >
                                   {wrapAnnotations(
-                                    annotationsForGrapheme(line, grapheme),
+                                    annotationsForRange(line, cell.range),
                                     <span
                                       className={joinClassNames(
                                         "kgv-glyph",
-                                        uprightGlyphPattern.test(grapheme.value)
-                                          ? "kgv-glyph-upright"
-                                          : undefined,
+                                        presentationClass(cell.presentation),
                                       )}
                                     >
-                                      {grapheme.value}
+                                      {cell.value}
                                     </span>,
                                   )}
                                 </span>

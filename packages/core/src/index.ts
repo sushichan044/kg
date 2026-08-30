@@ -62,6 +62,7 @@ export { NovelLine } from "./composer/novel-line";
 export { NovelPage } from "./composer/novel-page";
 export { NovelStage } from "./composer/novel-stage";
 export { PositionedGrapheme, SuppressedGrapheme } from "./composer/positioned-grapheme";
+export { VerticalTextPresentation } from "./composer/vertical-text-presentation";
 
 export { InvalidRuleOptions } from "./proofreading/invalid-rule-options";
 export { ProofreadError } from "./proofreading/proofread-error";

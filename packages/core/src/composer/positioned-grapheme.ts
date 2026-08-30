@@ -2,6 +2,7 @@ import * as v from "valibot";
 
 import { readonlyObject } from "../internal/schema";
 import { ManuscriptRange } from "../range/manuscript-range";
+import { VerticalTextPresentation } from "./vertical-text-presentation";
 
 const emLength = () => v.pipe(v.number(), v.finite(), v.minValue(0));
 
@@ -12,6 +13,7 @@ const PositionedGraphemeSchema = readonlyObject({
   offsetEm: emLength(),
   advanceEm: emLength(),
   disposition: v.union([v.literal("placed"), v.literal("hanging")]),
+  presentation: VerticalTextPresentation.schema,
 });
 
 export type PositionedGrapheme = v.InferOutput<typeof PositionedGraphemeSchema>;

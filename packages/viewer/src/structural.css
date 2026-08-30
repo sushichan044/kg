@@ -215,6 +215,14 @@
   text-orientation: upright;
 }
 
+.kgv-glyph-sideways {
+  text-orientation: sideways;
+}
+
+.kgv-glyph-tate-chu-yoko {
+  text-combine-upright: all;
+}
+
 /* One band per diagnostic per line, covering the cells the diagnostic reaches. The run is placed
    from its offset and length in cells so a diagnostic spanning several characters is decorated as
    one continuous band instead of once per character.
