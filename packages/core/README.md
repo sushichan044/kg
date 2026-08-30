@@ -74,8 +74,13 @@ font metrics. Base-text requests also include the selected `presentation`:
 
 ```ts
 const composer = createNovelComposer({
-  measurer: ({ text, role, fontPreset, writingMode }) =>
-    measureWithAvailableFont(text, { role, fontPreset, writingMode }),
+  measurer: (request) =>
+    measureWithAvailableFont(request.text, {
+      role: request.role,
+      fontPreset: request.fontPreset,
+      writingMode: request.writingMode,
+      ...(request.role === "base" ? { presentation: request.presentation } : {}),
+    }),
 });
 ```
 
