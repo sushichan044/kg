@@ -1,6 +1,7 @@
 import * as v from "valibot";
 
 import { readonlyArray, readonlyObject } from "../internal/schema";
+import { RubyKind } from "../parser/annotation/ruby-annotation";
 import { ManuscriptRange } from "../range/manuscript-range";
 
 const emLength = () => v.pipe(v.number(), v.finite(), v.minValue(0));
@@ -29,7 +30,7 @@ const ComposedAnnotationFragmentSchema = v.variant("kind", [
   readonlyObject({ kind: v.literal("emphasis"), mark: v.string(), ...common }),
   readonlyObject({
     kind: v.literal("ruby"),
-    rubyKind: v.union([v.literal("group"), v.literal("mono"), v.literal("jukugo")]),
+    rubyKind: RubyKind.schema,
     reading: v.string(),
     baseOffsetEm: emLength(),
     baseAdvanceEm: emLength(),

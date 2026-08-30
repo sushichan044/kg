@@ -113,11 +113,6 @@
   flex-direction: column;
 }
 
-.kgv-line-text,
-.kgv-line-ruby {
-  pointer-events: none;
-}
-
 .kgv-rule-cell {
   /* Keeps a themed rule inside the box, on the pitch the composer calculated. */
   box-sizing: border-box;

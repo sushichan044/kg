@@ -91,13 +91,6 @@ function covers(grapheme: PositionedGrapheme, diagnostic: ManuscriptDiagnostic):
   return ManuscriptRange.overlaps(grapheme.range, diagnostic.range);
 }
 
-function diagnosticsForGrapheme(
-  grapheme: PositionedGrapheme,
-  diagnostics: readonly ManuscriptDiagnostic[],
-): ManuscriptDiagnostic[] {
-  return diagnostics.filter((diagnostic) => covers(grapheme, diagnostic));
-}
-
 function graphemeSeverity(
   diagnostics: readonly ManuscriptDiagnostic[],
 ): DiagnosticSeverity | undefined {
@@ -176,17 +169,26 @@ type DiagnosticBand = Readonly<{
 }>;
 
 type PlacedBand = Omit<DiagnosticBand, "lane" | "lanes">;
+type RenderedGrapheme = Readonly<{
+  grapheme: PositionedGrapheme;
+  diagnostics: readonly ManuscriptDiagnostic[];
+}>;
 
 function spanKey({ offsetEm, advanceEm }: PlacedBand): string {
   return `${offsetEm}:${advanceEm}`;
 }
 
-function diagnosticBands(
+function lineDiagnostics(
   line: NovelLine,
   diagnostics: readonly ManuscriptDiagnostic[],
-): DiagnosticBand[] {
+): Readonly<{ bands: DiagnosticBand[]; graphemes: RenderedGrapheme[] }> {
+  const graphemes = line.graphemes.map((grapheme) => ({
+    grapheme,
+    diagnostics: [] as ManuscriptDiagnostic[],
+  }));
   const placed = diagnostics.flatMap((diagnostic): PlacedBand[] => {
-    const covered = line.graphemes.filter((grapheme) => covers(grapheme, diagnostic));
+    const covered = graphemes.filter(({ grapheme }) => covers(grapheme, diagnostic));
+    for (const entry of covered) entry.diagnostics.push(diagnostic);
     const first = covered[0];
     const last = covered.at(-1);
     if (first === undefined || last === undefined) return [];
@@ -194,11 +196,11 @@ function diagnosticBands(
     return [
       {
         diagnostic,
-        offsetEm: first.offsetEm,
-        advanceEm: last.offsetEm + last.advanceEm - first.offsetEm,
+        offsetEm: first.grapheme.offsetEm,
+        advanceEm: last.grapheme.offsetEm + last.grapheme.advanceEm - first.grapheme.offsetEm,
         startsHere:
-          diagnostic.range.source.start >= first.range.source.start &&
-          diagnostic.range.source.start < first.range.source.end,
+          diagnostic.range.source.start >= first.grapheme.range.source.start &&
+          diagnostic.range.source.start < first.grapheme.range.source.end,
       },
     ];
   });
@@ -209,7 +211,7 @@ function diagnosticBands(
     laneCounts.set(spanKey(band), (laneCounts.get(spanKey(band)) ?? 0) + 1);
   const taken = new Map<string, number>();
 
-  return placed.map((band) => {
+  const bands = placed.map((band) => {
     const key = spanKey(band);
     const lane = taken.get(key) ?? 0;
     taken.set(key, lane + 1);
@@ -222,6 +224,8 @@ function diagnosticBands(
       lanes: laneCounts.get(key) ?? 1,
     };
   });
+
+  return { bands, graphemes };
 }
 
 function renderRuby(annotation: Extract<ComposedAnnotationFragment, { kind: "ruby" }>) {
@@ -399,13 +403,18 @@ function NovelViewerComponent(
         pageIndex,
         stages: page.stages.map((stage, stageIndex) => ({
           id: `page:${pageIndex}:stage:${stageIndex}`,
-          lines: stage.lines.map((line, lineIndex) => ({
-            id: `page:${pageIndex}:stage:${stageIndex}:line:${lineIndex}`,
-            line,
-          })),
+          lines: stage.lines.map((line, lineIndex) => {
+            const { bands, graphemes } = lineDiagnostics(line, diagnostics);
+            return {
+              id: `page:${pageIndex}:stage:${stageIndex}:line:${lineIndex}`,
+              bands,
+              graphemes,
+              line,
+            };
+          }),
         })),
       })),
-    [pages],
+    [diagnostics, pages],
   );
 
   const renderBand = ({
@@ -479,8 +488,7 @@ function NovelViewerComponent(
               <div className="kgv-page-grid">
                 {stages.map((stage) => (
                   <div key={stage.id} className="kgv-stage">
-                    {stage.lines.map(({ id: lineId, line }) => {
-                      const bands = diagnosticBands(line, diagnostics);
+                    {stage.lines.map(({ id: lineId, bands, graphemes, line }) => {
                       return (
                         <div key={lineId} className="kgv-line">
                           {showGrid && (
@@ -494,8 +502,7 @@ function NovelViewerComponent(
                             </span>
                           )}
                           <span className="kgv-line-text" aria-hidden="true">
-                            {line.graphemes.map((grapheme) => {
-                              const found = diagnosticsForGrapheme(grapheme, diagnostics);
+                            {graphemes.map(({ diagnostics: found, grapheme }) => {
                               const active = found.some(({ id }) => id === activeDiagnosticId);
                               return (
                                 <span

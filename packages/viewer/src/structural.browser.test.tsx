@@ -129,8 +129,15 @@ test("rules the nominal em pitch behind positioned text", async () => {
   const line = query(".kgv-line");
   const cells = Array.from(line.querySelectorAll<HTMLElement>(".kgv-cell"));
   const rules = Array.from(line.querySelectorAll<HTMLElement>(".kgv-rule-cell"));
+  const pitchProbe = document.createElement("span");
+  pitchProbe.style.position = "absolute";
+  pitchProbe.style.blockSize = "var(--kgv-cell-size)";
+  line.append(pitchProbe);
+  const nominalPitch = pitchProbe.getBoundingClientRect().height;
+  pitchProbe.remove();
 
   expect(rules.length).toBeGreaterThanOrEqual(cells.length);
+  // Cell and rule indexes diverge once the half-width digits begin.
   for (const [index, cell] of cells.slice(0, 2).entries()) {
     const rule = rules[index];
     expect.assert(rule !== undefined, `line has no rule at index ${index}`);
@@ -138,7 +145,7 @@ test("rules the nominal em pitch behind positioned text", async () => {
     const ruled = rule.getBoundingClientRect();
     const written = cell.getBoundingClientRect();
     expect(ruled.top).toBeCloseTo(written.top, 1);
-    expect(ruled.height).toBeGreaterThanOrEqual(written.height);
+    expect(ruled.height).toBeCloseTo(nominalPitch, 1);
   }
 });
 

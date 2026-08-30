@@ -30,7 +30,7 @@ export { BoldAnnotation } from "./parser/annotation/bold-annotation";
 export { EmphasisAnnotation } from "./parser/annotation/emphasis-annotation";
 export { ItalicAnnotation } from "./parser/annotation/italic-annotation";
 export { ManuscriptAnnotation } from "./parser/annotation/manuscript-annotation";
-export { RubyAnnotation, RubyReading } from "./parser/annotation/ruby-annotation";
+export { RubyAnnotation, RubyKind, RubyReading } from "./parser/annotation/ruby-annotation";
 export type { ManuscriptParser } from "./parser/manuscript-parser";
 export { ParseError } from "./parser/parse-error";
 export { parseManuscript } from "./parser/parse-manuscript";

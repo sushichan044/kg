@@ -139,7 +139,9 @@ test("renders the ruby kind and reading decided by core", async ({ renderViewer 
   const ruby = screen.container.querySelector<HTMLElement>('[data-annotation="ruby"]');
   expect.assert(ruby !== null, "ruby did not render");
   expect(ruby.dataset.rubyFit).toBe("group");
-  expect(ruby.querySelector(".kgv-ruby")?.textContent).toBe("かな");
+  const reading = ruby.querySelector(".kgv-ruby");
+  expect.assert(reading !== null, "ruby reading did not render");
+  expect(reading.textContent).toBe("かな");
   expect(ruby.querySelectorAll(".kgv-ruby-character")).toHaveLength(2);
 });
 
@@ -172,7 +174,11 @@ test("selects each diagnostic from its positioned band", async ({ renderViewer }
   const first = diagnostics.find(({ origin }) => origin.id === "kg/no-consecutive-punctuation");
   expect.assert(first !== undefined, "fixture produced no selectable diagnostic");
 
-  await screen.getByRole("button", { name: new RegExp(first.message) }).click();
+  await screen
+    .getByRole("button", {
+      name: `${first.location.start.line}行${first.location.start.column}列: ${first.message}`,
+    })
+    .click();
 
   expect(selected).toBe(first.id);
 });
@@ -203,8 +209,12 @@ test("renders reserved lines without introducing phantom graphemes", async ({ re
   const { screen } = await renderViewer({ text: "あいう", flow, offsets });
   const lines = screen.container.querySelectorAll<HTMLElement>(".kgv-line");
 
-  expect(lines[0]?.querySelectorAll(".kgv-cell")).toHaveLength(0);
+  const reservedLine = lines[0];
+  const contentLine = lines[1];
+  expect.assert(reservedLine !== undefined, "viewer has no reserved line");
+  expect.assert(contentLine !== undefined, "viewer has no content line");
+  expect(reservedLine.querySelectorAll(".kgv-cell")).toHaveLength(0);
   expect(
-    Array.from(lines[1]?.querySelectorAll(".kgv-cell") ?? [], ({ textContent }) => textContent),
+    Array.from(contentLine.querySelectorAll(".kgv-cell"), ({ textContent }) => textContent),
   ).toEqual(["あ", "い", "う"]);
 });

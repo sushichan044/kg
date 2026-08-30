@@ -397,7 +397,20 @@ function wrapSourceLine(
       }
       cursor += 1;
     }
-    if (cursor >= sourceLine.atoms.length) break;
+    if (cursor >= sourceLine.atoms.length) {
+      const previous = lines.at(-1);
+      if (previous !== undefined && suppressed.length > 0) {
+        lines[lines.length - 1] = {
+          ...previous,
+          range: ManuscriptRange.merge([
+            ...(previous.range === null ? [] : [previous.range]),
+            ...suppressed.map(({ range }) => range),
+          ]),
+          suppressed: [...previous.suppressed, ...suppressed],
+        };
+      }
+      break;
+    }
 
     const start = cursor;
     let advance = 0;

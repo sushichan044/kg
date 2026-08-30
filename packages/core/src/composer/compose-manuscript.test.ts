@@ -8,6 +8,7 @@ import { ManuscriptResult } from "../result/manuscript-result";
 import { composeManuscript } from "./compose-manuscript";
 import { NovelCompositionSettings } from "./composition-settings";
 import type { ManuscriptComposer } from "./manuscript-composer";
+import type { NovelComposedManuscript } from "./novel-composer";
 import { createNovelComposer, novelComposer } from "./novel-composer";
 import type { NovelLine } from "./novel-line";
 
@@ -33,11 +34,7 @@ function lineText(line: NovelLine): string {
   return line.graphemes.map(({ value }) => value).join("");
 }
 
-function contentLines(result: {
-  layout: {
-    pages: ReadonlyArray<{ stages: ReadonlyArray<{ lines: readonly NovelLine[] }> }>;
-  };
-}) {
+function contentLines(result: NovelComposedManuscript) {
   return result.layout.pages.flatMap(({ stages }) =>
     stages.flatMap(({ lines }) => lines.filter(({ range }) => range !== null)),
   );
@@ -73,7 +70,11 @@ describe("composeManuscript", () => {
 
     const lines = contentLines(result.value);
     expect(lines.map(lineText)).toEqual(["あいうえおかきくけこ", "さし"]);
-    expect(lines[1]?.graphemes[0]).toMatchObject({
+    const secondLine = lines[1];
+    expect.assert(secondLine !== undefined, "layout has no second content line");
+    const firstGrapheme = secondLine.graphemes[0];
+    expect.assert(firstGrapheme !== undefined, "second content line has no first grapheme");
+    expect(firstGrapheme).toMatchObject({
       kind: "grapheme",
       value: "さ",
       offsetEm: 0,
@@ -117,7 +118,9 @@ describe("composeManuscript", () => {
     expect.assert(result.ok, "expected composition to succeed");
     const lines = contentLines(result.value);
     expect(lines.map(lineText)).toEqual(["あいうえおかきく！？", "続き"]);
-    expect(lines[1]?.suppressed).toMatchObject([
+    const secondLine = lines[1];
+    expect.assert(secondLine !== undefined, "layout has no second content line");
+    expect(secondLine.suppressed).toMatchObject([
       {
         kind: "suppressed",
         value: "　",
@@ -126,6 +129,30 @@ describe("composeManuscript", () => {
       },
     ]);
     expect(result.value.layout.stats.chars).toBe(13);
+  });
+
+  test("keeps a trailing suppressed gap in the preceding line range", () => {
+    const source = "あいうえおかきく！？　";
+    const result = composeManuscript(parsed(source), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const lines = contentLines(result.value);
+    expect(lines.map(lineText)).toEqual(["あいうえおかきく！？"]);
+    const line = lines[0];
+    expect.assert(line !== undefined, "layout has no content line");
+    expect(line.suppressed).toMatchObject([
+      {
+        kind: "suppressed",
+        value: "　",
+        reason: "question-or-exclamation-gap",
+        range: { source: { start: 10, end: 11 } },
+      },
+    ]);
+    expect.assert(line.range !== null, "content line has no range");
+    expect(line.range.source).toEqual({ start: 0, end: 11 });
   });
 
   test("hangs punctuation instead of starting the next line with it", () => {
@@ -137,7 +164,11 @@ describe("composeManuscript", () => {
     expect.assert(result.ok, "expected composition to succeed");
     const lines = contentLines(result.value);
     expect(lines.map(lineText)).toEqual([`${"あ".repeat(10)}。`, "続き"]);
-    expect(lines[0]?.graphemes.at(-1)?.disposition).toBe("hanging");
+    const firstLine = lines[0];
+    expect.assert(firstLine !== undefined, "layout has no first content line");
+    const punctuation = firstLine.graphemes.at(-1);
+    expect.assert(punctuation !== undefined, "first content line has no trailing punctuation");
+    expect(punctuation.disposition).toBe("hanging");
   });
 
   test("keeps shared opening and closing brackets away from illegal line boundaries", () => {
