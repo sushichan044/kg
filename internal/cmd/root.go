@@ -86,7 +86,7 @@ func parseArgs(args []string) (options, error) {
 	fs.SetInterspersed(false)
 	fs.Usage = func() {
 		fmt.Fprintln(fs.Output(), "Usage: kg [flags] [PATH ...]")
-		fmt.Fprintln(fs.Output(), "\nPreview .txt files as a vertical manuscript grid.")
+		fmt.Fprintln(fs.Output(), "\nPreview .txt novels with vertical Japanese typesetting.")
 		fmt.Fprintln(fs.Output(), "\nFlags:")
 		fs.PrintDefaults()
 	}

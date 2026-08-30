@@ -1,8 +1,8 @@
 import {
-  ManuscriptCompositionSettings,
+  NovelCompositionSettings,
   composeManuscript,
   createDefaultProofreadingRules,
-  manuscriptGridComposer,
+  novelComposer,
   parseManuscript,
   pixivParser,
   proofreadManuscript,
@@ -11,7 +11,7 @@ import { expect, test } from "vite-plus/test";
 import { render } from "vitest-browser-react";
 
 import { DiagnosticList } from "./DiagnosticList";
-import { ManuscriptViewer } from "./ManuscriptViewer";
+import { NovelViewer } from "./NovelViewer";
 
 import "./styles.css";
 
@@ -53,8 +53,8 @@ async function renderThemedViewerUnderReset() {
   expect.assert(parsed.ok, "fixture did not parse");
 
   const composed = composeManuscript(parsed.value, {
-    composer: manuscriptGridComposer,
-    settings: ManuscriptCompositionSettings.defaults,
+    composer: novelComposer,
+    settings: NovelCompositionSettings.defaults,
   });
   expect.assert(composed.ok, "fixture did not compose");
 
@@ -69,7 +69,7 @@ async function renderThemedViewerUnderReset() {
   const screen = await render(
     <>
       <style>{commonReset}</style>
-      <ManuscriptViewer composed={composed.value} diagnostics={diagnostics} />
+      <NovelViewer composed={composed.value} diagnostics={diagnostics} />
       <DiagnosticList diagnostics={diagnostics} />
     </>,
   );

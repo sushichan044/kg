@@ -3,7 +3,7 @@ import {
   ComposeError,
   composeManuscript,
   createDefaultProofreadingRules,
-  manuscriptGridComposer,
+  novelComposer,
   ManuscriptResult,
   ParseError,
   parseManuscript,
@@ -13,8 +13,8 @@ import {
   proofreadManuscript,
 } from "@sushichan044/kg-core";
 import type {
-  GridComposedManuscript,
-  ManuscriptCompositionSettings,
+  NovelComposedManuscript,
+  NovelCompositionSettings,
   ManuscriptDiagnostic,
 } from "@sushichan044/kg-core";
 
@@ -28,7 +28,8 @@ export type ManuscriptState = Readonly<{
 
 export type ManuscriptAction =
   | Readonly<{ kind: "document.replace"; text: string }>
-  | Readonly<{ kind: "composition.replace"; composition: ManuscriptCompositionSettings }>
+  | Readonly<{ kind: "composition.replace"; composition: NovelCompositionSettings }>
+  | Readonly<{ kind: "grid-visibility.replace"; showGrid: boolean }>
   | Readonly<{ kind: "notation.replace"; notation: ManuscriptNotation }>
   | Readonly<{ kind: "zoom.replace"; zoom: number; fit: boolean }>
   | Readonly<{ kind: "preset.apply"; preset: ManuscriptPreset }>
@@ -56,6 +57,12 @@ export function manuscriptReducer(
         ...state,
         preferences: { ...state.preferences, notation: action.notation },
         activeDiagnosticId: null,
+      };
+    }
+    case "grid-visibility.replace": {
+      return {
+        ...state,
+        preferences: { ...state.preferences, showGrid: action.showGrid },
       };
     }
     case "zoom.replace": {
@@ -97,7 +104,7 @@ export function manuscriptReducer(
 }
 
 export type ProcessedManuscript = Readonly<{
-  composed: GridComposedManuscript;
+  composed: NovelComposedManuscript;
   diagnostics: readonly ManuscriptDiagnostic[];
 }>;
 
@@ -131,7 +138,7 @@ export const ProcessManuscriptError = {
 
 export function processManuscript(
   source: string,
-  composition: ManuscriptCompositionSettings,
+  composition: NovelCompositionSettings,
   notation: ManuscriptNotation,
 ): ManuscriptResult<ProcessedManuscript, ProcessManuscriptError> {
   const parser = notation === "pixiv" ? pixivParser : kakuyomuParser;
@@ -139,7 +146,7 @@ export function processManuscript(
   if (!parsed.ok) return ManuscriptResult.fail({ stage: "parse", error: parsed.error });
 
   const composed = composeManuscript(parsed.value, {
-    composer: manuscriptGridComposer,
+    composer: novelComposer,
     settings: composition,
   });
   if (!composed.ok) return ManuscriptResult.fail({ stage: "compose", error: composed.error });

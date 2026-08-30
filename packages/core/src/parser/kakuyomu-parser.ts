@@ -126,7 +126,7 @@ export const kakuyomuParser: ManuscriptParser = {
           );
           draft.annotate({
             kind: "ruby",
-            reading: ruby.reading,
+            reading: { kind: "group", text: ruby.reading },
             range: { ...range, source: { start: index, end: ruby.end } },
           });
           index = ruby.end;
@@ -175,7 +175,7 @@ export const kakuyomuParser: ManuscriptParser = {
           );
           draft.annotate({
             kind: "ruby",
-            reading: ruby.reading,
+            reading: { kind: "group", text: ruby.reading },
             range: { ...range, source: { start: ruby.parentStart, end: ruby.end } },
           });
           index = ruby.end;

@@ -19,9 +19,10 @@ pnpm add @sushichan044/kg-core
 import {
   ComposeError,
   composeManuscript,
+  createNovelComposer,
   createDefaultProofreadingRules,
-  ManuscriptCompositionSettings,
-  manuscriptGridComposer,
+  NovelCompositionSettings,
+  novelComposer,
   ParseError,
   parseManuscript,
   kakuyomuParser,
@@ -34,8 +35,8 @@ const parsed = parseManuscript(source, { parser: kakuyomuParser });
 if (!parsed.ok) throw new Error(ParseError.describe(parsed.error));
 
 const composed = composeManuscript(parsed.value, {
-  composer: manuscriptGridComposer,
-  settings: ManuscriptCompositionSettings.defaults,
+  composer: novelComposer,
+  settings: NovelCompositionSettings.defaults,
 });
 if (!composed.ok) throw new Error(ComposeError.describe(composed.error));
 
@@ -52,11 +53,31 @@ const diagnostics = [...parsed.warnings, ...proofread.value];
 normalizes Kakuyomu ruby and emphasis marks. Malformed or unknown notation remains
 visible and produces a parser warning.
 
-`composeManuscript` requires a composer. The built-in grid composer produces a
-self-contained snapshot containing the parsed manuscript, accepted settings,
-geometry, statistics, and page/stage/line/cell hierarchy. Every occupied
-element has source, display, and grapheme ranges; empty placement elements use
-`null`.
+`composeManuscript` requires a composer. The built-in `novelComposer` produces
+a self-contained snapshot containing the parsed manuscript, accepted settings,
+geometry, statistics, and a page/stage/line hierarchy. Lines contain positioned
+graphemes, suppressed source graphemes, and annotation fragments. The composer
+owns Japanese line-start and line-end restrictions, inseparable punctuation,
+hanging punctuation, question/exclamation gap suppression, and ruby placement.
+
+The default logical measurer uses East Asian Width in a Japanese context, so a
+fullwidth grapheme advances by one em and ordinary ASCII by half an em. Supply a
+synchronous measurer when the caller has more accurate font metrics:
+
+```ts
+const composer = createNovelComposer({
+  measurer: ({ text, role, fontPreset, writingMode }) =>
+    measureWithAvailableFont(text, { role, fontPreset, writingMode }),
+});
+```
+
+A measurer returns logical em units. Negative or non-finite results reject the
+composition instead of producing a partial layout.
+
+Ruby annotations retain one of three associations: `group` for one reading over
+the entire base, `mono` for one reading segment per base grapheme, and `jukugo`
+for a compound whose segments remain associated with each base grapheme. A
+parser result with mismatched `mono` or `jukugo` segment counts is invalid.
 
 ## Extensions and validation
 
@@ -72,7 +93,7 @@ construct core's error types.
 
 Each concept lives in its own module as a type plus a companion object of the
 same name, holding its schema and operations: `ManuscriptRange.merge`,
-`PaperSize.of`, `ManuscriptCompositionSettings.defaults`, and so on. Types are
+`PaperSize.of`, `NovelCompositionSettings.defaults`, and so on. Types are
 inferred from the schemas with `v.InferOutput`; source, display, and grapheme
 ranges are distinct branded types, and plugin IDs are branded `NamespacedId`.
 

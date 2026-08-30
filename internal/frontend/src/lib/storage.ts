@@ -1,14 +1,21 @@
-import { ManuscriptCompositionSettings } from "@sushichan044/kg-core";
+import {
+  ManuscriptAppearanceSettings,
+  ManuscriptOffsets,
+  NovelCompositionSettings,
+} from "@sushichan044/kg-core";
 import * as v from "valibot";
 
 const APP_STATE_KEY = "kg.app.state.v1";
-const PREFERENCES_KEY = "kg.manuscript.preferences.v5";
+const PREFERENCES_KEY = "kg.manuscript.preferences.v6";
+const LEGACY_PREFERENCES_V5_KEY = "kg.manuscript.preferences.v5";
 const LEGACY_PREFERENCES_V4_KEY = "kg.manuscript.preferences.v4";
 const LEGACY_PREFERENCES_V3_KEY = "kg.manuscript.preferences.v3";
 const PAGE_KEY_PREFIX = "kg.app.page.v1:";
 
 const readonlyObject = <const TEntries extends v.ObjectEntries>(entries: TEntries) =>
   v.pipe(v.strictObject(entries), v.readonly());
+const boundedInteger = (min: number, max: number) =>
+  v.pipe(v.number(), v.finite(), v.integer(), v.minValue(min), v.maxValue(max));
 
 const AppStateSchema = readonlyObject({
   version: v.literal(1),
@@ -19,35 +26,71 @@ const LegacyZoomModeSchema = v.variant("kind", [
   readonlyObject({ kind: v.literal("fit") }),
   readonlyObject({
     kind: v.literal("fixed"),
-    // The viewer accepts any magnification; a stored one only has to be usable.
     percent: v.pipe(v.number(), v.finite(), v.minValue(1)),
   }),
 ]);
 
+const LegacyCompositionSchema = v.pipe(
+  readonlyObject({
+    grid: readonlyObject({
+      charsPerLine: boundedInteger(10, 60),
+      linesPerStage: boundedInteger(10, 60),
+      stagesPerPage: boundedInteger(1, 3),
+    }),
+    offsets: ManuscriptOffsets.schema,
+    appearance: ManuscriptAppearanceSettings.schema,
+  }),
+  v.check(({ grid, offsets }) => {
+    const stageOffset = offsets.stage.leading + offsets.stage.trailing;
+    const pageOffset = offsets.page.leading + offsets.page.trailing;
+    return (
+      stageOffset < grid.linesPerStage &&
+      pageOffset < (grid.linesPerStage - stageOffset) * grid.stagesPerPage
+    );
+  }),
+);
+
+type LegacyComposition = v.InferOutput<typeof LegacyCompositionSchema>;
+
+const LegacyPresetSchema = readonlyObject({
+  name: v.pipe(v.string(), v.trim(), v.nonEmpty()),
+  composition: LegacyCompositionSchema,
+});
+
 const ManuscriptPresetSchema = readonlyObject({
   name: v.pipe(v.string(), v.trim(), v.nonEmpty()),
-  composition: ManuscriptCompositionSettings.schema,
+  composition: NovelCompositionSettings.schema,
 });
 
 const ManuscriptPreferencesV3Schema = readonlyObject({
   version: v.literal(3),
-  composition: ManuscriptCompositionSettings.schema,
+  composition: LegacyCompositionSchema,
   zoom: LegacyZoomModeSchema,
-  presets: v.pipe(v.array(ManuscriptPresetSchema), v.readonly()),
-});
-
-const ManuscriptPreferencesSchema = readonlyObject({
-  version: v.literal(5),
-  notation: v.union([v.literal("pixiv"), v.literal("kakuyomu")]),
-  composition: ManuscriptCompositionSettings.schema,
-  zoom: v.pipe(v.number(), v.finite(), v.minValue(1)),
-  fit: v.boolean(),
-  presets: v.pipe(v.array(ManuscriptPresetSchema), v.readonly()),
+  presets: v.pipe(v.array(LegacyPresetSchema), v.readonly()),
 });
 
 const ManuscriptPreferencesV4Schema = readonlyObject({
   version: v.literal(4),
-  composition: ManuscriptCompositionSettings.schema,
+  composition: LegacyCompositionSchema,
+  zoom: v.pipe(v.number(), v.finite(), v.minValue(1)),
+  fit: v.boolean(),
+  presets: v.pipe(v.array(LegacyPresetSchema), v.readonly()),
+});
+
+const ManuscriptPreferencesV5Schema = readonlyObject({
+  version: v.literal(5),
+  notation: v.union([v.literal("pixiv"), v.literal("kakuyomu")]),
+  composition: LegacyCompositionSchema,
+  zoom: v.pipe(v.number(), v.finite(), v.minValue(1)),
+  fit: v.boolean(),
+  presets: v.pipe(v.array(LegacyPresetSchema), v.readonly()),
+});
+
+const ManuscriptPreferencesSchema = readonlyObject({
+  version: v.literal(6),
+  notation: v.union([v.literal("pixiv"), v.literal("kakuyomu")]),
+  composition: NovelCompositionSettings.schema,
+  showGrid: v.boolean(),
   zoom: v.pipe(v.number(), v.finite(), v.minValue(1)),
   fit: v.boolean(),
   presets: v.pipe(v.array(ManuscriptPresetSchema), v.readonly()),
@@ -62,9 +105,10 @@ export type ManuscriptNotation = ManuscriptPreferences["notation"];
 
 export const DEFAULT_APP_STATE: AppState = { version: 1, selectedPath: null };
 export const DEFAULT_MANUSCRIPT_PREFERENCES: ManuscriptPreferences = {
-  version: 5,
+  version: 6,
   notation: "pixiv",
-  composition: ManuscriptCompositionSettings.defaults,
+  composition: NovelCompositionSettings.defaults,
+  showGrid: true,
   zoom: 100,
   fit: false,
   presets: [],
@@ -73,6 +117,25 @@ export const DEFAULT_MANUSCRIPT_PREFERENCES: ManuscriptPreferences = {
 function readJson(key: string): unknown {
   const raw = localStorage.getItem(key);
   return raw === null ? null : JSON.parse(raw);
+}
+
+function migrateComposition(composition: LegacyComposition): NovelCompositionSettings {
+  return {
+    flow: {
+      lineLengthEm: composition.grid.charsPerLine,
+      linesPerStage: composition.grid.linesPerStage,
+      stagesPerPage: composition.grid.stagesPerPage,
+    },
+    offsets: composition.offsets,
+    appearance: composition.appearance,
+  };
+}
+
+function migratePresets(presets: ReadonlyArray<v.InferOutput<typeof LegacyPresetSchema>>) {
+  return presets.map(({ name, composition }) => ({
+    name,
+    composition: migrateComposition(composition),
+  }));
 }
 
 export function loadAppState(): AppState {
@@ -98,19 +161,40 @@ export function loadManuscriptPreferences(): ManuscriptPreferences {
     const current = v.safeParse(ManuscriptPreferencesSchema, readJson(PREFERENCES_KEY));
     if (current.success) return current.output;
 
+    const v5 = v.safeParse(ManuscriptPreferencesV5Schema, readJson(LEGACY_PREFERENCES_V5_KEY));
+    if (v5.success) {
+      return {
+        ...v5.output,
+        version: 6,
+        composition: migrateComposition(v5.output.composition),
+        showGrid: true,
+        presets: migratePresets(v5.output.presets),
+      };
+    }
+
     const v4 = v.safeParse(ManuscriptPreferencesV4Schema, readJson(LEGACY_PREFERENCES_V4_KEY));
-    if (v4.success) return { ...v4.output, version: 5, notation: "pixiv" };
+    if (v4.success) {
+      return {
+        ...v4.output,
+        version: 6,
+        notation: "pixiv",
+        composition: migrateComposition(v4.output.composition),
+        showGrid: true,
+        presets: migratePresets(v4.output.presets),
+      };
+    }
 
     const v3 = v.safeParse(ManuscriptPreferencesV3Schema, readJson(LEGACY_PREFERENCES_V3_KEY));
     if (!v3.success) return DEFAULT_MANUSCRIPT_PREFERENCES;
 
     return {
-      version: 5,
+      version: 6,
       notation: "pixiv",
-      composition: v3.output.composition,
+      composition: migrateComposition(v3.output.composition),
+      showGrid: true,
       zoom: v3.output.zoom.kind === "fixed" ? v3.output.zoom.percent : 100,
       fit: v3.output.zoom.kind === "fit",
-      presets: v3.output.presets,
+      presets: migratePresets(v3.output.presets),
     };
   } catch {
     return DEFAULT_MANUSCRIPT_PREFERENCES;

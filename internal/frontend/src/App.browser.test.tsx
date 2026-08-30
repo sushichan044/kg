@@ -292,7 +292,9 @@ test("renders pixiv notation after the initial load and a file reload", async ({
   const screen = await render(<App />);
 
   await vi.waitFor(() => {
-    expect(screen.container.querySelectorAll("[data-annotation]")).toHaveLength(4);
+    for (const kind of ["ruby", "bold", "italic", "emphasis"]) {
+      expect(screen.container.querySelector(`[data-annotation="${kind}"]`)).not.toBeNull();
+    }
     const hiddenText = screen.container.querySelector(".kgv-visually-hidden");
     expect.assert(hiddenText !== null, "accessible viewer text did not render");
     expect(hiddenText.textContent.replace(/\n+$/, "")).toBe("漢字太字斜体強調");
@@ -306,12 +308,36 @@ test("renders pixiv notation after the initial load and a file reload", async ({
   FakeEventSource.latest.emit("file-changed", JSON.stringify({ id: "novel" }));
 
   await vi.waitFor(() => {
-    expect(screen.container.querySelectorAll('[data-annotation="bold"] .kgv-cell')).toHaveLength(3);
+    expect(screen.container.querySelectorAll('[data-annotation="bold"]')).toHaveLength(3);
     const hiddenText = screen.container.querySelector(".kgv-visually-hidden");
     expect.assert(hiddenText !== null, "accessible viewer text did not render after reload");
     expect(hiddenText.textContent.replace(/\n+$/, "")).toBe("再読込");
   });
   expect(screen.container.textContent).not.toContain("[b:");
+});
+
+test("toggles the decorative grid without changing composition settings", async ({
+  novelSource,
+}) => {
+  novelSource.current = "あいう";
+  await page.viewport(1280, 800);
+  const screen = await render(<App />);
+
+  await vi.waitFor(() => {
+    expect(screen.container.querySelectorAll(".kgv-rule-cell").length).toBeGreaterThan(0);
+  });
+  const toggle = screen.container.querySelector<HTMLInputElement>("#desktop-show-grid");
+  expect.assert(toggle !== null, "grid visibility setting did not render");
+  toggle.click();
+
+  await vi.waitFor(() => {
+    expect(screen.container.querySelectorAll(".kgv-rule-cell")).toHaveLength(0);
+  });
+  expect(JSON.parse(localStorage.getItem("kg.manuscript.preferences.v6") ?? "null")).toMatchObject({
+    version: 6,
+    showGrid: false,
+    composition: { flow: { lineLengthEm: 27 } },
+  });
 });
 
 test("switches the persisted notation parser without auto-detecting source", async ({
@@ -332,8 +358,8 @@ test("switches the persisted notation parser without auto-detecting source", asy
   await vi.waitFor(() => {
     expect(screen.container.querySelectorAll('[data-annotation="ruby"]')).toHaveLength(1);
   });
-  expect(JSON.parse(localStorage.getItem("kg.manuscript.preferences.v5") ?? "null")).toMatchObject({
-    version: 5,
+  expect(JSON.parse(localStorage.getItem("kg.manuscript.preferences.v6") ?? "null")).toMatchObject({
+    version: 6,
     notation: "kakuyomu",
   });
 });

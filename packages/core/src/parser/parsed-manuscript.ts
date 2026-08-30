@@ -1,7 +1,7 @@
 import * as v from "valibot";
 
 import { readonlyArray, readonlyObject } from "../internal/schema";
-import type { ManuscriptRange } from "../range/manuscript-range";
+import { ManuscriptRange } from "../range/manuscript-range";
 import { ManuscriptAnnotation } from "./annotation/manuscript-annotation";
 import { ParsedGrapheme } from "./parsed-grapheme";
 
@@ -25,6 +25,22 @@ function rangeFits(range: ManuscriptRange, manuscript: ParsedManuscript): boolea
   );
 }
 
+function hasValidRubyAssociations(manuscript: ParsedManuscript): boolean {
+  const ruby = manuscript.annotations.filter((annotation) => annotation.kind === "ruby");
+
+  return ruby.every((annotation, index) => {
+    const baseLength = annotation.range.graphemes.end - annotation.range.graphemes.start;
+    if (baseLength <= 0) return false;
+    if (annotation.reading.kind !== "group" && annotation.reading.segments.length !== baseLength) {
+      return false;
+    }
+
+    return ruby
+      .slice(index + 1)
+      .every((other) => !ManuscriptRange.overlaps(annotation.range, other.range));
+  });
+}
+
 function isConsistent(manuscript: ParsedManuscript, source: string): boolean {
   const joined = manuscript.graphemes.map(({ value }) => value).join("");
   const sequential = manuscript.graphemes.every(
@@ -38,12 +54,13 @@ function isConsistent(manuscript: ParsedManuscript, source: string): boolean {
     manuscript.source === source &&
     manuscript.displayText === joined &&
     sequential &&
-    manuscript.annotations.every(({ range }) => rangeFits(range, manuscript))
+    manuscript.annotations.every(({ range }) => rangeFits(range, manuscript)) &&
+    hasValidRubyAssociations(manuscript)
   );
 }
 
 const CONTRACT_MESSAGE =
-  "parser output must contain consistent source, display, grapheme, and annotation ranges";
+  "parser output must contain consistent source, display, grapheme, and annotation ranges and valid ruby associations";
 
 export const ParsedManuscript = {
   schema: ParsedManuscriptSchema,

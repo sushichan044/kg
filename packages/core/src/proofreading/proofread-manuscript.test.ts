@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vite-plus/test";
 
 import { composeManuscript } from "../composer/compose-manuscript";
-import { ManuscriptCompositionSettings } from "../composer/composition-settings";
-import { manuscriptGridComposer } from "../composer/grid-composer";
-import type { GridComposedManuscript } from "../composer/grid-composer";
+import { NovelCompositionSettings } from "../composer/composition-settings";
+import { novelComposer } from "../composer/novel-composer";
+import type { NovelComposedManuscript } from "../composer/novel-composer";
 import { parseManuscript } from "../parser/parse-manuscript";
 import { proofreadManuscript } from "./proofread-manuscript";
 import type { ComposedProofreadingRule, ParsedProofreadingRule } from "./proofreading-rule";
@@ -17,10 +17,10 @@ function parsed(source: string) {
   return result.value;
 }
 
-function composed(source: string): GridComposedManuscript {
+function composed(source: string): NovelComposedManuscript {
   const result = composeManuscript(parsed(source), {
-    composer: manuscriptGridComposer,
-    settings: ManuscriptCompositionSettings.defaults,
+    composer: novelComposer,
+    settings: NovelCompositionSettings.defaults,
   });
   expect.assert(result.ok, "fixture did not compose");
 
@@ -188,7 +188,7 @@ describe("proofreadManuscript", () => {
       check: (manuscript) => {
         seen.push(`composed:${manuscript.layout.stats.pages}`);
       },
-    } as const satisfies ComposedProofreadingRule<GridComposedManuscript>;
+    } as const satisfies ComposedProofreadingRule<NovelComposedManuscript>;
 
     const result = proofreadManuscript(composed("本文"), { rules: [parsedRule, composedRule] });
 

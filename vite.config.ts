@@ -89,6 +89,7 @@ export default defineConfig({
         files: [
           "internal/frontend/src/lib/storage.browser.test.ts",
           "internal/frontend/src/App.browser.test.tsx",
+          "packages/viewer/src/NovelViewer.browser.test.tsx",
         ],
         rules: {
           // oxlint's vitest plugin (oxlint 1.75) does not trace bindings through

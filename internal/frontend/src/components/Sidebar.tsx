@@ -46,7 +46,7 @@ export function Sidebar({ files, selectedId, onSelect, status, children }: Sideb
     <aside className="sidebar">
       <div className="brand">
         <span className="brand__name">kg</span>
-        <span className="brand__mode">原稿用紙</span>
+        <span className="brand__mode">縦書き小説</span>
       </div>
       <FilePanel files={files} selectedId={selectedId} onSelect={onSelect} />
       {children}

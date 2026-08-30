@@ -35,10 +35,12 @@ own a controller, subscription lifecycle, preferences, selection, or
 persistence.
 
 Parsers normalize service-specific source notation into display graphemes and a
-closed annotation union. Composers receive a parsed manuscript and produce a
-layout; core pairs that layout with the manuscript and the settings it already
-validated. Proofreading rules declare which manuscript they inspect through a
-`kind` discriminant on the rule itself.
+closed annotation union. Ruby readings preserve their semantic association as
+`group`, `mono`, or `jukugo`. The built-in `novelComposer` applies Japanese line
+breaking, punctuation hanging and gap suppression, then emits positioned base
+graphemes and positioned annotation fragments. Core pairs that layout with the
+manuscript and the settings it already validated. Proofreading rules declare
+which manuscript they inspect through a `kind` discriminant on the rule itself.
 
 Source, display, and grapheme ranges share one structural representation but
 use distinct branded types. Source and display offsets are zero-based,
@@ -70,10 +72,11 @@ typed internal code.
 
 ## Viewer
 
-`@sushichan044/kg-viewer` is rendering-only. `ManuscriptViewer` receives a
-composed grid snapshot, diagnostics, active diagnostic ID, and zoom through
-controlled props. `DiagnosticList` receives the same diagnostic selection
-state.
+`@sushichan044/kg-viewer` is rendering-only. `NovelViewer` receives a composed
+novel snapshot, diagnostics, active diagnostic ID, zoom, and a `showGrid`
+presentation option through controlled props. `DiagnosticList` receives the
+same diagnostic selection state. The optional ruling is a decoration layer;
+turning it off does not recompose or reposition the text.
 
 The viewer does not parse source, compose pages, run rules, register plugins,
 manage settings, or persist preferences. DOM-only navigation remains available
@@ -91,7 +94,7 @@ with a synchronous parse, compose, and proofread pipeline. It also owns:
 - file catalog and content requests;
 - server-sent file events;
 - selected document and diagnostic state;
-- composition settings, zoom, and presets;
+- composition settings, grid visibility, zoom, and presets;
 - desktop and mobile shells; and
 - local and session persistence.
 
@@ -105,12 +108,15 @@ at the application boundary without changing core or viewer ownership.
 Application selection and manuscript preferences use separate keys:
 
 - `kg.app.state.v1` stores the selected path.
-- `kg.manuscript.preferences.v3` stores composition settings, zoom, and presets.
+- `kg.manuscript.preferences.v6` stores composition settings, grid visibility,
+  zoom, and presets.
 - per-document visible-page state uses best-effort session storage.
 
 The frontend validates current payloads with Valibot and falls back to defaults
-for malformed, incomplete, incompatible, or legacy values. Version 2
-preferences are intentionally not migrated.
+for malformed or incompatible values. Versions 3 through 5 are migrated to the
+novel flow settings; version 5's former grid dimensions become line length,
+lines per stage, and stages per page. Migrated preferences show the ruling by
+default.
 
 ## Server boundary
 
@@ -127,5 +133,6 @@ from outside the type system.
 
 The architecture does not provide print-accurate typesetting, source editing,
 automatic correction, generic annotations, asynchronous processing, or
-incremental recomposition. Those capabilities require concrete use cases before
-their contracts are added.
+incremental recomposition. The optional ruling is not a promise that the layout
+behaves like manuscript paper. Those capabilities require concrete use cases
+before their contracts are added.
