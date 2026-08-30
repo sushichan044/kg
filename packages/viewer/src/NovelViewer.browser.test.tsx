@@ -2,6 +2,7 @@ import {
   NovelCompositionSettings,
   composeManuscript,
   createDefaultProofreadingRules,
+  kakuyomuParser,
   novelComposer,
   parseManuscript,
   pixivParser,
@@ -161,6 +162,32 @@ test("renders the ruby kind and reading decided by core", async ({ renderViewer 
   expect.assert(reading !== null, "ruby reading did not render");
   expect(reading.textContent).toBe("かな");
   expect(ruby.querySelectorAll(".kgv-ruby-character")).toHaveLength(2);
+});
+
+test("renders a short group reading on every fragment when possible", async ({ renderViewer }) => {
+  const { screen } = await renderViewer({
+    text: `｜${"漢".repeat(12)}《よみ》`,
+    flow,
+    parser: kakuyomuParser,
+  });
+  const readings = Array.from(
+    screen.container.querySelectorAll<HTMLElement>('[data-annotation="ruby"] .kgv-ruby'),
+  );
+
+  expect(readings.map(({ textContent }) => textContent)).toEqual(["よ", "み"]);
+});
+
+test("renders the complete group reading across a suppressed gap", async ({ renderViewer }) => {
+  const { screen } = await renderViewer({
+    text: "[[rb:あいうえおかきくけ！　こ>よみよみよ]]",
+    flow,
+    parser: pixivParser,
+  });
+  const readings = Array.from(
+    screen.container.querySelectorAll<HTMLElement>('[data-annotation="ruby"] .kgv-ruby'),
+  );
+
+  expect(readings.map(({ textContent }) => textContent)).toEqual(["よみよみ", "よ"]);
 });
 
 test("renders semantic styles from composed annotation fragments", async ({ renderViewer }) => {
