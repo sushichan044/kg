@@ -219,9 +219,9 @@
    from its offset and length in cells so a diagnostic spanning several characters is decorated as
    one continuous band instead of once per character.
 
-   A band takes the whole width of the line unless another diagnostic covers exactly the same
-   cells: identical boxes would stack, and only the frontmost of them could be clicked, so each
-   takes a lane of the width instead. */
+   A band takes the whole width of the line unless another diagnostic overlaps it: overlapping
+   boxes would stack, and only the frontmost of them could be clicked, so each takes a lane of the
+   width instead. */
 .kgv-diagnostic-band {
   position: absolute;
   box-sizing: border-box;

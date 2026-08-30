@@ -183,6 +183,42 @@ test("selects each diagnostic from its positioned band", async ({ renderViewer }
   expect(selected).toBe(first.id);
 });
 
+test("keeps partially overlapping diagnostics selectable in separate lanes", async ({
+  renderViewer,
+}) => {
+  const selected: string[] = [];
+  const { diagnostics, screen } = await renderViewer(
+    { text: "「あ、。。」", flow },
+    {
+      onDiagnosticSelect: (diagnostic) => {
+        selected.push(diagnostic.id);
+      },
+    },
+  );
+  const consecutive = diagnostics.find(
+    ({ origin }) => origin.id === "kg/no-consecutive-punctuation",
+  );
+  const beforeClosingQuote = diagnostics.find(
+    ({ origin }) => origin.id === "kg/punctuation-before-closing-quote",
+  );
+  expect.assert(
+    consecutive !== undefined && beforeClosingQuote !== undefined,
+    "fixture produced no partially overlapping diagnostics",
+  );
+
+  const consecutiveButton = screen.getByRole("button", {
+    name: `${consecutive.location.start.line}行${consecutive.location.start.column}列: ${consecutive.message}`,
+  });
+  const beforeClosingQuoteButton = screen.getByRole("button", {
+    name: `${beforeClosingQuote.location.start.line}行${beforeClosingQuote.location.start.column}列: ${beforeClosingQuote.message}`,
+  });
+
+  await consecutiveButton.click();
+  await beforeClosingQuoteButton.click();
+
+  expect(selected).toEqual([consecutive.id, beforeClosingQuote.id]);
+});
+
 test("keeps a split diagnostic as one control with continuation bands", async ({
   renderViewer,
 }) => {

@@ -174,8 +174,45 @@ type RenderedGrapheme = Readonly<{
   diagnostics: readonly ManuscriptDiagnostic[];
 }>;
 
-function spanKey({ offsetEm, advanceEm }: PlacedBand): string {
-  return `${offsetEm}:${advanceEm}`;
+function assignBandLanes(placed: readonly PlacedBand[]): DiagnosticBand[] {
+  const groups: PlacedBand[][] = [];
+  let group: PlacedBand[] = [];
+  let groupEnd = Number.NEGATIVE_INFINITY;
+
+  for (const band of placed) {
+    if (group.length > 0 && band.offsetEm >= groupEnd) {
+      groups.push(group);
+      group = [];
+      groupEnd = Number.NEGATIVE_INFINITY;
+    }
+
+    group.push(band);
+    groupEnd = Math.max(groupEnd, band.offsetEm + band.advanceEm);
+  }
+  if (group.length > 0) groups.push(group);
+
+  return groups.flatMap((overlapping) => {
+    const laneEnds: number[] = [];
+    const assigned = overlapping.map((band) => {
+      let lane = laneEnds.findIndex((end) => end <= band.offsetEm);
+      if (lane === -1) {
+        lane = laneEnds.length;
+        laneEnds.push(0);
+      }
+      laneEnds[lane] = band.offsetEm + band.advanceEm;
+
+      return { ...band, lane };
+    });
+
+    return assigned.map(({ diagnostic, offsetEm, advanceEm, startsHere, lane }) => ({
+      diagnostic,
+      offsetEm,
+      advanceEm,
+      startsHere,
+      lane,
+      lanes: laneEnds.length,
+    }));
+  });
 }
 
 function lineDiagnostics(
@@ -206,26 +243,7 @@ function lineDiagnostics(
   });
   placed.sort((left, right) => left.offsetEm - right.offsetEm || right.advanceEm - left.advanceEm);
 
-  const laneCounts = new Map<string, number>();
-  for (const band of placed)
-    laneCounts.set(spanKey(band), (laneCounts.get(spanKey(band)) ?? 0) + 1);
-  const taken = new Map<string, number>();
-
-  const bands = placed.map((band) => {
-    const key = spanKey(band);
-    const lane = taken.get(key) ?? 0;
-    taken.set(key, lane + 1);
-    return {
-      diagnostic: band.diagnostic,
-      offsetEm: band.offsetEm,
-      advanceEm: band.advanceEm,
-      startsHere: band.startsHere,
-      lane,
-      lanes: laneCounts.get(key) ?? 1,
-    };
-  });
-
-  return { bands, graphemes };
+  return { bands: assignBandLanes(placed), graphemes };
 }
 
 function renderRuby(annotation: Extract<ComposedAnnotationFragment, { kind: "ruby" }>) {
