@@ -72,6 +72,7 @@
     "@types/react": "catalog:dev",
     "@types/react-dom": "catalog:dev",
     "@vitest/browser-playwright": "catalog:dev",
+    "playwright": "catalog:dev",
     "publint": "catalog:dev",
     "react": "catalog:prod",
     "react-dom": "catalog:prod",
