@@ -7,7 +7,7 @@ export type PixivTag = Readonly<{
   end: number;
   content: TrimmedContent;
   annotation:
-    | Readonly<{ kind: "ruby"; reading: string }>
+    | Readonly<{ kind: "ruby"; reading: Readonly<{ kind: "group"; text: string }> }>
     | Readonly<{ kind: "bold" }>
     | Readonly<{ kind: "italic" }>
     | Readonly<{ kind: "emphasis"; mark: string }>;
@@ -56,7 +56,11 @@ function parsePairTag(
 
   const [content, value] = pair;
   if (prefix === "[[rb:") {
-    return { end: closing + 2, content, annotation: { kind: "ruby", reading: value.text } };
+    return {
+      end: closing + 2,
+      content,
+      annotation: { kind: "ruby", reading: { kind: "group", text: value.text } },
+    };
   }
   if ([...graphemeSegmenter.segment(value.text)].length !== 1) return undefined;
   return { end: closing + 2, content, annotation: { kind: "emphasis", mark: value.text } };

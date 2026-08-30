@@ -1,10 +1,10 @@
-/* Layout physics for the vertical-writing manuscript grid: the rules the viewer
+/* Layout physics for the vertical-writing novel preview: the rules the viewer
    cannot render without. Declares no colors, so it composes with any theme.
 
    Deliberately unlayered and selected by class. Layered rules lose to unlayered
    ones no matter how specific they are, so a `@layer` here would let a host
    page's `* { box-sizing }` or `button { padding }` reset silently break the
-   grid. Class selectors outrank those element and universal selectors instead.
+   layout. Class selectors outrank those element and universal selectors instead.
    Override a rule on purpose with an equally specific selector loaded after
    this file. theme.css follows the same boundary for its default look. */
 
@@ -86,16 +86,19 @@
 /* Anchors the two decoration layers below. */
 .kgv-line {
   position: relative;
-  display: flex;
-  flex-direction: column;
+  flex: none;
+  inline-size: var(--kgv-cell-size);
+  block-size: calc(var(--kgv-line-length) * var(--kgv-cell-size));
 }
 
 /* The ruling and the diagnostics are drawn by layers of their own rather than by the boxes
    holding the text: a layer is sized by the line and contributes no size back, so nothing a
-   theme paints can move the grid off the geometry the composer calculated. Which layer covers
+   theme paints can move the text off the geometry the composer calculated. Which layer covers
    which follows from document order — ruling, then text, then diagnostics — so neither sheet
    needs a z-index to keep them apart. */
 .kgv-line-rules,
+.kgv-line-text,
+.kgv-line-ruby,
 .kgv-line-diagnostics {
   position: absolute;
   inset: 0;
@@ -118,29 +121,33 @@
 }
 
 .kgv-cell {
-  position: relative;
-  /* The ruling is drawn by the layer above, but a host reset or an application may still put a
-     border on a cell; border-box keeps it inside the cell instead of growing the grid pitch. */
+  position: absolute;
+  inset-block-start: calc(var(--kgv-item-offset) * var(--kgv-cell-size));
+  inset-inline-start: 0;
+  /* The optional ruling is drawn by the layer above, but a host reset or an application may still
+     put a border on a cell; border-box keeps it inside the box instead of growing the text pitch. */
   box-sizing: border-box;
   display: grid;
   place-items: center;
   inline-size: var(--kgv-cell-size);
-  block-size: var(--kgv-cell-size);
+  block-size: calc(var(--kgv-item-advance) * var(--kgv-cell-size));
 }
 
-.kgv-annotation {
-  position: relative;
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  inline-size: var(--kgv-cell-size);
+.kgv-ruby-fragment {
+  position: absolute;
+  inset: 0;
+  display: block;
 }
 
 /* The <rt> is here for the semantics; the box inside it does the placing. Contributing no box of
    its own keeps it out of the engine's ruby layout, which would otherwise reserve space for a
    reading that is positioned elsewhere. */
-.kgv-annotation[data-annotation="ruby"] rt {
+.kgv-ruby-fragment rt {
   display: contents;
+}
+
+.kgv-ruby-base-placeholder {
+  display: none;
 }
 
 /* The reading runs beside the line rather than in it, so it is taken out of flow and placed at the
@@ -149,10 +156,10 @@
    to depends on the fit, below. */
 .kgv-ruby {
   position: absolute;
+  inset-block: 0;
   left: 100%;
   /* One flex box per reading character, so the line runs down the reading in this vertical flow and
      nothing depends on how an engine spaces characters. */
-  display: flex;
   writing-mode: vertical-rl;
   text-orientation: upright;
   font-family: var(--kgv-manuscript-font);
@@ -162,48 +169,23 @@
 }
 
 .kgv-ruby-character {
+  position: absolute;
+  inset-block-start: calc(var(--kgv-item-offset) * var(--kgv-cell-size));
   display: grid;
   place-items: center;
-}
-
-/* One reading character per base character: each belongs to the character below it, so give every
-   character an equal share of the run — one cell each — and centre it in that share. */
-.kgv-annotation[data-ruby-fit="mono"] .kgv-ruby {
-  top: 0;
-  bottom: 0;
-}
-
-.kgv-annotation[data-ruby-fit="mono"] .kgv-ruby-character {
-  flex: 1;
-}
-
-/* Any other count belongs to the compound rather than to a single character, so spread it over the
-   whole base, first and last character at either end.
-
-   A glyph sits centred in its cell, so the base characters start and end inside the cells at either
-   end of the run. Inset by that margin to bracket the characters rather than the cells, which keeps
-   the reading from spilling past them. */
-.kgv-annotation[data-ruby-fit="group"] .kgv-ruby {
-  top: calc(var(--kgv-cell-size) * (1 - var(--kgv-glyph-scale)) / 2);
-  bottom: calc(var(--kgv-cell-size) * (1 - var(--kgv-glyph-scale)) / 2);
-  /* A lone character has no gaps to spread, so centre it on the base instead. */
-  justify-content: center;
-}
-
-.kgv-annotation[data-ruby-fit="group"] .kgv-ruby:has(.kgv-ruby-character + .kgv-ruby-character) {
-  justify-content: space-between;
+  block-size: calc(var(--kgv-item-advance) * var(--kgv-cell-size));
 }
 
 /* Keeps the emphasis mark beside the glyph rather than overlapping it. */
-.kgv-annotation[data-annotation="emphasis"] {
+.kgv-line-text [data-annotation="emphasis"] {
   text-emphasis-position: over right;
 }
 
-.kgv-annotation[data-annotation="bold"] {
+.kgv-line-text [data-annotation="bold"] {
   font-weight: 700;
 }
 
-.kgv-annotation[data-annotation="italic"] {
+.kgv-line-text [data-annotation="italic"] {
   font-style: italic;
 }
 
@@ -233,13 +215,21 @@
   text-orientation: upright;
 }
 
+.kgv-glyph-sideways {
+  text-orientation: sideways;
+}
+
+.kgv-glyph-tate-chu-yoko {
+  text-combine-upright: all;
+}
+
 /* One band per diagnostic per line, covering the cells the diagnostic reaches. The run is placed
    from its offset and length in cells so a diagnostic spanning several characters is decorated as
    one continuous band instead of once per character.
 
-   A band takes the whole width of the line unless another diagnostic covers exactly the same
-   cells: identical boxes would stack, and only the frontmost of them could be clicked, so each
-   takes a lane of the width instead. */
+   A band takes the whole width of the line unless another diagnostic overlaps it: overlapping
+   boxes would stack, and only the frontmost of them could be clicked, so each takes a lane of the
+   width instead. */
 .kgv-diagnostic-band {
   position: absolute;
   box-sizing: border-box;

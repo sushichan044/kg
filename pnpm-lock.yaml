@@ -124,6 +124,9 @@ importers:
 
   packages/core:
     dependencies:
+      get-east-asian-width:
+        specifier: ^1.6.0
+        version: 1.6.0
       valibot:
         specifier: catalog:prod
         version: 1.4.2(typescript@7.0.2)
@@ -167,7 +170,10 @@ importers:
         version: 19.2.3(@types/react@19.2.17)
       '@vitest/browser-playwright':
         specifier: catalog:dev
-        version: 4.1.10(@voidzero-dev/vite-plus-core@0.2.7)(playwright@1.62.1)(vitest@4.1.10)
+        version: 4.1.10(@voidzero-dev/vite-plus-core@0.2.7)(playwright@1.61.1)(vitest@4.1.10)
+      playwright:
+        specifier: catalog:dev
+        version: 1.61.1
       publint:
         specifier: catalog:dev
         version: 0.3.22
@@ -1414,6 +1420,10 @@ packages:
     resolution: {integrity: sha512-3hN7NaskYvMDLQY55gnW3NQ+mesEAepTqlg+VEbj7zzqEMBVNhzcGYYeqFo/TlYz6eQiFcp1HcsCZO+nGgS8zg==}
     engines: {node: '>=6.9.0'}
 
+  get-east-asian-width@1.6.0:
+    resolution: {integrity: sha512-QRbvDIbx6YklUe6RxeTeleMR0yv3cYH6PsPZHcnVn7xv7zO1BHN8r0XETu8n6Ye3Q+ahtSarc3WgtNWmehIBfA==}
+    engines: {node: '>=18'}
+
   import-meta-resolve@4.2.0:
     resolution: {integrity: sha512-Iqv2fzaTQN28s/FwZAoFq0ZSs/7hMAHJVX+w8PZl3cY19Pxk6jFFalxQoIfW2826i/fDLXv8IiEZRIT0lDuWcg==}
 
@@ -2439,6 +2449,7 @@ snapshots:
       - msw
       - utf-8-validate
       - vite
+    optional: true
 
   '@vitest/browser-preview@4.1.10(@voidzero-dev/vite-plus-core@0.2.7)(vitest@4.1.10)':
     dependencies:
@@ -2688,6 +2699,8 @@ snapshots:
 
   gensync@1.0.0-beta.2: {}
 
+  get-east-asian-width@1.6.0: {}
+
   import-meta-resolve@4.2.0: {}
 
   js-tokens@10.0.0: {}
@@ -2908,7 +2921,8 @@ snapshots:
 
   playwright-core@1.61.1: {}
 
-  playwright-core@1.62.1: {}
+  playwright-core@1.62.1:
+    optional: true
 
   playwright@1.61.1:
     dependencies:
@@ -2921,6 +2935,7 @@ snapshots:
       playwright-core: 1.62.1
     optionalDependencies:
       fsevents: 2.3.2
+    optional: true
 
   pngjs@7.0.0: {}
 

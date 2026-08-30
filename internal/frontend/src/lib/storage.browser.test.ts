@@ -23,18 +23,25 @@ const test = base.extend<{ clearedStorage: undefined }>({
   ],
 });
 
+const legacyComposition = {
+  grid: { charsPerLine: 27, linesPerStage: 23, stagesPerPage: 2 },
+  offsets: DEFAULT_MANUSCRIPT_PREFERENCES.composition.offsets,
+  appearance: DEFAULT_MANUSCRIPT_PREFERENCES.composition.appearance,
+};
+
 test("returns defaults when current state is absent", () => {
   expect(loadAppState()).toEqual(DEFAULT_APP_STATE);
   expect(loadManuscriptPreferences()).toEqual(DEFAULT_MANUSCRIPT_PREFERENCES);
 });
 
-test("stores frontend-owned notation, composition, zoom, and presets", () => {
+test("stores frontend-owned notation, composition, grid visibility, zoom, and presets", () => {
   const preferences = {
     ...DEFAULT_MANUSCRIPT_PREFERENCES,
     composition: {
       ...DEFAULT_MANUSCRIPT_PREFERENCES.composition,
-      grid: { ...DEFAULT_MANUSCRIPT_PREFERENCES.composition.grid, charsPerLine: 30 },
+      flow: { ...DEFAULT_MANUSCRIPT_PREFERENCES.composition.flow, lineLengthEm: 30 },
     },
+    showGrid: false,
     zoom: 125,
     fit: true,
     notation: "kakuyomu" as const,
@@ -44,7 +51,8 @@ test("stores frontend-owned notation, composition, zoom, and presets", () => {
   expect(saveManuscriptPreferences(preferences)).toBe(true);
 
   expect(loadAppState().selectedPath).toBe("draft.txt");
-  expect(loadManuscriptPreferences().composition.grid.charsPerLine).toBe(30);
+  expect(loadManuscriptPreferences().composition.flow.lineLengthEm).toBe(30);
+  expect(loadManuscriptPreferences().showGrid).toBe(false);
   expect(loadManuscriptPreferences().zoom).toBe(125);
   expect(loadManuscriptPreferences().fit).toBe(true);
   expect(loadManuscriptPreferences().notation).toBe("kakuyomu");
@@ -62,15 +70,16 @@ test("does not parse v2 manuscript preferences", () => {
 test("migrates v3 fixed and fit zoom preferences", () => {
   const fixed = {
     version: 3,
-    composition: DEFAULT_MANUSCRIPT_PREFERENCES.composition,
+    composition: legacyComposition,
     zoom: { kind: "fixed", percent: 125 },
     presets: [],
   };
   localStorage.setItem("kg.manuscript.preferences.v3", JSON.stringify(fixed));
 
   expect(loadManuscriptPreferences()).toMatchObject({
-    version: 5,
+    version: 6,
     notation: "pixiv",
+    showGrid: true,
     zoom: 125,
     fit: false,
   });
@@ -81,8 +90,9 @@ test("migrates v3 fixed and fit zoom preferences", () => {
   );
 
   expect(loadManuscriptPreferences()).toMatchObject({
-    version: 5,
+    version: 6,
     notation: "pixiv",
+    showGrid: true,
     zoom: 100,
     fit: true,
   });
@@ -93,14 +103,45 @@ test("migrates v4 preferences with the existing Pixiv behavior", () => {
     "kg.manuscript.preferences.v4",
     JSON.stringify({
       version: 4,
-      composition: DEFAULT_MANUSCRIPT_PREFERENCES.composition,
+      composition: legacyComposition,
       zoom: 100,
       fit: false,
       presets: [],
     }),
   );
 
-  expect(loadManuscriptPreferences()).toMatchObject({ version: 5, notation: "pixiv" });
+  expect(loadManuscriptPreferences()).toMatchObject({
+    version: 6,
+    notation: "pixiv",
+    showGrid: true,
+  });
+});
+
+test("migrates v5 grid settings and presets to novel flow settings", () => {
+  localStorage.setItem(
+    "kg.manuscript.preferences.v5",
+    JSON.stringify({
+      version: 5,
+      notation: "kakuyomu",
+      composition: legacyComposition,
+      zoom: 125,
+      fit: false,
+      presets: [{ name: "旧プリセット", composition: legacyComposition }],
+    }),
+  );
+
+  expect(loadManuscriptPreferences()).toMatchObject({
+    version: 6,
+    notation: "kakuyomu",
+    showGrid: true,
+    composition: { flow: { lineLengthEm: 27, linesPerStage: 23, stagesPerPage: 2 } },
+    presets: [
+      {
+        name: "旧プリセット",
+        composition: { flow: { lineLengthEm: 27, linesPerStage: 23, stagesPerPage: 2 } },
+      },
+    ],
+  });
 });
 
 test("rejects malformed or incomplete v5 payloads", () => {
@@ -113,15 +154,19 @@ test("rejects malformed or incomplete v5 payloads", () => {
 
 test("rejects v5 composition settings that violate cross-field offset constraints", () => {
   const invalid = {
-    ...DEFAULT_MANUSCRIPT_PREFERENCES,
+    version: 5,
+    notation: "pixiv",
     composition: {
-      ...DEFAULT_MANUSCRIPT_PREFERENCES.composition,
+      ...legacyComposition,
       grid: { charsPerLine: 10, linesPerStage: 10, stagesPerPage: 1 },
       offsets: {
         ...DEFAULT_MANUSCRIPT_PREFERENCES.composition.offsets,
         stage: { leading: 5, trailing: 5 },
       },
     },
+    zoom: 100,
+    fit: false,
+    presets: [],
   };
   localStorage.setItem("kg.manuscript.preferences.v5", JSON.stringify(invalid));
 

@@ -2,13 +2,13 @@ import {
   FontPreset,
   FontPresetId,
   FontSizePt,
-  GridSettings,
-  ManuscriptCompositionSettings,
+  NovelCompositionSettings,
+  NovelFlowSettings,
   ManuscriptGeometry,
   PaperSize,
   PaperSizeId,
 } from "@sushichan044/kg-core";
-import type { GridComposedManuscript } from "@sushichan044/kg-core";
+import type { NovelComposedManuscript } from "@sushichan044/kg-core";
 import { useState } from "react";
 
 import type { ManuscriptNotation, ManuscriptPreset } from "../lib/storage";
@@ -84,7 +84,7 @@ export function ZoomControls({
 type ViewerToolbarProps = ZoomControlsProps &
   Readonly<{
     documentLabel: string;
-    composed: GridComposedManuscript;
+    composed: NovelComposedManuscript;
     diagnosticCount: number;
     onDiagnosticsOpen: () => void;
   }>;
@@ -125,20 +125,22 @@ export function ViewerToolbar({
 
 type SettingsPanelProps = Readonly<{
   notation: ManuscriptNotation;
-  composition: ManuscriptCompositionSettings;
-  composed: GridComposedManuscript;
+  composition: NovelCompositionSettings;
+  composed: NovelComposedManuscript;
+  showGrid: boolean;
   presets: readonly ManuscriptPreset[];
   status: string;
   idPrefix?: string;
   onNotationChange: (notation: ManuscriptNotation) => void;
-  onCompositionChange: (composition: ManuscriptCompositionSettings) => void;
+  onCompositionChange: (composition: NovelCompositionSettings) => void;
+  onGridChange: (showGrid: boolean) => void;
   onPresetApply: (preset: ManuscriptPreset) => void;
   onPresetSave: (preset: ManuscriptPreset) => void;
   onPresetDelete: (name: string) => void;
 }>;
 
-type GridKey = keyof ManuscriptCompositionSettings["grid"];
-type OffsetScope = keyof ManuscriptCompositionSettings["offsets"];
+type FlowKey = keyof NovelCompositionSettings["flow"];
+type OffsetScope = keyof NovelCompositionSettings["offsets"];
 type OffsetEdge = "leading" | "trailing";
 
 function numericValue(value: string): number | null {
@@ -151,11 +153,13 @@ export function SettingsPanel({
   notation,
   composition,
   composed,
+  showGrid,
   presets,
   status,
   idPrefix = "",
   onNotationChange,
   onCompositionChange,
+  onGridChange,
   onPresetApply,
   onPresetSave,
   onPresetDelete,
@@ -165,13 +169,13 @@ export function SettingsPanel({
   /**
    * Half-edited values reach here constantly; only commit settings core would accept.
    */
-  const accept = (candidate: ManuscriptCompositionSettings) => {
-    if (ManuscriptCompositionSettings.is(candidate)) onCompositionChange(candidate);
+  const accept = (candidate: NovelCompositionSettings) => {
+    if (NovelCompositionSettings.is(candidate)) onCompositionChange(candidate);
   };
-  const changeGrid = (key: GridKey, value: string) => {
+  const changeFlow = (key: FlowKey, value: string) => {
     const parsed = numericValue(value);
     if (parsed === null) return;
-    accept({ ...composition, grid: { ...composition.grid, [key]: parsed } });
+    accept({ ...composition, flow: { ...composition.flow, [key]: parsed } });
   };
   const changeOffset = (scope: OffsetScope, edge: OffsetEdge, value: string) => {
     const parsed = numericValue(value);
@@ -185,7 +189,7 @@ export function SettingsPanel({
     });
   };
   const maximumFontSize = ManuscriptGeometry.maxFontSizePt(
-    composition.grid,
+    composition.flow,
     composition.appearance.paperSize,
   );
 
@@ -213,11 +217,25 @@ export function SettingsPanel({
           </label>
         ))}
       </fieldset>
+      <fieldset className="notation-controls">
+        <legend>表示</legend>
+        <label htmlFor={`${idPrefix}show-grid`}>
+          <input
+            id={`${idPrefix}show-grid`}
+            type="checkbox"
+            checked={showGrid}
+            onChange={(event) => {
+              onGridChange(event.currentTarget.checked);
+            }}
+          />
+          マス目を表示
+        </label>
+      </fieldset>
       <fieldset className="controls">
-        <legend>原稿用紙</legend>
+        <legend>組版</legend>
         {(
           [
-            ["charsPerLine", "一行の文字数"],
+            ["lineLengthEm", "一行の長さ（em）"],
             ["linesPerStage", "一段の行数"],
             ["stagesPerPage", "一頁の段数"],
           ] as const
@@ -227,11 +245,11 @@ export function SettingsPanel({
             <input
               id={`${idPrefix}${key}`}
               type="number"
-              min={GridSettings.ranges[key].min}
-              max={GridSettings.ranges[key].max}
-              value={composition.grid[key]}
+              min={NovelFlowSettings.ranges[key].min}
+              max={NovelFlowSettings.ranges[key].max}
+              value={composition.flow[key]}
               onChange={(event) => {
-                changeGrid(key, event.currentTarget.value);
+                changeFlow(key, event.currentTarget.value);
               }}
             />
           </label>
@@ -298,7 +316,7 @@ export function SettingsPanel({
           </select>
         </label>
         {!composed.layout.geometry.fitsPaper && (
-          <p className="paper-warning">この設定では原稿用紙が用紙に収まりません。</p>
+          <p className="paper-warning">この設定では本文領域が用紙に収まりません。</p>
         )}
       </fieldset>
 

@@ -1,9 +1,11 @@
 import { describe, expect, test } from "vite-plus/test";
 
+import { ManuscriptRange } from "../range/manuscript-range";
 import { ManuscriptResult } from "../result/manuscript-result";
 import { kakuyomuParser } from "./kakuyomu-parser";
 import type { ManuscriptParser } from "./manuscript-parser";
 import { parseManuscript } from "./parse-manuscript";
+import type { ParsedManuscript } from "./parsed-manuscript";
 import { pixivParser } from "./pixiv-parser";
 import { plainTextParser } from "./plain-text-parser";
 
@@ -71,7 +73,7 @@ describe("parseManuscript", () => {
       },
       {
         kind: "ruby",
-        reading: "かんじ",
+        reading: { kind: "group", text: "かんじ" },
         range: {
           source: { start: 9, end: source.length },
           display: { start: 5, end: 7 },
@@ -91,7 +93,7 @@ describe("parseManuscript", () => {
     expect(result.value.annotations).toEqual([
       {
         kind: "ruby",
-        reading: "ヒロイン",
+        reading: { kind: "group", text: "ヒロイン" },
         range: {
           source: { start: 6, end: 14 },
           display: { start: 6, end: 8 },
@@ -100,7 +102,7 @@ describe("parseManuscript", () => {
       },
       {
         kind: "ruby",
-        reading: "えとせとら",
+        reading: { kind: "group", text: "えとせとら" },
         range: {
           source: { start: 15, end: 26 },
           display: { start: 9, end: 12 },
@@ -145,7 +147,7 @@ describe("parseManuscript", () => {
     expect(result.value.annotations).toEqual([
       {
         kind: "ruby",
-        reading: maximumReading,
+        reading: { kind: "group", text: maximumReading },
         range: {
           source: { start: 0, end: 72 },
           display: { start: 0, end: 20 },
@@ -154,7 +156,7 @@ describe("parseManuscript", () => {
       },
       {
         kind: "ruby",
-        reading: "えーびーしー",
+        reading: { kind: "group", text: "えーびーしー" },
         range: {
           source: { start: 72, end: 84 },
           display: { start: 20, end: 23 },
@@ -202,6 +204,55 @@ describe("parseManuscript", () => {
     const result = parseManuscript("source", { parser });
 
     expect.assert(result.ok === false, "expected parseManuscript to report a failure");
+    expect(result.error.kind).toBe("InvalidParserOutput");
+  });
+
+  test.each([
+    ["mono", ["かん", "じ"]],
+    ["jukugo", ["かん", "じ"]],
+  ] as const)("accepts explicit %s ruby associations", (kind, segments) => {
+    const base = parseManuscript("漢字");
+    expect.assert(base.ok, "fixture did not parse");
+    const range = ManuscriptRange.merge(base.value.graphemes.map(({ range }) => range));
+    expect.assert(range !== null, "fixture did not contain a ruby base range");
+    const parser: ManuscriptParser = {
+      id: `example/${kind}`,
+      parse: () =>
+        ManuscriptResult.succeed<ParsedManuscript>({
+          ...base.value,
+          annotations: [{ kind: "ruby", range, reading: { kind, segments } }],
+        } satisfies ParsedManuscript),
+    };
+
+    const result = parseManuscript("漢字", { parser });
+
+    expect.assert(result.ok, `expected ${kind} ruby to satisfy the parser contract`);
+    expect(result.value.annotations[0]).toMatchObject({ reading: { kind, segments } });
+  });
+
+  test("rejects ruby segments that do not map one-to-one to their base", () => {
+    const base = parseManuscript("漢字");
+    expect.assert(base.ok, "fixture did not parse");
+    const range = ManuscriptRange.merge(base.value.graphemes.map(({ range }) => range));
+    expect.assert(range !== null, "fixture did not contain a ruby base range");
+    const parser: ManuscriptParser = {
+      id: "example/broken-ruby",
+      parse: () =>
+        ManuscriptResult.succeed<ParsedManuscript>({
+          ...base.value,
+          annotations: [
+            {
+              kind: "ruby",
+              range,
+              reading: { kind: "mono", segments: ["かんじ"] },
+            },
+          ],
+        } satisfies ParsedManuscript),
+    };
+
+    const result = parseManuscript("漢字", { parser });
+
+    expect.assert(result.ok === false, "expected the parser contract to reject invalid ruby");
     expect(result.error.kind).toBe("InvalidParserOutput");
   });
 

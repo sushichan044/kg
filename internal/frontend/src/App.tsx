@@ -1,6 +1,6 @@
 import type { ManuscriptDiagnostic } from "@sushichan044/kg-core";
-import { DiagnosticList, ManuscriptViewer } from "@sushichan044/kg-viewer";
-import type { ManuscriptViewEvent, ManuscriptViewHandle } from "@sushichan044/kg-viewer";
+import { DiagnosticList, NovelViewer } from "@sushichan044/kg-viewer";
+import type { NovelViewEvent, NovelViewHandle } from "@sushichan044/kg-viewer";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
 
@@ -122,7 +122,7 @@ function Workspace() {
   const [filesSheetOpen, setFilesSheetOpen] = useState(false);
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
   const [diagnosticsSheetOpen, setDiagnosticsSheetOpen] = useState(false);
-  const viewRef = useRef<ManuscriptViewHandle>(null);
+  const viewRef = useRef<NovelViewHandle>(null);
   const appStateRef = useRef(appState);
   const manuscriptRef = useRef(manuscript);
   const catalogRequestRef = useRef(0);
@@ -237,7 +237,7 @@ function Workspace() {
   );
 
   const onViewEvent = useCallback(
-    (event: ManuscriptViewEvent) => {
+    (event: NovelViewEvent) => {
       if (selectedPath !== null) savePage(selectedPath, event.page);
     },
     [selectedPath],
@@ -274,6 +274,7 @@ function Workspace() {
       notation={manuscript.preferences.notation}
       composition={manuscript.preferences.composition}
       composed={processed.value.composed}
+      showGrid={manuscript.preferences.showGrid}
       presets={manuscript.preferences.presets}
       status={status}
       onNotationChange={(notation) => {
@@ -281,6 +282,9 @@ function Workspace() {
       }}
       onCompositionChange={(composition) => {
         commitPreferenceAction({ kind: "composition.replace", composition });
+      }}
+      onGridChange={(showGrid) => {
+        commitPreferenceAction({ kind: "grid-visibility.replace", showGrid });
       }}
       onPresetApply={(preset) => {
         commitPreferenceAction({ kind: "preset.apply", preset });
@@ -306,6 +310,7 @@ function Workspace() {
             notation={manuscript.preferences.notation}
             composition={manuscript.preferences.composition}
             composed={processed.value.composed}
+            showGrid={manuscript.preferences.showGrid}
             presets={manuscript.preferences.presets}
             status={status}
             onNotationChange={(notation) => {
@@ -313,6 +318,9 @@ function Workspace() {
             }}
             onCompositionChange={(composition) => {
               commitPreferenceAction({ kind: "composition.replace", composition });
+            }}
+            onGridChange={(showGrid) => {
+              commitPreferenceAction({ kind: "grid-visibility.replace", showGrid });
             }}
             onPresetApply={(preset) => {
               commitPreferenceAction({ kind: "preset.apply", preset });
@@ -378,13 +386,14 @@ function Workspace() {
             {loadedDocument?.id !== selectedId ? (
               <p className="preview__loading">読み込み中…</p>
             ) : processed.ok ? (
-              <ManuscriptViewer
+              <NovelViewer
                 ref={viewRef}
                 composed={processed.value.composed}
                 diagnostics={diagnostics}
                 activeDiagnosticId={activeDiagnosticId}
                 zoom={{ value: zoom, min: 50, max: 150, step: 25, onChange: setFitZoom }}
                 fit={manuscript.preferences.fit}
+                showGrid={manuscript.preferences.showGrid}
                 onViewEvent={onViewEvent}
                 onDiagnosticSelect={(diagnostic) => {
                   dispatch({ kind: "diagnostic.select", id: diagnostic.id });

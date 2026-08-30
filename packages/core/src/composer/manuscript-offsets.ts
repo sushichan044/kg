@@ -1,8 +1,8 @@
 import type * as v from "valibot";
 
 import { nonNegativeInteger, readonlyObject } from "../internal/schema";
-import type { GridSettings } from "./grid-settings";
 import { LineOffset } from "./line-offset";
+import type { NovelFlowSettings } from "./novel-flow-settings";
 
 const MAX_DOCUMENT_OFFSET = 10_000;
 
@@ -33,11 +33,11 @@ export const ManuscriptOffsets = {
   /**
    * Stage offsets must leave at least one usable line in the stage.
    */
-  maxStageTotal: (grid: GridSettings): number => Math.max(0, grid.linesPerStage - 1),
+  maxStageTotal: (flow: NovelFlowSettings): number => Math.max(0, flow.linesPerStage - 1),
 
   /**
    * Page offsets must leave at least one usable line on the page, after stage offsets apply.
    */
-  maxPageTotal: (grid: GridSettings, stage: LineOffset): number =>
-    Math.max(0, (grid.linesPerStage - LineOffset.total(stage)) * grid.stagesPerPage - 1),
+  maxPageTotal: (flow: NovelFlowSettings, stage: LineOffset): number =>
+    Math.max(0, (flow.linesPerStage - LineOffset.total(stage)) * flow.stagesPerPage - 1),
 } as const;

@@ -1,6 +1,6 @@
 # @sushichan044/kg-viewer
 
-Controlled React components for rendering composed Japanese manuscripts and
+Controlled React components for rendering composed vertical Japanese novels and
 proofreading diagnostics from `@sushichan044/kg-core`.
 
 ## Install
@@ -14,15 +14,16 @@ pnpm add @sushichan044/kg-core @sushichan044/kg-viewer react react-dom
 Import a stylesheet explicitly and pass already processed values:
 
 ```tsx
-import { DiagnosticList, ManuscriptViewer } from "@sushichan044/kg-viewer";
+import { DiagnosticList, NovelViewer } from "@sushichan044/kg-viewer";
 import "@sushichan044/kg-viewer/styles.css";
 
 <>
-  <ManuscriptViewer
+  <NovelViewer
     ref={viewRef}
     composed={composed}
     diagnostics={diagnostics}
     activeDiagnosticId={activeDiagnosticId}
+    showGrid={showGrid}
     zoom={{ value: zoom, min: 50, max: 150, step: 25, onChange: setZoom }}
     onDiagnosticSelect={(diagnostic) => setActiveDiagnosticId(diagnostic.id)}
   />
@@ -38,196 +39,102 @@ The package performs no parsing, composition, proofreading, persistence, or
 settings management. The consuming application owns those operations and
 passes immutable snapshots through controlled props.
 
-`ManuscriptViewer` exposes a ref handle for DOM-only navigation, including
-scrolling to a page or diagnostic. It reports visible-page changes through
-`onViewEvent` without storing them in the manuscript snapshot.
+`NovelViewer` exposes a ref handle for scrolling to a page or diagnostic. It
+reports visible-page changes through `onViewEvent` without storing them in the
+manuscript snapshot.
 
-Zoom is controlled by one numeric object. The viewer always renders `value`; it
-does not prescribe a toolbar or any appearance for one. Set `fit` when a whole
-page should stay visible: on mount and viewport resize, the viewer calculates the
-largest value within `min` and `max`, rounded down from `min` to `step`, then
-passes it to `onChange`.
+`showGrid` defaults to `true`. It controls only the decorative ruling layer;
+changing it does not recompose the manuscript, change page geometry, or move
+text and ruby.
 
-```tsx
-const [zoom, setZoom] = useState(100);
-const [fit, setFit] = useState(true);
+Zoom is controlled by one numeric object. Set `fit` when a whole page should
+stay visible. On mount and viewport resize, the viewer calculates the largest
+value within `min` and `max`, rounded down from `min` to `step`, then passes it
+to `onChange`.
 
-<ManuscriptViewer
-  composed={composed}
-  zoom={{ value: zoom, min: 50, max: 150, step: 25, onChange: setZoom }}
-  fit={fit}
-/>;
-```
-
-An application may use the same values for any UI it prefers. For example, a
-manual zoom button can call `setFit(false)` and then `setZoom(zoom + 25)`; a
-separate "fit page" button can call `setFit(true)`.
-
-Bold, italic, and emphasis annotations render as typed React elements;
-annotation content is never inserted as HTML. Overlapping annotations are
-rendered deterministically from the normalized annotation set.
-
-A ruby annotation keeps its `<ruby>` and `<rt>`, but the reading is placed by
-`span.kgv-ruby` inside the `<rt>`, one box per character: engines lay ruby text out
-themselves and disagree about how much of that a stylesheet may take over, while
-they all treat a plain span as a plain span. Style `.kgv-ruby` rather than `rt`.
-
-`data-ruby-fit` says how the reading relates to its base: `mono` when there is one
-reading character per base character, so each sits on the character it belongs to,
-and `group` otherwise, so the reading spreads across the compound with its first
-and last character at either end.
-
-When a ruby annotation crosses a grid line, each line receives only its share of
-the reading. Mono ruby splits one-to-one with its base characters; group ruby
-splits at the nearest proportional grapheme boundary, without repeating or
-dropping reading characters.
-
-Every vertical manuscript line is an independent grid with a half-em gap. The
-gap scales with zoom and is included in the core geometry used to center the
-grid on the selected paper size.
+Bold, italic, emphasis, and ruby fragments are rendered from the positions
+produced by core. The viewer does not infer annotation boundaries or split ruby
+readings. Annotation content is never inserted as HTML.
 
 See [`@sushichan044/kg-core`](../core/README.md) for parsing, composition,
 source mapping, schema validation, and proofreading APIs.
 
 ## Styling
 
-The components ship no look of their own. They render a fixed DOM whose class
-names and `data-*` attributes are the public styling contract, so applications
-style them with ordinary CSS instead of props.
+The components render a fixed DOM whose class names and `data-*` attributes are
+the styling contract.
 
-### Stylesheets
+| Entry                                    | Contents                                                   | Required |
+| ---------------------------------------- | ---------------------------------------------------------- | -------- |
+| `@sushichan044/kg-viewer/structural.css` | Vertical layout and positioned text. No colors.            | Yes      |
+| `@sushichan044/kg-viewer/theme.css`      | Default colors, ruling, shadows, and diagnostic treatment. | No       |
+| `@sushichan044/kg-viewer/styles.css`     | Both stylesheets.                                          | —        |
 
-| Entry                                    | Contents                                                | Required |
-| ---------------------------------------- | ------------------------------------------------------- | -------- |
-| `@sushichan044/kg-viewer/structural.css` | Layout physics of the vertical-writing grid. No colors. | Yes      |
-| `@sushichan044/kg-viewer/theme.css`      | The default look: colors, borders, shadows, spacing.    | No       |
-| `@sushichan044/kg-viewer/styles.css`     | Both of the above.                                      | —        |
-
-`structural.css` is required because the grid is laid out from geometry that
-only CSS can consume — cell pitch, line gap, and page size arrive as custom
-properties and are resolved with `calc()`. Import it and style everything else
-yourself, or import `styles.css` and adjust the tokens below.
-
-Both sheets are **unlayered and selected by package class**. This makes the
-layout and default theme independent of low-specificity reset styles such as
-Tailwind Preflight and classic universal or element resets, even when the reset
-is loaded later. The package does not apply a global `*` reset of its own.
-
-Import the package stylesheet before your application stylesheet. Override a
-rule deliberately with an equally specific package-class selector loaded after
-it. Rules using `!important`, or selectors with class, attribute, or ID
-specificity, are treated as intentional application customization rather than
-as resets and are outside this compatibility guarantee.
-
-`structural.css` also neutralizes the inherited text properties that would
-distort a fixed-size cell (`letter-spacing`, `word-spacing`, `text-indent`,
-`text-transform`, font weight, and font style), since inheritance reaches the
-glyphs regardless of specificity. It fixes the box model of sized elements and
-keeps semantic bold and italic annotations intact without the optional theme.
-Browser suites render the viewer under host resets to keep this contract from
-regressing.
+Both sheets are unlayered and selected by package class. This protects layout
+from low-specificity host resets. Import the package stylesheet before the
+application stylesheet and use an equally specific selector for deliberate
+overrides.
 
 ### DOM contract
 
 ```text
 div.kgv-viewer
 └── div.kgv-viewport
-    └── div.kgv-stack                       ← carries the geometry properties
-        └── section.kgv-page[data-page-index]
-            ├── p.kgv-visually-hidden       ← page text for assistive tech
+    └── div.kgv-stack
+        └── section.kgv-page[data-page-index][data-grid]
+            ├── p.kgv-visually-hidden
             └── div.kgv-page-grid
                 └── div.kgv-stage
                     └── div.kgv-line
-                        ├── span.kgv-line-rules              ← the ruling, one box per cell
+                        ├── span.kgv-line-rules             ← present when showGrid is true
                         │   └── span.kgv-rule-cell
-                        ├── span.kgv-annotation-stack        ← only around annotated runs
-                        │   └── strong|em|ruby|span.kgv-annotation
-                        │       └── rt                       ← ruby only
-                        │           └── span.kgv-ruby
-                        │               └── span.kgv-ruby-character
-                        ├── span.kgv-cell
-                        │   └── span.kgv-glyph
-                        └── span.kgv-line-diagnostics        ← only when a diagnostic reaches here
+                        ├── span.kgv-line-text
+                        │   └── span.kgv-cell
+                        │       └── span.kgv-glyph
+                        ├── span.kgv-line-ruby
+                        │   └── ruby.kgv-ruby-fragment
+                        └── span.kgv-line-diagnostics
                             └── button|span.kgv-diagnostic-band
 ```
 
-The ruling, the text, and the diagnostics are three layers rather than one set of
-boxes. `.kgv-line-rules` and `.kgv-line-diagnostics` are taken out of flow and
-sized by the line, so nothing a stylesheet paints on them can move the grid off
-the geometry the composer calculated. They cover each other in document order —
-ruling, then text, then diagnostics — so no rule needs a `z-index`.
+The ruling, text, ruby, and diagnostics are independent absolute-positioned
+layers. Text positions use core's logical em offsets and advances. A hanging
+grapheme carries `data-disposition="hanging"`; a source grapheme suppressed by
+composition is intentionally absent from visible text.
 
-Ruling this way also keeps a rule from being drawn twice: every rule belongs to
-exactly one `.kgv-rule-cell`, which draws its own head and sides, and the last
-box of a line closes the foot. Restyle the ruling by restyling that box, or drop
-the ruling entirely with `.kgv-line-rules { display: none }`.
+One diagnostic band covers the range that reaches a line. Identical ranges are
+split into lanes so each remains visible and clickable. The band where a
+diagnostic begins is a button; continuation bands are inert spans.
 
-One `.kgv-diagnostic-band` covers the cells a diagnostic reaches in one line,
-placed from `--kgv-band-offset` and `--kgv-band-length` (both counted in cells),
-so a finding spanning several characters is decorated once instead of once per
-character. Overlapping findings get a band each, the narrower one on top. Two
-findings over exactly the same cells cannot be told apart that way, so they take
-a lane of the line's width each, from `--kgv-band-lane` of `--kgv-band-lanes`,
-and both stay visible and clickable. The
-band a diagnostic starts in is a `<button>` carrying its `aria-label` and
-selection; where a finding continues onto the next line the band is an inert
-`<span data-diagnostic-continued>`, so one finding is offered as one control.
+State is exposed through these attributes:
 
-Because the diagnostic layer covers the text, keep a band's fill translucent —
-the default theme tints with `color-mix()` and marks the side of the line the
-ruby does not use.
+| Attribute                   | On                                 | Values                         |
+| --------------------------- | ---------------------------------- | ------------------------------ |
+| `data-page-index`           | `.kgv-page`                        | zero-based page number         |
+| `data-grid`                 | `.kgv-page`                        | `visible`, `hidden`            |
+| `data-overflow`             | `.kgv-page`                        | present when content overflows |
+| `data-offscreen`            | `.kgv-page`                        | present on later pages         |
+| `data-disposition`          | `.kgv-cell`                        | `placed`, `hanging`            |
+| `data-annotation`           | annotation elements                | annotation kind                |
+| `data-ruby-fit`             | `.kgv-ruby-fragment`               | `group`, `mono`, `jukugo`      |
+| `data-diagnostic-active`    | cells and diagnostic bands         | present when selected          |
+| `data-diagnostic-severity`  | cells, bands, and diagnostic items | `warning`, `error`             |
+| `data-diagnostic-id`        | `.kgv-diagnostic-band`             | diagnostic ID                  |
+| `data-diagnostic-continued` | continuation diagnostic bands      | present on continuations       |
 
-`DiagnosticList` renders `ol.kgv-diagnostics > li > button`, with
-`span.kgv-diagnostic-location` inside each button, or
-`p.kgv-diagnostics-empty` when there is nothing to report.
-
-State is exposed as attributes rather than modifier classes:
-
-| Attribute                   | On                                        | Values                                          |
-| --------------------------- | ----------------------------------------- | ----------------------------------------------- |
-| `data-page-index`           | `.kgv-page`                               | zero-based page number                          |
-| `data-overflow`             | `.kgv-page`                               | present when the grid exceeds the paper         |
-| `data-offscreen`            | `.kgv-page`                               | present on pages eligible for skipped rendering |
-| `data-annotation`           | `.kgv-annotation`                         | `bold`, `italic`, `ruby`, `emphasis`            |
-| `data-ruby-fit`             | `.kgv-annotation`                         | `mono`, `group`                                 |
-| `data-diagnostic`           | `.kgv-cell`                               | present when a diagnostic covers the cell       |
-| `data-diagnostic-active`    | `.kgv-cell`, `.kgv-diagnostic-band`       | present when that diagnostic is selected        |
-| `data-diagnostic-severity`  | `.kgv-cell`, `.kgv-diagnostic-band`, `li` | `warning`, `error`                              |
-| `data-diagnostic-origin`    | `li`                                      | `parser`, `rule`                                |
-| `data-diagnostic-id`        | `.kgv-diagnostic-band`                    | id of the diagnostic the band stands for        |
-| `data-diagnostic-continued` | `.kgv-diagnostic-band`                    | present on a band whose finding started earlier |
-| `aria-current`              | `.kgv-diagnostics button`                 | `true` on the selected item                     |
-
-A cell says how its own character is marked; use it to restyle the character, for
-example `.kgv-cell[data-diagnostic] .kgv-glyph { color: … }`. The decoration of
-the range itself belongs to the band, so the two cannot restyle each other by
-accident. A cell covered by more than one finding carries the worse severity.
-
-`data-diagnostic-id` is what makes the bands addressable without a callback per
-interaction: look the id up in the `diagnostics` you passed in to drive a hover
-tooltip, a deep link, or an assertion. The band's `aria-label` already carries
-the position and message for assistive technology.
-
-Emphasis marks are the one exception: the mark character is per-instance data,
-so it is set as an inline `text-emphasis` style and cannot be themed in CSS.
+`DiagnosticList` renders `ol.kgv-diagnostics > li > button`, or
+`p.kgv-diagnostics-empty` when there are no diagnostics.
 
 ### Custom properties
 
-`theme.css` declares these on `.kgv-viewer`; override them to retint the
-default look. `DiagnosticList` reads them with literal fallbacks, so it also
-works when rendered outside `.kgv-viewer`.
+`NovelViewer` sets `--kgv-cell-size`, `--kgv-line-gap`,
+`--kgv-line-length`, `--kgv-page-width`, `--kgv-page-height`, and
+`--kgv-manuscript-font` on `.kgv-stack`. Read them to align custom decorations;
+do not replace them because fit zoom and positioned text depend on them.
 
-`--kgv-surface`, `--kgv-paper`, `--kgv-text`, `--kgv-text-muted`, `--kgv-grid`,
-`--kgv-rule-width`, `--kgv-accent`, `--kgv-controls-surface`, `--kgv-padding`.
-
-`ManuscriptViewer` sets `--kgv-cell-size`, `--kgv-line-gap`, `--kgv-page-width`,
-`--kgv-page-height`, and `--kgv-manuscript-font` on `.kgv-stack` from the
-composed geometry and the effective zoom. Read them to stay aligned with the
-grid; do not assign them, since the layout and the fit-zoom measurement depend
-on the values the component computes.
-
-`DiagnosticList` is a convenience, not infrastructure. Building your own list
-from `ManuscriptDiagnostic[]` is expected when you want different markup.
+The optional theme exposes `--kgv-surface`, `--kgv-paper`, `--kgv-text`,
+`--kgv-text-muted`, `--kgv-grid`, `--kgv-rule-width`, `--kgv-accent`,
+`--kgv-controls-surface`, and `--kgv-padding`.
 
 ## Browser support
 

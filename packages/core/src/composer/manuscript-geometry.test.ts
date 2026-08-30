@@ -5,14 +5,14 @@ import { FontSizePt } from "../appearance/font-size-pt";
 import { mmToPt, ptToMm } from "../appearance/length";
 import { PaperSize } from "../appearance/paper-size";
 import { PaperSizeId } from "../appearance/paper-size-id";
-import type { GridSettings } from "./grid-settings";
 import { ManuscriptGeometry } from "./manuscript-geometry";
+import type { NovelFlowSettings } from "./novel-flow-settings";
 
 const settings = {
-  charsPerLine: 20,
+  lineLengthEm: 20,
   linesPerStage: 15,
   stagesPerPage: 2,
-} as const satisfies GridSettings;
+} as const satisfies NovelFlowSettings;
 
 function appearance(
   fontSizePt: number,
@@ -37,20 +37,20 @@ describe("ManuscriptGeometry.of", () => {
     expect(geometry.fontSizePt).toBe(10);
   });
 
-  test("computes grid dimensions and centers the grid within the paper as margins", () => {
+  test("computes content dimensions and centers the text area within the paper", () => {
     const geometry = ManuscriptGeometry.of(settings, appearance(9, "a5"));
     const cellSizeMm = ptToMm(9);
     const expectedLineGap = cellSizeMm * 0.5;
     const expectedGridWidth =
       settings.linesPerStage * cellSizeMm + (settings.linesPerStage - 1) * expectedLineGap;
     const expectedGridHeight =
-      (settings.stagesPerPage * settings.charsPerLine + 2 * (settings.stagesPerPage - 1)) *
+      (settings.stagesPerPage * settings.lineLengthEm + 2 * (settings.stagesPerPage - 1)) *
       cellSizeMm;
     const paper = PaperSize.of("a5");
 
-    expect(geometry.gridWidthMm).toBeCloseTo(expectedGridWidth, 10);
+    expect(geometry.contentWidthMm).toBeCloseTo(expectedGridWidth, 10);
     expect(geometry.lineGapMm).toBeCloseTo(expectedLineGap, 10);
-    expect(geometry.gridHeightMm).toBeCloseTo(expectedGridHeight, 10);
+    expect(geometry.contentHeightMm).toBeCloseTo(expectedGridHeight, 10);
     expect(geometry.marginInlineMm).toBeCloseTo((paper.widthMm - expectedGridWidth) / 2, 10);
     expect(geometry.marginBlockMm).toBeCloseTo((paper.heightMm - expectedGridHeight) / 2, 10);
     expect(geometry.fitsPaper).toBe(true);
@@ -66,10 +66,10 @@ describe("ManuscriptGeometry.of", () => {
 
   test("reports fitsPaper: false and negative margins without clamping an oversized font", () => {
     const oversized = {
-      charsPerLine: 40,
+      lineLengthEm: 40,
       linesPerStage: 40,
       stagesPerPage: 3,
-    } as const satisfies GridSettings;
+    } as const satisfies NovelFlowSettings;
     const geometry = ManuscriptGeometry.of(oversized, appearance(24, "jis-b6"));
 
     expect(geometry.fitsPaper).toBe(false);
@@ -101,24 +101,24 @@ describe("ManuscriptGeometry.maxFontSizePt", () => {
     expect(steps).toBeCloseTo(Math.round(steps), 9);
   });
 
-  test("clamps to the maximum when a sparse grid would otherwise fit an oversized font", () => {
+  test("clamps to the maximum when a sparse flow would otherwise fit an oversized font", () => {
     const sparse = {
-      charsPerLine: 10,
+      lineLengthEm: 10,
       linesPerStage: 10,
       stagesPerPage: 1,
-    } as const satisfies GridSettings;
+    } as const satisfies NovelFlowSettings;
     const maxPt = ManuscriptGeometry.maxFontSizePt(sparse, "a4");
 
     expect(maxPt).toBe(FontSizePt.range.max);
     expect(FontSizePt.is(maxPt)).toBe(true);
   });
 
-  test("clamps to the minimum when a dense grid would otherwise compute below it", () => {
+  test("clamps to the minimum when a dense flow would otherwise compute below it", () => {
     const dense = {
-      charsPerLine: 60,
+      lineLengthEm: 60,
       linesPerStage: 60,
       stagesPerPage: 3,
-    } as const satisfies GridSettings;
+    } as const satisfies NovelFlowSettings;
     const maxPt = ManuscriptGeometry.maxFontSizePt(dense, "jis-b6");
 
     expect(maxPt).toBe(FontSizePt.range.min);

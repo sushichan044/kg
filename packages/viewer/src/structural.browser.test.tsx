@@ -1,8 +1,8 @@
 import {
-  ManuscriptCompositionSettings,
+  NovelCompositionSettings,
   composeManuscript,
   createDefaultProofreadingRules,
-  manuscriptGridComposer,
+  novelComposer,
   parseManuscript,
   pixivParser,
   proofreadManuscript,
@@ -12,7 +12,7 @@ import { expect, test } from "vite-plus/test";
 import { render } from "vitest-browser-react";
 
 import { DiagnosticList } from "./DiagnosticList";
-import { ManuscriptViewer } from "./ManuscriptViewer";
+import { NovelViewer } from "./NovelViewer";
 
 import "./structural.css";
 
@@ -63,8 +63,8 @@ async function renderWithHostStyles(text: string, parser?: ManuscriptParser) {
   expect.assert(parsed.ok, "fixture did not parse");
 
   const composed = composeManuscript(parsed.value, {
-    composer: manuscriptGridComposer,
-    settings: ManuscriptCompositionSettings.defaults,
+    composer: novelComposer,
+    settings: NovelCompositionSettings.defaults,
   });
   expect.assert(composed.ok, "fixture did not compose");
 
@@ -79,7 +79,7 @@ async function renderWithHostStyles(text: string, parser?: ManuscriptParser) {
   const screen = await render(
     <>
       <style>{hostStyles}</style>
-      <ManuscriptViewer composed={composed.value} diagnostics={diagnostics} />
+      <NovelViewer composed={composed.value} diagnostics={diagnostics} />
       <DiagnosticList diagnostics={diagnostics} />
     </>,
   );
@@ -123,22 +123,29 @@ test("keeps the diagnostic band an unpainted overlay under host button styles", 
   expect(band.backgroundColor).toBe("rgba(0, 0, 0, 0)");
 });
 
-test("rules every cell on the pitch of the text it sits behind", async () => {
+test("rules the nominal em pitch behind positioned text", async () => {
   const { query } = await renderWithHostStyles("数字は2026年のまま。");
 
   const line = query(".kgv-line");
   const cells = Array.from(line.querySelectorAll<HTMLElement>(".kgv-cell"));
   const rules = Array.from(line.querySelectorAll<HTMLElement>(".kgv-rule-cell"));
+  const pitchProbe = document.createElement("span");
+  pitchProbe.style.position = "absolute";
+  pitchProbe.style.blockSize = "var(--kgv-cell-size)";
+  line.append(pitchProbe);
+  const nominalPitch = pitchProbe.getBoundingClientRect().height;
+  pitchProbe.remove();
 
-  expect(rules).toHaveLength(cells.length);
-  for (const [index, rule] of rules.entries()) {
-    const cell = cells[index];
-    expect.assert(cell !== undefined, `line has no cell at index ${index}`);
+  expect(rules.length).toBeGreaterThanOrEqual(cells.length);
+  // Cell and rule indexes diverge once the half-width digits begin.
+  for (const [index, cell] of cells.slice(0, 2).entries()) {
+    const rule = rules[index];
+    expect.assert(rule !== undefined, `line has no rule at index ${index}`);
 
     const ruled = rule.getBoundingClientRect();
     const written = cell.getBoundingClientRect();
     expect(ruled.top).toBeCloseTo(written.top, 1);
-    expect(ruled.height).toBeCloseTo(written.height, 1);
+    expect(ruled.height).toBeCloseTo(nominalPitch, 1);
   }
 });
 
