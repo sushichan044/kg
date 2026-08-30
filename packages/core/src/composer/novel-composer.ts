@@ -49,6 +49,11 @@ type MeasuredSourceLine = Readonly<{
   suppressedIndexes: ReadonlySet<number>;
 }>;
 
+type AnnotationFragmentPlan = Readonly<{
+  ranges: readonly ManuscriptRange[];
+  groupReadings: readonly string[];
+}>;
+
 export type NovelComposedManuscript = ComposedManuscript<NovelCompositionSettings, NovelLayout>;
 
 function presentation(
@@ -282,14 +287,65 @@ function continuationFor(annotation: ManuscriptAnnotation, range: ManuscriptRang
   return "middle" as const;
 }
 
+function groupReadingsForFragments(
+  annotation: RubyAnnotation,
+  fragmentRanges: readonly ManuscriptRange[],
+  baseAdvances: ReadonlyMap<number, number>,
+): string[] {
+  const baseLength = annotation.range.graphemes.end - annotation.range.graphemes.start;
+  if (annotation.reading.kind !== "group") return [];
+  const reading = [...graphemeSegmenter.segment(annotation.reading.text)].map(
+    ({ segment }) => segment,
+  );
+  const advances = Array.from({ length: baseLength }, (_, index) =>
+    baseAdvances.get(annotation.range.graphemes.start + index),
+  );
+  const measured = advances.every((advance) => advance !== undefined);
+  const advanceFor = (fragment: ManuscriptRange): number => {
+    const fragmentStart = fragment.graphemes.start - annotation.range.graphemes.start;
+    const fragmentLength = fragment.graphemes.end - fragment.graphemes.start;
+    return measured
+      ? advances
+          .slice(fragmentStart, fragmentStart + fragmentLength)
+          .reduce((total, advance) => total + advance, 0)
+      : fragmentLength;
+  };
+  const weights = fragmentRanges.map(advanceFor);
+  const measuredTotal = weights.reduce((total, weight) => total + weight, 0);
+  const effectiveWeights =
+    measuredTotal > 0
+      ? weights
+      : fragmentRanges.map(({ graphemes }) => graphemes.end - graphemes.start);
+  const totalWeight = effectiveWeights.reduce((total, weight) => total + weight, 0);
+  const reserveEveryFragment = reading.length >= fragmentRanges.length;
+  const fragments: string[] = [];
+  let readingStart = 0;
+  let accumulatedWeight = 0;
+
+  for (const [index, weight] of effectiveWeights.entries()) {
+    accumulatedWeight += weight;
+    const remainingFragments = effectiveWeights.length - index - 1;
+    const proportionalEnd =
+      index === effectiveWeights.length - 1
+        ? reading.length
+        : Math.round((accumulatedWeight * reading.length) / totalWeight);
+    const minimumEnd = reserveEveryFragment ? readingStart + 1 : readingStart;
+    const maximumEnd = reserveEveryFragment ? reading.length - remainingFragments : reading.length;
+    const readingEnd = Math.min(maximumEnd, Math.max(minimumEnd, proportionalEnd));
+    fragments.push(reading.slice(readingStart, readingEnd).join(""));
+    readingStart = readingEnd;
+  }
+
+  return fragments;
+}
+
 function readingForFragment(
   annotation: RubyAnnotation,
   range: ManuscriptRange,
-  baseAdvances: ReadonlyMap<number, number>,
+  fragmentPlan: AnnotationFragmentPlan,
 ): Readonly<{ kind: RubyReading["kind"]; text: string }> {
   const start = range.graphemes.start - annotation.range.graphemes.start;
   const length = range.graphemes.end - range.graphemes.start;
-  const baseLength = annotation.range.graphemes.end - annotation.range.graphemes.start;
 
   if (annotation.reading.kind !== "group") {
     return {
@@ -298,26 +354,14 @@ function readingForFragment(
     };
   }
 
-  const reading = [...graphemeSegmenter.segment(annotation.reading.text)].map(
-    ({ segment }) => segment,
+  const fragmentIndex = fragmentPlan.ranges.findIndex(
+    ({ graphemes }) =>
+      graphemes.start === range.graphemes.start && graphemes.end === range.graphemes.end,
   );
-  const advances = Array.from({ length: baseLength }, (_, index) =>
-    baseAdvances.get(annotation.range.graphemes.start + index),
-  );
-  const measured = advances.every((advance) => advance !== undefined);
-  const totalAdvance = measured
-    ? advances.reduce((total, advance) => total + advance, 0)
-    : baseLength;
-  const advanceBefore = measured
-    ? advances.slice(0, start).reduce((total, advance) => total + advance, 0)
-    : start;
-  const fragmentAdvance = measured
-    ? advances.slice(start, start + length).reduce((total, advance) => total + advance, 0)
-    : length;
-  const denominator = totalAdvance > 0 ? totalAdvance : baseLength;
-  const readingStart = Math.round((advanceBefore * reading.length) / denominator);
-  const readingEnd = Math.round(((advanceBefore + fragmentAdvance) * reading.length) / denominator);
-  return { kind: "group", text: reading.slice(readingStart, readingEnd).join("") };
+  return {
+    kind: "group",
+    text: fragmentPlan.groupReadings[fragmentIndex] ?? "",
+  };
 }
 
 function positionReading(
@@ -350,12 +394,28 @@ function positionReading(
   });
 }
 
+function annotationFragmentRange(
+  graphemes: readonly PositionedGrapheme[],
+  suppressed: readonly SuppressedGrapheme[],
+  annotation: ManuscriptAnnotation,
+): ManuscriptRange | null {
+  return ManuscriptRange.merge([
+    ...graphemes
+      .filter(({ range }) => ManuscriptRange.overlaps(range, annotation.range))
+      .map(({ range }) => range),
+    ...suppressed
+      .filter(({ range }) => ManuscriptRange.overlaps(range, annotation.range))
+      .map(({ range }) => range),
+  ]);
+}
+
 function annotationFragments(
   graphemes: readonly PositionedGrapheme[],
+  suppressed: readonly SuppressedGrapheme[],
   annotations: readonly ManuscriptAnnotation[],
   settings: NovelCompositionSettings,
   measurer: InlineMeasurer,
-  baseAdvances: ReadonlyMap<number, number>,
+  fragmentPlansByAnnotation: ReadonlyMap<ManuscriptAnnotation, AnnotationFragmentPlan>,
 ): ComposedAnnotationFragment[] {
   const fragments: ComposedAnnotationFragment[] = [];
 
@@ -363,7 +423,7 @@ function annotationFragments(
     const covered = graphemes.filter(({ range }) =>
       ManuscriptRange.overlaps(range, annotation.range),
     );
-    const fragmentRange = ManuscriptRange.merge(covered.map(({ range }) => range));
+    const fragmentRange = annotationFragmentRange(graphemes, suppressed, annotation);
     const first = covered[0];
     const last = covered.at(-1);
     if (fragmentRange === null || first === undefined || last === undefined) continue;
@@ -385,9 +445,11 @@ function annotationFragments(
         break;
       }
       case "ruby": {
+        const fragmentPlan = fragmentPlansByAnnotation.get(annotation);
+        if (fragmentPlan === undefined) break;
         const baseOffsetEm = first.offsetEm;
         const baseAdvanceEm = last.offsetEm + last.advanceEm - baseOffsetEm;
-        const reading = readingForFragment(annotation, fragmentRange, baseAdvances);
+        const reading = readingForFragment(annotation, fragmentRange, fragmentPlan);
         fragments.push({
           kind: "ruby",
           rubyKind: reading.kind,
@@ -415,10 +477,6 @@ function positionedLine(
   atoms: readonly Atom[],
   dispositions: ReadonlySet<number>,
   suppressed: readonly SuppressedGrapheme[],
-  annotations: readonly ManuscriptAnnotation[],
-  settings: NovelCompositionSettings,
-  measurer: InlineMeasurer,
-  baseAdvances: ReadonlyMap<number, number>,
 ): NovelLine {
   let offsetEm = 0;
   const graphemes = atoms.map(
@@ -445,7 +503,7 @@ function positionedLine(
     advanceEm: offsetEm,
     graphemes,
     suppressed,
-    annotations: annotationFragments(graphemes, annotations, settings, measurer, baseAdvances),
+    annotations: [],
   };
 }
 
@@ -529,13 +587,39 @@ function wrapSourceLine(
     }
 
     const atoms = sourceLine.atoms.slice(start, end);
-    lines.push(
-      positionedLine(atoms, hanging, suppressed, annotations, settings, measurer, baseAdvances),
-    );
+    lines.push(positionedLine(atoms, hanging, suppressed));
     cursor = end;
   }
 
-  return lines;
+  const fragmentPlansByAnnotation = new Map(
+    annotations.map((annotation) => {
+      const ranges = lines.flatMap((line) => {
+        const range = annotationFragmentRange(line.graphemes, line.suppressed, annotation);
+        return range === null ? [] : [range];
+      });
+      const groupReadings =
+        annotation.kind === "ruby"
+          ? groupReadingsForFragments(annotation, ranges, baseAdvances)
+          : [];
+
+      return [annotation, { ranges, groupReadings }] as const;
+    }),
+  );
+
+  return lines.map((line) => ({
+    range: line.range,
+    advanceEm: line.advanceEm,
+    graphemes: line.graphemes,
+    suppressed: line.suppressed,
+    annotations: annotationFragments(
+      line.graphemes,
+      line.suppressed,
+      annotations,
+      settings,
+      measurer,
+      fragmentPlansByAnnotation,
+    ),
+  }));
 }
 
 function blankLines(count: number): NovelLine[] {

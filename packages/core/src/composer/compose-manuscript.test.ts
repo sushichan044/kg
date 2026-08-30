@@ -280,6 +280,80 @@ describe("composeManuscript", () => {
     expect(rubyFragments).toHaveLength(3);
   });
 
+  test("reserves reading text for every group ruby fragment when enough text exists", () => {
+    const base = "漢".repeat(12);
+    const reading = "よみ";
+    const parseResult = parseManuscript(`｜${base}《${reading}》`, { parser: kakuyomuParser });
+    expect.assert(parseResult.ok, "fixture did not parse");
+
+    const result = composeManuscript(parseResult.value, {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const rubyFragments = contentLines(result.value).flatMap(({ annotations }) =>
+      annotations.filter((annotation) => annotation.kind === "ruby"),
+    );
+    expect(rubyFragments.map(({ reading: fragmentReading }) => fragmentReading)).toEqual([
+      "よ",
+      "み",
+    ]);
+  });
+
+  test("keeps suppressed base graphemes in group ruby fragment boundaries", () => {
+    const reading = "よみよみよ";
+    const parseResult = parseManuscript(`[[rb:あいうえおかきくけ！　こ>${reading}]]`, {
+      parser: pixivParser,
+    });
+    expect.assert(parseResult.ok, "fixture did not parse");
+
+    const result = composeManuscript(parseResult.value, {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const lines = contentLines(result.value);
+    const rubyFragments = lines.flatMap(({ annotations }) =>
+      annotations.filter((annotation) => annotation.kind === "ruby"),
+    );
+    expect(lines.flatMap(({ suppressed }) => suppressed.map(({ value }) => value))).toEqual(["　"]);
+    const [firstFragment, secondFragment] = rubyFragments;
+    expect.assert(firstFragment !== undefined && secondFragment !== undefined);
+    expect(firstFragment.fragmentRange.graphemes.end).toBe(
+      secondFragment.fragmentRange.graphemes.start,
+    );
+    expect(rubyFragments.map(({ reading: fragmentReading }) => fragmentReading)).toEqual([
+      "よみよみ",
+      "よ",
+    ]);
+    expect(rubyFragments.map(({ reading: fragmentReading }) => fragmentReading).join("")).toBe(
+      reading,
+    );
+  });
+
+  test("preserves a group reading when there are more fragments than reading graphemes", () => {
+    const base = "漢".repeat(12);
+    const reading = "よ";
+    const parseResult = parseManuscript(`｜${base}《${reading}》`, { parser: kakuyomuParser });
+    expect.assert(parseResult.ok, "fixture did not parse");
+
+    const result = composeManuscript(parseResult.value, {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const rubyFragments = contentLines(result.value).flatMap(({ annotations }) =>
+      annotations.filter((annotation) => annotation.kind === "ruby"),
+    );
+    expect(rubyFragments).toHaveLength(2);
+    expect(rubyFragments.map(({ reading: fragmentReading }) => fragmentReading).join("")).toBe(
+      reading,
+    );
+  });
+
   test("splits an oversized group reading in proportion to measured base advances", () => {
     const base = `A${"漢".repeat(10)}`;
     const reading = "あ".repeat(9);

@@ -35,7 +35,8 @@ viewer はこれらの位置を描画するだけで、禁則処理、空白の�
 ルビの読みは `group`、`mono`、`jukugo` の discriminated union とする。
 `mono` と `jukugo` は基底書記素ごとの読みを保持し、基底書記素数と segment 数の不一致を parser 境界で拒否する。
 一行に収まる `group` ルビは途中で分割しない。
-一行より長い `group` ルビは分割を許し、本文の実測幅に比例した読みの書記素境界で fragment を作る。
+一行より長い `group` ルビは分割を許し、全 fragment の本文実測幅に比例して読みを重複や欠落なく配分する。
+読みの書記素数が fragment 数以上であれば、各 fragment に一文字以上を割り当てる。
 
 マス目は `NovelViewer` の `showGrid` で切り替える装飾レイヤーとする。
 `showGrid` を変えても、composer、組版設定、ページ geometry、本文とルビの位置は変えない。
