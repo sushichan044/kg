@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.3](https://github.com/sushichan044/kg/compare/kg-core-v0.6.2...kg-core-v0.6.3) (2026-08-30)
+
+
+### Features
+
+* **composer:** model vertical novel typesetting ([#82](https://github.com/sushichan044/kg/issues/82)) ([1c69c7a](https://github.com/sushichan044/kg/commit/1c69c7aadd3e9c67dc60e7942eb3ffaa421c3e63))
+
+
+### Bug Fixes
+
+* **composer:** preserve ruby readings across line fragments ([#83](https://github.com/sushichan044/kg/issues/83)) ([e3e1e07](https://github.com/sushichan044/kg/commit/e3e1e07f7e26136f632f4170a29c50b5cdf5110d))
+
 ## [0.6.2](https://github.com/sushichan044/kg/compare/kg-core-v0.6.1...kg-core-v0.6.2) (2026-08-23)
 
 

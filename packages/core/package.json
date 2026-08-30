@@ -1,6 +1,6 @@
 {
   "name": "@sushichan044/kg-core",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Framework-independent parsing, composition, and proofreading for Japanese manuscripts",
   "keywords": [
     "japanese",
