@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.5](https://github.com/sushichan044/kg/compare/v0.4.4...v0.4.5) (2026-09-01)
+
+
+### Bug Fixes
+
+* **core:** spend the invisible line-end half-em before visible space ([#95](https://github.com/sushichan044/kg/issues/95)) ([277d627](https://github.com/sushichan044/kg/commit/277d627287e12e118a0778cf5be5346d9071c5f5))
+
 ## [0.4.4](https://github.com/sushichan044/kg/compare/v0.4.3...v0.4.4) (2026-09-01)
 
 
