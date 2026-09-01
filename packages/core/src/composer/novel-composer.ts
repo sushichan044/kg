@@ -1,4 +1,5 @@
-import { CLOSING_BRACKETS, OPENING_BRACKETS } from "../internal/japanese-brackets";
+import * as v from "valibot";
+
 import { questionOrExclamationSpacings } from "../internal/question-or-exclamation-spacing";
 import { graphemeSegmenter } from "../internal/segmenter";
 import { NamespacedId } from "../namespaced-id";
@@ -9,10 +10,19 @@ import type { ParsedManuscript } from "../parser/parsed-manuscript";
 import { ManuscriptRange } from "../range/manuscript-range";
 import { ManuscriptResult } from "../result/manuscript-result";
 import type { ComposedAnnotationFragment } from "./composed-annotation-fragment";
+import type {
+  ComposedGlyph,
+  ComposedInlineItem,
+  SuppressedInlineItem,
+} from "./composed-inline-item";
 import type { ComposedManuscript } from "./composed-manuscript";
 import { NovelCompositionSettings } from "./composition-settings";
 import type { InlineMeasurer } from "./inline-measurer";
-import { logicalInlineMeasurer } from "./inline-measurer";
+import { InlineMeasurement, logicalInlineMeasurer } from "./inline-measurer";
+import { defaultJapaneseTypesettingProfile } from "./internal/japanese-typesetting-profile";
+import type { JapaneseTypesettingProfile } from "./internal/japanese-typesetting-profile";
+import { layoutParagraph } from "./internal/paragraph-layout";
+import type { ParagraphLinePlan } from "./internal/paragraph-layout";
 import { LineOffset } from "./line-offset";
 import type { ManuscriptComposer } from "./manuscript-composer";
 import { ManuscriptGeometry } from "./manuscript-geometry";
@@ -22,17 +32,11 @@ import type { NovelLine } from "./novel-line";
 import { NovelLine as NovelLineContract } from "./novel-line";
 import { NovelPage } from "./novel-page";
 import { NovelStage } from "./novel-stage";
-import type { PositionedGrapheme, SuppressedGrapheme } from "./positioned-grapheme";
 import type { VerticalTextPresentation } from "./vertical-text-presentation";
 
 const COMPOSER_ID = NamespacedId.of("kg/novel");
+const TYPESETTING_PROFILE = defaultJapaneseTypesettingProfile;
 
-const LINE_START_PROHIBITED = new Set(
-  `、。，．・：；？！‼⁇⁈⁉ヽヾゝゞ々ーァィゥェォッャュョヮヵヶぁぃぅぇぉっゃゅょゎゕゖ${CLOSING_BRACKETS}】〙〟｠»`,
-);
-const LINE_END_PROHIBITED = new Set(`${OPENING_BRACKETS}【〘〝｟«`);
-const HANGING_PUNCTUATION = new Set("、。，．！？");
-const INSEPARABLE_PAIRS = new Set(["……", "――", "──", "〳〵"]);
 const ASCII_ALPHANUMERIC = /^[A-Za-z0-9]$/u;
 const ASCII_TWO_DIGITS = /^[0-9]{2}$/u;
 const UPRIGHT_LATIN_ABBREVIATION = /^(?:[A-Z]+|[A-Z][a-z]{1,2})$/u;
@@ -40,7 +44,9 @@ const FULLWIDTH_ALPHANUMERIC = /^[Ａ-Ｚａ-ｚ０-９]$/u;
 
 type Atom = Readonly<{
   grapheme: ParsedGrapheme;
-  advanceEm: number;
+  boxAdvanceEm: number;
+  renderAdvanceEm: number;
+  renderOffsetEm: number;
   presentation: VerticalTextPresentation;
 }>;
 
@@ -53,6 +59,8 @@ type AnnotationFragmentPlan = Readonly<{
   ranges: readonly ManuscriptRange[];
   groupReadings: readonly string[];
 }>;
+
+type SourceGlue = Extract<ComposedInlineItem, { kind: "glue"; origin: "source" }>;
 
 export type NovelComposedManuscript = ComposedManuscript<NovelCompositionSettings, NovelLayout>;
 
@@ -160,12 +168,15 @@ function measure(
     fontPreset: settings.appearance.fontPreset,
     writingMode: "vertical-rl",
   } as const;
-  const value =
+  const measurement =
     role === "base"
       ? measurer({ ...context, role, presentation: presentationKind ?? "mixed" })
       : measurer({ ...context, role });
+  const parsed = v.safeParse(InlineMeasurement.schema, measurement);
+  if (!parsed.success) return undefined;
+  const { advanceEm } = parsed.output;
 
-  return Number.isFinite(value) && value >= 0 ? value : undefined;
+  return advanceEm;
 }
 
 function measureSourceLine(
@@ -175,14 +186,28 @@ function measureSourceLine(
   measurer: InlineMeasurer,
 ): MeasuredSourceLine | undefined {
   const mutable = presentedSourceLine(sourceLine).map(({ grapheme, presentation }) => {
-    const advanceEm = measure(measurer, grapheme.value, "base", settings, presentation.kind);
-    return advanceEm === undefined ? undefined : { grapheme, advanceEm, presentation };
+    const renderAdvanceEm = measure(measurer, grapheme.value, "base", settings, presentation.kind);
+    if (renderAdvanceEm === undefined) return undefined;
+    const characterClass = TYPESETTING_PROFILE.classify({
+      value: grapheme.value,
+      presentation: presentation.kind,
+    });
+    const metrics = TYPESETTING_PROFILE.boxMetrics(characterClass, renderAdvanceEm);
+    return {
+      grapheme,
+      boxAdvanceEm: metrics.advanceEm,
+      renderAdvanceEm,
+      renderOffsetEm: metrics.renderOffsetEm,
+      presentation,
+    };
   });
   if (mutable.some((atom) => atom === undefined)) return undefined;
 
   const atoms: Array<{
     grapheme: ParsedGrapheme;
-    advanceEm: number;
+    boxAdvanceEm: number;
+    renderAdvanceEm: number;
+    renderOffsetEm: number;
     presentation: VerticalTextPresentation;
   }> = mutable.flatMap((atom) => (atom === undefined ? [] : [atom]));
 
@@ -203,13 +228,13 @@ function measureSourceLine(
       const readingAdvance = measure(measurer, annotation.reading.text, "ruby", settings);
       if (readingAdvance === undefined) return undefined;
       const baseAdvance = indexes.reduce(
-        (total, index) => total + (atoms[index]?.advanceEm ?? 0),
+        (total, index) => total + (atoms[index]?.boxAdvanceEm ?? 0),
         0,
       );
       const extra = Math.max(0, readingAdvance - baseAdvance) / indexes.length;
       for (const index of indexes) {
         const atom = atoms[index];
-        if (atom !== undefined) atom.advanceEm += extra;
+        if (atom !== undefined) atom.boxAdvanceEm += extra;
       }
       continue;
     }
@@ -220,7 +245,7 @@ function measureSourceLine(
       if (segment === undefined || atom === undefined) continue;
       const readingAdvance = measure(measurer, segment, "ruby", settings);
       if (readingAdvance === undefined) return undefined;
-      atom.advanceEm = Math.max(atom.advanceEm, readingAdvance);
+      atom.boxAdvanceEm = Math.max(atom.boxAdvanceEm, readingAdvance);
     }
   }
 
@@ -246,7 +271,7 @@ function breakInsideFittableGroupRuby(
       return false;
     }
     const indexes = indicesInside(atoms, annotation);
-    const advance = indexes.reduce((total, index) => total + (atoms[index]?.advanceEm ?? 0), 0);
+    const advance = indexes.reduce((total, index) => total + (atoms[index]?.boxAdvanceEm ?? 0), 0);
     return advance <= lineLengthEm;
   });
 }
@@ -262,19 +287,22 @@ function samePresentationGroup(left: Atom, right: Atom): boolean {
 function legalBoundary(
   atoms: readonly Atom[],
   annotations: readonly ManuscriptAnnotation[],
-  boundary: number,
+  leftIndex: number,
+  rightIndex: number,
   lineLengthEm: number,
+  profile: JapaneseTypesettingProfile,
 ): boolean {
-  const left = atoms[boundary - 1];
-  const right = atoms[boundary];
+  const left = atoms[leftIndex];
+  const right = atoms[rightIndex];
   if (left === undefined || right === undefined) return true;
 
   return (
     !samePresentationGroup(left, right) &&
-    !LINE_END_PROHIBITED.has(left.grapheme.value) &&
-    !LINE_START_PROHIBITED.has(right.grapheme.value) &&
-    !INSEPARABLE_PAIRS.has(left.grapheme.value + right.grapheme.value) &&
-    !breakInsideFittableGroupRuby(atoms, annotations, boundary, lineLengthEm)
+    profile.breakPenalty(
+      profile.classify({ value: left.grapheme.value, presentation: left.presentation.kind }),
+      profile.classify({ value: right.grapheme.value, presentation: right.presentation.kind }),
+    ) !== null &&
+    !breakInsideFittableGroupRuby(atoms, annotations, rightIndex, lineLengthEm)
   );
 }
 
@@ -395,8 +423,9 @@ function positionReading(
 }
 
 function annotationFragmentRange(
-  graphemes: readonly PositionedGrapheme[],
-  suppressed: readonly SuppressedGrapheme[],
+  graphemes: readonly ComposedGlyph[],
+  suppressed: readonly SuppressedInlineItem[],
+  sourceGlues: readonly SourceGlue[],
   annotation: ManuscriptAnnotation,
 ): ManuscriptRange | null {
   return ManuscriptRange.merge([
@@ -406,12 +435,16 @@ function annotationFragmentRange(
     ...suppressed
       .filter(({ range }) => ManuscriptRange.overlaps(range, annotation.range))
       .map(({ range }) => range),
+    ...sourceGlues
+      .filter(({ range }) => ManuscriptRange.overlaps(range, annotation.range))
+      .map(({ range }) => range),
   ]);
 }
 
 function annotationFragments(
-  graphemes: readonly PositionedGrapheme[],
-  suppressed: readonly SuppressedGrapheme[],
+  graphemes: readonly ComposedGlyph[],
+  suppressed: readonly SuppressedInlineItem[],
+  sourceGlues: readonly SourceGlue[],
   annotations: readonly ManuscriptAnnotation[],
   settings: NovelCompositionSettings,
   measurer: InlineMeasurer,
@@ -423,7 +456,7 @@ function annotationFragments(
     const covered = graphemes.filter(({ range }) =>
       ManuscriptRange.overlaps(range, annotation.range),
     );
-    const fragmentRange = annotationFragmentRange(graphemes, suppressed, annotation);
+    const fragmentRange = annotationFragmentRange(graphemes, suppressed, sourceGlues, annotation);
     const first = covered[0];
     const last = covered.at(-1);
     if (fragmentRange === null || first === undefined || last === undefined) continue;
@@ -447,8 +480,8 @@ function annotationFragments(
       case "ruby": {
         const fragmentPlan = fragmentPlansByAnnotation.get(annotation);
         if (fragmentPlan === undefined) break;
-        const baseOffsetEm = first.offsetEm;
-        const baseAdvanceEm = last.offsetEm + last.advanceEm - baseOffsetEm;
+        const baseOffsetEm = first.layoutSpan.offsetEm;
+        const baseAdvanceEm = last.layoutSpan.offsetEm + last.layoutSpan.advanceEm - baseOffsetEm;
         const reading = readingForFragment(annotation, fragmentRange, fragmentPlan);
         fragments.push({
           kind: "ruby",
@@ -475,34 +508,97 @@ function annotationFragments(
 
 function positionedLine(
   atoms: readonly Atom[],
-  dispositions: ReadonlySet<number>,
-  suppressed: readonly SuppressedGrapheme[],
+  sourceGapIndexes: ReadonlySet<number>,
+  plan: ParagraphLinePlan,
 ): NovelLine {
+  const items: ComposedInlineItem[] = plan.suppressedIndexes.flatMap((index) => {
+    const atom = atoms[index];
+    return atom === undefined
+      ? []
+      : [
+          {
+            kind: "suppressed",
+            value: atom.grapheme.value,
+            range: atom.grapheme.range,
+            reason: "question-or-exclamation-gap",
+          } as const,
+        ];
+  });
+  const spacings = new Map(plan.pairSpacings.map((spacing) => [spacing.boundary, spacing]));
   let offsetEm = 0;
-  const graphemes = atoms.map(
-    ({ grapheme, advanceEm, presentation }, index): PositionedGrapheme => {
-      const positioned: PositionedGrapheme = {
-        kind: "grapheme",
-        value: grapheme.value,
-        range: grapheme.range,
+  const positionSpacing = (spacing: ParagraphLinePlan["pairSpacings"][number]) => {
+    if (spacing.kind === "kern") {
+      items.push({ kind: "kern", offsetEm, widthEm: spacing.widthEm });
+    } else {
+      items.push({
+        kind: "glue",
+        origin: "generated",
         offsetEm,
-        advanceEm,
-        disposition: dispositions.has(index) ? "hanging" : "placed",
-        presentation,
-      };
-      offsetEm += advanceEm;
-      return positioned;
-    },
-  );
+        widthEm: spacing.widthEm,
+        naturalWidthEm: spacing.naturalWidthEm,
+        adjustment:
+          spacing.widthEm < spacing.naturalWidthEm
+            ? "shrunk"
+            : spacing.widthEm > spacing.naturalWidthEm
+              ? "stretched"
+              : "natural",
+      });
+    }
+    offsetEm += spacing.widthEm;
+  };
 
+  for (let index = plan.contentStart; index < plan.end; index += 1) {
+    const spacing = spacings.get(index);
+    if (spacing !== undefined) positionSpacing(spacing);
+
+    const atom = atoms[index];
+    if (atom === undefined) continue;
+    if (sourceGapIndexes.has(index)) {
+      items.push({
+        kind: "glue",
+        origin: "source",
+        value: atom.grapheme.value,
+        range: atom.grapheme.range,
+        offsetEm,
+        widthEm: atom.boxAdvanceEm,
+        naturalWidthEm: atom.boxAdvanceEm,
+        adjustment: "natural",
+      });
+      offsetEm += atom.boxAdvanceEm;
+      continue;
+    }
+
+    const hanging = plan.hangingIndex === index;
+    const layoutAdvanceEm = hanging ? 0 : atom.boxAdvanceEm;
+    items.push({
+      kind: "glyph",
+      value: atom.grapheme.value,
+      range: atom.grapheme.range,
+      layoutSpan: { offsetEm, advanceEm: layoutAdvanceEm },
+      renderSpan: {
+        offsetEm: offsetEm + atom.renderOffsetEm,
+        advanceEm: atom.renderAdvanceEm,
+      },
+      disposition: hanging ? "hanging" : "placed",
+      presentation: atom.presentation,
+    });
+    offsetEm += layoutAdvanceEm;
+  }
+  const trailingSpacing = spacings.get(plan.end);
+  if (trailingSpacing !== undefined) positionSpacing(trailingSpacing);
+
+  const ranges = items.flatMap((item) =>
+    item.kind === "glyph" ||
+    item.kind === "suppressed" ||
+    (item.kind === "glue" && item.origin === "source")
+      ? [item.range]
+      : [],
+  );
   return {
-    range: ManuscriptRange.merge([
-      ...graphemes.map(({ range }) => range),
-      ...suppressed.map(({ range }) => range),
-    ]),
-    advanceEm: offsetEm,
-    graphemes,
-    suppressed,
+    range: ManuscriptRange.merge(ranges),
+    inlineSizeEm: Math.max(0, plan.inlineSizeEm),
+    items,
+    break: plan.break,
     annotations: [],
   };
 }
@@ -515,86 +611,56 @@ function wrapSourceLine(
   baseAdvances: ReadonlyMap<number, number>,
 ): NovelLine[] {
   if (sourceLine.atoms.length === 0) return [NovelLineContract.empty()];
-
-  const lines: NovelLine[] = [];
-  let cursor = 0;
-  while (cursor < sourceLine.atoms.length) {
-    const suppressed: SuppressedGrapheme[] = [];
-    if (lines.length > 0 && sourceLine.suppressedIndexes.has(cursor)) {
-      const atom = sourceLine.atoms[cursor];
-      if (atom !== undefined) {
-        suppressed.push({
-          kind: "suppressed",
-          value: atom.grapheme.value,
-          range: atom.grapheme.range,
-          reason: "question-or-exclamation-gap",
-        });
-      }
-      cursor += 1;
-    }
-    if (cursor >= sourceLine.atoms.length) {
-      const previous = lines.at(-1);
-      if (previous !== undefined && suppressed.length > 0) {
-        lines[lines.length - 1] = {
-          ...previous,
-          range: ManuscriptRange.merge([
-            ...(previous.range === null ? [] : [previous.range]),
-            ...suppressed.map(({ range }) => range),
-          ]),
-          suppressed: [...previous.suppressed, ...suppressed],
-        };
-      }
-      break;
-    }
-
-    const start = cursor;
-    let advance = 0;
-    while (cursor < sourceLine.atoms.length) {
-      const atom = sourceLine.atoms[cursor];
-      if (atom === undefined) break;
-      const previous = sourceLine.atoms[cursor - 1];
-      const beginsPresentationGroup =
-        previous === undefined || !samePresentationGroup(previous, atom);
-      if (cursor > start && beginsPresentationGroup) {
-        let groupAdvance = 0;
-        for (let index = cursor; index < sourceLine.atoms.length; index += 1) {
-          const member = sourceLine.atoms[index];
-          if (member === undefined || !samePresentationGroup(atom, member)) break;
-          groupAdvance += member.advanceEm;
-        }
-        if (advance + groupAdvance > settings.flow.lineLengthEm) break;
-      }
-
-      const exceedsLine = cursor > start && advance + atom.advanceEm > settings.flow.lineLengthEm;
-      if (exceedsLine && (previous === undefined || !samePresentationGroup(previous, atom))) break;
-      advance += atom.advanceEm;
-      cursor += 1;
-    }
-
-    let end = Math.max(start + 1, cursor);
-    const hanging = new Set<number>();
-    const next = sourceLine.atoms[end];
-    if (next !== undefined && HANGING_PUNCTUATION.has(next.grapheme.value)) {
-      hanging.add(end - start);
-      end += 1;
-    } else {
-      while (
-        end > start + 1 &&
-        !legalBoundary(sourceLine.atoms, annotations, end, settings.flow.lineLengthEm)
-      ) {
-        end -= 1;
-      }
-    }
-
-    const atoms = sourceLine.atoms.slice(start, end);
-    lines.push(positionedLine(atoms, hanging, suppressed));
-    cursor = end;
-  }
+  const profile = TYPESETTING_PROFILE;
+  const plans = layoutParagraph(
+    sourceLine.atoms.map(({ grapheme, boxAdvanceEm, presentation }, index) => {
+      const current = sourceLine.atoms[index];
+      const next = sourceLine.atoms[index + 1];
+      return {
+        value: grapheme.value,
+        boxAdvanceEm,
+        sourceGap: sourceLine.suppressedIndexes.has(index),
+        characterClass: profile.classify({
+          value: grapheme.value,
+          presentation: presentation.kind,
+        }),
+        pairSpacingAfter:
+          current === undefined ||
+          next === undefined ||
+          (!samePresentationGroup(current, next) &&
+            !breakInsideFittableGroupRuby(
+              sourceLine.atoms,
+              annotations,
+              index + 1,
+              settings.flow.lineLengthEm,
+            )),
+      };
+    }),
+    settings.flow.lineLengthEm,
+    profile,
+    (leftIndex, rightIndex) =>
+      legalBoundary(
+        sourceLine.atoms,
+        annotations,
+        leftIndex,
+        rightIndex,
+        settings.flow.lineLengthEm,
+        profile,
+      ),
+  );
+  const lines = plans.map((plan) =>
+    positionedLine(sourceLine.atoms, sourceLine.suppressedIndexes, plan),
+  );
 
   const fragmentPlansByAnnotation = new Map(
     annotations.map((annotation) => {
       const ranges = lines.flatMap((line) => {
-        const range = annotationFragmentRange(line.graphemes, line.suppressed, annotation);
+        const graphemes = line.items.filter((item) => item.kind === "glyph");
+        const suppressed = line.items.filter((item) => item.kind === "suppressed");
+        const sourceGlues = line.items.flatMap((item) =>
+          item.kind === "glue" && item.origin === "source" ? [item] : [],
+        );
+        const range = annotationFragmentRange(graphemes, suppressed, sourceGlues, annotation);
         return range === null ? [] : [range];
       });
       const groupReadings =
@@ -608,12 +674,15 @@ function wrapSourceLine(
 
   return lines.map((line) => ({
     range: line.range,
-    advanceEm: line.advanceEm,
-    graphemes: line.graphemes,
-    suppressed: line.suppressed,
+    inlineSizeEm: line.inlineSizeEm,
+    items: line.items,
+    break: line.break,
     annotations: annotationFragments(
-      line.graphemes,
-      line.suppressed,
+      line.items.filter((item) => item.kind === "glyph"),
+      line.items.filter((item) => item.kind === "suppressed"),
+      line.items.flatMap((item) =>
+        item.kind === "glue" && item.origin === "source" ? [item] : [],
+      ),
       annotations,
       settings,
       measurer,
@@ -682,7 +751,7 @@ function createCompose(measurer: InlineMeasurer) {
     const baseAdvances = new Map<number, number>();
     for (const line of measured) {
       for (const atom of line?.atoms ?? []) {
-        baseAdvances.set(atom.grapheme.range.graphemes.start, atom.advanceEm);
+        baseAdvances.set(atom.grapheme.range.graphemes.start, atom.boxAdvanceEm);
       }
     }
 
