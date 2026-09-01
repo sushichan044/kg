@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.5](https://github.com/sushichan044/kg/compare/kg-core-v0.6.4...kg-core-v0.6.5) (2026-09-01)
+
+
+### Bug Fixes
+
+* **core:** spend the invisible line-end half-em before visible space ([#95](https://github.com/sushichan044/kg/issues/95)) ([277d627](https://github.com/sushichan044/kg/commit/277d627287e12e118a0778cf5be5346d9071c5f5))
+
 ## [0.6.4](https://github.com/sushichan044/kg/compare/kg-core-v0.6.3...kg-core-v0.6.4) (2026-09-01)
 
 
