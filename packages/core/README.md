@@ -65,7 +65,10 @@ the paragraph end.
 The composer classifies the core prose classes from JLReq, resolves pair spacing,
 and selects line breaks over the whole source paragraph. It prefers natural setting,
 then shrinking punctuation space, hanging a comma or full stop, stretching eligible
-space, and finally a forced emergency line. It owns Japanese line-start and line-end
+space, and finally a forced emergency line. The half em that follows a closing
+bracket, comma, or full stop is invisible once that character lands at the line end,
+so it is the first space spent and it costs the paragraph nothing, which keeps a
+line-start bracket at its full em. It owns Japanese line-start and line-end
 restrictions, inseparable punctuation, question/exclamation gap suppression, and
 ruby placement.
 

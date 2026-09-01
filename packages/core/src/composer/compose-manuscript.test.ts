@@ -317,6 +317,33 @@ describe("composeManuscript", () => {
     expect(firstLine.inlineSizeEm).toBe(10);
   });
 
+  test("drops the invisible line-end half-em before squeezing visible punctuation space", () => {
+    const result = composeManuscript(parsed("「あ。あああああああ、"), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const lines = contentLines(result.value);
+    expect(lines.map(lineText)).toEqual(["「あ。あああああああ、"]);
+    const line = lines[0];
+    expect.assert(line !== undefined, "layout has no content line");
+    expect(
+      line.items.flatMap((item) =>
+        item.kind === "glue" && item.naturalWidthEm === 0.5
+          ? [{ widthEm: item.widthEm, adjustment: item.adjustment }]
+          : [],
+      ),
+    ).toEqual([
+      { widthEm: 0.5, adjustment: "natural" },
+      { widthEm: 0, adjustment: "shrunk" },
+      { widthEm: 0, adjustment: "shrunk" },
+    ]);
+    const openingBracket = lineGlyphs(line)[0];
+    expect.assert(openingBracket !== undefined, "layout has no opening bracket");
+    expect(openingBracket.layoutSpan.offsetEm).toBe(0.5);
+  });
+
   test("keeps shared opening and closing brackets away from illegal line boundaries", () => {
     const source = `${"あ".repeat(9)}(続\n${"あ".repeat(10)})`;
     const result = composeManuscript(parsed(source), {
