@@ -50,6 +50,23 @@ describe("defaultJapaneseTypesettingProfile", () => {
     });
   });
 
+  test.each(["cl-02", "cl-06", "cl-07"] as const)(
+    "spends the invisible line-end half-em of %s before any visible space",
+    (characterClass) => {
+      const lineEnd = defaultJapaneseTypesettingProfile.lineEndSpacing(characterClass);
+      const lineStart = defaultJapaneseTypesettingProfile.lineStartSpacing("cl-01");
+      const afterComma = defaultJapaneseTypesettingProfile.pairSpacing("cl-07", "cl-19");
+
+      expect.assert(lineEnd?.shrink !== undefined, "line end has no shrink capacity");
+      expect.assert(lineStart?.shrink !== undefined, "line start has no shrink capacity");
+      expect.assert(afterComma.shrink !== undefined, "comma glue has no shrink capacity");
+
+      expect(lineEnd.shrink.priority).toBe(0);
+      expect(lineEnd.shrink.priority).toBeLessThan(afterComma.shrink.priority);
+      expect(lineEnd.shrink.priority).toBeLessThan(lineStart.shrink.priority);
+    },
+  );
+
   test("prohibits splitting an inseparable sequence but allows it at line start", () => {
     expect(defaultJapaneseTypesettingProfile.breakPenalty("cl-19", "cl-08")).toBe(0);
     expect(defaultJapaneseTypesettingProfile.breakPenalty("cl-08", "cl-08")).toBeNull();

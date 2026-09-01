@@ -30,6 +30,10 @@ export type JapaneseCharacter = Readonly<{
   presentation: VerticalTextPresentation["kind"];
 }>;
 
+/**
+ * Priority 0 means the adjustment is invisible to the reader, so the paragraph optimizer spends it
+ * before anything else and charges nothing for it.
+ */
 export type SpacingCapacity = Readonly<{ priority: number; amountEm: number }>;
 
 export type PairSpacing = Readonly<{
@@ -177,7 +181,7 @@ export const defaultJapaneseTypesettingProfile: JapaneseTypesettingProfile = {
       ? {
           kind: "glue",
           naturalWidthEm: 0.5,
-          shrink: { priority: 2, amountEm: 0.5 },
+          shrink: { priority: 0, amountEm: 0.5 },
         }
       : null,
   breakPenalty,

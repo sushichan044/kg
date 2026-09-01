@@ -24,6 +24,25 @@ const flexiblePrefixProfile: JapaneseTypesettingProfile = {
   lineEndSpacing: () => null,
 };
 
+const freeLineEndProfile: JapaneseTypesettingProfile = {
+  classify: ({ value }) => (value === "P" ? "cl-07" : "cl-19"),
+  boxMetrics: (_characterClass, measuredAdvanceEm) => ({
+    advanceEm: measuredAdvanceEm,
+    renderOffsetEm: 0,
+  }),
+  pairSpacing: (left, right) =>
+    left === "cl-07" && right === "cl-07"
+      ? { kind: "kern", naturalWidthEm: 0 }
+      : { kind: "glue", naturalWidthEm: 0 },
+  breakPenalty: () => 0,
+  canHang: () => false,
+  lineStartSpacing: () => null,
+  lineEndSpacing: (last) =>
+    last === "cl-07"
+      ? { kind: "glue", naturalWidthEm: 0.5, shrink: { priority: 0, amountEm: 0.5 } }
+      : null,
+};
+
 function atoms(text: string): ParagraphAtom[] {
   return text.split("").map((value) => ({
     value,
@@ -49,6 +68,21 @@ describe("layoutParagraph", () => {
       "natural",
       "paragraph-end",
     ]);
+  });
+
+  test("packs a line when the only shrink is invisible line-end space", () => {
+    const paragraph = "AAAPP".split("").map((value) => ({
+      value,
+      boxAdvanceEm: value === "P" ? 0.5 : 1,
+      sourceGap: false,
+      characterClass: freeLineEndProfile.classify({ value, presentation: "mixed" }),
+      pairSpacingAfter: true,
+    }));
+
+    const plans = layoutParagraph(paragraph, 4, freeLineEndProfile, () => true);
+
+    expect(plans.map(({ end }) => end)).toEqual([5]);
+    expect(plans.map(({ break: result }) => result.kind)).toEqual(["shrunk"]);
   });
 
   test("keeps candidate expansion linear in paragraph length", () => {

@@ -8,6 +8,11 @@ import type {
 
 const EPSILON = 1e-9;
 
+/**
+ * Spending capacity at this priority changes nothing the reader can see.
+ */
+const FREE_SHRINK_PRIORITY = 0;
+
 export type ParagraphAtom = Readonly<{
   value: string;
   boxAdvanceEm: number;
@@ -174,6 +179,9 @@ function candidate(
     pairValues.reduce((total, value) => total + value.spacing.naturalWidthEm, 0);
   const terminal = skipSourceGaps(atoms, end) === atoms.length;
   const shrinkCapacity = capacity(pairValues, ({ shrink }) => shrink);
+  const freeShrinkCapacity = capacity(pairValues, ({ shrink }) =>
+    shrink?.priority === FREE_SHRINK_PRIORITY ? shrink : undefined,
+  );
   const stretchCapacity = capacity(pairValues, ({ stretch }) => stretch);
   const overflow = naturalSizeEm - lineLengthEm;
   const underflow = lineLengthEm - naturalSizeEm;
@@ -217,6 +225,8 @@ function candidate(
 
   if (overflow > 0 && overflow <= shrinkCapacity + EPSILON) {
     const resolved = resolveSpacings(pairValues, "shrink", overflow);
+    const chargeableCapacity = shrinkCapacity - freeShrinkCapacity;
+    const chargeableShrink = Math.max(0, overflow - freeShrinkCapacity);
     return {
       start,
       contentStart,
@@ -226,7 +236,7 @@ function candidate(
       inlineSizeEm: lineLengthEm,
       break: { kind: "shrunk" },
       hangingIndex: null,
-      deformationRatio: shrinkCapacity === 0 ? 0 : overflow / shrinkCapacity,
+      deformationRatio: chargeableCapacity <= EPSILON ? 0 : chargeableShrink / chargeableCapacity,
       priorityCost: resolved.priorityCost,
     };
   }
@@ -296,7 +306,9 @@ function scoreFor(
     forced: mode === "forced" ? 1 : 0,
     stretched: mode === "stretched" ? 1 : 0,
     hanging: mode === "hanging" ? 1 : 0,
-    shrunk: mode === "shrunk" ? 1 : 0,
+    // `priorityCost` is the sum of `used * priority`, so a shrunk line spending
+    // only free capacity costs nothing and reads as tightly as a natural one.
+    shrunk: mode === "shrunk" && line.priorityCost > EPSILON ? 1 : 0,
   };
   return {
     score: [

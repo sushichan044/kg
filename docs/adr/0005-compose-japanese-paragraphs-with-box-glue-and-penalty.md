@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-02
-- Issues: [#84](https://github.com/sushichan044/kg/issues/84), [#85](https://github.com/sushichan044/kg/issues/85)
+- Issues: [#84](https://github.com/sushichan044/kg/issues/84), [#85](https://github.com/sushichan044/kg/issues/85), [#94](https://github.com/sushichan044/kg/issues/94)
 - Supersedes: ADR 0004 の inline positioning 部分
 
 ## 文脈
@@ -21,8 +21,8 @@ ADR 0004 の composer は書記素の advance を順に加算し、行長を超�
 候補の評価は次の辞書順とする。
 
 1. 禁則違反は候補から除外する。
-2. `natural < shrink < hanging < stretch < forced` の順で優先する。
-3. JLReq の優先度が高い glue から変形する。
+2. `natural < shrink < hanging < stretch < forced` の順で優先する。ただし読者に見えないアキだけを詰めた行は natural と同格に扱う。
+3. JLReq の優先度が高い glue から変形する。優先度 0 は視覚的に中立なアキを表し、変形コストを 0 とする。
 4. 正規化した変形量の三乗と、隣接行で密度が急変する fitness を小さくする。
 5. 完全な同点では前の行へ多く入る改行を選ぶ。
 
@@ -33,6 +33,8 @@ profile は実利用が複数現れるまで内部契約とし、利用者が任
 
 句点・読点・括弧の typographic box は原則 0.5em とし、隣接文字または行端との 0.5em glue を別に保持する。
 glyph の視覚範囲は box と分ける。
+行末に来た終わり括弧類・句点類・読点類の後ろの二分アキは、原則として確保しつつ優先度 0 の詰め代とする。
+JLReq 3.1.9 注 2 のとおり行末では詰めても読者に見えないため、行頭の括弧のアキや行中のアキより先に、コストなしで消費する。
 ぶら下げは cl-06 と cl-07 の一文字だけに許し、ぶら下げ後の次行も禁則を満たす候補に限る。
 cl-08 は連続する内部でだけ分割を禁じ、列自体は行頭に置ける。
 
