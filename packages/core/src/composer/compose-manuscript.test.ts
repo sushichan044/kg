@@ -12,6 +12,14 @@ import type { NovelComposedManuscript } from "./novel-composer";
 import { createNovelComposer, novelComposer } from "./novel-composer";
 import type { NovelLine } from "./novel-line";
 
+function lineGlyphs(line: NovelLine) {
+  return line.items.filter((item) => item.kind === "glyph");
+}
+
+function suppressedItems(line: NovelLine) {
+  return line.items.filter((item) => item.kind === "suppressed");
+}
+
 function parsed(source: string) {
   const result = parseManuscript(source);
   expect.assert(result.ok, "fixture did not parse");
@@ -31,7 +39,13 @@ function settings(patch: Partial<NovelCompositionSettings["flow"]> = {}): NovelC
 }
 
 function lineText(line: NovelLine): string {
-  return line.graphemes.map(({ value }) => value).join("");
+  return line.items
+    .flatMap((item) =>
+      item.kind === "glyph" || (item.kind === "glue" && item.origin === "source")
+        ? [item.value]
+        : [],
+    )
+    .join("");
 }
 
 function contentLines(result: NovelComposedManuscript) {
@@ -72,13 +86,13 @@ describe("composeManuscript", () => {
     expect(lines.map(lineText)).toEqual(["あいうえおかきくけこ", "さし"]);
     const secondLine = lines[1];
     expect.assert(secondLine !== undefined, "layout has no second content line");
-    const firstGrapheme = secondLine.graphemes[0];
+    const firstGrapheme = lineGlyphs(secondLine)[0];
     expect.assert(firstGrapheme !== undefined, "second content line has no first grapheme");
     expect(firstGrapheme).toMatchObject({
-      kind: "grapheme",
+      kind: "glyph",
       value: "さ",
-      offsetEm: 0,
-      advanceEm: 1,
+      layoutSpan: { offsetEm: 0, advanceEm: 1 },
+      renderSpan: { offsetEm: 0, advanceEm: 1 },
       disposition: "placed",
       range: { source: { start: 10, end: 11 } },
     });
@@ -95,9 +109,9 @@ describe("composeManuscript", () => {
     const line = contentLines(result.value)[0];
     expect.assert(line !== undefined, "layout has no content line");
     expect(
-      line.graphemes.map(({ value, advanceEm, presentation }) => ({
+      lineGlyphs(line).map(({ value, layoutSpan, presentation }) => ({
         value,
-        advanceEm,
+        advanceEm: layoutSpan.advanceEm,
         presentation: presentation.kind,
       })),
     ).toEqual([
@@ -180,7 +194,7 @@ describe("composeManuscript", () => {
     expect(lines.map(lineText)).toEqual(["あいうえおかきく！？", "続き"]);
     const secondLine = lines[1];
     expect.assert(secondLine !== undefined, "layout has no second content line");
-    expect(secondLine.suppressed).toMatchObject([
+    expect(suppressedItems(secondLine)).toMatchObject([
       {
         kind: "suppressed",
         value: "　",
@@ -189,6 +203,31 @@ describe("composeManuscript", () => {
       },
     ]);
     expect(result.value.layout.stats.chars).toBe(13);
+  });
+
+  test("keeps a valid question-mark gap as source-backed glue inside a line", () => {
+    const result = composeManuscript(parsed("あ！？　続き"), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const line = contentLines(result.value)[0];
+    expect.assert(line !== undefined, "layout has no content line");
+    expect(lineText(line)).toBe("あ！？　続き");
+    expect(
+      line.items.filter((item) => item.kind === "glue" && item.origin === "source"),
+    ).toMatchObject([
+      {
+        kind: "glue",
+        origin: "source",
+        value: "　",
+        widthEm: 1,
+        naturalWidthEm: 1,
+        adjustment: "natural",
+      },
+    ]);
+    expect(suppressedItems(line)).toEqual([]);
   });
 
   test("keeps a trailing suppressed gap in the preceding line range", () => {
@@ -203,7 +242,7 @@ describe("composeManuscript", () => {
     expect(lines.map(lineText)).toEqual(["あいうえおかきく！？"]);
     const line = lines[0];
     expect.assert(line !== undefined, "layout has no content line");
-    expect(line.suppressed).toMatchObject([
+    expect(suppressedItems(line)).toMatchObject([
       {
         kind: "suppressed",
         value: "　",
@@ -226,9 +265,56 @@ describe("composeManuscript", () => {
     expect(lines.map(lineText)).toEqual([`${"あ".repeat(10)}。`, "続き"]);
     const firstLine = lines[0];
     expect.assert(firstLine !== undefined, "layout has no first content line");
-    const punctuation = firstLine.graphemes.at(-1);
+    const punctuation = lineGlyphs(firstLine).at(-1);
     expect.assert(punctuation !== undefined, "first content line has no trailing punctuation");
     expect(punctuation.disposition).toBe("hanging");
+    expect(firstLine.break).toEqual({ kind: "hanging" });
+    expect(punctuation.layoutSpan.advanceEm).toBe(0);
+    expect(punctuation.renderSpan.advanceEm).toBe(1);
+  });
+
+  test("backs up before punctuation when hanging would expose a closing bracket", () => {
+    const result = composeManuscript(parsed("「あいうえおかきくけ。」"), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    expect(contentLines(result.value).map(lineText)).toEqual(["「あいうえおかきく", "け。」"]);
+  });
+
+  test("does not treat question marks as hanging punctuation", () => {
+    const result = composeManuscript(parsed("「あいうえおかきくけ？」"), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    expect(contentLines(result.value).map(lineText)).toEqual(["「あいうえおかきく", "け？」"]);
+  });
+
+  test("shrinks punctuation glue before pushing an inseparable pair to the next line", () => {
+    const result = composeManuscript(parsed("あい、うえ、おかき……く"), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const lines = contentLines(result.value);
+    expect(lines.map(lineText)).toEqual(["あい、うえ、おかき……", "く"]);
+    const firstLine = lines[0];
+    expect.assert(firstLine !== undefined, "layout has no first content line");
+    expect(firstLine.break).toEqual({ kind: "shrunk" });
+    expect(
+      firstLine.items.flatMap((item) =>
+        item.kind === "glue" && item.adjustment === "shrunk" ? [item.widthEm] : [],
+      ),
+    ).toEqual([0, 0]);
+    const comma = lineGlyphs(firstLine).find(({ value }) => value === "、");
+    expect.assert(comma !== undefined, "layout has no comma glyph");
+    expect(comma.layoutSpan.advanceEm).toBe(0.5);
+    expect(comma.renderSpan.advanceEm).toBe(1);
+    expect(firstLine.inlineSizeEm).toBe(10);
   });
 
   test("keeps shared opening and closing brackets away from illegal line boundaries", () => {
@@ -318,7 +404,9 @@ describe("composeManuscript", () => {
     const rubyFragments = lines.flatMap(({ annotations }) =>
       annotations.filter((annotation) => annotation.kind === "ruby"),
     );
-    expect(lines.flatMap(({ suppressed }) => suppressed.map(({ value }) => value))).toEqual(["　"]);
+    expect(lines.flatMap((line) => suppressedItems(line).map(({ value }) => value))).toEqual([
+      "　",
+    ]);
     const [firstFragment, secondFragment] = rubyFragments;
     expect.assert(firstFragment !== undefined && secondFragment !== undefined);
     expect(firstFragment.fragmentRange.graphemes.end).toBe(
@@ -361,8 +449,8 @@ describe("composeManuscript", () => {
     expect.assert(parseResult.ok, "fixture did not parse");
     const composer = createNovelComposer({
       measurer: ({ text, role }) => {
-        if (role === "ruby") return text.length / 10;
-        return text === "A" ? 9 : 1;
+        if (role === "ruby") return { advanceEm: text.length / 10 };
+        return { advanceEm: text === "A" ? 9 : 1 };
       },
     });
 
@@ -380,7 +468,7 @@ describe("composeManuscript", () => {
 
   test("rejects an invalid custom measurement as a typed composer rejection", () => {
     const result = composeManuscript(parsed("本文"), {
-      composer: createNovelComposer({ measurer: () => Number.NaN }),
+      composer: createNovelComposer({ measurer: () => ({ advanceEm: Number.NaN }) }),
       settings: settings(),
     });
 
@@ -392,7 +480,9 @@ describe("composeManuscript", () => {
     const parseResult = parseManuscript("｜漢字《かんじ》", { parser: kakuyomuParser });
     expect.assert(parseResult.ok, "fixture did not parse");
     const composer = createNovelComposer({
-      measurer: ({ text, role }) => (role === "ruby" && text === "か" ? Number.NaN : 1),
+      measurer: ({ text, role }) => ({
+        advanceEm: role === "ruby" && text === "か" ? Number.NaN : 1,
+      }),
     });
 
     const result = composeManuscript(parseResult.value, {
