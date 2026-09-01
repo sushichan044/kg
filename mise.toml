@@ -1,6 +1,6 @@
 [tools]
 "golangci-lint" = "2.12.2"
-vite-plus = { version = "0.2.7", postinstall = "vp env off" } # do not manage nodejs with vite-plus
+vite-plus = { version = "0.3.0", postinstall = "vp env off" } # do not manage nodejs with vite-plus
 
 [plugins]
 vite-plus = "https://github.com/markmals/mise-vite-plus"

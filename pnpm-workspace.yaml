@@ -14,7 +14,7 @@ catalogs:
     unplugin-unused: 0.5.7
     vitest-browser-react: 2.2.0
     vite: "npm:@voidzero-dev/vite-plus-core@0.2.7"
-    vite-plus: 0.2.7
+    vite-plus: 0.3.0
   prod:
     react: 19.2.7
     react-dom: 19.2.7
@@ -33,7 +33,7 @@ minimumReleaseAgeExclude:
   - vite-plus@0.2.7
 
 overrides:
-  vite: "npm:@voidzero-dev/vite-plus-core@0.2.7"
+  vite: "npm:@voidzero-dev/vite-plus-core@0.3.0"
 
 packages:
   - "internal/frontend"
