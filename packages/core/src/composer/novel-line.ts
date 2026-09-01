@@ -3,13 +3,14 @@ import * as v from "valibot";
 import { readonlyArray, readonlyObject } from "../internal/schema";
 import { ManuscriptRange } from "../range/manuscript-range";
 import { ComposedAnnotationFragment } from "./composed-annotation-fragment";
-import { PositionedGrapheme, SuppressedGrapheme } from "./positioned-grapheme";
+import { ComposedInlineItem } from "./composed-inline-item";
+import { LineBreakResult } from "./line-break-result";
 
 const NovelLineSchema = readonlyObject({
   range: v.nullable(ManuscriptRange.schema),
-  advanceEm: v.pipe(v.number(), v.finite(), v.minValue(0)),
-  graphemes: readonlyArray(PositionedGrapheme.schema),
-  suppressed: readonlyArray(SuppressedGrapheme.schema),
+  inlineSizeEm: v.pipe(v.number(), v.finite(), v.minValue(0)),
+  items: readonlyArray(ComposedInlineItem.schema),
+  break: LineBreakResult.schema,
   annotations: readonlyArray(ComposedAnnotationFragment.schema),
 });
 
@@ -20,9 +21,9 @@ export const NovelLine = {
 
   empty: (): NovelLine => ({
     range: null,
-    advanceEm: 0,
-    graphemes: [],
-    suppressed: [],
+    inlineSizeEm: 0,
+    items: [],
+    break: { kind: "paragraph-end" },
     annotations: [],
   }),
 } as const;

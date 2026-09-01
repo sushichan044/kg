@@ -48,8 +48,17 @@ export type { ComposedManuscript } from "./composer/composed-manuscript";
 export { ComposedAnnotationFragment } from "./composer/composed-annotation-fragment";
 export { NovelCompositionSettings } from "./composer/composition-settings";
 export { CompositionStatistics } from "./composer/composition-statistics";
-export { logicalInlineMeasurer } from "./composer/inline-measurer";
+export { ComposedInlineItem } from "./composer/composed-inline-item";
+export type {
+  ComposedGlue,
+  ComposedGlyph,
+  ComposedKern,
+  SuppressedInlineItem,
+} from "./composer/composed-inline-item";
+export { InlineSpan } from "./composer/inline-span";
+export { InlineMeasurement, logicalInlineMeasurer } from "./composer/inline-measurer";
 export type { InlineMeasureRequest, InlineMeasurer } from "./composer/inline-measurer";
+export { LineBreakResult } from "./composer/line-break-result";
 export { LineOffset } from "./composer/line-offset";
 export type { ManuscriptComposer } from "./composer/manuscript-composer";
 export { ManuscriptGeometry } from "./composer/manuscript-geometry";
@@ -61,7 +70,6 @@ export { NovelLayout } from "./composer/novel-layout";
 export { NovelLine } from "./composer/novel-line";
 export { NovelPage } from "./composer/novel-page";
 export { NovelStage } from "./composer/novel-stage";
-export { PositionedGrapheme, SuppressedGrapheme } from "./composer/positioned-grapheme";
 export { VerticalTextPresentation } from "./composer/vertical-text-presentation";
 
 export { InvalidRuleOptions } from "./proofreading/invalid-rule-options";

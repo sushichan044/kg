@@ -1,6 +1,8 @@
 import { eastAsianWidth } from "get-east-asian-width";
+import * as v from "valibot";
 
 import type { FontPresetId } from "../appearance/font-preset-id";
+import { readonlyObject } from "../internal/schema";
 import { graphemeSegmenter } from "../internal/segmenter";
 import type { VerticalTextPresentation } from "./vertical-text-presentation";
 
@@ -16,7 +18,15 @@ export type InlineMeasureRequest = InlineMeasureContext &
     | Readonly<{ role: "ruby" }>
   );
 
-export type InlineMeasurer = (request: InlineMeasureRequest) => number;
+const InlineMeasurementSchema = readonlyObject({
+  advanceEm: v.pipe(v.number(), v.finite(), v.minValue(0)),
+});
+
+export type InlineMeasurement = v.InferOutput<typeof InlineMeasurementSchema>;
+
+export const InlineMeasurement = { schema: InlineMeasurementSchema } as const;
+
+export type InlineMeasurer = (request: InlineMeasureRequest) => InlineMeasurement;
 
 function graphemeWidth(grapheme: string): number {
   let width = 1;
@@ -39,6 +49,9 @@ export const logicalInlineMeasurer: InlineMeasurer = (request) => {
     0,
   );
 
-  if (request.role === "ruby") return width / 2;
-  return request.presentation === "upright" ? [...graphemeSegmenter.segment(text)].length : width;
+  if (request.role === "ruby") return { advanceEm: width / 2 };
+  return {
+    advanceEm:
+      request.presentation === "upright" ? [...graphemeSegmenter.segment(text)].length : width,
+  };
 };
