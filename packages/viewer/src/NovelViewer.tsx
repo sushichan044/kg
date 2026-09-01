@@ -1,12 +1,12 @@
 import { FontPreset, ManuscriptRange } from "@sushichan044/kg-core";
 import type {
+  ComposedGlyph,
   ComposedAnnotationFragment,
   DiagnosticSeverity,
   ManuscriptDiagnostic,
   NovelComposedManuscript,
   NovelLine,
   NovelPage,
-  PositionedGrapheme,
   VerticalTextPresentation,
 } from "@sushichan044/kg-core";
 import {
@@ -81,12 +81,20 @@ type BandStyle = CSSProperties & {
 function pageText(page: NovelPage): string {
   return page.stages
     .flatMap(({ lines }) =>
-      lines.map(({ graphemes }) => graphemes.map(({ value }) => value).join("")),
+      lines.map(({ items }) =>
+        items
+          .flatMap((item) =>
+            item.kind === "glyph" || (item.kind === "glue" && item.origin === "source")
+              ? [item.value]
+              : [],
+          )
+          .join(""),
+      ),
     )
     .join("\n");
 }
 
-function covers(grapheme: PositionedGrapheme, diagnostic: ManuscriptDiagnostic): boolean {
+function covers(grapheme: ComposedGlyph, diagnostic: ManuscriptDiagnostic): boolean {
   return ManuscriptRange.overlaps(grapheme.range, diagnostic.range);
 }
 
@@ -111,7 +119,7 @@ function annotationKey(annotation: ComposedAnnotationFragment): string {
 
 function annotationsForRange(
   line: NovelLine,
-  range: PositionedGrapheme["range"],
+  range: ComposedGlyph["range"],
 ): readonly ComposedAnnotationFragment[] {
   return line.annotations.filter(
     (annotation) =>
@@ -168,20 +176,20 @@ type DiagnosticBand = Readonly<{
 
 type PlacedBand = Omit<DiagnosticBand, "lane" | "lanes">;
 type RenderedGrapheme = Readonly<{
-  grapheme: PositionedGrapheme;
+  grapheme: ComposedGlyph;
   diagnostics: readonly ManuscriptDiagnostic[];
 }>;
 type RenderedCell = Readonly<{
   value: string;
-  range: PositionedGrapheme["range"];
+  range: ComposedGlyph["range"];
   offsetEm: number;
   advanceEm: number;
-  disposition: PositionedGrapheme["disposition"];
+  disposition: ComposedGlyph["disposition"];
   presentation: VerticalTextPresentation["kind"];
   diagnostics: readonly ManuscriptDiagnostic[];
 }>;
 
-function samePresentationGroup(left: PositionedGrapheme, right: PositionedGrapheme): boolean {
+function samePresentationGroup(left: ComposedGlyph, right: ComposedGlyph): boolean {
   return (
     left.presentation.kind === right.presentation.kind &&
     left.presentation.groupRange.graphemes.start ===
@@ -221,8 +229,11 @@ function renderedCells(graphemes: readonly RenderedGrapheme[]): RenderedCell[] {
       {
         value: group.map(({ grapheme }) => grapheme.value).join(""),
         range: combinesPresentation ? first.grapheme.presentation.groupRange : first.grapheme.range,
-        offsetEm: first.grapheme.offsetEm,
-        advanceEm: last.grapheme.offsetEm + last.grapheme.advanceEm - first.grapheme.offsetEm,
+        offsetEm: first.grapheme.renderSpan.offsetEm,
+        advanceEm:
+          last.grapheme.renderSpan.offsetEm +
+          last.grapheme.renderSpan.advanceEm -
+          first.grapheme.renderSpan.offsetEm,
         disposition: group.some(({ grapheme }) => grapheme.disposition === "hanging")
           ? "hanging"
           : "placed",
@@ -295,10 +306,9 @@ function lineDiagnostics(
   line: NovelLine,
   diagnostics: readonly ManuscriptDiagnostic[],
 ): Readonly<{ bands: DiagnosticBand[]; graphemes: RenderedGrapheme[] }> {
-  const graphemes = line.graphemes.map((grapheme) => ({
-    grapheme,
-    diagnostics: [] as ManuscriptDiagnostic[],
-  }));
+  const graphemes = line.items.flatMap((item) =>
+    item.kind === "glyph" ? [{ grapheme: item, diagnostics: [] as ManuscriptDiagnostic[] }] : [],
+  );
   const placed = diagnostics.flatMap((diagnostic): PlacedBand[] => {
     const covered = graphemes.filter(({ grapheme }) => covers(grapheme, diagnostic));
     for (const entry of covered) entry.diagnostics.push(diagnostic);
@@ -309,8 +319,11 @@ function lineDiagnostics(
     return [
       {
         diagnostic,
-        offsetEm: first.grapheme.offsetEm,
-        advanceEm: last.grapheme.offsetEm + last.grapheme.advanceEm - first.grapheme.offsetEm,
+        offsetEm: first.grapheme.layoutSpan.offsetEm,
+        advanceEm:
+          last.grapheme.layoutSpan.offsetEm +
+          last.grapheme.layoutSpan.advanceEm -
+          first.grapheme.layoutSpan.offsetEm,
         startsHere:
           diagnostic.range.source.start >= first.grapheme.range.source.start &&
           diagnostic.range.source.start < first.grapheme.range.source.end,

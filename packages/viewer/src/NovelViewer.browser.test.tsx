@@ -105,6 +105,31 @@ test("composes a two-digit number as one tate-chu-yoko cell", async ({ renderVie
   expect(digits.height).toBeCloseTo(japanese.height, 1);
 });
 
+test("renders a hanging glyph from its render span", async ({ renderViewer }) => {
+  const { composed, screen } = await renderViewer({ text: `${"あ".repeat(10)}。続き`, flow });
+  const hanging = screen.container.querySelector<HTMLElement>(
+    '.kgv-cell[data-disposition="hanging"]',
+  );
+  expect.assert(hanging !== null, "viewer has no hanging glyph");
+  const firstContentLine = composed.layout.pages[0]?.stages[0]?.lines.find(
+    ({ range }) => range !== null,
+  );
+  expect.assert(firstContentLine !== undefined, "layout has no content line");
+  const hangingItem = firstContentLine.items.find(
+    (item) => item.kind === "glyph" && item.disposition === "hanging",
+  );
+  expect.assert(hangingItem?.kind === "glyph", "layout has no hanging item");
+
+  expect(hanging.style.getPropertyValue("--kgv-item-offset")).toBe(
+    String(hangingItem.renderSpan.offsetEm),
+  );
+  expect(hanging.style.getPropertyValue("--kgv-item-advance")).toBe(
+    String(hangingItem.renderSpan.advanceEm),
+  );
+  expect(hangingItem.layoutSpan.advanceEm).toBe(0);
+  expect(hangingItem.renderSpan.advanceEm).toBe(1);
+});
+
 test("shows a nominal grid without letting it change text coordinates", async () => {
   const parsed = parseManuscript("あいう");
   expect.assert(parsed.ok, "fixture did not parse");
