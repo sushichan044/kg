@@ -16,10 +16,8 @@
     "@vitejs/plugin-react": "catalog:dev",
     "@vitest/browser-playwright": "catalog:dev",
     "babel-plugin-react-compiler": "1.0.0",
-    "oxlint": "1.74.0",
     "playwright": "catalog:dev",
     "typescript": "catalog:dev",
-    "vite": "catalog:dev",
     "vite-plus": "catalog:dev",
     "vitest-browser-react": "catalog:dev"
   }

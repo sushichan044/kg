@@ -55,7 +55,6 @@
     "publint": "catalog:dev",
     "typescript": "catalog:dev",
     "unplugin-unused": "catalog:dev",
-    "vite": "catalog:dev",
     "vite-plus": "catalog:dev"
   },
   "engines": {
