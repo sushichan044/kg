@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.4](https://github.com/sushichan044/kg/compare/kg-core-v0.6.3...kg-core-v0.6.4) (2026-09-01)
+
+
+### Features
+
+* implement JLReq paragraph composition with box-glue adjustment ([#92](https://github.com/sushichan044/kg/issues/92)) ([33fff2c](https://github.com/sushichan044/kg/commit/33fff2cd91916dd52cdf07205da2e3fa53e3e6f2))
+
 ## [0.6.3](https://github.com/sushichan044/kg/compare/kg-core-v0.6.2...kg-core-v0.6.3) (2026-08-30)
 
 
