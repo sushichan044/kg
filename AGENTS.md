@@ -35,3 +35,9 @@ Docs are local at `node_modules/vite-plus/docs` or online at <https://viteplus.d
 - [ ] If setup, runtime, or package-manager behavior looks wrong, run `vp env doctor` and include its output when asking for help.
 
 <!--VITE PLUS END-->
+
+## Useful Docs
+
+- <https://github.com/w3c/jlreq>
+  - 日本語組版要件
+  - may be cloned at /Users/sushichan044/workspace/github.com/w3c/jlreq
