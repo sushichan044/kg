@@ -37,8 +37,9 @@ persistence.
 Parsers normalize service-specific source notation into display graphemes and a
 closed annotation union. Ruby readings preserve their semantic association as
 `group`, `mono`, or `jukugo`. The built-in `novelComposer` applies Japanese line
-breaking, punctuation hanging and gap suppression, then emits positioned base
-graphemes and positioned annotation fragments. Core pairs that layout with the
+breaking and paragraph-wide line adjustment, then emits a `glyph | glue | kern |
+suppressed` inline-item stream and positioned annotation fragments. Glyphs expose
+separate typographic layout and visual render spans. Core pairs that layout with the
 manuscript and the settings it already validated. Proofreading rules declare
 which manuscript they inspect through a `kind` discriminant on the rule itself.
 

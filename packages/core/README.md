@@ -56,16 +56,25 @@ visible and produces a parser warning.
 `composeManuscript` requires a composer. The built-in `novelComposer` produces
 a self-contained snapshot containing the parsed manuscript, accepted settings,
 geometry, statistics, and a page/stage/line hierarchy. Lines contain positioned
-graphemes, suppressed source graphemes, and annotation fragments. The composer
-owns Japanese line-start and line-end restrictions, inseparable punctuation,
-hanging punctuation, question/exclamation gap suppression, and ruby placement.
+inline items and annotation fragments. `glyph` items distinguish their typographic
+`layoutSpan` from their visual `renderSpan`; `glue`, `kern`, and `suppressed` items
+preserve every spacing decision. Each line also records its `inlineSizeEm` and
+whether it ended naturally, by shrinking, stretching, hanging, forcing, or reaching
+the paragraph end.
+
+The composer classifies the core prose classes from JLReq, resolves pair spacing,
+and selects line breaks over the whole source paragraph. It prefers natural setting,
+then shrinking punctuation space, hanging a comma or full stop, stretching eligible
+space, and finally a forced emergency line. It owns Japanese line-start and line-end
+restrictions, inseparable punctuation, question/exclamation gap suppression, and
+ruby placement.
 
 The composer classifies vertical text before measuring and breaking lines. Following
 [JLReq](https://www.w3.org/TR/jlreq/#handling_of_western_text_in_vertical_writing),
 upright Latin initials and abbreviations advance by one em per character, Western
 words remain unbroken and render sideways, and two ASCII digits form one
 tate-chu-yoko unit. The resulting `VerticalTextPresentation` is carried by every
-positioned grapheme, so renderers do not need to infer orientation independently.
+glyph item, so renderers do not need to infer orientation independently.
 
 The default logical measurer uses East Asian Width in a Japanese context. Upright
 ASCII advances by one em; proportional ASCII and the members of a tate-chu-yoko unit
@@ -74,18 +83,19 @@ font metrics. Base-text requests also include the selected `presentation`:
 
 ```ts
 const composer = createNovelComposer({
-  measurer: (request) =>
-    measureWithAvailableFont(request.text, {
+  measurer: (request) => ({
+    advanceEm: measureWithAvailableFont(request.text, {
       role: request.role,
       fontPreset: request.fontPreset,
       writingMode: request.writingMode,
       ...(request.role === "base" ? { presentation: request.presentation } : {}),
     }),
+  }),
 });
 ```
 
-A measurer returns logical em units. Negative or non-finite results reject the
-composition instead of producing a partial layout.
+A measurer returns `{ advanceEm }` in logical em units. Negative or non-finite
+results reject the composition instead of producing a partial layout.
 
 Ruby annotations retain one of three associations: `group` for one reading over
 the entire base, `mono` for one reading segment per base grapheme, and `jukugo`

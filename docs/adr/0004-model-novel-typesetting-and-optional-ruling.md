@@ -1,6 +1,6 @@
 # ADR 0004: 小説の組版と任意のマス目表示を分離する
 
-- Status: Accepted
+- Status: Accepted; inline positioning superseded by ADR 0005
 - Date: 2026-08-30
 - Supersedes: ADR 0001 と ADR 0003 のセル依存部分
 

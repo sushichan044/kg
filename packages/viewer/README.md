@@ -99,8 +99,10 @@ div.kgv-viewer
 
 The ruling, text, ruby, and diagnostics are independent absolute-positioned
 layers. Text positions use core's logical em offsets and advances. A hanging
-grapheme carries `data-disposition="hanging"`; a source grapheme suppressed by
-composition is intentionally absent from visible text.
+glyph carries `data-disposition="hanging"`; a source item suppressed by composition
+is intentionally absent from visible text. Glyph cells use `renderSpan`, while ruby
+and diagnostic bands use the typographic `layoutSpan`. Glue and kern affect the
+resolved offsets but are not reconstructed by the viewer.
 
 One diagnostic band covers the range that reaches a line. Identical ranges are
 split into lanes so each remains visible and clickable. The band where a
