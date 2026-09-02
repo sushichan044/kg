@@ -85,8 +85,12 @@ a quarter em between Japanese and a numeral, unit symbol, or Western character, 
 solid where two of those punctuation marks meet.
 
 An overflowing line is answered by reducing that space or by hanging a comma or full
-stop; a short line is answered by stretching eligible space; a line that admits none
-of these is forced. The choice is made for the paragraph rather than line by line,
+stop; a short line is answered by opening up space where JLReq 3.8.4 and appendix 表6
+allow it — the Japanese-to-Western quarter em first, up to a half, then a solid pair
+between kana, kanji, and the marks that go with them, up to a quarter. Space around
+brackets, punctuation, middle dots, hyphens, and an ideographic space is never opened
+up. A line that admits none of these is forced. The choice is made for the paragraph
+rather than line by line,
 minimizing in order the number of forced lines, then stretched, then hanging, then
 shrunk lines that spent visible space. Which space may be reduced, and in which
 order, follows JLReq 3.8.3 and appendix 表3: the space at the line end goes first and

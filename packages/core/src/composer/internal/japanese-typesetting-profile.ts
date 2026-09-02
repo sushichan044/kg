@@ -208,17 +208,38 @@ const REDUCTION_STAGE = {
 } as const;
 
 /**
- * JLReq 3.8.4 is not implemented yet, so every solid pair keeps the uniform quarter em of stretch
- * the composer has always had. Appendix 表6 admits far fewer places than this.
+ * The stages JLReq 3.8.4 adds inter-character space in, as glue priorities on the same reading as
+ * {@link REDUCTION_STAGE}: the lower the number, the earlier the paragraph optimizer takes it. A
+ * line is either reduced or expanded, never both, so the two scales never meet.
  *
- * @see https://github.com/sushichan044/kg/issues/97
+ * Stage 1 is the western word space (cl-26), absent for the same reason it is absent from the
+ * reduction stages. Stage 4 spreads whatever a、b and c could not absorb across every character gap
+ * that is not unbreakable, and is deliberately not implemented: it would justify every line that
+ * currently falls short, which reads as prose combed out to the margin rather than a novel.
  */
-const PROVISIONAL_STRETCH: SpacingCapacity = { priority: 3, amountEm: 0.25 };
+const EXPANSION_STAGE = {
+  /**
+   * Stage 2: the quarter em between Japanese and a numeral, unit symbol or western character.
+   */
+  mixedText: 1,
+  /**
+   * Stage 3: everywhere else 表6 admits, from solid up to a quarter em.
+   */
+  solid: 2,
+} as const;
 
 /**
- * 無印 in 表1: the pair is set solid.
+ * 無印 in 表1 with no colour in 表6: the pair is set solid and line adjustment leaves it alone.
  */
-const SOLID: PairSpacing = { kind: "glue", naturalWidthEm: 0, stretch: PROVISIONAL_STRETCH };
+const SOLID: PairSpacing = { kind: "glue", naturalWidthEm: 0 };
+/**
+ * `1/4` in 表6: set solid, but line adjustment may open it up to a quarter em.
+ */
+const SOLID_EXPANDABLE: PairSpacing = {
+  kind: "glue",
+  naturalWidthEm: 0,
+  stretch: { priority: EXPANSION_STAGE.solid, amountEm: 0.25 },
+};
 /**
  * `1/2` in 表1 with `1/2-0` in 表3: a half em that line adjustment may take down to solid.
  */
@@ -244,9 +265,20 @@ const QUARTER: PairSpacing = {
  */
 const FIXED_QUARTER: PairSpacing = { kind: "glue", naturalWidthEm: 0.25 };
 /**
- * `1/4-1/8` in 表3: the Japanese-to-western quarter em, reducible to an eighth.
+ * `1/4-1/8` in 表3 with `1/4-1/2` in 表6: the Japanese-to-western quarter em, reducible to an eighth
+ * and expandable to a half.
  */
 const MIXED_TEXT_QUARTER: PairSpacing = {
+  kind: "glue",
+  naturalWidthEm: 0.25,
+  shrink: { priority: REDUCTION_STAGE.mixedText, amountEm: 0.125 },
+  stretch: { priority: EXPANSION_STAGE.mixedText, amountEm: 0.25 },
+};
+/**
+ * The same quarter em where 表6 leaves it out of the expansion: between a unit symbol and the
+ * quantity on either side of it.
+ */
+const UNIT_SYMBOL_QUARTER: PairSpacing = {
   kind: "glue",
   naturalWidthEm: 0.25,
   shrink: { priority: REDUCTION_STAGE.mixedText, amountEm: 0.125 },
@@ -312,6 +344,40 @@ const NUMERAL_UNIT_OR_WESTERN = ["cl-24", "cl-25", "cl-27"] as const;
 const PUNCTUATION_TAKING_SPACE_AFTER = ["cl-02", "cl-06", "cl-07"] as const;
 
 /**
+ * 表6 の色付きの小間: the classes a solid pair may be opened up between at stage 3. Neither list holds a
+ * bracket, a middle dot, a full stop, a comma, a hyphen, an ideographic space or a word space —
+ * JLReq opens none of those — and only the left-hand list holds a numeral, unit symbol or western
+ * character, since the space on their Japanese side belongs to stage 2 instead.
+ */
+const EXPANDABLE_BEFORE = [
+  "cl-08",
+  "cl-09",
+  "cl-10",
+  "cl-11",
+  "cl-12",
+  "cl-13",
+  "cl-15",
+  "cl-16",
+  "cl-19",
+  "cl-24",
+  "cl-25",
+  "cl-27",
+  "cl-30",
+] as const;
+const EXPANDABLE_AFTER = [
+  "cl-08",
+  "cl-09",
+  "cl-10",
+  "cl-11",
+  "cl-12",
+  "cl-13",
+  "cl-15",
+  "cl-16",
+  "cl-19",
+  "cl-30",
+] as const;
+
+/**
  * The classes JLReq 3.1.2 sets on a half em rather than a full one.
  */
 const HALF_EM_CLASSES = new Set<JapaneseCharacterClass>([
@@ -344,6 +410,21 @@ type PairSpacingRule = Readonly<{
 const PAIR_SPACING_RULES: readonly PairSpacingRule[] = [
   { left: "any", right: "any", spacing: SOLID },
 
+  // 表6（行の調整処理で空ける処理が可能な箇所）first, because every rule below it either leaves a pair
+  // solid or replaces it with an アキ of its own, and 表6 opens up only pairs that are solid to begin
+  // with. The Japanese-to-western quarter em, which 表6 does expand, carries its own capacity.
+  { left: EXPANDABLE_BEFORE, right: EXPANDABLE_AFTER, spacing: SOLID_EXPANDABLE },
+  // 表6 の cl-24 / cl-25 / cl-27 列: a mark that is neither Japanese nor western may still be opened
+  // up against one, 注10 including a percent or degree sign after a western character.
+  { left: ["cl-08", "cl-12", "cl-13"], right: NUMERAL_UNIT_OR_WESTERN, spacing: SOLID_EXPANDABLE },
+  // The cells 表6 leaves white inside those two blocks. A prefixed abbreviation binds to the numeral
+  // it introduces (`￥100`) and 注8 keeps a numeral tight against a postfixed abbreviation (`10％`);
+  // for the other two the table gives no reason beyond leaving the cell blank.
+  { left: ["cl-08"], right: ["cl-24", "cl-25"], spacing: SOLID },
+  { left: ["cl-12"], right: ["cl-24"], spacing: SOLID },
+  { left: ["cl-24"], right: ["cl-13"], spacing: SOLID },
+  { left: ["cl-09", "cl-10", "cl-11"], right: ["cl-08"], spacing: SOLID },
+
   // 表1 の cl-01 列: an opening bracket takes a half em before it (3.1.2).
   { left: "any", right: ["cl-01"], spacing: HALF },
   // 表1 の cl-05 列: a middle dot takes a quarter em before it (3.1.2).
@@ -355,10 +436,10 @@ const PAIR_SPACING_RULES: readonly PairSpacingRule[] = [
   { left: JAPANESE_BEFORE_WESTERN, right: NUMERAL_UNIT_OR_WESTERN, spacing: MIXED_TEXT_QUARTER },
   { left: NUMERAL_UNIT_OR_WESTERN, right: JAPANESE_AFTER_WESTERN, spacing: MIXED_TEXT_QUARTER },
   // 表1 の cl-24 / cl-25 / cl-27 の交差: a unit symbol takes a quarter em against the quantity beside
-  // it, which 3.1.10 calls customary for the `4` and the `k` of `4 km` (図2.28). 表3 leaves the
-  // numeral-before-unit quarter out of line adjustment, unlike the other three.
-  { left: ["cl-25"], right: ["cl-24"], spacing: MIXED_TEXT_QUARTER },
-  { left: ["cl-27"], right: ["cl-25"], spacing: MIXED_TEXT_QUARTER },
+  // it, which 3.1.10 calls customary for the `4` and the `k` of `4 km` (図2.28). 表6 never expands
+  // those, and 表3 leaves the numeral-before-unit quarter out of line adjustment altogether.
+  { left: ["cl-25"], right: ["cl-24"], spacing: UNIT_SYMBOL_QUARTER },
+  { left: ["cl-27"], right: ["cl-25"], spacing: UNIT_SYMBOL_QUARTER },
   { left: ["cl-24"], right: ["cl-25"], spacing: FIXED_QUARTER },
 
   // 表1 の cl-02 / cl-07 行: a closing bracket or comma takes a half em after it (3.1.2).
