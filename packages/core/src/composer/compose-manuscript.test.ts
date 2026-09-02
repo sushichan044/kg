@@ -2,8 +2,11 @@ import * as v from "valibot";
 import { describe, expect, test } from "vite-plus/test";
 
 import { kakuyomuParser } from "../parser/kakuyomu-parser";
+import type { ManuscriptParser } from "../parser/manuscript-parser";
 import { parseManuscript } from "../parser/parse-manuscript";
+import type { ParsedManuscript } from "../parser/parsed-manuscript";
 import { pixivParser } from "../parser/pixiv-parser";
+import { ManuscriptRange } from "../range/manuscript-range";
 import { ManuscriptResult } from "../result/manuscript-result";
 import { composeManuscript } from "./compose-manuscript";
 import { NovelCompositionSettings } from "./composition-settings";
@@ -440,6 +443,100 @@ describe("composeManuscript", () => {
 
     expect.assert(result.ok, "expected composition to succeed");
     expect(contentLines(result.value).map(lineText)).toEqual(["あ".repeat(9), "漢字"]);
+  });
+
+  test("centres a base character inside the box a longer group reading widens", () => {
+    const parseResult = parseManuscript("｜夢《にやりたいこと》", { parser: kakuyomuParser });
+    expect.assert(parseResult.ok, "fixture did not parse");
+
+    const result = composeManuscript(parseResult.value, {
+      composer: novelComposer,
+      settings: settings({ lineLengthEm: 20 }),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const line = contentLines(result.value)[0];
+    expect.assert(line !== undefined, "layout has no content line");
+    const base = lineGlyphs(line)[0];
+    const ruby = line.annotations.find((annotation) => annotation.kind === "ruby");
+    expect.assert(base !== undefined, "line has no base glyph");
+    expect.assert(ruby !== undefined, "line has no ruby fragment");
+
+    // The seven-grapheme reading measures three and a half em over a one em base, so the base box
+    // grows to the reading and the surplus falls either side of the character rather than after it.
+    expect(base.layoutSpan.advanceEm).toBe(ruby.baseAdvanceEm);
+    expect(base.renderSpan.offsetEm - base.layoutSpan.offsetEm).toBeCloseTo(
+      base.layoutSpan.offsetEm +
+        base.layoutSpan.advanceEm -
+        (base.renderSpan.offsetEm + base.renderSpan.advanceEm),
+      10,
+    );
+  });
+
+  test("spends a longer group reading on the base gaps in JLReq's one to two ratio", () => {
+    const parseResult = parseManuscript("｜漢字《ながいよみです》", { parser: kakuyomuParser });
+    expect.assert(parseResult.ok, "fixture did not parse");
+
+    const result = composeManuscript(parseResult.value, {
+      composer: novelComposer,
+      settings: settings({ lineLengthEm: 20 }),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const line = contentLines(result.value)[0];
+    expect.assert(line !== undefined, "layout has no content line");
+    const [first, second] = lineGlyphs(line);
+    const ruby = line.annotations.find((annotation) => annotation.kind === "ruby");
+    expect.assert(first !== undefined && second !== undefined, "line has no base characters");
+    expect.assert(ruby !== undefined, "line has no ruby fragment");
+
+    const leading = first.renderSpan.offsetEm - ruby.baseOffsetEm;
+    const between =
+      second.renderSpan.offsetEm - (first.renderSpan.offsetEm + first.renderSpan.advanceEm);
+    const trailing =
+      ruby.baseOffsetEm +
+      ruby.baseAdvanceEm -
+      (second.renderSpan.offsetEm + second.renderSpan.advanceEm);
+
+    expect(leading).toBeGreaterThan(0);
+    expect(between).toBeCloseTo(leading * 2, 10);
+    expect(trailing).toBeCloseTo(leading, 10);
+  });
+
+  test("centres a base character inside the box a longer mono reading widens", () => {
+    const base = parseManuscript("漢字");
+    expect.assert(base.ok, "fixture did not parse");
+    const range = ManuscriptRange.merge(base.value.graphemes.map(({ range: own }) => own));
+    expect.assert(range !== null, "fixture did not contain a ruby base range");
+    const monoRubyParser: ManuscriptParser = {
+      id: "example/mono-ruby",
+      parse: () =>
+        ManuscriptResult.succeed<ParsedManuscript>({
+          ...base.value,
+          annotations: [
+            { kind: "ruby", range, reading: { kind: "mono", segments: ["かん", "むずかし"] } },
+          ],
+        }),
+    };
+    const parseResult = parseManuscript("漢字", { parser: monoRubyParser });
+    expect.assert(parseResult.ok, "fixture did not parse");
+
+    const result = composeManuscript(parseResult.value, {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const line = contentLines(result.value)[0];
+    expect.assert(line !== undefined, "layout has no content line");
+    const [unwidened, widened] = lineGlyphs(line);
+    expect.assert(unwidened !== undefined && widened !== undefined, "line has no base characters");
+
+    // A two-grapheme reading fits its base exactly; the four-grapheme one asks for two em, and
+    // JLReq 3.3.5 sets that reading 中付き rather than pushing its base to the top of the box.
+    expect(unwidened.renderSpan.offsetEm).toBe(unwidened.layoutSpan.offsetEm);
+    expect(widened.layoutSpan.advanceEm).toBe(2);
+    expect(widened.renderSpan.offsetEm - widened.layoutSpan.offsetEm).toBeCloseTo(0.5, 10);
   });
 
   test("splits an oversized group ruby without repeating or dropping its reading", () => {
