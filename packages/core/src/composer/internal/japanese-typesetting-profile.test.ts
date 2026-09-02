@@ -116,6 +116,20 @@ type TableCell = Readonly<{
   amountEm: number | null;
 }>;
 
+/**
+ * A label the grid does not name a class with would otherwise reach `pairSpacing` as an unknown
+ * class and be answered from its default, so a mistyped row or column would assert solid spacing
+ * for a class that does not exist.
+ */
+function characterClassOf(name: string, label: string): JapaneseCharacterClass {
+  const characterClass = japaneseCharacterClasses.find((candidate) => candidate === `cl-${label}`);
+  if (characterClass === undefined) {
+    throw new Error(`${name} names cl-${label}, which is not a class this profile distinguishes`);
+  }
+
+  return characterClass;
+}
+
 function parseTable(name: string, table: string): TableCell[] {
   const [header, ...rows] = table.trim().split("\n");
   if (header === undefined) throw new Error(`${name} has no header row`);
@@ -137,8 +151,8 @@ function parseTable(name: string, table: string): TableCell[] {
       }
 
       return {
-        left: `cl-${label}` as JapaneseCharacterClass,
-        right: column === "LE" ? LINE_END : (`cl-${column}` as JapaneseCharacterClass),
+        left: characterClassOf(name, label),
+        right: column === "LE" ? LINE_END : characterClassOf(name, column),
         amountEm: amountEm ?? null,
       };
     });
@@ -147,6 +161,14 @@ function parseTable(name: string, table: string): TableCell[] {
 
 const SPACING_TABLE = parseTable("表1", SPACING_AMOUNTS);
 const REDUCTION_TABLE = parseTable("表3", REDUCIBLE_AMOUNTS);
+
+function labelsOf(table: readonly TableCell[]) {
+  return {
+    rows: [...new Set(table.map(({ left }) => left))].sort(),
+    columns: [...new Set(table.map(({ right }) => right))].sort(),
+    cells: table.length,
+  };
+}
 
 function resolvedSpacing(cell: TableCell) {
   const { left, right } = cell;
@@ -184,10 +206,17 @@ describe("defaultJapaneseTypesettingProfile", () => {
   });
 
   test("covers every class it distinguishes in both appendix tables", () => {
-    const cells = japaneseCharacterClasses.length * (japaneseCharacterClasses.length + 1);
+    const classes = [...japaneseCharacterClasses].sort();
+    const expected = {
+      rows: classes,
+      columns: [...classes, LINE_END].sort(),
+      // A duplicated label with another dropped would keep the row and column sets whole, so count
+      // the cells as well.
+      cells: classes.length * (classes.length + 1),
+    };
 
-    expect(SPACING_TABLE).toHaveLength(cells);
-    expect(REDUCTION_TABLE).toHaveLength(cells);
+    expect(labelsOf(SPACING_TABLE)).toEqual(expected);
+    expect(labelsOf(REDUCTION_TABLE)).toEqual(expected);
   });
 
   test("leaves the space 表1 prescribes between every pair of classes", () => {
@@ -246,9 +275,10 @@ describe("defaultJapaneseTypesettingProfile", () => {
   test("keeps the half em after a mid-line full stop out of line adjustment", () => {
     const midLine = defaultJapaneseTypesettingProfile.pairSpacing("cl-06", "cl-19");
     const lineEnd = defaultJapaneseTypesettingProfile.lineEndSpacing("cl-06");
+    expect.assert(lineEnd !== null, "a full stop takes no space at the line end");
 
     expect(midLine).toEqual({ kind: "glue", naturalWidthEm: 0.5 });
-    expect(lineEnd?.shrink).toEqual({ priority: 0, amountEm: 0.5 });
+    expect(lineEnd.shrink).toEqual({ priority: 0, amountEm: 0.5 });
   });
 
   test("keeps a line-head opening bracket at its full half em", () => {

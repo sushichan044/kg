@@ -384,8 +384,11 @@ describe("composeManuscript", () => {
 
     expect.assert(result.ok, "expected composition to succeed");
     const lines = contentLines(result.value);
+    const line = lines[0];
+    expect.assert(line !== undefined, "layout has no content line");
+
     expect(lines.map(lineText)).toEqual([source]);
-    expect(lines[0]?.inlineSizeEm).toBe(inlineSizeEm);
+    expect(line.inlineSizeEm).toBe(inlineSizeEm);
   });
 
   test("sets a middle dot on a half em with a quarter on each side", () => {
