@@ -15,51 +15,54 @@ import type { VerticalTextPresentation } from "../vertical-text-presentation";
  *
  * @see https://www.w3.org/TR/jlreq/#character_classes
  */
-export type JapaneseCharacterClass =
+export const japaneseCharacterClasses = [
   // 始め括弧類 — opening brackets.
-  | "cl-01"
+  "cl-01",
   // 終わり括弧類 — closing brackets.
-  | "cl-02"
+  "cl-02",
   // ハイフン類 — hyphens.
-  | "cl-03"
+  "cl-03",
   // 区切り約物 — dividing punctuation, the question and exclamation marks.
-  | "cl-04"
+  "cl-04",
   // 中点類 — middle dots.
-  | "cl-05"
+  "cl-05",
   // 句点類 — full stops.
-  | "cl-06"
+  "cl-06",
   // 読点類 — commas.
-  | "cl-07"
+  "cl-07",
   // 分離禁止文字 — characters that must not be split from their own repetition.
-  | "cl-08"
+  "cl-08",
   // 繰返し記号 — iteration marks.
-  | "cl-09"
+  "cl-09",
   // 長音記号 — the prolonged sound mark.
-  | "cl-10"
+  "cl-10",
   // 小書きの仮名 — small kana.
-  | "cl-11"
+  "cl-11",
   // 前置省略記号 — prefixed abbreviations such as a currency sign.
-  | "cl-12"
+  "cl-12",
   // 後置省略記号 — postfixed abbreviations such as a degree or percent sign.
-  | "cl-13"
+  "cl-13",
   // 和字間隔 — the ideographic space.
-  | "cl-14"
+  "cl-14",
   // 平仮名 — hiragana.
-  | "cl-15"
+  "cl-15",
   // 片仮名 — katakana.
-  | "cl-16"
+  "cl-16",
   // 漢字等 — kanji and the like, and the fallback for anything unclassified.
-  | "cl-19"
+  "cl-19",
   // 連数字中の文字 — a digit inside a grouped numeral.
-  | "cl-24"
+  "cl-24",
   // 単位記号中の文字 — a character inside a unit symbol.
-  | "cl-25"
+  "cl-25",
   // 欧文間隔 — the western word space.
-  | "cl-26"
+  "cl-26",
   // 欧文用文字 — western characters.
-  | "cl-27"
+  "cl-27",
   // 縦中横中の文字 — a character inside a tate-chu-yoko group.
-  | "cl-30";
+  "cl-30",
+] as const;
+
+export type JapaneseCharacterClass = (typeof japaneseCharacterClasses)[number];
 
 /**
  * A character together with the vertical presentation already chosen for it, because the same
@@ -75,9 +78,11 @@ export type JapaneseCharacter = Readonly<{
  * priorities are spent first, following the orders JLReq 3.8.3 and 3.8.4 lay down.
  *
  * Priority 0 means the adjustment is invisible to the reader, so the paragraph optimizer spends it
- * before anything else and charges nothing for it. JLReq 3.1.9 note 2 is what makes such a case
- * possible at all: the half em after a closing bracket, full stop or comma cannot be seen once that
- * character sits at the line end.
+ * before anything else and charges nothing for it. JLReq 3.1.9 is what makes such a case possible
+ * at all: the half em after a closing bracket, full stop or comma — and the quarter em after a
+ * middle dot — cannot be seen once that character sits at the line end.
+ *
+ * @see REDUCTION_STAGE for the stages JLReq 3.8.3 orders these priorities by.
  */
 export type SpacingCapacity = Readonly<{ priority: number; amountEm: number }>;
 
@@ -170,40 +175,249 @@ function classify({ value, presentation }: JapaneseCharacter): JapaneseCharacter
 }
 
 /**
- * The inter-character space JLReq 3.1.2 and 3.1.4 prescribe for each pair, expressed as glue the
- * paragraph optimizer may still resize. Brackets and punctuation are set on a half em, so a pair of
- * them would otherwise leave a full em of white; the kern closes that gap and stays fixed.
+ * The stages JLReq 3.8.3 spends inter-character space in, as glue priorities: the lower the number,
+ * the earlier the paragraph optimizer takes it.
+ *
+ * JLReq's own first stage is the western word space (cl-26), which is absent here because reducing
+ * it means resizing the space's own advance rather than a space between two characters.
+ *
+ * The line-end stage is priority 0, which the optimizer also charges nothing for. JLReq 3.1.9 is
+ * what allows that: the half em after a closing bracket, full stop or comma — and the quarter em
+ * after a middle dot — cannot be seen once that character sits at the line end. JLReq orders it
+ * second rather than first, but only after the word space this profile does not adjust at all.
+ * Stages two and three are one priority here because a line has a single line end, so the two never
+ * compete.
  */
+const REDUCTION_STAGE = {
+  /**
+   * Stages 2 and 3: the space after a closing bracket, full stop, comma or middle dot at line end.
+   */
+  lineEnd: 0,
+  /**
+   * Stage 4: the quarter em on either side of a mid-line middle dot.
+   */
+  middleDot: 1,
+  /**
+   * Stage 5: the half em before an opening bracket and after a closing bracket or comma.
+   */
+  punctuation: 2,
+  /**
+   * Stage 6: the quarter em between Japanese and a numeral, unit symbol or western character.
+   */
+  mixedText: 3,
+} as const;
+
+/**
+ * JLReq 3.8.4 is not implemented yet, so every solid pair keeps the uniform quarter em of stretch
+ * the composer has always had. Appendix 表6 admits far fewer places than this.
+ *
+ * @see https://github.com/sushichan044/kg/issues/97
+ */
+const PROVISIONAL_STRETCH: SpacingCapacity = { priority: 3, amountEm: 0.25 };
+
+/**
+ * 無印 in 表1: the pair is set solid.
+ */
+const SOLID: PairSpacing = { kind: "glue", naturalWidthEm: 0, stretch: PROVISIONAL_STRETCH };
+/**
+ * `1/2` in 表1 with `1/2-0` in 表3: a half em that line adjustment may take down to solid.
+ */
+const HALF: PairSpacing = {
+  kind: "glue",
+  naturalWidthEm: 0.5,
+  shrink: { priority: REDUCTION_STAGE.punctuation, amountEm: 0.5 },
+};
+/**
+ * `1/2` in both tables: the half em exists but is not a reduction opportunity.
+ */
+const FIXED_HALF: PairSpacing = { kind: "glue", naturalWidthEm: 0.5 };
+/**
+ * `1/4` in 表1 with `1/4-0` in 表3: a quarter em that may go down to solid.
+ */
+const QUARTER: PairSpacing = {
+  kind: "glue",
+  naturalWidthEm: 0.25,
+  shrink: { priority: REDUCTION_STAGE.middleDot, amountEm: 0.25 },
+};
+/**
+ * `1/4` in both tables: the quarter em exists but is not a reduction opportunity.
+ */
+const FIXED_QUARTER: PairSpacing = { kind: "glue", naturalWidthEm: 0.25 };
+/**
+ * `1/4-1/8` in 表3: the Japanese-to-western quarter em, reducible to an eighth.
+ */
+const MIXED_TEXT_QUARTER: PairSpacing = {
+  kind: "glue",
+  naturalWidthEm: 0.25,
+  shrink: { priority: REDUCTION_STAGE.mixedText, amountEm: 0.125 },
+};
+/**
+ * 表1 注3 with 表3 注1: two middle dots meet, and their quarters go solid together.
+ */
+const TWO_QUARTERS: PairSpacing = {
+  kind: "glue",
+  naturalWidthEm: 0.5,
+  shrink: { priority: REDUCTION_STAGE.middleDot, amountEm: 0.5 },
+};
+/**
+ * 表1 注5 with 表3 注2: a full stop's fixed half em plus the following middle dot's quarter.
+ */
+const FIXED_HALF_AND_QUARTER: PairSpacing = {
+  kind: "glue",
+  naturalWidthEm: 0.75,
+  shrink: { priority: REDUCTION_STAGE.middleDot, amountEm: 0.25 },
+};
+/**
+ * 表1 注5 with 表3 注3: a comma's half em plus the following middle dot's quarter.
+ *
+ * 表3 spends the quarter at stage 4 and the half at stage 5, which one capacity cannot say. Both are
+ * reducible to solid, so the total is right and only the order collapses — and `、・` is rare enough
+ * that the order never shows.
+ */
+const HALF_AND_QUARTER: PairSpacing = {
+  kind: "glue",
+  naturalWidthEm: 0.75,
+  shrink: { priority: REDUCTION_STAGE.punctuation, amountEm: 0.75 },
+};
+/**
+ * 分離禁止文字 repeated (a 2倍ダッシュ, a 2倍リーダ) must read as one continuous rule (3.1.10).
+ */
+const DASH_JOINT: PairSpacing = { kind: "kern", naturalWidthEm: 0 };
+
+/**
+ * The classes that take a quarter em against a numeral, unit symbol or western character (3.2.6).
+ * Dividing punctuation is on the list in that direction only, because the space before a `？` or `！`
+ * is solid (3.1.6).
+ */
+const JAPANESE_BEFORE_WESTERN = [
+  "cl-04",
+  "cl-09",
+  "cl-10",
+  "cl-11",
+  "cl-15",
+  "cl-16",
+  "cl-19",
+  "cl-30",
+] as const;
+const JAPANESE_AFTER_WESTERN = [
+  "cl-09",
+  "cl-10",
+  "cl-11",
+  "cl-15",
+  "cl-16",
+  "cl-19",
+  "cl-30",
+] as const;
+const NUMERAL_UNIT_OR_WESTERN = ["cl-24", "cl-25", "cl-27"] as const;
+const PUNCTUATION_TAKING_SPACE_AFTER = ["cl-02", "cl-06", "cl-07"] as const;
+
+/**
+ * The classes JLReq 3.1.2 sets on a half em rather than a full one.
+ */
+const HALF_EM_CLASSES = new Set<JapaneseCharacterClass>([
+  "cl-01",
+  "cl-02",
+  "cl-05",
+  "cl-06",
+  "cl-07",
+]);
+
+type ClassSelector = readonly JapaneseCharacterClass[] | "any";
+
+type PairSpacingRule = Readonly<{
+  left: ClassSelector;
+  right: ClassSelector;
+  spacing: PairSpacing;
+}>;
+
+/**
+ * 附属書 表1（文字間の空き量）and 表3（行の調整処理で詰める処理が可能な箇所）as rows, columns and the exceptions the tables
+ * themselves carry. A later rule overrides an earlier one, so each block reads the way the appendix
+ * does: a column of the table, then a row, then the cells that break the row.
+ *
+ * `be` and `af` in 表1 only say whose character size a half or a quarter is measured against, which
+ * cannot differ while the composer sets one size, so the notation is reduced to an amount here.
+ *
+ * @see https://www.w3.org/TR/jlreq/#spacing_between_characters
+ * @see https://www.w3.org/TR/jlreq/#opportunities_for_intercharacter_space_reduction_during_line_adjustment
+ */
+const PAIR_SPACING_RULES: readonly PairSpacingRule[] = [
+  { left: "any", right: "any", spacing: SOLID },
+
+  // 表1 の cl-01 列: an opening bracket takes a half em before it (3.1.2).
+  { left: "any", right: ["cl-01"], spacing: HALF },
+  // 表1 の cl-05 列: a middle dot takes a quarter em before it (3.1.2).
+  { left: "any", right: ["cl-05"], spacing: QUARTER },
+  // 表1 の cl-02 / cl-06 / cl-07 列: the space belongs after those, never before (3.1.4 ①②).
+  { left: "any", right: PUNCTUATION_TAKING_SPACE_AFTER, spacing: SOLID },
+
+  // Japanese against a numeral, unit symbol or western character (3.2.6).
+  { left: JAPANESE_BEFORE_WESTERN, right: NUMERAL_UNIT_OR_WESTERN, spacing: MIXED_TEXT_QUARTER },
+  { left: NUMERAL_UNIT_OR_WESTERN, right: JAPANESE_AFTER_WESTERN, spacing: MIXED_TEXT_QUARTER },
+  // 表1 の cl-24 / cl-25 / cl-27 の交差: a unit symbol takes a quarter em against the quantity beside
+  // it, which 3.1.10 calls customary for the `4` and the `k` of `4 km` (図2.28). 表3 leaves the
+  // numeral-before-unit quarter out of line adjustment, unlike the other three.
+  { left: ["cl-25"], right: ["cl-24"], spacing: MIXED_TEXT_QUARTER },
+  { left: ["cl-27"], right: ["cl-25"], spacing: MIXED_TEXT_QUARTER },
+  { left: ["cl-24"], right: ["cl-25"], spacing: FIXED_QUARTER },
+
+  // 表1 の cl-02 / cl-07 行: a closing bracket or comma takes a half em after it (3.1.2).
+  { left: ["cl-02", "cl-07"], right: "any", spacing: HALF },
+  // 表1 の cl-06 行: so does a full stop, but mid-line that half em marks the end of a sentence and
+  // JLReq 3.8.3 keeps it out of line adjustment entirely.
+  { left: ["cl-06"], right: "any", spacing: FIXED_HALF },
+  // 表1 の cl-05 列 again, since the row above would otherwise cover it (表1 注5).
+  { left: ["cl-02"], right: ["cl-05"], spacing: QUARTER },
+  { left: ["cl-06"], right: ["cl-05"], spacing: FIXED_HALF_AND_QUARTER },
+  { left: ["cl-07"], right: ["cl-05"], spacing: HALF_AND_QUARTER },
+  // Consecutive punctuation sets solid and the trailing half em is taken once (3.1.4 ①②⑥).
+  {
+    left: PUNCTUATION_TAKING_SPACE_AFTER,
+    right: PUNCTUATION_TAKING_SPACE_AFTER,
+    spacing: SOLID,
+  },
+  // 表1 の cl-02 行 cl-14 列: an ideographic space after a closing bracket absorbs the half em.
+  { left: ["cl-02"], right: ["cl-14"], spacing: SOLID },
+
+  // 表1 の cl-05 行: a middle dot takes a quarter em after it as well (3.1.2), which is why a middle
+  // dot is a half-em box with a quarter on each side and still occupies one em.
+  { left: ["cl-05"], right: "any", spacing: QUARTER },
+  { left: ["cl-05"], right: ["cl-05"], spacing: TWO_QUARTERS },
+
+  // 表1 の cl-01 行: nothing follows an opening bracket, since its space sits before it (3.1.4 ⑤).
+  { left: ["cl-01"], right: "any", spacing: SOLID },
+  { left: ["cl-01"], right: ["cl-05"], spacing: QUARTER },
+
+  // 表1 の cl-14 行: an ideographic space is itself the space, so it needs none after it.
+  { left: ["cl-14"], right: "any", spacing: SOLID },
+  { left: ["cl-14"], right: ["cl-05"], spacing: QUARTER },
+
+  // 表1 の cl-26 行と cl-26 列: a western word space is set solid against its neighbours, except for
+  // the half em an opening bracket and the quarter em a middle dot always take. 表3 marks no cell of
+  // that row or column as a reduction opportunity, so every space beside a word space is fixed —
+  // adjusting the word space itself is JLReq's first stage, which this profile does not do yet.
+  { left: "any", right: ["cl-26"], spacing: SOLID },
+  { left: PUNCTUATION_TAKING_SPACE_AFTER, right: ["cl-26"], spacing: FIXED_HALF },
+  { left: ["cl-05"], right: ["cl-26"], spacing: FIXED_QUARTER },
+  { left: ["cl-26"], right: "any", spacing: SOLID },
+  { left: ["cl-26"], right: ["cl-01"], spacing: FIXED_HALF },
+  { left: ["cl-26"], right: ["cl-05"], spacing: FIXED_QUARTER },
+
+  { left: ["cl-08"], right: ["cl-08"], spacing: DASH_JOINT },
+];
+
+const PAIR_SPACING_TABLE: ReadonlyMap<string, PairSpacing> = new Map(
+  PAIR_SPACING_RULES.flatMap(({ left, right, spacing }) =>
+    (left === "any" ? japaneseCharacterClasses : left).flatMap((leftClass) =>
+      (right === "any" ? japaneseCharacterClasses : right).map(
+        (rightClass) => [`${leftClass}/${rightClass}`, spacing] as const,
+      ),
+    ),
+  ),
+);
+
 function pairSpacing(left: JapaneseCharacterClass, right: JapaneseCharacterClass): PairSpacing {
-  // 分離禁止文字 repeated (a 2倍ダッシュ, a 2倍リーダ) must read as one continuous rule.
-  if (left === "cl-08" && right === "cl-08") {
-    return { kind: "kern", naturalWidthEm: 0 };
-  }
-  if ((left === "cl-01" && right === "cl-01") || (left === "cl-02" && right === "cl-02")) {
-    return { kind: "kern", naturalWidthEm: -0.5 };
-  }
-
-  if (left === "cl-07" || left === "cl-06") {
-    return {
-      kind: "glue",
-      naturalWidthEm: 0.5,
-      shrink: { priority: 1, amountEm: 0.5 },
-    };
-  }
-
-  if (left === "cl-02" || right === "cl-01") {
-    return {
-      kind: "glue",
-      naturalWidthEm: 0.5,
-      shrink: { priority: 2, amountEm: 0.5 },
-    };
-  }
-
-  return {
-    kind: "glue",
-    naturalWidthEm: 0,
-    stretch: { priority: 3, amountEm: 0.25 },
-  };
+  return PAIR_SPACING_TABLE.get(`${left}/${right}`) ?? SOLID;
 }
 
 /**
@@ -244,48 +458,61 @@ export const defaultJapaneseTypesettingProfile: JapaneseTypesettingProfile = {
   classify,
 
   /**
-   * Opening and closing brackets, full stops and commas are set on a half em (JLReq 3.1.2). A
-   * fullwidth opening-bracket glyph draws its ink in the right half of its own em, so halving the
-   * advance alone would leave the ink where it was; the render offset pulls it back into the box.
+   * Opening and closing brackets, full stops, commas and middle dots are set on a half em (JLReq
+   * 3.1.2); the space the pair table puts around them is what brings each back to a full em.
+   *
+   * A fullwidth glyph keeps drawing its ink where the font put it, so halving the advance alone
+   * would leave the ink outside the box. The offset pulls it back: an opening bracket draws in the
+   * trailing half of its em, a middle dot in the centre, and the rest in the leading half.
    */
-  boxMetrics: (characterClass, measuredAdvanceEm) => ({
-    advanceEm:
-      characterClass === "cl-01" ||
-      characterClass === "cl-02" ||
-      characterClass === "cl-06" ||
-      characterClass === "cl-07"
-        ? Math.min(0.5, measuredAdvanceEm)
-        : measuredAdvanceEm,
-    renderOffsetEm: characterClass === "cl-01" ? -0.5 : 0,
-  }),
+  boxMetrics: (characterClass, measuredAdvanceEm) => {
+    const advanceEm = HALF_EM_CLASSES.has(characterClass)
+      ? Math.min(0.5, measuredAdvanceEm)
+      : measuredAdvanceEm;
+    const inkOverhangEm = measuredAdvanceEm - advanceEm;
+
+    return {
+      advanceEm,
+      renderOffsetEm:
+        characterClass === "cl-01"
+          ? -inkOverhangEm
+          : characterClass === "cl-05"
+            ? -inkOverhangEm / 2
+            : 0,
+    };
+  },
   pairSpacing,
 
   /**
-   * An opening bracket at the line head keeps its half em of white so the line starts on the grid
-   * (JLReq 3.1.5). That white is shrinkable, which is how a line ends up flush when nothing else
-   * can give.
+   * An opening bracket at the line head keeps a half em of white, so a line of dialogue starts one
+   * half em in rather than tight against the edge. JLReq 3.1.5 lists three schemes for that white
+   * and 表1 注17 sets solid as the principle; the half em is the variant the publishers of Japanese
+   * novels use for a line that begins a paragraph.
+   *
+   * The white is not shrinkable. 表3 excludes the line head from line adjustment altogether, and
+   * shrinking it is exactly what pushed a line-head bracket flush against the edge in #94.
    */
-  lineStartSpacing: (first) =>
-    first === "cl-01"
-      ? {
-          kind: "glue",
-          naturalWidthEm: 0.5,
-          shrink: { priority: 2, amountEm: 0.5 },
-        }
-      : null,
+  lineStartSpacing: (first) => (first === "cl-01" ? { kind: "glue", naturalWidthEm: 0.5 } : null),
 
   /**
-   * The half em trailing a closing bracket, full stop or comma at the line end (JLReq 3.1.9).
-   * Priority 0: spending it changes nothing the reader can see.
+   * The half em trailing a closing bracket, full stop or comma at the line end, and the quarter em
+   * trailing a middle dot there (JLReq 3.1.9). Priority 0: spending it changes nothing the reader
+   * can see.
    */
   lineEndSpacing: (last) =>
     last === "cl-02" || last === "cl-06" || last === "cl-07"
       ? {
           kind: "glue",
           naturalWidthEm: 0.5,
-          shrink: { priority: 0, amountEm: 0.5 },
+          shrink: { priority: REDUCTION_STAGE.lineEnd, amountEm: 0.5 },
         }
-      : null,
+      : last === "cl-05"
+        ? {
+            kind: "glue",
+            naturalWidthEm: 0.25,
+            shrink: { priority: REDUCTION_STAGE.lineEnd, amountEm: 0.25 },
+          }
+        : null,
 
   breakPenalty,
 

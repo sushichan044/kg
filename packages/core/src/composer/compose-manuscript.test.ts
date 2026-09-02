@@ -318,16 +318,19 @@ describe("composeManuscript", () => {
   });
 
   test("drops the invisible line-end half-em before squeezing visible punctuation space", () => {
-    const result = composeManuscript(parsed("「あ。あああああああ、"), {
+    // Ten and a half em of text in a ten em line, with a half em to give at the mid-line comma and
+    // another at the line end.
+    const result = composeManuscript(parsed("ああ、ああああああ。」"), {
       composer: novelComposer,
       settings: settings(),
     });
 
     expect.assert(result.ok, "expected composition to succeed");
     const lines = contentLines(result.value);
-    expect(lines.map(lineText)).toEqual(["「あ。あああああああ、"]);
+    expect(lines.map(lineText)).toEqual(["ああ、ああああああ。」"]);
     const line = lines[0];
     expect.assert(line !== undefined, "layout has no content line");
+    expect(line.break).toEqual({ kind: "shrunk" });
     expect(
       line.items.flatMap((item) =>
         item.kind === "glue" && item.naturalWidthEm === 0.5
@@ -335,13 +338,75 @@ describe("composeManuscript", () => {
           : [],
       ),
     ).toEqual([
+      // The half em after the comma keeps its width; the invisible one at the line end goes instead.
       { widthEm: 0.5, adjustment: "natural" },
       { widthEm: 0, adjustment: "shrunk" },
-      { widthEm: 0, adjustment: "shrunk" },
     ]);
-    const openingBracket = lineGlyphs(line)[0];
+    expect(line.inlineSizeEm).toBe(10);
+  });
+
+  test("breaks a line rather than squeezing a full stop or a line-head bracket", () => {
+    // JLReq 3.8.3 keeps the half em after a mid-line full stop out of line adjustment, and 表3
+    // excludes the line head from it altogether. Shrinking those two is what pulled a line-head
+    // bracket flush against the edge in #94, so this paragraph has to break instead.
+    const result = composeManuscript(parsed("「あ。あああああああ、"), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const lines = contentLines(result.value);
+    expect(lines.length).toBeGreaterThan(1);
+    const firstLine = lines[0];
+    expect.assert(firstLine !== undefined, "layout has no first content line");
+    expect(
+      firstLine.items.flatMap((item) => (item.kind === "glue" ? [item.adjustment] : [])),
+    ).not.toContain("shrunk");
+    const openingBracket = lineGlyphs(firstLine)[0];
     expect.assert(openingBracket !== undefined, "layout has no opening bracket");
     expect(openingBracket.layoutSpan.offsetEm).toBe(0.5);
+  });
+
+  test.each([
+    ["あ。い", 3],
+    ["あ。」い", 3.5],
+    ["あ」。い", 3.5],
+    ["あ、」い", 3.5],
+    ["「『あ", 2.5],
+    ["あ・い", 3],
+    ["あAい", 3.5],
+    ["あ1い", 3.5],
+  ] as const)("sets %s in %s em, as 表1 prescribes", (source, inlineSizeEm) => {
+    const result = composeManuscript(parsed(source), {
+      composer: novelComposer,
+      settings: settings({ lineLengthEm: 40 }),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const lines = contentLines(result.value);
+    expect(lines.map(lineText)).toEqual([source]);
+    expect(lines[0]?.inlineSizeEm).toBe(inlineSizeEm);
+  });
+
+  test("sets a middle dot on a half em with a quarter on each side", () => {
+    const result = composeManuscript(parsed("あ・い"), {
+      composer: novelComposer,
+      settings: settings({ lineLengthEm: 40 }),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const line = contentLines(result.value)[0];
+    expect.assert(line !== undefined, "layout has no content line");
+    const middleDot = lineGlyphs(line).find(({ value }) => value === "・");
+    expect.assert(middleDot !== undefined, "layout has no middle dot");
+    expect(middleDot.layoutSpan).toEqual({ offsetEm: 1.25, advanceEm: 0.5 });
+    // The ink stays a full em wide and is centred on the half-em box it now advances by.
+    expect(middleDot.renderSpan).toEqual({ offsetEm: 1, advanceEm: 1 });
+    expect(
+      line.items.flatMap((item) =>
+        item.kind === "glue" && item.naturalWidthEm > 0 ? [item.widthEm] : [],
+      ),
+    ).toEqual([0.25, 0.25]);
   });
 
   test("keeps shared opening and closing brackets away from illegal line boundaries", () => {
@@ -490,7 +555,9 @@ describe("composeManuscript", () => {
     const rubyFragments = contentLines(result.value).flatMap(({ annotations }) =>
       annotations.filter((annotation) => annotation.kind === "ruby"),
     );
-    expect(rubyFragments.map(({ reading }) => reading)).toEqual(["あ".repeat(5), "あ".repeat(4)]);
+    // The Latin base measures nine em against ten kanji of one em, and the quarter em JLReq 3.2.6
+    // puts between them leaves the first line to the Latin base alone.
+    expect(rubyFragments.map(({ reading }) => reading)).toEqual(["あ".repeat(4), "あ".repeat(5)]);
   });
 
   test("rejects an invalid custom measurement as a typed composer rejection", () => {
