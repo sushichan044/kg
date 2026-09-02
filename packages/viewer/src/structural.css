@@ -158,8 +158,8 @@
   position: absolute;
   inset-block: 0;
   left: 100%;
-  /* One flex box per reading character, so the line runs down the reading in this vertical flow and
-     nothing depends on how an engine spaces characters. */
+  /* One placed box per reading character, so the reading sits where the composer put it and nothing
+     depends on how an engine spaces characters. */
   writing-mode: vertical-rl;
   text-orientation: upright;
   font-family: var(--kgv-manuscript-font);
@@ -168,12 +168,15 @@
   line-height: 1;
 }
 
+/* Placed along the inline axis, not the block axis the cells above use: the run is inside .kgv-ruby,
+   whose vertical-rl turns the inline axis into the one that goes down the line. Position it by the
+   block axis instead and the reading walks sideways across the neighbouring lines. */
 .kgv-ruby-character {
   position: absolute;
-  inset-block-start: calc(var(--kgv-item-offset) * var(--kgv-cell-size));
+  inset-inline-start: calc(var(--kgv-item-offset) * var(--kgv-cell-size));
   display: grid;
   place-items: center;
-  block-size: calc(var(--kgv-item-advance) * var(--kgv-cell-size));
+  inline-size: calc(var(--kgv-item-advance) * var(--kgv-cell-size));
 }
 
 /* Keeps the emphasis mark beside the glyph rather than overlapping it. */

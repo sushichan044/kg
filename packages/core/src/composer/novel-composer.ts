@@ -50,6 +50,8 @@ type Atom = Readonly<{
   presentation: VerticalTextPresentation;
 }>;
 
+type MutableAtom = { -readonly [Key in keyof Atom]: Atom[Key] };
+
 type MeasuredSourceLine = Readonly<{
   atoms: readonly Atom[];
   suppressedIndexes: ReadonlySet<number>;
@@ -179,6 +181,22 @@ function measure(
   return advanceEm;
 }
 
+/**
+ * Widen a base character by `extraEm` so a reading longer than it has room, keeping the character's
+ * ink in the middle of the widened box.
+ *
+ * JLReq 3.3.6 sets such a reading solid and spends the surplus on the base instead: two units
+ * between the base characters for one unit before the first and after the last. Handing every base
+ * character an equal share of the surplus and centring it inside that share produces exactly those
+ * proportions, and it is also the 中付き position JLReq 3.3.5 asks of a mono ruby whose reading
+ * outruns its single base character.
+ */
+function widenForReading(atom: MutableAtom, extraEm: number): void {
+  if (extraEm <= 0) return;
+  atom.boxAdvanceEm += extraEm;
+  atom.renderOffsetEm += extraEm / 2;
+}
+
 function measureSourceLine(
   sourceLine: readonly ParsedGrapheme[],
   annotations: readonly ManuscriptAnnotation[],
@@ -203,13 +221,7 @@ function measureSourceLine(
   });
   if (mutable.some((atom) => atom === undefined)) return undefined;
 
-  const atoms: Array<{
-    grapheme: ParsedGrapheme;
-    boxAdvanceEm: number;
-    renderAdvanceEm: number;
-    renderOffsetEm: number;
-    presentation: VerticalTextPresentation;
-  }> = mutable.flatMap((atom) => (atom === undefined ? [] : [atom]));
+  const atoms: MutableAtom[] = mutable.flatMap((atom) => (atom === undefined ? [] : [atom]));
 
   for (const annotation of annotations) {
     if (annotation.kind !== "ruby") continue;
@@ -234,7 +246,7 @@ function measureSourceLine(
       const extra = Math.max(0, readingAdvance - baseAdvance) / indexes.length;
       for (const index of indexes) {
         const atom = atoms[index];
-        if (atom !== undefined) atom.boxAdvanceEm += extra;
+        if (atom !== undefined) widenForReading(atom, extra);
       }
       continue;
     }
@@ -245,7 +257,7 @@ function measureSourceLine(
       if (segment === undefined || atom === undefined) continue;
       const readingAdvance = measure(measurer, segment, "ruby", settings);
       if (readingAdvance === undefined) return undefined;
-      atom.boxAdvanceEm = Math.max(atom.boxAdvanceEm, readingAdvance);
+      widenForReading(atom, readingAdvance - atom.boxAdvanceEm);
     }
   }
 
