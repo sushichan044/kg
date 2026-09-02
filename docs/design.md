@@ -66,9 +66,9 @@ nothing but a schema, or whose operations only core itself calls, is exported
 with `export type`, which keeps its schema out of the API.
 
 Two consequences worth stating. Nothing outside `src/proofreading` imports from
-it, so an application that only sets text never pulls the rules in. Diagnostics
-stay in the root entry regardless, because parser warnings travel as the same
-type.
+it, so an application that only parses and composes never pulls the rules in.
+Diagnostics stay in the root entry regardless, because parser warnings travel as
+the same type.
 
 ## Runtime validation
 
