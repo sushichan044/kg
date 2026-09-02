@@ -73,6 +73,15 @@ function isEllipsisSubstitute(text: string, index: number): boolean {
   return end - start + 1 >= 3;
 }
 
+/**
+ * Halfwidth punctuation (約物) where Japanese prose calls for the fullwidth form. Japanese
+ * punctuation is designed to occupy one em, and the composer's spacing rules are stated in those
+ * terms, so a halfwidth form neither lands on the grid nor picks up the spacing its character class
+ * calls for.
+ *
+ * The three checks differ in how much the surroundings decide the answer, which is why only the
+ * first is decisive on its own.
+ */
 export const fullwidthJapanesePunctuationRule = (): ParsedProofreadingRule => ({
   kind: "parsed",
   meta: { id: RULE_ID, messages: MESSAGES },

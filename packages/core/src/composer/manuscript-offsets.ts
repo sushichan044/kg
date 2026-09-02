@@ -16,7 +16,9 @@ const ManuscriptOffsetsSchema = readonlyObject({
 });
 
 /**
- * Blank lines held back at document, page and stage scope before any text is placed.
+ * Blank lines held back at document, page and stage scope before any text is placed. This is how a
+ * novel reserves the opening pages and keeps the top and bottom of each block of text clear, in
+ * whole lines rather than in millimetres, so the grid stays intact.
  */
 export type ManuscriptOffsets = v.InferOutput<typeof ManuscriptOffsetsSchema>;
 

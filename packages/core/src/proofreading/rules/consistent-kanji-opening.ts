@@ -22,7 +22,10 @@ const KanjiOpeningPairSchema = v.pipe(
 );
 
 /**
- * A word written in kanji, paired with the kana form of the same word.
+ * One word in both of its spellings — `出来る` against `できる`. Japanese editing names the two choices
+ * rather than the two forms: writing a word in kanji is 閉じる and writing it in kana is 開く, which is
+ * where the field names come from. Which one a work prefers is its own house style; using both
+ * within one work is 表記ゆれ.
  */
 export type KanjiOpeningPair = v.InferOutput<typeof KanjiOpeningPairSchema>;
 

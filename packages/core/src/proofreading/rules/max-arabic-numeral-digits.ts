@@ -13,6 +13,11 @@ const MaxDigitsSchema = v.pipe(v.number(), v.finite(), v.integer(), v.minValue(1
 
 export type MaxArabicNumeralDigitsOptions = Readonly<{ maxDigits?: number }>;
 
+/**
+ * Arabic numerals in vertical writing (縦組). A short run is set as 縦中横 (JLReq 3.2.5) and stays
+ * upright inside one em, but a longer one has nowhere to go: it either turns the line sideways or
+ * breaks across it. The usual limit is two digits, past which a novel spells the number in kanji.
+ */
 function build(maxDigits: number): ParsedProofreadingRule {
   return defineMatchRule({
     id: RULE_ID,
