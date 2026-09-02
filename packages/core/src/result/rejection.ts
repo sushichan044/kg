@@ -10,8 +10,4 @@ const RejectionSchema = readonlyObject({ reason: v.string() });
  */
 export type Rejection = v.InferOutput<typeof RejectionSchema>;
 
-export const Rejection = {
-  schema: RejectionSchema,
-
-  of: (reason: string): Rejection => ({ reason }),
-} as const;
+export const Rejection = { schema: RejectionSchema } as const;

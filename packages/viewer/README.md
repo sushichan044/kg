@@ -1,7 +1,9 @@
 # @sushichan044/kg-viewer
 
 Controlled React components for rendering composed vertical Japanese novels and
-proofreading diagnostics from `@sushichan044/kg-core`.
+proofreading diagnostics from `@sushichan044/kg-core`. The components take
+diagnostics as data, so nothing here depends on
+`@sushichan044/kg-core/lint` producing them.
 
 ## Install
 
@@ -57,7 +59,8 @@ produced by core. The viewer does not infer annotation boundaries or split ruby
 readings. Annotation content is never inserted as HTML.
 
 See [`@sushichan044/kg-core`](../core/README.md) for parsing, composition,
-source mapping, schema validation, and proofreading APIs.
+source mapping, and schema validation, and `@sushichan044/kg-core/lint` for the
+proofreading APIs that produce the diagnostics these components render.
 
 ## Styling
 

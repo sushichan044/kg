@@ -1,12 +1,11 @@
 import {
   NovelCompositionSettings,
   composeManuscript,
-  createDefaultProofreadingRules,
   novelComposer,
   parseManuscript,
   pixivParser,
-  proofreadManuscript,
 } from "@sushichan044/kg-core";
+import { createDefaultProofreadingRules, proofreadManuscript } from "@sushichan044/kg-core/lint";
 import { expect, test } from "vite-plus/test";
 import { render } from "vitest-browser-react";
 

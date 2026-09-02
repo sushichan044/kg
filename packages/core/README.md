@@ -13,23 +13,38 @@ or DOM behavior.
 pnpm add @sushichan044/kg-core
 ```
 
+## Entry points
+
+The package is split by what you are doing, so an application only ever sees the
+surface it needs.
+
+| Entry                          | For                                                                                             |
+| ------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `@sushichan044/kg-core`        | Running the pipeline and reading what comes out: parse, compose, settings, results, diagnostics |
+| `@sushichan044/kg-core/lint`   | Proofreading — running the rules, and writing your own                                          |
+| `@sushichan044/kg-core/plugin` | Supplying an implementation to core: a parser, a composer, or a measurer                        |
+
+A name is exported only when one of those three needs to write it. Helpers core
+keeps for itself are not part of the API.
+
 ## Processing pipeline
 
 ```ts
 import {
   ComposeError,
   composeManuscript,
-  createNovelComposer,
-  createDefaultProofreadingRules,
   NovelCompositionSettings,
   novelComposer,
   ParseError,
   parseManuscript,
   kakuyomuParser,
   pixivParser,
+} from "@sushichan044/kg-core";
+import {
+  createDefaultProofreadingRules,
   ProofreadError,
   proofreadManuscript,
-} from "@sushichan044/kg-core";
+} from "@sushichan044/kg-core/lint";
 
 const parsed = parseManuscript(source, { parser: kakuyomuParser });
 if (!parsed.ok) throw new Error(ParseError.describe(parsed.error));
@@ -88,6 +103,8 @@ advance by half an em. Supply a synchronous measurer when the caller has more ac
 font metrics. Base-text requests also include the selected `presentation`:
 
 ```ts
+import { createNovelComposer } from "@sushichan044/kg-core/plugin";
+
 const composer = createNovelComposer({
   measurer: (request) => ({
     advanceEm: measureWithAvailableFont(request.text, {
@@ -110,6 +127,10 @@ parser result with mismatched `mono` or `jukugo` segment counts is invalid.
 
 ## Extensions and validation
 
+Everything in this section comes from `@sushichan044/kg-core/plugin`, except
+proofreading rules, which are authored against `@sushichan044/kg-core/lint`
+alongside the built-in ones.
+
 Parsers implement `ManuscriptParser`. Composers implement `ManuscriptComposer`
 and provide Valibot schemas for their settings and layout. Proofreading rules
 carry `kind: "parsed"` or `kind: "composed"` to declare which manuscript they
@@ -126,6 +147,14 @@ same name, holding its schema and operations: `ManuscriptRange.merge`,
 inferred from the schemas with `v.InferOutput`; source, display, and grapheme
 ranges are distinct branded types, and plugin IDs are branded `NamespacedId`.
 
+A companion object is exported as a value only when one of the three roles
+calls something on it. Concepts you only ever read out of a composed layout —
+`NovelPage`, `ComposedGlyph`, `LineBreakResult`, and the like — are exported as
+types alone, so their schemas are not part of the API. The settings you persist
+and re-validate keep theirs: `NovelCompositionSettings.schema`,
+`ManuscriptAppearanceSettings.schema`, `ManuscriptOffsets.schema`,
+`NovelFlowSettings.schema`, and the appearance picklists.
+
 Processing functions return `ManuscriptResult`: success carries warnings, and
 failure carries exactly one error from a discriminated union, so callers can
 `switch` on `error.kind` exhaustively. Each error variant exposes its context
@@ -140,6 +169,10 @@ one-based source line and column positions, so renderers do not need to search
 or recalculate locations.
 
 ## Proofreading rules
+
+Proofreading has its own entry point, `@sushichan044/kg-core/lint`. Nothing in
+the root entry imports from it, so an application that only parses and composes
+never pulls the rules into its bundle.
 
 `createDefaultProofreadingRules()` returns the rules whose answer does not
 depend on the work: how a paragraph opens and how far it is indented,
@@ -158,7 +191,7 @@ import {
   consistentNumeralWidthRule,
   createConsistentKanjiOpeningRule,
   createDefaultProofreadingRules,
-} from "@sushichan044/kg-core";
+} from "@sushichan044/kg-core/lint";
 
 const rules = [
   ...createDefaultProofreadingRules(),

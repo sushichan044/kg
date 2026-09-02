@@ -2,9 +2,9 @@ import * as v from "valibot";
 
 import type { ManuscriptAppearanceSettings } from "../appearance/appearance-settings";
 import { FontSizePt } from "../appearance/font-size-pt";
-import { mmToPt, ptToMm } from "../appearance/length";
 import { PaperSize } from "../appearance/paper-size";
 import type { PaperSizeId } from "../appearance/paper-size-id";
+import { mmToPt, ptToMm } from "../internal/length";
 import { readonlyObject } from "../internal/schema";
 import type { NovelFlowSettings } from "./novel-flow-settings";
 

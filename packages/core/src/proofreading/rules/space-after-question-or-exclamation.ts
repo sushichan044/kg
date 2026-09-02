@@ -1,4 +1,4 @@
-import { assertNever } from "../../assert-never";
+import { assertNever } from "../../internal/assert-never";
 import { questionOrExclamationSpacings } from "../../internal/question-or-exclamation-spacing";
 import type { ParsedProofreadingRule } from "../proofreading-rule";
 import { splitDisplayLines } from "./internal/display-line";

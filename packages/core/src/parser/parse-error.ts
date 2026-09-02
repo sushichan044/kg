@@ -1,4 +1,4 @@
-import { assertNever } from "../assert-never";
+import { assertNever } from "../internal/assert-never";
 import { describeCause } from "../internal/describe-cause";
 import type { NamespacedId } from "../namespaced-id";
 import type { ValidationIssue } from "../result/validation-issue";

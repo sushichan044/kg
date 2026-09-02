@@ -1,8 +1,8 @@
 import * as v from "valibot";
 
-import { assertNever } from "../assert-never";
 import type { ComposedManuscript } from "../composer/composed-manuscript";
 import { ManuscriptDiagnostic } from "../diagnostic/manuscript-diagnostic";
+import { assertNever } from "../internal/assert-never";
 import { readonlyArray } from "../internal/schema";
 import { NamespacedId } from "../namespaced-id";
 import type { ParsedManuscript } from "../parser/parsed-manuscript";
