@@ -348,6 +348,38 @@ describe("composeManuscript", () => {
     expect(line.inlineSizeEm).toBe(10);
   });
 
+  test("opens up only the pairs 表6 admits when a line falls short", () => {
+    // The 2倍リーダ cannot be split and cannot open the second line on its own, so the only legal
+    // break leaves the first line an em short.
+    const result = composeManuscript(parsed("「あああああああ、……"), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const lines = contentLines(result.value);
+    expect(lines.map(lineText)).toEqual(["「あああああああ、", "……"]);
+    const firstLine = lines[0];
+    expect.assert(firstLine !== undefined, "layout has no first content line");
+    expect(firstLine.break).toEqual({ kind: "stretched" });
+    const glues = firstLine.items.flatMap((item) =>
+      item.kind === "glue"
+        ? [{ naturalWidthEm: item.naturalWidthEm, adjustment: item.adjustment }]
+        : [],
+    );
+    // The half em at the line head and the one the comma takes at the line end keep their width;
+    // JLReq expands neither, so the em of shortfall goes into the kana pairs alone.
+    expect(glues.filter(({ naturalWidthEm }) => naturalWidthEm === 0.5)).toEqual([
+      { naturalWidthEm: 0.5, adjustment: "natural" },
+      { naturalWidthEm: 0.5, adjustment: "natural" },
+    ]);
+    expect(
+      glues
+        .filter(({ adjustment }) => adjustment === "stretched")
+        .map(({ naturalWidthEm }) => naturalWidthEm),
+    ).not.toContain(0.5);
+  });
+
   test("breaks a line rather than squeezing a full stop or a line-head bracket", () => {
     // JLReq 3.8.3 keeps the half em after a mid-line full stop out of line adjustment, and 表3
     // excludes the line head from it altogether. Shrinking those two is what pulled a line-head

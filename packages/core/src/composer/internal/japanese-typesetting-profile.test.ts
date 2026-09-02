@@ -97,6 +97,55 @@ const REDUCIBLE_AMOUNTS = `
    30  1/2    .    .    .  1/4    .    .    .    .    .    .    .    .    .    .    .    .  1/8  1/8    .  1/8    .    .
 `;
 
+/**
+ * 附属書 表6（行の調整処理で空ける処理が可能な箇所）for the same classes, transcribed from `tables/table_ja7.pdf` of the
+ * same revision, and read as the amount of space each cell may take on. `1/4-1/2` becomes a quarter
+ * added to the Japanese-to-western quarter em, and `1/4` a quarter added to a solid pair. 表6 has no
+ * line head or line end, because JLReq expands neither.
+ *
+ * A blank cell means no expansion. In the PDF a blank cell means that only where its background is
+ * white; a blank cell on a coloured background is JLReq's fourth stage, which spreads the remainder
+ * over every gap that is not unbreakable, and the background is the only thing that says which is
+ * which. Reading every blank as no expansion is therefore exactly as far as this profile goes.
+ *
+ * Note-bearing cells: 注4 (two adjacent 分離禁止文字 of different kinds may be opened up, which this
+ * profile cannot tell from the two halves of one 2倍ダッシュ, so it leaves the pair alone), 注8 (a
+ * numeral before a postfixed abbreviation may not be opened up), 注9 and 注11 (a numeral before a
+ * western character, and two western characters, only in variant schemes), 注10 (a postfixed
+ * abbreviation after a western character may be, unless that character is a quantity symbol or an
+ * Arabic numeral — which this profile classifies as cl-24 anyway) and 注12 (two tate-chu-yoko
+ * characters may be, but only across a group boundary, which is the only place the composer asks).
+ *
+ * Copyright © 2008 W3C® (MIT, ERCIM, Keio), All Rights Reserved.
+ *
+ * @see https://www.w3.org/TR/jlreq/#opportunities_for_intercharacter_space_expansion_during_line_adjustment
+ */
+const EXPANDABLE_AMOUNTS = `
+        01   02   03   04   05   06   07   08   09   10   11   12   13   14   15   16   19   24   25   26   27   30
+   01    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .
+   02    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .
+   03    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .
+   04    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .  1/4  1/4    .  1/4    .
+   05    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .
+   06    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .
+   07    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .
+   08    .    .    .    .    .    .    .    .  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4  1/4    .    .    .  1/4  1/4
+   09    .    .    .    .    .    .    .    .  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4
+   10    .    .    .    .    .    .    .    .  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4
+   11    .    .    .    .    .    .    .    .  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4
+   12    .    .    .    .    .    .    .  1/4  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4  1/4    .  1/4    .  1/4  1/4
+   13    .    .    .    .    .    .    .  1/4  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4
+   14    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .
+   15    .    .    .    .    .    .    .  1/4  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4
+   16    .    .    .    .    .    .    .  1/4  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4
+   19    .    .    .    .    .    .    .  1/4  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4
+   24    .    .    .    .    .    .    .  1/4  1/4  1/4  1/4  1/4    .    .  1/4  1/4  1/4    .    .    .    .  1/4
+   25    .    .    .    .    .    .    .  1/4  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4  1/4    .    .    .    .  1/4
+   26    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .
+   27    .    .    .    .    .    .    .  1/4  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4  1/4    .    .    .    .  1/4
+   30    .    .    .    .    .    .    .  1/4  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4
+`;
+
 const LINE_END = "line-end";
 
 const AMOUNTS_EM = new Map([
@@ -162,6 +211,8 @@ function parseTable(name: string, table: string): TableCell[] {
 const SPACING_TABLE = parseTable("表1", SPACING_AMOUNTS);
 const REDUCTION_TABLE = parseTable("表3", REDUCIBLE_AMOUNTS);
 
+const EXPANSION_TABLE = parseTable("表6", EXPANDABLE_AMOUNTS);
+
 function labelsOf(table: readonly TableCell[]) {
   return {
     rows: [...new Set(table.map(({ left }) => left))].sort(),
@@ -205,18 +256,24 @@ describe("defaultJapaneseTypesettingProfile", () => {
     expect(defaultJapaneseTypesettingProfile.classify({ value, presentation })).toBe(expected);
   });
 
-  test("covers every class it distinguishes in both appendix tables", () => {
+  test("covers every class it distinguishes in every appendix table", () => {
     const classes = [...japaneseCharacterClasses].sort();
-    const expected = {
+    // A duplicated label with another dropped would keep the row and column sets whole, so count
+    // the cells as well.
+    const withLineEnd = {
       rows: classes,
       columns: [...classes, LINE_END].sort(),
-      // A duplicated label with another dropped would keep the row and column sets whole, so count
-      // the cells as well.
       cells: classes.length * (classes.length + 1),
     };
 
-    expect(labelsOf(SPACING_TABLE)).toEqual(expected);
-    expect(labelsOf(REDUCTION_TABLE)).toEqual(expected);
+    expect(labelsOf(SPACING_TABLE)).toEqual(withLineEnd);
+    expect(labelsOf(REDUCTION_TABLE)).toEqual(withLineEnd);
+    // 表6 has no line end, because JLReq expands neither line end nor line head.
+    expect(labelsOf(EXPANSION_TABLE)).toEqual({
+      rows: classes,
+      columns: classes,
+      cells: classes.length * classes.length,
+    });
   });
 
   test("leaves the space 表1 prescribes between every pair of classes", () => {
@@ -243,6 +300,39 @@ describe("defaultJapaneseTypesettingProfile", () => {
     });
 
     expect(wrong).toEqual([]);
+  });
+
+  test("takes on only the space 表6 marks as an expansion opportunity", () => {
+    const wrong = EXPANSION_TABLE.filter(({ amountEm }) => amountEm !== null).flatMap((cell) => {
+      const spacing = resolvedSpacing(cell);
+      const stretchEm = spacing?.stretch?.amountEm ?? 0;
+
+      return stretchEm === cell.amountEm
+        ? []
+        : [`${cell.left}/${cell.right}: ${stretchEm} instead of ${cell.amountEm ?? 0}`];
+    });
+
+    expect(wrong).toEqual([]);
+  });
+
+  test("adds space in the order JLReq 3.8.4 lays down", () => {
+    const mixedText = defaultJapaneseTypesettingProfile.pairSpacing("cl-19", "cl-27");
+    const solid = defaultJapaneseTypesettingProfile.pairSpacing("cl-19", "cl-19");
+
+    expect.assert(mixedText.stretch !== undefined, "mixed-text space has no stretch capacity");
+    expect.assert(solid.stretch !== undefined, "solid pair has no stretch capacity");
+
+    expect(mixedText.stretch.priority).toBeLessThan(solid.stretch.priority);
+    // Stage 2 opens the quarter em to a half, stage 3 opens a solid pair to a quarter.
+    expect(mixedText.naturalWidthEm + mixedText.stretch.amountEm).toBe(0.5);
+    expect(solid.naturalWidthEm + solid.stretch.amountEm).toBe(0.25);
+  });
+
+  test("never expands a pair JLReq sets around punctuation", () => {
+    expect(defaultJapaneseTypesettingProfile.pairSpacing("cl-02", "cl-19").stretch).toBeUndefined();
+    expect(defaultJapaneseTypesettingProfile.pairSpacing("cl-19", "cl-01").stretch).toBeUndefined();
+    expect(defaultJapaneseTypesettingProfile.pairSpacing("cl-05", "cl-19").stretch).toBeUndefined();
+    expect(defaultJapaneseTypesettingProfile.pairSpacing("cl-19", "cl-14").stretch).toBeUndefined();
   });
 
   test("spends reducible space in the order JLReq 3.8.3 lays down", () => {
