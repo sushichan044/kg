@@ -6,9 +6,12 @@ import type { VerticalTextPresentation } from "../vertical-text-presentation";
  * kept rather than descriptive names so the spacing and penalty tables below can be read side by
  * side with the tables in the specification.
  *
- * JLReq defines thirty classes. The ones missing here cover math (cl-17, cl-18), warichu brackets
- * (cl-28, cl-29) and base groups carrying notes or ruby (cl-20 through cl-23) — none of which a
- * novel is set with, so their characters fall through to cl-19.
+ * JLReq defines thirty classes. Math (cl-17, cl-18) and warichu brackets (cl-28, cl-29) are absent
+ * because a novel is not set with them. The base-group classes are absent for a different reason: a
+ * novel does carry ruby (cl-22, cl-23), but ruby is an annotation the composer positions
+ * separately, and `JapaneseCharacter` cannot describe a base group at all — nor a reference mark
+ * (cl-20) or a subscripted base (cl-21). A base character is therefore classified here as whatever
+ * it is on its own, which for the kanji that usually carries ruby means cl-19.
  *
  * @see https://www.w3.org/TR/jlreq/#character_classes
  */

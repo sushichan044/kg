@@ -59,9 +59,12 @@ const ComposedInlineItemSchema = v.union([
 ]);
 
 /**
- * Everything the composer placed on one line, in visual order: the glyphs plus every spacing
- * decision made between them. A renderer can lay out a line from these items alone, without
- * reapplying any Japanese typesetting rule itself.
+ * Everything the composer decided about one line, in visual order: the glyphs, every spacing
+ * decision made between them, and the source characters it chose not to set. A renderer can lay out
+ * a line from these items alone, without reapplying any Japanese typesetting rule itself.
+ *
+ * Only the first two occupy the line. A `suppressed` item has no width and nothing to draw; it is
+ * here so the line still maps back to the whole span of source it came from.
  */
 export type ComposedInlineItem = v.InferOutput<typeof ComposedInlineItemSchema>;
 
