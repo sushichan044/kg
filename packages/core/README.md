@@ -78,17 +78,26 @@ whether it ended naturally, by shrinking, stretching, hanging, forcing, or reach
 the paragraph end.
 
 The composer classifies the core prose classes from JLReq, resolves pair spacing,
-and selects line breaks over the whole source paragraph. An overflowing line is
-answered by shrinking punctuation space or by hanging a comma or full stop; a
-short line is answered by stretching eligible space; a line that admits none of
-these is forced. The choice is made for the paragraph rather than line by line,
-minimizing in order the number of forced lines, then stretched, then hanging,
-then shrunk lines that spent visible space. The half em that follows a closing
-bracket, comma, or full stop is invisible once that character lands at the line end,
-so it is the first space spent and it costs the paragraph nothing, which keeps a
-line-start bracket at its full em. It owns Japanese line-start and line-end
-restrictions, inseparable punctuation, question/exclamation gap suppression, and
-ruby placement.
+and selects line breaks over the whole source paragraph. The space between two
+classes follows appendix 表1 of JLReq: a half em before an opening bracket and after
+a closing bracket, comma, or full stop, a quarter em on either side of a middle dot,
+a quarter em between Japanese and a numeral, unit symbol, or Western character, and
+solid where two of those punctuation marks meet.
+
+An overflowing line is answered by reducing that space or by hanging a comma or full
+stop; a short line is answered by stretching eligible space; a line that admits none
+of these is forced. The choice is made for the paragraph rather than line by line,
+minimizing in order the number of forced lines, then stretched, then hanging, then
+shrunk lines that spent visible space. Which space may be reduced, and in which
+order, follows JLReq 3.8.3 and appendix 表3: the space at the line end goes first and
+costs the paragraph nothing, because it is invisible once that character lands there;
+then a middle dot's quarters, then the half em before an opening bracket or after a
+closing bracket or comma, then the Japanese-to-Western quarter down to an eighth. The
+half em after a mid-line full stop marks the end of a sentence and is never reduced,
+and neither is the half em that keeps a line-head opening bracket off the edge.
+
+The composer also owns Japanese line-start and line-end restrictions, inseparable
+punctuation, question/exclamation gap suppression, and ruby placement.
 
 The composer classifies vertical text before measuring and breaking lines. Following
 [JLReq](https://www.w3.org/TR/jlreq/#mixed_text_composition_in_vertical_writing_mode),

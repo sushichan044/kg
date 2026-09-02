@@ -291,8 +291,10 @@ test("keeps partially overlapping diagnostics selectable in separate lanes", asy
 test("keeps a split diagnostic as one control with continuation bands", async ({
   renderViewer,
 }) => {
+  // Eight kana, the quarter em JLReq puts between kana and a numeral, and one more numeral fill the
+  // ten em line, so the numeral run — and the diagnostic over it — carries on to the next line.
   const { diagnostics, screen } = await renderViewer({
-    text: `${"あ".repeat(9)}２０２６`,
+    text: `${"あ".repeat(8)}２０２６`,
     flow,
   });
   const diagnostic = diagnostics.find(({ origin }) => origin.id === "kg/max-arabic-numeral-digits");
