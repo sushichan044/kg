@@ -24,7 +24,6 @@ export type ManuscriptOffsets = v.InferOutput<typeof ManuscriptOffsetsSchema>;
 
 export const ManuscriptOffsets = {
   schema: ManuscriptOffsetsSchema,
-  maxDocumentOffset: MAX_DOCUMENT_OFFSET,
 
   defaults: {
     document: { leading: 0, trailing: 0 },

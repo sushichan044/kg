@@ -40,6 +40,10 @@
       "types": "./dist/lint.d.mts",
       "import": "./dist/lint.mjs"
     },
+    "./plugin": {
+      "types": "./dist/plugin.d.mts",
+      "import": "./dist/plugin.mjs"
+    },
     "./package.json": "./package.json"
   },
   "publishConfig": {

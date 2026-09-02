@@ -51,17 +51,24 @@ Plugin IDs are a branded `NamespacedId` once validated at the boundary.
 Each concept is one module holding a type and a companion object of the same
 name, which owns that type's schema and operations. `index.ts` only re-exports.
 
-The package has two entry points. `@sushichan044/kg-core` carries parsing,
-composition, and the values that cross those boundaries;
-`@sushichan044/kg-core/lint` carries proofreading. Nothing outside
-`src/proofreading` imports from it, so an application that only sets text never
-pulls the rules in. Diagnostics stay in the root entry because parser warnings
-travel as the same type.
+The package has three entry points, split by what the importer is doing rather
+than by where the code lives:
 
-A concept is re-exported as a value only when its companion object carries an
-operation, default, or constant a caller needs. A companion holding nothing but
-a schema, or whose operations only core itself calls, is re-exported with
-`export type`.
+- `@sushichan044/kg-core` — running the pipeline and reading its result.
+- `@sushichan044/kg-core/lint` — proofreading, including authoring rules.
+- `@sushichan044/kg-core/plugin` — supplying an implementation to core: a
+  parser, a composer, or a measurer.
+
+A name is exported only when one of those three has to write it. Helpers core
+keeps for itself are not exported at all, and a companion object is exported as
+a value only when one of the three calls something on it — a companion holding
+nothing but a schema, or whose operations only core itself calls, is exported
+with `export type`, which keeps its schema out of the API.
+
+Two consequences worth stating. Nothing outside `src/proofreading` imports from
+it, so an application that only sets text never pulls the rules in. Diagnostics
+stay in the root entry regardless, because parser warnings travel as the same
+type.
 
 ## Runtime validation
 

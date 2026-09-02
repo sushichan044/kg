@@ -10,10 +10,10 @@ import type {
   ManuscriptAppearanceSettings,
   ManuscriptDiagnostic,
   ManuscriptOffsets,
-  ManuscriptParser,
   NovelFlowSettings,
 } from "@sushichan044/kg-core";
 import { createDefaultProofreadingRules, proofreadManuscript } from "@sushichan044/kg-core/lint";
+import type { ManuscriptParser } from "@sushichan044/kg-core/plugin";
 import { useState } from "react";
 import { expect, test as base } from "vite-plus/test";
 import { render } from "vitest-browser-react";

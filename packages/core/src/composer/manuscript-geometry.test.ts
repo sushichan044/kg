@@ -2,9 +2,9 @@ import { describe, expect, test } from "vite-plus/test";
 
 import { ManuscriptAppearanceSettings } from "../appearance/appearance-settings";
 import { FontSizePt } from "../appearance/font-size-pt";
-import { mmToPt, ptToMm } from "../appearance/length";
 import { PaperSize } from "../appearance/paper-size";
 import { PaperSizeId } from "../appearance/paper-size-id";
+import { mmToPt, ptToMm } from "../internal/length";
 import { ManuscriptGeometry } from "./manuscript-geometry";
 import type { NovelFlowSettings } from "./novel-flow-settings";
 

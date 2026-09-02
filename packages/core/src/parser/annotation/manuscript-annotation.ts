@@ -1,6 +1,5 @@
 import * as v from "valibot";
 
-import { ManuscriptRange } from "../../range/manuscript-range";
 import { BoldAnnotation } from "./bold-annotation";
 import { EmphasisAnnotation } from "./emphasis-annotation";
 import { ItalicAnnotation } from "./italic-annotation";
@@ -20,12 +19,6 @@ export type ManuscriptAnnotation = v.InferOutput<typeof ManuscriptAnnotationSche
 
 export const ManuscriptAnnotation = {
   schema: ManuscriptAnnotationSchema,
-
-  overlapping: (
-    annotations: readonly ManuscriptAnnotation[],
-    range: ManuscriptRange,
-  ): readonly ManuscriptAnnotation[] =>
-    annotations.filter((annotation) => ManuscriptRange.overlaps(annotation.range, range)),
 
   /**
    * Stable order for rendering: outermost span first, then by variant name.
