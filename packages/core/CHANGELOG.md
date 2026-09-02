@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.7.0](https://github.com/sushichan044/kg/compare/kg-core-v0.6.5...kg-core-v0.7.0) (2026-09-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* **core:** 中点類の前後・和文と欧文/連数字/単位記号の間に四分アキが入り、句読点や 括弧が連続する箇所の余分な二分アキが消えるため、同じ原稿でも行分割と glue の幅が変わる。 行中の句点類の後ろのアキと行頭の始め括弧類のアキは詰められなくなった。
+* **core:** the proofreading API moved from `@sushichan044/kg-core` to `@sushichan044/kg-core/lint`: proofreadManuscript, ProofreadError, ProofreadOptions, ProofreadingReport, ProofreadingRule, ProofreadingRuleMeta, ProofreadingRuleMessages, ProofreadingRuleContext, ParsedProofreadingRule, ComposedProofreadingRule, InvalidRuleOptions, createDefaultProofreadingRules, and every built-in rule with its option types.
+
+### Features
+
+* **core:** set inter-character space from the JLReq spacing tables ([ed6e9de](https://github.com/sushichan044/kg/commit/ed6e9deacc895f1f598d8b1a84e36b898fa463b5))
+
+
+### Bug Fixes
+
+* **core:** centre a base character in the box a longer ruby widens ([1767226](https://github.com/sushichan044/kg/commit/1767226d0e192bee5edb63f7aeb27141d927d95c))
+* place a ruby reading longer than its base over the character it annotates ([5f529eb](https://github.com/sushichan044/kg/commit/5f529eb3fe1caa7f5bc81b43c3b1dc182a546311))
+
+
+### Miscellaneous Chores
+
+* **core:** split by audience into ., /lint and /plugin ([#99](https://github.com/sushichan044/kg/issues/99)) ([4a562a0](https://github.com/sushichan044/kg/commit/4a562a0d80c16fb031cbd52173dab0b32cc8eb48))
+
 ## [0.6.5](https://github.com/sushichan044/kg/compare/kg-core-v0.6.4...kg-core-v0.6.5) (2026-09-01)
 
 
