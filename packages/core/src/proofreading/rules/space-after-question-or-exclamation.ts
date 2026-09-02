@@ -13,8 +13,10 @@ const MESSAGES = {
 } as const;
 
 /**
- * Checks the gap that follows every run of ！ or ？. A run at the end of a line or right before a
- * closing bracket needs no gap; anywhere else it takes exactly one ideographic space.
+ * The gap that follows every run of ！ or ？ (区切り約物, JLReq 3.1.6). A dividing punctuation mark ends a
+ * sentence without a full stop, so a full em of white stands in for the one a 句点 would have
+ * carried. A run at the end of a line or right before a closing bracket is already separated from
+ * what follows and needs no gap; anywhere else it takes exactly one ideographic space.
  */
 export const spaceAfterQuestionOrExclamationRule = (): ParsedProofreadingRule => ({
   kind: "parsed",

@@ -39,6 +39,18 @@ const ComposedAnnotationFragmentSchema = v.variant("kind", [
   }),
 ]);
 
+/**
+ * The part of one annotation that falls on one line. An annotation whose base text wraps produces
+ * several fragments, and `continuation` says which piece this is, so a renderer can leave a ruby or
+ * an emphasis run open at the line end instead of closing it there.
+ *
+ * A ruby fragment carries its own placement: `baseOffsetEm` and `baseAdvanceEm` locate the base
+ * text it annotates, and `readingGraphemes` positions each reading character over it. That is what
+ * distinguishes モノルビ (JLReq 3.3.5) and 熟語ルビ (3.3.7), which align per base character, from グループルビ
+ * (3.3.6), which spreads one reading across the whole base.
+ *
+ * `mark` on an emphasis fragment is the character set beside each base character (圏点, JLReq 3.3.9).
+ */
 export type ComposedAnnotationFragment = v.InferOutput<typeof ComposedAnnotationFragmentSchema>;
 
 export const ComposedAnnotationFragment = {

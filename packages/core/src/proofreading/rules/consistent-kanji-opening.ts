@@ -22,7 +22,8 @@ const KanjiOpeningPairSchema = v.pipe(
 );
 
 /**
- * A word written in kanji, paired with the kana form of the same word.
+ * A word written in kanji (閉じる) paired with the kana form of the same word (開く). Which of the two a
+ * work uses is a house style; mixing them within one work is 表記ゆれ.
  */
 export type KanjiOpeningPair = v.InferOutput<typeof KanjiOpeningPairSchema>;
 

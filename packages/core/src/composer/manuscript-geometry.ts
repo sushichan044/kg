@@ -27,7 +27,12 @@ const ManuscriptGeometrySchema = readonlyObject({
 });
 
 /**
- * Physical millimetres for one page, derived from the text flow and appearance settings.
+ * Physical millimetres for one page, derived from the text flow and appearance settings. The
+ * content box is the 基本版面 — the text area a Japanese page format is designed around — and it is
+ * centred on the paper, so the margins fall out of the paper size rather than being chosen.
+ *
+ * `fitsPaper` is false when the requested grid is larger than the paper. The geometry is still
+ * returned in full so a caller can show what overflowed instead of being handed nothing.
  */
 export type ManuscriptGeometry = v.InferOutput<typeof ManuscriptGeometrySchema>;
 

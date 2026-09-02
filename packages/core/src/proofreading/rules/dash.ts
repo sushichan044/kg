@@ -27,6 +27,12 @@ function messageIdFor(run: string, preferred: DashCharacter): DashMessageId | un
   return run.length % 2 === 1 ? "even-count" : undefined;
 }
 
+/**
+ * The dash a novel sets is the 2倍ダッシュ: two copies of one character read as a single rule two ems
+ * long. That is why an odd run is a finding — half a dash is left over — and why the characters
+ * must match, since only a repeat of the same character joins without a seam. JLReq classes the
+ * dash as 分離禁止文字 (cl-08) for the same reason: the pair must not be split across lines.
+ */
 function build(preferred: DashCharacter): ParsedProofreadingRule {
   const messages = {
     character: `ダッシュには「${preferred}」を使ってください`,

@@ -21,6 +21,10 @@ function isVariantCharacter(character: string): boolean {
 }
 
 /**
+ * Variant forms of a character (異体字) and the selectors that request them (字形選択子 / IVS). Whether
+ * such a form survives depends on the font and the platform, so a manuscript that relies on one
+ * will not read the same everywhere it is published.
+ *
  * Scans the source rather than the display text: notation removal must not hide a variant.
  */
 export const variantCharacterRule = (): ParsedProofreadingRule =>

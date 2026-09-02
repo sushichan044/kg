@@ -17,6 +17,14 @@ const NovelFlowSettingsSchema = readonlyObject({
   stagesPerPage: boundedCount(RANGES.stagesPerPage),
 });
 
+/**
+ * The text grid of one page, in the terms a Japanese book is specified in: `lineLengthEm` is the
+ * characters per line (字詰め), `linesPerStage` the lines in one block of text (行数), and
+ * `stagesPerPage` how many such blocks a page is divided into (段組).
+ *
+ * These are counts of em cells, not physical lengths. `ManuscriptGeometry` turns them into
+ * millimetres once a paper size and a font size are known.
+ */
 export type NovelFlowSettings = v.InferOutput<typeof NovelFlowSettingsSchema>;
 
 export const NovelFlowSettings = {

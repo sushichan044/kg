@@ -29,8 +29,23 @@ const RubyAnnotationSchema = readonlyObject({
   reading: RubyReadingSchema,
 });
 
+/**
+ * How a reading is associated with the base text it annotates (ルビ, JLReq 3.3).
+ *
+ * `group` is グループルビ (3.3.6): one reading spread over the whole base, with no correspondence between
+ * individual characters. `mono` is モノルビ (3.3.5): one reading segment per base character, each set
+ * over its own character. `jukugo` is 熟語ルビ (3.3.7): a compound whose segments stay associated with
+ * their base characters, so it is set like モノルビ when it fits and like グループルビ when a reading would
+ * otherwise collide with its neighbour.
+ */
 export type RubyKind = v.InferOutput<typeof RubyKindSchema>;
+
+/**
+ * The reading itself. `mono` and `jukugo` carry one segment per base grapheme, and a count that
+ * disagrees with the base makes the parsed manuscript invalid rather than being padded or trimmed.
+ */
 export type RubyReading = v.InferOutput<typeof RubyReadingSchema>;
+
 export type RubyAnnotation = v.InferOutput<typeof RubyAnnotationSchema>;
 
 export const RubyKind = { schema: RubyKindSchema } as const;

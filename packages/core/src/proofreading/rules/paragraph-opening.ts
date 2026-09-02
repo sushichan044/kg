@@ -23,9 +23,12 @@ const OpeningBracketsSchema = v.pipe(v.string(), v.nonEmpty());
 export type ParagraphOpeningOptions = Readonly<{ openingBrackets?: string }>;
 
 /**
- * How a paragraph opens, judged as one decision: a paragraph that opens with a bracket carries no
- * indent, and prose carries exactly one ideographic space. The three findings are branches of that
- * one decision rather than separate rules, so a line can never collect two of them at once.
+ * Paragraph indentation (字下げ, JLReq 3.5.1). Japanese prose opens a paragraph with exactly one
+ * ideographic space (和字間隔), and a paragraph opening with a bracket (始め括弧類) carries none, because
+ * the bracket is already set on a half em and reads as the indent itself.
+ *
+ * The three findings are branches of that one decision rather than separate rules, so a line can
+ * never collect two of them at once.
  */
 function build(openingBrackets: string): ParsedProofreadingRule {
   return {
