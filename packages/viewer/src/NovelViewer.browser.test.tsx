@@ -188,6 +188,58 @@ test("renders the ruby kind and reading decided by core", async ({ renderViewer 
   expect(ruby.querySelectorAll(".kgv-ruby-character")).toHaveLength(2);
 });
 
+test("runs a reading down its own line rather than across the page", async ({ renderViewer }) => {
+  const { screen } = await renderViewer({
+    text: "｜夢《にやりたいこと》",
+    flow,
+    parser: kakuyomuParser,
+  });
+  const readingCharacters = Array.from(
+    screen.container.querySelectorAll<HTMLElement>(".kgv-ruby-character"),
+  ).map((character) => character.getBoundingClientRect());
+  const line = screen.container.querySelector<HTMLElement>(".kgv-line");
+  expect.assert(line !== null, "viewer has no line");
+  expect(readingCharacters).toHaveLength(7);
+
+  const lineBounds = line.getBoundingClientRect();
+  const steps = readingCharacters.slice(0, -1).map((previous, index) => ({
+    down: (readingCharacters[index + 1]?.top ?? Number.NaN) - previous.bottom,
+    across: (readingCharacters[index + 1]?.left ?? Number.NaN) - previous.left,
+  }));
+
+  for (const step of steps) {
+    expect(step.down).toBeCloseTo(0, 1);
+    expect(step.across).toBeCloseTo(0, 1);
+  }
+  for (const character of readingCharacters) {
+    expect(character.top).toBeGreaterThanOrEqual(lineBounds.top - 0.5);
+    expect(character.bottom).toBeLessThanOrEqual(lineBounds.bottom + 0.5);
+  }
+});
+
+test("keeps a base cell centred on a reading longer than it", async ({ renderViewer }) => {
+  const { screen } = await renderViewer({
+    text: "｜夢《にやりたいこと》",
+    flow,
+    parser: kakuyomuParser,
+  });
+  const cell = screen.container.querySelector<HTMLElement>(".kgv-cell");
+  const readingCharacters = Array.from(
+    screen.container.querySelectorAll<HTMLElement>(".kgv-ruby-character"),
+  );
+  const first = readingCharacters[0];
+  const last = readingCharacters.at(-1);
+  expect.assert(cell !== null, "viewer has no base cell");
+  expect.assert(first !== undefined && last !== undefined, "viewer has no reading");
+
+  const base = cell.getBoundingClientRect();
+  const readingStart = first.getBoundingClientRect().top;
+  const readingEnd = last.getBoundingClientRect().bottom;
+
+  expect(readingEnd - readingStart).toBeGreaterThan(base.height);
+  expect(base.top + base.height / 2).toBeCloseTo((readingStart + readingEnd) / 2, 1);
+});
+
 test("renders a short group reading on every fragment when possible", async ({ renderViewer }) => {
   const { screen } = await renderViewer({
     text: `｜${"漢".repeat(12)}《よみ》`,
