@@ -1,23 +1,25 @@
 import {
-  assertNever,
   ComposeError,
   composeManuscript,
-  createDefaultProofreadingRules,
   novelComposer,
   ManuscriptResult,
   ParseError,
   parseManuscript,
   kakuyomuParser,
   pixivParser,
-  ProofreadError,
-  proofreadManuscript,
 } from "@sushichan044/kg-core";
 import type {
   NovelComposedManuscript,
   NovelCompositionSettings,
   ManuscriptDiagnostic,
 } from "@sushichan044/kg-core";
+import {
+  createDefaultProofreadingRules,
+  ProofreadError,
+  proofreadManuscript,
+} from "@sushichan044/kg-core/lint";
 
+import { assertNever } from "./lib/assert-never";
 import type { ManuscriptNotation, ManuscriptPreferences, ManuscriptPreset } from "./lib/storage";
 
 export type ManuscriptState = Readonly<{

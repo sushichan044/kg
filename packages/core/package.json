@@ -36,6 +36,10 @@
       "types": "./dist/index.d.mts",
       "import": "./dist/index.mjs"
     },
+    "./lint": {
+      "types": "./dist/lint.d.mts",
+      "import": "./dist/lint.mjs"
+    },
     "./package.json": "./package.json"
   },
   "publishConfig": {

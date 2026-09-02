@@ -19,17 +19,18 @@ pnpm add @sushichan044/kg-core
 import {
   ComposeError,
   composeManuscript,
-  createNovelComposer,
-  createDefaultProofreadingRules,
   NovelCompositionSettings,
   novelComposer,
   ParseError,
   parseManuscript,
   kakuyomuParser,
   pixivParser,
+} from "@sushichan044/kg-core";
+import {
+  createDefaultProofreadingRules,
   ProofreadError,
   proofreadManuscript,
-} from "@sushichan044/kg-core";
+} from "@sushichan044/kg-core/lint";
 
 const parsed = parseManuscript(source, { parser: kakuyomuParser });
 if (!parsed.ok) throw new Error(ParseError.describe(parsed.error));
@@ -126,6 +127,11 @@ same name, holding its schema and operations: `ManuscriptRange.merge`,
 inferred from the schemas with `v.InferOutput`; source, display, and grapheme
 ranges are distinct branded types, and plugin IDs are branded `NamespacedId`.
 
+A companion object is exported only when it carries an operation, default, or
+constant a caller needs. Concepts you only ever read out of a composed layout —
+`NovelPage`, `ComposedGlyph`, `LineBreakResult`, and the like — are exported as
+types alone.
+
 Processing functions return `ManuscriptResult`: success carries warnings, and
 failure carries exactly one error from a discriminated union, so callers can
 `switch` on `error.kind` exhaustively. Each error variant exposes its context
@@ -140,6 +146,10 @@ one-based source line and column positions, so renderers do not need to search
 or recalculate locations.
 
 ## Proofreading rules
+
+Proofreading has its own entry point, `@sushichan044/kg-core/lint`. Nothing in
+the root entry imports from it, so an application that only parses and composes
+never pulls the rules into its bundle.
 
 `createDefaultProofreadingRules()` returns the rules whose answer does not
 depend on the work: how a paragraph opens and how far it is indented,
@@ -158,7 +168,7 @@ import {
   consistentNumeralWidthRule,
   createConsistentKanjiOpeningRule,
   createDefaultProofreadingRules,
-} from "@sushichan044/kg-core";
+} from "@sushichan044/kg-core/lint";
 
 const rules = [
   ...createDefaultProofreadingRules(),

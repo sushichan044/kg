@@ -1,7 +1,9 @@
 # @sushichan044/kg-viewer
 
 Controlled React components for rendering composed vertical Japanese novels and
-proofreading diagnostics from `@sushichan044/kg-core`.
+proofreading diagnostics from `@sushichan044/kg-core`. The components take
+diagnostics as data, so nothing here depends on
+`@sushichan044/kg-core/lint` producing them.
 
 ## Install
 

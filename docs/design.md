@@ -51,6 +51,18 @@ Plugin IDs are a branded `NamespacedId` once validated at the boundary.
 Each concept is one module holding a type and a companion object of the same
 name, which owns that type's schema and operations. `index.ts` only re-exports.
 
+The package has two entry points. `@sushichan044/kg-core` carries parsing,
+composition, and the values that cross those boundaries;
+`@sushichan044/kg-core/lint` carries proofreading. Nothing outside
+`src/proofreading` imports from it, so an application that only sets text never
+pulls the rules in. Diagnostics stay in the root entry because parser warnings
+travel as the same type.
+
+A concept is re-exported as a value only when its companion object carries an
+operation, default, or constant a caller needs. A companion holding nothing but
+a schema, or whose operations only core itself calls, is re-exported with
+`export type`.
+
 ## Runtime validation
 
 Core exports Valibot schemas for its public DTOs and settings. TypeScript types
