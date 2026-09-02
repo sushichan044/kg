@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.7.0](https://github.com/sushichan044/kg/compare/kg-viewer-v0.6.5...kg-viewer-v0.7.0) (2026-09-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* **core:** the proofreading API moved from `@sushichan044/kg-core` to `@sushichan044/kg-core/lint`: proofreadManuscript, ProofreadError, ProofreadOptions, ProofreadingReport, ProofreadingRule, ProofreadingRuleMeta, ProofreadingRuleMessages, ProofreadingRuleContext, ParsedProofreadingRule, ComposedProofreadingRule, InvalidRuleOptions, createDefaultProofreadingRules, and every built-in rule with its option types.
+
+### Bug Fixes
+
+* place a ruby reading longer than its base over the character it annotates ([5f529eb](https://github.com/sushichan044/kg/commit/5f529eb3fe1caa7f5bc81b43c3b1dc182a546311))
+* **viewer:** run a ruby reading down its line instead of across the page ([ab07be5](https://github.com/sushichan044/kg/commit/ab07be58f4da7778eda950ffcbb902ecf89f429e))
+
+
+### Miscellaneous Chores
+
+* **core:** split by audience into ., /lint and /plugin ([#99](https://github.com/sushichan044/kg/issues/99)) ([4a562a0](https://github.com/sushichan044/kg/commit/4a562a0d80c16fb031cbd52173dab0b32cc8eb48))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @sushichan044/kg-core bumped to 0.7.0
+
 ## [0.6.5](https://github.com/sushichan044/kg/compare/kg-viewer-v0.6.4...kg-viewer-v0.6.5) (2026-09-01)
 
 
