@@ -100,6 +100,12 @@ closing bracket or comma, then the Japanese-to-Western quarter down to an eighth
 half em after a mid-line full stop marks the end of a sentence and is never reduced,
 and neither is the half em that keeps a line-head opening bracket off the edge.
 
+The アキ at a line end is the one exception to spending a space in part. JLReq 3.1.9
+admits the full アキ or ベタ組 and forbids anything between, so a line whose overflow is
+smaller than it leaves it whole and finds the difference elsewhere — or breaks
+elsewhere. A 中点類 at a line end gives up the quarter em before it together with the
+quarter after, as one amount.
+
 Every stage is spent 文字サイズ比で均等に, as JLReq 3.8.3 and 3.8.4 both put it: the amount
 is split across all the spaces of that stage in proportion to what each of them can
 give, rather than taken out of the earliest space until it runs dry. A stage opens
