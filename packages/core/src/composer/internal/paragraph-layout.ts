@@ -2,6 +2,7 @@ import type { LineBreakResult } from "../line-break-result";
 import type {
   JapaneseCharacterClass,
   JapaneseTypesettingProfile,
+  LineHeadKind,
   PairSpacing,
   SpacingCapacity,
 } from "./japanese-typesetting-profile";
@@ -79,10 +80,12 @@ function opportunities(
   start: number,
   end: number,
   profile: JapaneseTypesettingProfile,
+  lineHead: LineHeadKind,
 ): Opportunity[] {
   const result: Opportunity[] = [];
   const firstClass = classes[start];
-  const startSpacing = firstClass === undefined ? null : profile.lineStartSpacing(firstClass);
+  const startSpacing =
+    firstClass === undefined ? null : profile.lineStartSpacing(firstClass, lineHead);
   if (startSpacing !== null) result.push({ boundary: start, spacing: startSpacing });
   for (let right = start + 1; right < end; right += 1) {
     const leftAtom = atoms[right - 1];
@@ -173,7 +176,16 @@ function candidate(
     { length: contentStart - start },
     (_, index) => start + index,
   );
-  const pairValues = opportunities(atoms, classes, contentStart, end, profile);
+  // A line that starts at the first atom of the paragraph is a 改行行頭; every other line is a line the
+  // composer turned over, and JLReq 3.1.5 gives the two different white before an opening bracket.
+  const pairValues = opportunities(
+    atoms,
+    classes,
+    contentStart,
+    end,
+    profile,
+    start === 0 ? "paragraph-start" : "turned-over",
+  );
   const naturalSizeEm =
     atoms.slice(contentStart, end).reduce((total, atom) => total + atom.boxAdvanceEm, 0) +
     pairValues.reduce((total, value) => total + value.spacing.naturalWidthEm, 0);

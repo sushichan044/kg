@@ -371,12 +371,19 @@ describe("defaultJapaneseTypesettingProfile", () => {
     expect(lineEnd.shrink).toEqual({ priority: 0, amountEm: 0.5 });
   });
 
-  test("keeps a line-head opening bracket at its full half em", () => {
-    expect(defaultJapaneseTypesettingProfile.lineStartSpacing("cl-01")).toEqual({
+  test("keeps a line-head opening bracket at its full half em where a paragraph starts", () => {
+    expect(defaultJapaneseTypesettingProfile.lineStartSpacing("cl-01", "paragraph-start")).toEqual({
       kind: "glue",
       naturalWidthEm: 0.5,
     });
-    expect(defaultJapaneseTypesettingProfile.lineStartSpacing("cl-19")).toBeNull();
+    expect(
+      defaultJapaneseTypesettingProfile.lineStartSpacing("cl-19", "paragraph-start"),
+    ).toBeNull();
+  });
+
+  test("sets a turned-over line flush against the edge, as JLReq 3.1.5 ③ does", () => {
+    expect(defaultJapaneseTypesettingProfile.lineStartSpacing("cl-01", "turned-over")).toBeNull();
+    expect(defaultJapaneseTypesettingProfile.lineStartSpacing("cl-19", "turned-over")).toBeNull();
   });
 
   test.each([

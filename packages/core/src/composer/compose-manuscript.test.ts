@@ -402,6 +402,28 @@ describe("composeManuscript", () => {
     expect(openingBracket.layoutSpan.offsetEm).toBe(0.5);
   });
 
+  test("sets an opening bracket flush against the edge on a turned-over line", () => {
+    // JLReq 3.1.5 ③: 改行行頭 takes a half em before an opening bracket, 折返し行頭 takes none. The only
+    // legal break here falls before the bracket, so the second line is a turned-over one.
+    const result = composeManuscript(parsed(`${"あ".repeat(9)}「ああ`), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const lines = contentLines(result.value);
+    expect(lines.map(lineText)).toEqual(["あああああああああ", "「ああ"]);
+
+    const turnedOver = lines[1];
+    expect.assert(turnedOver !== undefined, "layout has no turned-over line");
+    const openingBracket = lineGlyphs(turnedOver)[0];
+    expect.assert(openingBracket !== undefined, "turned-over line has no opening bracket");
+
+    expect(openingBracket.layoutSpan.offsetEm).toBe(0);
+    // Half an em narrower than the same line would be at the head of a paragraph.
+    expect(turnedOver.inlineSizeEm).toBe(2.5);
+  });
+
   test.each([
     ["あ。い", 3],
     ["あ。」い", 3.5],
