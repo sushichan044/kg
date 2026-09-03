@@ -96,16 +96,25 @@ div.kgv-viewer
                         │       └── span.kgv-glyph
                         ├── span.kgv-line-ruby
                         │   └── ruby.kgv-ruby-fragment
+                        ├── span.kgv-line-emphasis         ← present when the line carries emphasis
+                        │   └── span.kgv-emphasis
+                        │       └── span.kgv-emphasis-mark
                         └── span.kgv-line-diagnostics
                             └── button|span.kgv-diagnostic-band
 ```
 
-The ruling, text, ruby, and diagnostics are independent absolute-positioned
-layers. Text positions use core's logical em offsets and advances. A hanging
-glyph carries `data-disposition="hanging"`; a source item suppressed by composition
-is intentionally absent from visible text. Glyph cells use `renderSpan`, while ruby
-and diagnostic bands use the typographic `layoutSpan`. Glue and kern affect the
-resolved offsets but are not reconstructed by the viewer.
+The ruling, text, ruby, emphasis, and diagnostics are independent
+absolute-positioned layers. Text positions use core's logical em offsets and
+advances. A hanging glyph carries `data-disposition="hanging"`; a source item
+suppressed by composition is intentionally absent from visible text. Glyph cells
+use `renderSpan`, while ruby and diagnostic bands use the typographic
+`layoutSpan`. Glue and kern affect the resolved offsets but are not reconstructed
+by the viewer.
+
+Emphasis marks are placed by the viewer rather than drawn with `text-emphasis`,
+which reserves the mark's room inside the marked character's own box and moves
+the character off its cell. One mark is drawn per marked cell, in the gap beside
+the line the ruby reading also uses.
 
 One diagnostic band covers the range that reaches a line. Identical ranges are
 split into lanes so each remains visible and clickable. The band where a

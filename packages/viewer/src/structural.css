@@ -99,6 +99,7 @@
 .kgv-line-rules,
 .kgv-line-text,
 .kgv-line-ruby,
+.kgv-line-emphasis,
 .kgv-line-diagnostics {
   position: absolute;
   inset: 0;
@@ -151,13 +152,19 @@
 }
 
 /* The reading runs beside the line rather than in it, so it is taken out of flow and placed at the
-   line's edge. An auto width keeps it about one ruby em across — narrow enough to sit in the gap
-   beside the line instead of covering the line written before it. Which end of the run it is pinned
-   to depends on the fit, below. */
+   line's edge, one ruby em across — narrow enough to sit in the gap beside the line instead of
+   covering the line written before it.
+
+   Sized by inline-size and block-size, which are this box's own vertical-rl axes: the run goes the
+   whole way down the line and one em across it. Sizing it by the axes of the horizontal-tb box it
+   is positioned in collapses it to nothing, and the placed characters below then fall back to a
+   static position that walks left over the characters they annotate. */
 .kgv-ruby {
   position: absolute;
-  inset-block: 0;
+  top: 0;
   left: 100%;
+  inline-size: 100%;
+  block-size: 1em;
   /* One placed box per reading character, so the reading sits where the composer put it and nothing
      depends on how an engine spaces characters. */
   writing-mode: vertical-rl;
@@ -174,14 +181,20 @@
 .kgv-ruby-character {
   position: absolute;
   inset-inline-start: calc(var(--kgv-item-offset) * var(--kgv-cell-size));
+  /* Pinned across the run as well as down it: left to the static position, a character in an
+     orthogonal flow lands wherever the engine of the day puts it. */
+  inset-block-start: 0;
   display: grid;
   place-items: center;
   inline-size: calc(var(--kgv-item-advance) * var(--kgv-cell-size));
 }
 
-/* Keeps the emphasis mark beside the glyph rather than overlapping it. */
-.kgv-line-text [data-annotation="emphasis"] {
-  text-emphasis-position: over right;
+/* bold, italic and emphasis reach the glyph by inheritance alone, so they need no box of their own.
+   Given one they become the item the cell places, and .kgv-glyph turns into an inline box a line box
+   aligns on its baseline instead of the item the cell centres — which drops the character down its
+   cell. */
+.kgv-line-text [data-annotation] {
+  display: contents;
 }
 
 .kgv-line-text [data-annotation="bold"] {
@@ -190,6 +203,35 @@
 
 .kgv-line-text [data-annotation="italic"] {
   font-style: italic;
+}
+
+/* The emphasis marks run beside the line on the same axes as a ruby reading, and are placed the same
+   way: one box per mark, on the coordinates the composer gave the character it belongs to.
+
+   Drawn with text-emphasis instead, the marks are laid out by the engine, which reserves their room
+   inside the character's own box — and engines disagree about where in that box the room goes, so
+   the character itself moves off its cell. */
+.kgv-emphasis {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  inline-size: 100%;
+  block-size: 1em;
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  font-family: var(--kgv-manuscript-font);
+  /* Half the size of the characters it marks, the same proportion ruby uses. */
+  font-size: calc(var(--kgv-cell-size) * var(--kgv-glyph-scale) / 2);
+  line-height: 1;
+}
+
+.kgv-emphasis-mark {
+  position: absolute;
+  inset-inline-start: calc(var(--kgv-item-offset) * var(--kgv-cell-size));
+  inset-block-start: 0;
+  display: grid;
+  place-items: center;
+  inline-size: calc(var(--kgv-item-advance) * var(--kgv-cell-size));
 }
 
 .kgv-glyph {
@@ -207,7 +249,8 @@
 /* Inheritance is not a specificity contest: these reach the characters from the host page's `body`
    however the viewer is selected, and extra tracking or recasing pushes them out of their cells. */
 .kgv-glyph,
-.kgv-ruby {
+.kgv-ruby,
+.kgv-emphasis {
   letter-spacing: normal;
   word-spacing: normal;
   text-indent: 0;
