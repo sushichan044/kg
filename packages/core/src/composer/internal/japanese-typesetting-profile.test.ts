@@ -60,8 +60,9 @@ const SPACING_AMOUNTS = `
  * Note-bearing cells again hold what the note states: 注1 (both quarters of two adjacent middle
  * dots), 注2 (only the middle dot's quarter, because a full stop's half em stays), 注3 (the comma's
  * half and the middle dot's quarter) and 注4 (a word space has no width at the line end). 注5 lets
- * the quarter before and the quarter after a line-end middle dot go solid together; the profile
- * keeps them in two places, so the line-end cell holds the trailing quarter alone.
+ * the quarter before and the quarter after a line-end middle dot go solid together; the line-end
+ * cell still holds only the trailing quarter, and the profile names the leading one separately
+ * through `absorbsPrecedingEm`.
  *
  * The whole cl-26 row and column are blank, so nothing beside a western word space is reducible
  * even where 表1 gives it space. Reducing the word space itself is JLReq's own first stage and this
@@ -224,7 +225,7 @@ function labelsOf(table: readonly TableCell[]) {
 function resolvedSpacing(cell: TableCell) {
   const { left, right } = cell;
   return right === LINE_END
-    ? defaultJapaneseTypesettingProfile.lineEndSpacing(left)
+    ? (defaultJapaneseTypesettingProfile.lineEndSpacing(left)?.spacing ?? null)
     : defaultJapaneseTypesettingProfile.pairSpacing(left, right);
 }
 
@@ -336,7 +337,7 @@ describe("defaultJapaneseTypesettingProfile", () => {
   });
 
   test("spends reducible space in the order JLReq 3.8.3 lays down", () => {
-    const lineEnd = defaultJapaneseTypesettingProfile.lineEndSpacing("cl-02");
+    const lineEnd = defaultJapaneseTypesettingProfile.lineEndSpacing("cl-02")?.spacing;
     const middleDot = defaultJapaneseTypesettingProfile.pairSpacing("cl-19", "cl-05");
     const punctuation = defaultJapaneseTypesettingProfile.pairSpacing("cl-19", "cl-01");
     const mixedText = defaultJapaneseTypesettingProfile.pairSpacing("cl-19", "cl-27");
@@ -364,11 +365,50 @@ describe("defaultJapaneseTypesettingProfile", () => {
 
   test("keeps the half em after a mid-line full stop out of line adjustment", () => {
     const midLine = defaultJapaneseTypesettingProfile.pairSpacing("cl-06", "cl-19");
-    const lineEnd = defaultJapaneseTypesettingProfile.lineEndSpacing("cl-06");
-    expect.assert(lineEnd !== null, "a full stop takes no space at the line end");
+    const lineEnd = defaultJapaneseTypesettingProfile.lineEndSpacing("cl-06")?.spacing;
+    expect.assert(lineEnd !== undefined, "a full stop takes no space at the line end");
 
     expect(midLine).toEqual({ kind: "glue", naturalWidthEm: 0.5 });
-    expect(lineEnd.shrink).toEqual({ priority: 0, amountEm: 0.5 });
+    expect(lineEnd.shrink).toEqual({
+      priority: 0,
+      amountEm: 0.5,
+      granularity: "all-or-nothing",
+    });
+  });
+
+  test("admits the whole line-end アキ or none of it, and nothing in between", () => {
+    const atLineEnd = ["cl-02", "cl-05", "cl-06", "cl-07"] as const;
+
+    expect(
+      atLineEnd.map(
+        (characterClass) =>
+          defaultJapaneseTypesettingProfile.lineEndSpacing(characterClass)?.spacing.shrink
+            ?.granularity,
+      ),
+    ).toEqual(["all-or-nothing", "all-or-nothing", "all-or-nothing", "all-or-nothing"]);
+
+    // Nothing mid-line is discrete: 表3 writes `1/2=0` only against the line end.
+    const midLine = japaneseCharacterClasses.flatMap((left) =>
+      japaneseCharacterClasses.flatMap((right) => {
+        const { shrink, stretch } = defaultJapaneseTypesettingProfile.pairSpacing(left, right);
+        return [shrink?.granularity, stretch?.granularity].flatMap((granularity) =>
+          granularity === undefined || granularity === "continuous"
+            ? []
+            : [`${left}/${right}: ${granularity}`],
+        );
+      }),
+    );
+
+    expect(midLine).toEqual([]);
+  });
+
+  test("takes the quarter em before a line-end middle dot into the line-end amount", () => {
+    // 表3 注5: the quarter before and the quarter after go solid together, so the profile has to name
+    // the one that is not its own.
+    expect(defaultJapaneseTypesettingProfile.lineEndSpacing("cl-05")?.absorbsPrecedingEm).toBe(
+      0.25,
+    );
+    expect(defaultJapaneseTypesettingProfile.lineEndSpacing("cl-06")?.absorbsPrecedingEm).toBe(0);
   });
 
   test("keeps a line-head opening bracket at its full half em where a paragraph starts", () => {
@@ -405,7 +445,7 @@ describe("defaultJapaneseTypesettingProfile", () => {
       advanceEm: 0.5,
       renderOffsetEm: 0,
     });
-    expect(defaultJapaneseTypesettingProfile.lineEndSpacing("cl-07")).toMatchObject({
+    expect(defaultJapaneseTypesettingProfile.lineEndSpacing("cl-07")?.spacing).toMatchObject({
       naturalWidthEm: 0.5,
     });
   });

@@ -82,9 +82,19 @@ export type JapaneseCharacter = Readonly<{
  * at all: the half em after a closing bracket, full stop or comma — and the quarter em after a
  * middle dot — cannot be seen once that character sits at the line end.
  *
+ * `granularity` is `"continuous"` where the adjustment may take any part of the amount, and
+ * `"all-or-nothing"` where it may take the whole amount or none of it. JLReq 3.1.9 is the only
+ * source of the second: a line end is either the full アキ or ベタ組, and never a value between the two
+ * — a quarter em, for instance. 表3 writes that cell `1/2=0` rather than the `1/2-0` it writes
+ * mid-line.
+ *
  * @see REDUCTION_STAGE for the stages JLReq 3.8.3 orders these priorities by.
  */
-export type SpacingCapacity = Readonly<{ priority: number; amountEm: number }>;
+export type SpacingCapacity = Readonly<{
+  priority: number;
+  amountEm: number;
+  granularity: "continuous" | "all-or-nothing";
+}>;
 
 /**
  * The space between one character class and the next. `glue` is an アキ the line adjustment may still
@@ -104,6 +114,23 @@ export type PairSpacing = Readonly<{
  * at.
  */
 export type LineHeadKind = "paragraph-start" | "turned-over";
+
+/**
+ * The アキ a line end puts after its last character, and how much of the アキ before that character
+ * belongs to the same indivisible amount.
+ *
+ * `absorbsPrecedingEm` is 表3 注5 and the third stage of JLReq 3.8.3: a 中点類 (cl-05) at the line end
+ * gives up its quarter em before and its quarter em after together, since 3.1.9 says
+ * 「中点類（cl-05）の前及び後ろを一緒にベタ組としてもよい」. Every other line end absorbs nothing and leaves it 0.
+ *
+ * It is an amount rather than a flag because the space before the last character is not always a
+ * bare quarter: `、・` takes three quarters (表1 注5), of which only the middle dot's quarter joins the
+ * line-end amount and the comma's half stays a mid-line opportunity.
+ */
+export type LineEndSpacing = Readonly<{
+  spacing: PairSpacing;
+  absorbsPrecedingEm: number;
+}>;
 
 /**
  * The advance a character occupies on the line, and how far its ink is shifted inside that advance.
@@ -126,7 +153,7 @@ export type JapaneseTypesettingProfile = Readonly<{
   ) => TypographicBoxMetrics;
   pairSpacing: (left: JapaneseCharacterClass, right: JapaneseCharacterClass) => PairSpacing;
   lineStartSpacing: (first: JapaneseCharacterClass, lineHead: LineHeadKind) => PairSpacing | null;
-  lineEndSpacing: (last: JapaneseCharacterClass) => PairSpacing | null;
+  lineEndSpacing: (last: JapaneseCharacterClass) => LineEndSpacing | null;
   /**
    * `null` where a break between two classes is prohibited, otherwise a cost a caller may weigh.
    * The composer only tests for `null` today, so every permitted break is priced at zero.
@@ -246,7 +273,7 @@ const SOLID: PairSpacing = { kind: "glue", naturalWidthEm: 0 };
 const SOLID_EXPANDABLE: PairSpacing = {
   kind: "glue",
   naturalWidthEm: 0,
-  stretch: { priority: EXPANSION_STAGE.solid, amountEm: 0.25 },
+  stretch: { priority: EXPANSION_STAGE.solid, amountEm: 0.25, granularity: "continuous" },
 };
 /**
  * `1/2` in 表1 with `1/2-0` in 表3: a half em that line adjustment may take down to solid.
@@ -254,7 +281,7 @@ const SOLID_EXPANDABLE: PairSpacing = {
 const HALF: PairSpacing = {
   kind: "glue",
   naturalWidthEm: 0.5,
-  shrink: { priority: REDUCTION_STAGE.punctuation, amountEm: 0.5 },
+  shrink: { priority: REDUCTION_STAGE.punctuation, amountEm: 0.5, granularity: "continuous" },
 };
 /**
  * `1/2` in both tables: the half em exists but is not a reduction opportunity.
@@ -266,7 +293,7 @@ const FIXED_HALF: PairSpacing = { kind: "glue", naturalWidthEm: 0.5 };
 const QUARTER: PairSpacing = {
   kind: "glue",
   naturalWidthEm: 0.25,
-  shrink: { priority: REDUCTION_STAGE.middleDot, amountEm: 0.25 },
+  shrink: { priority: REDUCTION_STAGE.middleDot, amountEm: 0.25, granularity: "continuous" },
 };
 /**
  * `1/4` in both tables: the quarter em exists but is not a reduction opportunity.
@@ -279,8 +306,8 @@ const FIXED_QUARTER: PairSpacing = { kind: "glue", naturalWidthEm: 0.25 };
 const MIXED_TEXT_QUARTER: PairSpacing = {
   kind: "glue",
   naturalWidthEm: 0.25,
-  shrink: { priority: REDUCTION_STAGE.mixedText, amountEm: 0.125 },
-  stretch: { priority: EXPANSION_STAGE.mixedText, amountEm: 0.25 },
+  shrink: { priority: REDUCTION_STAGE.mixedText, amountEm: 0.125, granularity: "continuous" },
+  stretch: { priority: EXPANSION_STAGE.mixedText, amountEm: 0.25, granularity: "continuous" },
 };
 /**
  * The same quarter em where 表6 leaves it out of the expansion: between a unit symbol and the
@@ -289,7 +316,7 @@ const MIXED_TEXT_QUARTER: PairSpacing = {
 const UNIT_SYMBOL_QUARTER: PairSpacing = {
   kind: "glue",
   naturalWidthEm: 0.25,
-  shrink: { priority: REDUCTION_STAGE.mixedText, amountEm: 0.125 },
+  shrink: { priority: REDUCTION_STAGE.mixedText, amountEm: 0.125, granularity: "continuous" },
 };
 /**
  * 表1 注3 with 表3 注1: two middle dots meet, and their quarters go solid together.
@@ -297,7 +324,7 @@ const UNIT_SYMBOL_QUARTER: PairSpacing = {
 const TWO_QUARTERS: PairSpacing = {
   kind: "glue",
   naturalWidthEm: 0.5,
-  shrink: { priority: REDUCTION_STAGE.middleDot, amountEm: 0.5 },
+  shrink: { priority: REDUCTION_STAGE.middleDot, amountEm: 0.5, granularity: "continuous" },
 };
 /**
  * 表1 注5 with 表3 注2: a full stop's fixed half em plus the following middle dot's quarter.
@@ -305,7 +332,7 @@ const TWO_QUARTERS: PairSpacing = {
 const FIXED_HALF_AND_QUARTER: PairSpacing = {
   kind: "glue",
   naturalWidthEm: 0.75,
-  shrink: { priority: REDUCTION_STAGE.middleDot, amountEm: 0.25 },
+  shrink: { priority: REDUCTION_STAGE.middleDot, amountEm: 0.25, granularity: "continuous" },
 };
 /**
  * 表1 注5 with 表3 注3: a comma's half em plus the following middle dot's quarter.
@@ -317,7 +344,7 @@ const FIXED_HALF_AND_QUARTER: PairSpacing = {
 const HALF_AND_QUARTER: PairSpacing = {
   kind: "glue",
   naturalWidthEm: 0.75,
-  shrink: { priority: REDUCTION_STAGE.punctuation, amountEm: 0.75 },
+  shrink: { priority: REDUCTION_STAGE.punctuation, amountEm: 0.75, granularity: "continuous" },
 };
 /**
  * 分離禁止文字 repeated (a 2倍ダッシュ, a 2倍リーダ) must read as one continuous rule (3.1.10).
@@ -591,19 +618,37 @@ export const defaultJapaneseTypesettingProfile: JapaneseTypesettingProfile = {
    * The half em trailing a closing bracket, full stop or comma at the line end, and the quarter em
    * trailing a middle dot there (JLReq 3.1.9). Priority 0: spending it changes nothing the reader
    * can see.
+   *
+   * Both are all-or-nothing. 3.1.9 admits the full アキ or ベタ組 and forbids anything in between, so a
+   * line whose overflow is smaller than the アキ has to find the difference somewhere else — or break
+   * elsewhere. A line-end middle dot takes the quarter before it into the same amount (表3 注5).
    */
   lineEndSpacing: (last) =>
     last === "cl-02" || last === "cl-06" || last === "cl-07"
       ? {
-          kind: "glue",
-          naturalWidthEm: 0.5,
-          shrink: { priority: REDUCTION_STAGE.lineEnd, amountEm: 0.5 },
+          spacing: {
+            kind: "glue",
+            naturalWidthEm: 0.5,
+            shrink: {
+              priority: REDUCTION_STAGE.lineEnd,
+              amountEm: 0.5,
+              granularity: "all-or-nothing",
+            },
+          },
+          absorbsPrecedingEm: 0,
         }
       : last === "cl-05"
         ? {
-            kind: "glue",
-            naturalWidthEm: 0.25,
-            shrink: { priority: REDUCTION_STAGE.lineEnd, amountEm: 0.25 },
+            spacing: {
+              kind: "glue",
+              naturalWidthEm: 0.25,
+              shrink: {
+                priority: REDUCTION_STAGE.lineEnd,
+                amountEm: 0.25,
+                granularity: "all-or-nothing",
+              },
+            },
+            absorbsPrecedingEm: 0.25,
           }
         : null,
 

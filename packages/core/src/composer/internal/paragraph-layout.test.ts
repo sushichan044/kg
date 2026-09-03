@@ -15,7 +15,7 @@ const flexiblePrefixProfile: JapaneseTypesettingProfile = {
       ? {
           kind: "glue",
           naturalWidthEm: 0,
-          stretch: { priority: 1, amountEm: 1 },
+          stretch: { priority: 1, amountEm: 1, granularity: "continuous" },
         }
       : { kind: "glue", naturalWidthEm: 0 },
   breakPenalty: () => 0,
@@ -39,8 +39,30 @@ const freeLineEndProfile: JapaneseTypesettingProfile = {
   lineStartSpacing: () => null,
   lineEndSpacing: (last) =>
     last === "cl-07"
-      ? { kind: "glue", naturalWidthEm: 0.5, shrink: { priority: 0, amountEm: 0.5 } }
+      ? {
+          spacing: {
+            kind: "glue",
+            naturalWidthEm: 0.5,
+            shrink: { priority: 0, amountEm: 0.5, granularity: "all-or-nothing" },
+          },
+          absorbsPrecedingEm: 0,
+        }
       : null,
+};
+
+/**
+ * The same all-or-nothing line end, with one visible half em mid-line for it to compete against.
+ */
+const lineEndAndCommaProfile: JapaneseTypesettingProfile = {
+  ...freeLineEndProfile,
+  pairSpacing: (_left, right) =>
+    right === "cl-07"
+      ? {
+          kind: "glue",
+          naturalWidthEm: 0.5,
+          shrink: { priority: 2, amountEm: 0.5, granularity: "continuous" },
+        }
+      : { kind: "glue", naturalWidthEm: 0 },
 };
 
 /**
@@ -55,10 +77,22 @@ const stagedProfile: JapaneseTypesettingProfile = {
   }),
   pairSpacing: (_left, right) =>
     right === "cl-27"
-      ? { kind: "glue", naturalWidthEm: 0, stretch: { priority: 2, amountEm: 0.75 } }
+      ? {
+          kind: "glue",
+          naturalWidthEm: 0,
+          stretch: { priority: 2, amountEm: 0.75, granularity: "continuous" },
+        }
       : right === "cl-01"
-        ? { kind: "glue", naturalWidthEm: 0, stretch: { priority: 1, amountEm: 0.5 } }
-        : { kind: "glue", naturalWidthEm: 0, stretch: { priority: 2, amountEm: 0.25 } },
+        ? {
+            kind: "glue",
+            naturalWidthEm: 0,
+            stretch: { priority: 1, amountEm: 0.5, granularity: "continuous" },
+          }
+        : {
+            kind: "glue",
+            naturalWidthEm: 0,
+            stretch: { priority: 2, amountEm: 0.25, granularity: "continuous" },
+          },
   breakPenalty: () => 0,
   canHang: () => false,
   lineStartSpacing: () => null,
@@ -109,6 +143,45 @@ describe("layoutParagraph", () => {
 
     expect(plans.map(({ end }) => end)).toEqual([5]);
     expect(plans.map(({ break: result }) => result.kind)).toEqual(["shrunk"]);
+  });
+
+  test("leaves a line-end アキ whole when the overflow is smaller than it", () => {
+    // Three and a half em in a 3.2 em line. The line-end half em cannot give three tenths of an em
+    // without landing on a width JLReq 3.1.9 forbids, so the visible half em mid-line gives instead.
+    const paragraph = "AAP".split("").map((value) => ({
+      value,
+      boxAdvanceEm: value === "P" ? 0.5 : 1,
+      sourceGap: false,
+      characterClass: lineEndAndCommaProfile.classify({ value, presentation: "mixed" }),
+      pairSpacingAfter: true,
+    }));
+
+    const plans = layoutParagraph(paragraph, 3.2, lineEndAndCommaProfile, () => true);
+    const line = plans[0];
+    expect.assert(line !== undefined, "layout has no line");
+
+    expect(plans).toHaveLength(1);
+    expect(line.break.kind).toBe("shrunk");
+    expect(spacingWidths(line)).toEqual([0, expect.closeTo(0.2, 10), 0.5]);
+  });
+
+  test("refuses to shrink when only an oversized line-end アキ is left", () => {
+    // Three em in a 2.8 em line, and the line end is the only capacity there is. Taking a fifth of
+    // its half em is what 3.1.9 forbids, so the line is not a shrunk line at all.
+    const paragraph = "AAP".split("").map((value) => ({
+      value,
+      boxAdvanceEm: value === "P" ? 0.5 : 1,
+      sourceGap: false,
+      characterClass: freeLineEndProfile.classify({ value, presentation: "mixed" }),
+      pairSpacingAfter: true,
+    }));
+
+    const plans = layoutParagraph(paragraph, 2.8, freeLineEndProfile, () => true);
+    const line = plans.at(-1);
+    expect.assert(line !== undefined, "layout has no line");
+
+    expect(line.break.kind).not.toBe("shrunk");
+    expect(spacingWidths(line)).toContain(0.5);
   });
 
   test("spreads one stage in proportion to what each space can give", () => {

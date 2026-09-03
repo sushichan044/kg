@@ -380,6 +380,59 @@ describe("composeManuscript", () => {
     ).not.toContain(0.5);
   });
 
+  test("keeps a line-end half em whole and squeezes the comma instead", () => {
+    // Ten and a quarter em in a ten em line. JLReq 3.1.9 admits the half em after a line-end full
+    // stop or ベタ組 and nothing between, so it cannot give the quarter em this line is over by. The
+    // comma's half em, which JLReq does reduce continuously, gives it instead.
+    const result = composeManuscript(parsed("ああああA、あああ。"), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const lines = contentLines(result.value);
+    expect(lines.map(lineText)).toEqual(["ああああA、あああ。"]);
+    const line = lines[0];
+    expect.assert(line !== undefined, "layout has no content line");
+
+    expect(line.break).toEqual({ kind: "shrunk" });
+    expect(
+      line.items.flatMap((item) =>
+        item.kind === "glue" && item.naturalWidthEm === 0.5
+          ? [{ widthEm: item.widthEm, adjustment: item.adjustment }]
+          : [],
+      ),
+    ).toEqual([
+      { widthEm: 0.25, adjustment: "shrunk" },
+      { widthEm: 0.5, adjustment: "natural" },
+    ]);
+    expect(line.inlineSizeEm).toBe(10);
+  });
+
+  test("takes the quarter em before and after a line-end middle dot together or not at all", () => {
+    // The same line ending in a middle dot instead. 表3 注5 makes its quarter em before and its
+    // quarter em after one amount, and half an em is more than this line is over by, so neither
+    // moves and the comma pays again. Reducing only the trailing quarter would leave the middle dot
+    // lopsided.
+    const result = composeManuscript(parsed("ああああA、あああ・"), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const line = contentLines(result.value)[0];
+    expect.assert(line !== undefined, "layout has no content line");
+
+    expect(line.break).toEqual({ kind: "shrunk" });
+    expect(
+      line.items.flatMap((item) =>
+        item.kind === "glue" && item.naturalWidthEm > 0 ? [item.widthEm] : [],
+      ),
+      // The quarter em against the western character, the comma's half em down to a quarter, and
+      // the middle dot's two quarters left whole.
+    ).toEqual([0.25, 0.25, 0.25, 0.25]);
+  });
+
   test("spreads a shortfall evenly over the pairs of one stage", () => {
     // The same paragraph as above. Six kana pairs can open up by a quarter em each, and the line
     // falls an em short, so JLReq 3.8.4 c puts a sixth of an em into every one of the six rather
