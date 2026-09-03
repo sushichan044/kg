@@ -217,6 +217,26 @@ test("runs a reading down its own line rather than across the page", async ({ re
   }
 });
 
+test("keeps a reading in the gap beside the line it annotates", async ({ renderViewer }) => {
+  const { screen } = await renderViewer({
+    text: "｜夢《ゆめ》",
+    flow,
+    parser: kakuyomuParser,
+  });
+  const line = screen.container.querySelector<HTMLElement>(".kgv-line");
+  expect.assert(line !== null, "viewer has no line");
+  const readingCharacters = Array.from(
+    screen.container.querySelectorAll<HTMLElement>(".kgv-ruby-character"),
+  );
+  expect(readingCharacters).toHaveLength(2);
+
+  const lineBounds = line.getBoundingClientRect();
+
+  for (const character of readingCharacters) {
+    expect(character.getBoundingClientRect().left).toBeGreaterThanOrEqual(lineBounds.right - 0.5);
+  }
+});
+
 test("keeps a base cell centred on a reading longer than it", async ({ renderViewer }) => {
   const { screen } = await renderViewer({
     text: "｜夢《にやりたいこと》",
@@ -279,7 +299,69 @@ test("renders semantic styles from composed annotation fragments", async ({ rend
   expect.assert(bold !== null && italic !== null && emphasis !== null);
   expect(getComputedStyle(bold).fontWeight).toBe("700");
   expect(getComputedStyle(italic).fontStyle).toBe("italic");
-  expect(getComputedStyle(emphasis).textEmphasisStyle).toContain('"');
+  expect(
+    Array.from(
+      screen.container.querySelectorAll(".kgv-emphasis-mark"),
+      ({ textContent }) => textContent,
+    ),
+  ).toEqual(['"', '"']);
+});
+
+test("marks every emphasised character beside its line", async ({ renderViewer }) => {
+  const { screen } = await renderViewer({
+    text: "無[[emphasismark:圏点>・]]",
+    flow,
+    parser: pixivParser,
+  });
+  const line = screen.container.querySelector<HTMLElement>(".kgv-line");
+  const cells = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-cell"));
+  const marks = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-emphasis-mark"));
+  expect.assert(line !== null, "viewer has no line");
+  expect(cells.map(({ textContent }) => textContent)).toEqual(["無", "圏", "点"]);
+  expect(marks.map(({ textContent }) => textContent)).toEqual(["・", "・"]);
+
+  const lineBounds = line.getBoundingClientRect();
+
+  // One mark per marked character, each in the gap beside the cell it belongs to.
+  for (const [index, mark] of marks.entries()) {
+    const marked = cells[index + 1];
+    expect.assert(marked !== undefined, "viewer has no cell for this mark");
+    const markBounds = mark.getBoundingClientRect();
+    const cellBounds = marked.getBoundingClientRect();
+
+    expect(markBounds.left).toBeGreaterThanOrEqual(lineBounds.right - 0.5);
+    expect(markBounds.top + markBounds.height / 2).toBeCloseTo(
+      cellBounds.top + cellBounds.height / 2,
+      1,
+    );
+  }
+});
+
+test("places an emphasised character where an unmarked one sits", async ({ renderViewer }) => {
+  const { screen } = await renderViewer({
+    text: "無[[emphasismark:点>・]]",
+    flow,
+    parser: pixivParser,
+  });
+  const cells = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-cell"));
+  expect(cells.map(({ textContent }) => textContent)).toEqual(["無", "点"]);
+  const [plain, marked] = cells;
+  expect.assert(plain !== undefined && marked !== undefined);
+
+  // The room text-emphasis reserves for the mark belongs to the glyph box, so a box that has moved
+  // still measures as if it had not. Measure the ink the reader sees instead.
+  const inkOf = (cell: HTMLElement) => {
+    const glyph = cell.querySelector<HTMLElement>(".kgv-glyph");
+    expect.assert(glyph !== null, "cell has no glyph");
+    const ink = document.createRange();
+    ink.selectNodeContents(glyph);
+    const bounds = ink.getBoundingClientRect();
+
+    return { left: bounds.left, offsetInCell: bounds.top - cell.getBoundingClientRect().top };
+  };
+
+  expect(inkOf(marked).left).toBeCloseTo(inkOf(plain).left, 1);
+  expect(inkOf(marked).offsetInCell).toBeCloseTo(inkOf(plain).offsetInCell, 1);
 });
 
 test("selects each diagnostic from its positioned band", async ({ renderViewer }) => {

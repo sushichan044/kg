@@ -109,10 +109,6 @@ function joinClassNames(...names: Array<string | undefined>): string {
   return names.filter((name) => name !== undefined && name !== "").join(" ");
 }
 
-function cssString(value: string): string {
-  return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
-}
-
 function annotationKey(annotation: ComposedAnnotationFragment): string {
   return `${annotation.kind}:${annotation.annotationRange.source.start}:${annotation.annotationRange.source.end}`;
 }
@@ -148,12 +144,11 @@ function wrapAnnotations(
         );
       }
       case "emphasis": {
+        // The marks themselves are placed by the layer below, not drawn from here: text-emphasis
+        // reserves their room inside the character's own box, and engines disagree about where in
+        // that box, which moves the character off its cell.
         return (
-          <span
-            key={annotationKey(annotation)}
-            data-annotation="emphasis"
-            style={{ textEmphasis: cssString(annotation.mark) }}
-          >
+          <span key={annotationKey(annotation)} data-annotation="emphasis">
             {wrapped}
           </span>
         );
@@ -187,6 +182,12 @@ type RenderedCell = Readonly<{
   disposition: ComposedGlyph["disposition"];
   presentation: VerticalTextPresentation["kind"];
   diagnostics: readonly ManuscriptDiagnostic[];
+}>;
+type EmphasisMark = Readonly<{
+  key: string;
+  mark: string;
+  offsetEm: number;
+  advanceEm: number;
 }>;
 
 function samePresentationGroup(left: ComposedGlyph, right: ComposedGlyph): boolean {
@@ -259,6 +260,27 @@ function presentationClass(kind: VerticalTextPresentation["kind"]): string | und
       return "kgv-glyph-tate-chu-yoko";
     }
   }
+}
+
+/**
+ * One mark per cell an emphasis fragment covers, on the coordinates the cell was drawn at.
+ */
+function emphasisMarks(line: NovelLine, cells: readonly RenderedCell[]): EmphasisMark[] {
+  return cells.flatMap((cell): EmphasisMark[] => {
+    const emphasis = annotationsForRange(line, cell.range).find(
+      (annotation) => annotation.kind === "emphasis",
+    );
+    if (emphasis?.kind !== "emphasis") return [];
+
+    return [
+      {
+        key: `${annotationKey(emphasis)}:${cell.range.graphemes.start}`,
+        mark: emphasis.mark,
+        offsetEm: cell.offsetEm,
+        advanceEm: cell.advanceEm,
+      },
+    ];
+  });
 }
 
 function assignBandLanes(placed: readonly PlacedBand[]): DiagnosticBand[] {
@@ -512,10 +534,12 @@ function NovelViewerComponent(
           id: `page:${pageIndex}:stage:${stageIndex}`,
           lines: stage.lines.map((line, lineIndex) => {
             const { bands, graphemes } = lineDiagnostics(line, diagnostics);
+            const cells = renderedCells(graphemes);
             return {
               id: `page:${pageIndex}:stage:${stageIndex}:line:${lineIndex}`,
               bands,
-              cells: renderedCells(graphemes),
+              cells,
+              marks: emphasisMarks(line, cells),
               line,
             };
           }),
@@ -595,7 +619,7 @@ function NovelViewerComponent(
               <div className="kgv-page-grid">
                 {stages.map((stage) => (
                   <div key={stage.id} className="kgv-stage">
-                    {stage.lines.map(({ id: lineId, bands, cells, line }) => {
+                    {stage.lines.map(({ id: lineId, bands, cells, marks, line }) => {
                       return (
                         <div key={lineId} className="kgv-line">
                           {showGrid && (
@@ -648,6 +672,26 @@ function NovelViewerComponent(
                               .filter((annotation) => annotation.kind === "ruby")
                               .map(renderRuby)}
                           </span>
+                          {marks.length > 0 && (
+                            <span className="kgv-line-emphasis" aria-hidden="true">
+                              <span className="kgv-emphasis">
+                                {marks.map(({ key, mark, offsetEm, advanceEm }) => (
+                                  <span
+                                    key={key}
+                                    className="kgv-emphasis-mark"
+                                    style={
+                                      {
+                                        "--kgv-item-offset": offsetEm,
+                                        "--kgv-item-advance": advanceEm,
+                                      } as PositionedStyle
+                                    }
+                                  >
+                                    {mark}
+                                  </span>
+                                ))}
+                              </span>
+                            </span>
+                          )}
                           {bands.length > 0 && (
                             <span className="kgv-line-diagnostics">{bands.map(renderBand)}</span>
                           )}
