@@ -441,6 +441,25 @@ test("keeps a split diagnostic as one control with continuation bands", async ({
   expect(Array.from(bands).filter(({ tagName }) => tagName === "BUTTON")).toHaveLength(1);
 });
 
+test("bands a diagnostic that falls on a space the composer sets as an アキ", async ({
+  renderViewer,
+}) => {
+  // A half-width space after a `！` is the wrong space, and the diagnostic covers the space itself.
+  // JLReq sets a 欧文間隔 as an アキ, so it leaves the composer as glue rather than as a glyph — the band
+  // has to reach it there or the reader is told nothing.
+  const { diagnostics, screen } = await renderViewer({ text: "あ！ い", flow });
+  const diagnostic = diagnostics.find(
+    ({ origin }) => origin.id === "kg/space-after-question-or-exclamation",
+  );
+  expect.assert(diagnostic !== undefined, "fixture produced no spacing diagnostic");
+
+  expect(
+    screen.container.querySelectorAll(
+      `.kgv-diagnostic-band[data-diagnostic-id="${diagnostic.id}"]`,
+    ),
+  ).toHaveLength(1);
+});
+
 test("renders reserved lines without introducing phantom graphemes", async ({ renderViewer }) => {
   const offsets: ManuscriptOffsets = {
     document: { leading: 1, trailing: 0 },

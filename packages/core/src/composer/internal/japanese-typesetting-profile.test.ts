@@ -377,6 +377,54 @@ describe("defaultJapaneseTypesettingProfile", () => {
     });
   });
 
+  test("sets a western word space on a third em and takes it to nothing at a line edge", () => {
+    const midLine = defaultJapaneseTypesettingProfile.spacingCharacter("cl-26", "mid-line");
+    const atEdge = defaultJapaneseTypesettingProfile.spacingCharacter("cl-26", "line-edge");
+    expect.assert(midLine !== null, "a word space sets no アキ of its own");
+    expect.assert(midLine.shrink !== undefined, "a word space has no shrink capacity");
+    expect.assert(midLine.stretch !== undefined, "a word space has no stretch capacity");
+
+    // A third of an em is not representable in binary; the 四分アキ and 二分アキ limits JLReq states are.
+    expect(midLine.naturalWidthEm).toBeCloseTo(1 / 3, 12);
+    expect(midLine.naturalWidthEm - midLine.shrink.amountEm).toBe(0.25);
+    expect(midLine.naturalWidthEm + midLine.stretch.amountEm).toBe(0.5);
+    expect(atEdge).toEqual({ kind: "glue", naturalWidthEm: 0 });
+    // Its box is nothing at all: the whole width is the アキ above, whatever the measurer reported.
+    expect(defaultJapaneseTypesettingProfile.boxMetrics("cl-26", 0.5)).toEqual({
+      advanceEm: 0,
+      renderOffsetEm: 0,
+    });
+  });
+
+  test("gives no class but the western word space an アキ of its own", () => {
+    const others = japaneseCharacterClasses.filter((characterClass) => characterClass !== "cl-26");
+
+    expect(
+      others.flatMap((characterClass) =>
+        defaultJapaneseTypesettingProfile.spacingCharacter(characterClass, "mid-line") === null
+          ? []
+          : [characterClass],
+      ),
+    ).toEqual([]);
+  });
+
+  test("reaches for the western word space before any pair, in either direction", () => {
+    const wordSpace = defaultJapaneseTypesettingProfile.spacingCharacter("cl-26", "mid-line");
+    const middleDot = defaultJapaneseTypesettingProfile.pairSpacing("cl-19", "cl-05");
+    const mixedText = defaultJapaneseTypesettingProfile.pairSpacing("cl-19", "cl-27");
+    expect.assert(wordSpace?.shrink !== undefined, "a word space has no shrink capacity");
+    expect.assert(wordSpace.stretch !== undefined, "a word space has no stretch capacity");
+    expect.assert(middleDot.shrink !== undefined, "middle-dot space has no shrink capacity");
+    expect.assert(mixedText.stretch !== undefined, "mixed-text space has no stretch capacity");
+
+    // JLReq 3.8.3 a and 3.8.4 a: the word space is the first stage of both directions. Only the
+    // line-end reduction, which the reader cannot see at all, is taken ahead of it.
+    expect(wordSpace.shrink.priority).toBeLessThan(middleDot.shrink.priority);
+    expect(wordSpace.stretch.priority).toBeLessThan(mixedText.stretch.priority);
+    expect(wordSpace.shrink.priority).toBeGreaterThan(0);
+    expect(wordSpace.stretch.priority).toBeGreaterThan(0);
+  });
+
   test("admits the whole line-end アキ or none of it, and nothing in between", () => {
     const atLineEnd = ["cl-02", "cl-05", "cl-06", "cl-07"] as const;
     const granularities = atLineEnd.map((characterClass) => {

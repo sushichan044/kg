@@ -537,7 +537,12 @@ function positionedLine(
         ];
   });
   const spacings = new Map(plan.pairSpacings.map((spacing) => [spacing.boundary, spacing]));
+  const characterSpacings = new Map(
+    plan.characterSpacings.map((spacing) => [spacing.index, spacing]),
+  );
   let offsetEm = 0;
+  const adjustmentOf = (widthEm: number, naturalWidthEm: number) =>
+    widthEm < naturalWidthEm ? "shrunk" : widthEm > naturalWidthEm ? "stretched" : "natural";
   const positionSpacing = (spacing: ParagraphLinePlan["pairSpacings"][number]) => {
     if (spacing.kind === "kern") {
       items.push({ kind: "kern", offsetEm, widthEm: spacing.widthEm });
@@ -548,12 +553,7 @@ function positionedLine(
         offsetEm,
         widthEm: spacing.widthEm,
         naturalWidthEm: spacing.naturalWidthEm,
-        adjustment:
-          spacing.widthEm < spacing.naturalWidthEm
-            ? "shrunk"
-            : spacing.widthEm > spacing.naturalWidthEm
-              ? "stretched"
-              : "natural",
+        adjustment: adjustmentOf(spacing.widthEm, spacing.naturalWidthEm),
       });
     }
     offsetEm += spacing.widthEm;
@@ -565,18 +565,24 @@ function positionedLine(
 
     const atom = atoms[index];
     if (atom === undefined) continue;
-    if (sourceGapIndexes.has(index)) {
+    // The ideographic space a `！` or `？` takes after it, and the western word space, which JLReq
+    // states as an アキ rather than a character with a box. Both carry no ink and come from the source,
+    // so both leave the line as source glue; only the word space is resized by line adjustment.
+    const characterSpacing = characterSpacings.get(index);
+    if (sourceGapIndexes.has(index) || characterSpacing !== undefined) {
+      const naturalWidthEm = characterSpacing?.naturalWidthEm ?? atom.boxAdvanceEm;
+      const widthEm = characterSpacing?.widthEm ?? atom.boxAdvanceEm;
       items.push({
         kind: "glue",
         origin: "source",
         value: atom.grapheme.value,
         range: atom.grapheme.range,
         offsetEm,
-        widthEm: atom.boxAdvanceEm,
-        naturalWidthEm: atom.boxAdvanceEm,
-        adjustment: "natural",
+        widthEm,
+        naturalWidthEm,
+        adjustment: adjustmentOf(widthEm, naturalWidthEm),
       });
-      offsetEm += atom.boxAdvanceEm;
+      offsetEm += widthEm;
       continue;
     }
 

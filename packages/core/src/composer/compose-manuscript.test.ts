@@ -380,6 +380,87 @@ describe("composeManuscript", () => {
     ).not.toContain(0.5);
   });
 
+  test("sets a western word space on a third em, as an アキ rather than a box", () => {
+    const result = composeManuscript(parsed("あspring rainい"), {
+      composer: novelComposer,
+      settings: settings({ lineLengthEm: 40 }),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const line = contentLines(result.value)[0];
+    expect.assert(line !== undefined, "layout has no content line");
+
+    expect(
+      line.items.flatMap((item) =>
+        item.kind === "glue" && item.origin === "source"
+          ? [{ value: item.value, widthEm: item.widthEm, adjustment: item.adjustment }]
+          : [],
+      ),
+    ).toEqual([{ value: " ", widthEm: 1 / 3, adjustment: "natural" }]);
+    // A kanji, a quarter em, six sideways letters, the word space, four more letters, a quarter and
+    // a kanji. The word space carries no box of its own.
+    expect(line.inlineSizeEm).toBe(1 + 0.25 + 3 + 1 / 3 + 2 + 0.25 + 1);
+  });
+
+  test("takes a western word space at the line end to nothing", () => {
+    // 表1 注13 gives 行頭 and 行末 の欧文間隔 no width: the white would fall outside the text area.
+    const result = composeManuscript(parsed("ああああああああab cd"), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const lines = contentLines(result.value);
+    // The space stays on the line it ends, and it is still reported — set to nothing, not dropped.
+    expect(lines.map(lineText)).toEqual(["ああああああああab ", "cd"]);
+    const firstLine = lines[0];
+    expect.assert(firstLine !== undefined, "layout has no first content line");
+
+    expect(
+      firstLine.items.flatMap((item) =>
+        item.kind === "glue" && item.origin === "source" ? [item.widthEm] : [],
+      ),
+    ).toEqual([0]);
+  });
+
+  test("opens a western word space to its half em before any other stage", () => {
+    // JLReq 3.8.4 a puts the word space first. This line falls short by more than any one stage can
+    // absorb, so stage 1 opens the word space from 三分アキ to its 二分アキ limit, stage 2 opens the quarter
+    // em against the western letters to a half, and only the leftovers reach the kana pairs.
+    const result = composeManuscript(parsed("あああああab cdい……"), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const firstLine = contentLines(result.value)[0];
+    expect.assert(firstLine !== undefined, "layout has no first content line");
+    expect(firstLine.break).toEqual({ kind: "stretched" });
+
+    const wordSpace = firstLine.items.find(
+      (item) => item.kind === "glue" && item.origin === "source",
+    );
+    expect.assert(wordSpace?.kind === "glue", "line has no word space");
+
+    expect(wordSpace.widthEm).toBe(0.5);
+    expect(
+      firstLine.items.flatMap((item) =>
+        item.kind === "glue" && item.origin === "generated" && item.adjustment === "stretched"
+          ? [item.widthEm]
+          : [],
+      ),
+      // Four kana pairs left part-way at an eighth, and both mixed-text quarter ems spent out at
+      // the half JLReq 3.8.4 b stops them at.
+    ).toEqual([
+      expect.closeTo(0.125, 10),
+      expect.closeTo(0.125, 10),
+      expect.closeTo(0.125, 10),
+      expect.closeTo(0.125, 10),
+      0.5,
+      0.5,
+    ]);
+  });
+
   test("keeps a line-end half em whole and squeezes the comma instead", () => {
     // Ten and a quarter em in a ten em line. JLReq 3.1.9 admits the half em after a line-end full
     // stop or ベタ組 and nothing between, so it cannot give the quarter em this line is over by. The
