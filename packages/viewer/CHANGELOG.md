@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.8.0](https://github.com/sushichan044/kg/compare/kg-viewer-v0.7.0...kg-viewer-v0.8.0) (2026-09-03)
+
+
+### Bug Fixes
+
+* **viewer:** put a ruby reading and an emphasis mark beside the line, not on it ([bc157b1](https://github.com/sushichan044/kg/commit/bc157b1722ab7ea5aa2d9e594c4cfed7a4c41376))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @sushichan044/kg-core bumped to 0.8.0
+
 ## [0.7.0](https://github.com/sushichan044/kg/compare/kg-viewer-v0.6.5...kg-viewer-v0.7.0) (2026-09-02)
 
 
