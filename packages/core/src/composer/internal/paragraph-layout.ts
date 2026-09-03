@@ -121,36 +121,68 @@ function capacity(
   );
 }
 
+/**
+ * The spaces of one JLReq stage, and what each of them can give or take.
+ */
+type Stage = Array<Readonly<{ boundary: number; capacityEm: number }>>;
+
+/**
+ * Group the opportunities that can give or take space by the stage JLReq spends them in.
+ */
+function stages(
+  values: readonly Opportunity[],
+  adjustment: "shrink" | "stretch",
+): Map<number, Stage> {
+  const result = new Map<number, Stage>();
+  for (const { boundary, spacing } of values) {
+    const capacity = adjustment === "shrink" ? spacing.shrink : spacing.stretch;
+    if (capacity === undefined || capacity.amountEm <= 0) continue;
+    const stage = result.get(capacity.priority);
+    const entry = { boundary, capacityEm: capacity.amountEm };
+    if (stage === undefined) result.set(capacity.priority, [entry]);
+    else stage.push(entry);
+  }
+  return result;
+}
+
+/**
+ * Spend `amountEm` over the spaces of the line, stage by stage.
+ *
+ * Every stage of JLReq 3.8.3 and 3.8.4 is stated as 文字サイズ比で均等に — the English text of 3.8.3 a puts
+ * it as "The same width reduction is applied to all spaces on the target line at the same time."
+ * Within a stage the amount is therefore split in proportion to what each space can give, rather
+ * than taken out of the earliest space until it runs dry. Across stages the order stays a
+ * waterfall: a later stage is reached only once every stage before it is spent out.
+ *
+ * The composer sets one character size, so a share of the stage's capacity is the same thing as a
+ * share by character size.
+ */
 function resolveSpacings(
   values: readonly Opportunity[],
-  adjustment: "natural" | "shrink" | "stretch",
+  adjustment: "shrink" | "stretch",
   amountEm: number,
 ): Readonly<{ spacings: ResolvedPairSpacing[]; priorityCost: number }> {
-  const remainingByBoundary = new Map<number, number>();
+  const usedByBoundary = new Map<number, number>();
+  const byStage = stages(values, adjustment);
   let remaining = amountEm;
   let priorityCost = 0;
-  const capacities = values
-    .flatMap((opportunity) => {
-      const selected =
-        adjustment === "shrink" ? opportunity.spacing.shrink : opportunity.spacing.stretch;
-      return selected === undefined ? [] : [{ ...opportunity, capacity: selected }];
-    })
-    .sort(
-      (left, right) =>
-        left.capacity.priority - right.capacity.priority || left.boundary - right.boundary,
-    );
 
-  for (const opportunity of capacities) {
+  for (const priority of [...byStage.keys()].sort((left, right) => left - right)) {
     if (remaining <= EPSILON) break;
-    const used = Math.min(remaining, opportunity.capacity.amountEm);
-    remainingByBoundary.set(opportunity.boundary, used);
-    priorityCost += used * opportunity.capacity.priority;
-    remaining -= used;
+    const stage = byStage.get(priority) ?? [];
+    const stageCapacityEm = stage.reduce((total, { capacityEm }) => total + capacityEm, 0);
+    const takenEm = Math.min(remaining, stageCapacityEm);
+
+    for (const { boundary, capacityEm } of stage) {
+      usedByBoundary.set(boundary, (takenEm * capacityEm) / stageCapacityEm);
+    }
+    priorityCost += takenEm * priority;
+    remaining -= takenEm;
   }
 
   return {
     spacings: values.map(({ boundary, spacing }) => {
-      const used = remainingByBoundary.get(boundary) ?? 0;
+      const used = usedByBoundary.get(boundary) ?? 0;
       return {
         boundary,
         kind: spacing.kind,
@@ -161,6 +193,18 @@ function resolveSpacings(
     }),
     priorityCost,
   };
+}
+
+/**
+ * The same spaces at the width the profile gives them, for a line no adjustment reaches.
+ */
+function naturalSpacings(values: readonly Opportunity[]): ResolvedPairSpacing[] {
+  return values.map(({ boundary, spacing }) => ({
+    boundary,
+    kind: spacing.kind,
+    naturalWidthEm: spacing.naturalWidthEm,
+    widthEm: spacing.naturalWidthEm,
+  }));
 }
 
 function candidate(
@@ -204,13 +248,12 @@ function candidate(
     pairValues.find(({ boundary }) => boundary === end)?.spacing.naturalWidthEm ?? 0;
 
   if (terminal && overflow <= EPSILON) {
-    const resolved = resolveSpacings(pairValues, "natural", 0);
     return {
       start,
       contentStart,
       end,
       suppressedIndexes,
-      pairSpacings: resolved.spacings,
+      pairSpacings: naturalSpacings(pairValues),
       inlineSizeEm: naturalSizeEm,
       break: { kind: "paragraph-end" },
       hangingIndex: null,
@@ -220,13 +263,12 @@ function candidate(
   }
 
   if (Math.abs(overflow) <= EPSILON) {
-    const resolved = resolveSpacings(pairValues, "natural", 0);
     return {
       start,
       contentStart,
       end,
       suppressedIndexes,
-      pairSpacings: resolved.spacings,
+      pairSpacings: naturalSpacings(pairValues),
       inlineSizeEm: naturalSizeEm,
       break: { kind: "natural" },
       hangingIndex: null,
@@ -261,13 +303,12 @@ function candidate(
     profile.canHang(lastClass) &&
     naturalSizeEm - lastAdvance - trailingSpacing <= lineLengthEm + EPSILON
   ) {
-    const resolved = resolveSpacings(pairValues, "natural", 0);
     return {
       start,
       contentStart,
       end,
       suppressedIndexes,
-      pairSpacings: resolved.spacings.filter(({ boundary }) => boundary !== end),
+      pairSpacings: naturalSpacings(pairValues).filter(({ boundary }) => boundary !== end),
       inlineSizeEm: naturalSizeEm - lastAdvance - trailingSpacing,
       break: { kind: "hanging" },
       hangingIndex: lastVisible,
@@ -292,13 +333,12 @@ function candidate(
     };
   }
 
-  const resolved = resolveSpacings(pairValues, "natural", 0);
   return {
     start,
     contentStart,
     end,
     suppressedIndexes,
-    pairSpacings: resolved.spacings,
+    pairSpacings: naturalSpacings(pairValues),
     inlineSizeEm: naturalSizeEm,
     break: { kind: "forced" },
     hangingIndex: null,

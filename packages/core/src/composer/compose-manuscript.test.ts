@@ -380,6 +380,27 @@ describe("composeManuscript", () => {
     ).not.toContain(0.5);
   });
 
+  test("spreads a shortfall evenly over the pairs of one stage", () => {
+    // The same paragraph as above. Six kana pairs can open up by a quarter em each, and the line
+    // falls an em short, so JLReq 3.8.4 c puts a sixth of an em into every one of the six rather
+    // than a quarter into the first four.
+    const result = composeManuscript(parsed("「あああああああ、……"), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const firstLine = contentLines(result.value)[0];
+    expect.assert(firstLine !== undefined, "layout has no first content line");
+
+    const stretched = firstLine.items.flatMap((item) =>
+      item.kind === "glue" && item.adjustment === "stretched" ? [item.widthEm] : [],
+    );
+
+    expect(stretched).toHaveLength(6);
+    for (const widthEm of stretched) expect(widthEm).toBeCloseTo(1 / 6, 10);
+  });
+
   test("breaks a line rather than squeezing a full stop or a line-head bracket", () => {
     // JLReq 3.8.3 keeps the half em after a mid-line full stop out of line adjustment, and 表3
     // excludes the line head from it altogether. Shrinking those two is what pulled a line-head
