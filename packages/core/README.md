@@ -100,6 +100,11 @@ closing bracket or comma, then the Japanese-to-Western quarter down to an eighth
 half em after a mid-line full stop marks the end of a sentence and is never reduced,
 and neither is the half em that keeps a line-head opening bracket off the edge.
 
+Every stage is spent 文字サイズ比で均等に, as JLReq 3.8.3 and 3.8.4 both put it: the amount
+is split across all the spaces of that stage in proportion to what each of them can
+give, rather than taken out of the earliest space until it runs dry. A stage opens
+only once every stage before it is spent out.
+
 JLReq 3.1.5 states the white before a line-head opening bracket as a pair of amounts:
 one for 改行行頭, the head of a line that starts a paragraph, and one for 折返し行頭, the
 head of a line the composer turned over. The specification lists three such pairs, and
