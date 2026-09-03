@@ -100,6 +100,11 @@ closing bracket or comma, then the Japanese-to-Western quarter down to an eighth
 half em after a mid-line full stop marks the end of a sentence and is never reduced,
 and neither is the half em that keeps a line-head opening bracket off the edge.
 
+An opening bracket at a line head takes its white from the scheme JLReq 3.1.5 pairs
+改行行頭 with 折返し行頭 in. Of the three the specification lists, the composer takes the
+one Japanese novels are set with: a half em where the line starts a paragraph, and
+天付き — flush against the edge — where the composer turned the line over.
+
 The composer also owns Japanese line-start and line-end restrictions, inseparable
 punctuation, question/exclamation gap suppression, and ruby placement.
 
