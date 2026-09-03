@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.6.0](https://github.com/sushichan044/kg/compare/v0.5.0...v0.6.0) (2026-09-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **core:** 括弧・句読点・中点類・ハイフン類・和字間隔のまわりのアキが伸びなくなり、 和文と欧文/連数字/単位記号の間は二分アキまで伸びるようになったため、行が不足するときの glue の分配と、それに伴う行分割が変わる。
+
+### Features
+
+* **core:** expand inter-character space only where JLReq 表6 admits it ([ee59eb3](https://github.com/sushichan044/kg/commit/ee59eb399a6bd0e98b642dce6fd45a4c477fc388))
+
+
+### Bug Fixes
+
+* **viewer:** put a ruby reading and an emphasis mark beside the line, not on it ([bc157b1](https://github.com/sushichan044/kg/commit/bc157b1722ab7ea5aa2d9e594c4cfed7a4c41376))
+
 ## [0.5.0](https://github.com/sushichan044/kg/compare/v0.4.5...v0.5.0) (2026-09-02)
 
 
