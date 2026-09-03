@@ -84,10 +84,16 @@ a closing bracket, comma, or full stop, a quarter em on either side of a middle 
 a quarter em between Japanese and a numeral, unit symbol, or Western character, and
 solid where two of those punctuation marks meet.
 
+A western word space is not a character with a box but an アキ of its own: a third em
+by rule rather than by measurement, nothing at all at a line head or a line end, and
+the first space either direction of the adjustment reaches for. It leaves the composer
+as a `glue` item carrying the source text it came from.
+
 An overflowing line is answered by reducing that space or by hanging a comma or full
 stop; a short line is answered by opening up space where JLReq 3.8.4 and appendix 表6
-allow it — the Japanese-to-Western quarter em first, up to a half, then a solid pair
-between kana, kanji, and the marks that go with them, up to a quarter. Space around
+allow it — the word space first, up to a half, then the Japanese-to-Western quarter em,
+also up to a half, then a solid pair between kana, kanji, and the marks that go with
+them, up to a quarter. Space around
 brackets, commas, full stops, middle dots, hyphens, and an ideographic space is never
 opened up. A line that admits none of these is forced. The choice is made for the
 paragraph rather than line by line,
@@ -95,10 +101,15 @@ minimizing in order the number of forced lines, then stretched, then hanging, th
 shrunk lines that spent visible space. Which space may be reduced, and in which
 order, follows JLReq 3.8.3 and appendix 表3: the space at the line end goes first and
 costs the paragraph nothing, because it is invisible once that character lands there;
-then a middle dot's quarters, then the half em before an opening bracket or after a
+then the word space, down to a quarter em; then a middle dot's quarters, then the half
+em before an opening bracket or after a
 closing bracket or comma, then the Japanese-to-Western quarter down to an eighth. The
 half em after a mid-line full stop marks the end of a sentence and is never reduced,
 and neither is the half em that keeps a line-head opening bracket off the edge.
+
+JLReq puts the word space ahead of the line end; the composer swaps the two, because
+a stage here says how visible an adjustment is and the line end is the only space the
+reader cannot see at all.
 
 The アキ at a line end is the one exception to spending a space in part. JLReq 3.1.9
 admits the full アキ or ベタ組 and forbids anything between, so a line whose overflow is
