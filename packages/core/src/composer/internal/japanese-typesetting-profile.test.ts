@@ -412,7 +412,8 @@ describe("defaultJapaneseTypesettingProfile", () => {
     const wordSpace = defaultJapaneseTypesettingProfile.spacingCharacter("cl-26", "mid-line");
     const middleDot = defaultJapaneseTypesettingProfile.pairSpacing("cl-19", "cl-05");
     const mixedText = defaultJapaneseTypesettingProfile.pairSpacing("cl-19", "cl-27");
-    expect.assert(wordSpace?.shrink !== undefined, "a word space has no shrink capacity");
+    expect.assert(wordSpace !== null, "a word space sets no アキ of its own");
+    expect.assert(wordSpace.shrink !== undefined, "a word space has no shrink capacity");
     expect.assert(wordSpace.stretch !== undefined, "a word space has no stretch capacity");
     expect.assert(middleDot.shrink !== undefined, "middle-dot space has no shrink capacity");
     expect.assert(mixedText.stretch !== undefined, "mixed-text space has no stretch capacity");
