@@ -86,11 +86,13 @@ solid where two of those punctuation marks meet.
 
 A western word space is not a character with a box but an アキ of its own: a third em
 by rule rather than by measurement, nothing at all at a line head or a line end, and
-the first space either direction of the adjustment reaches for. It leaves the composer
-as a `glue` item carrying the source text it came from.
+the first _visible_ space either direction of the adjustment reaches for — only the
+line-end space, which the reader cannot see at all, is spent ahead of it. It leaves the
+composer as a `glue` item carrying the source text it came from.
 
-An overflowing line is answered by reducing that space or by hanging a comma or full
-stop; a short line is answered by opening up space where JLReq 3.8.4 and appendix 表6
+An overflowing line is answered by reducing the space between characters, stage by
+stage, or by hanging a comma or full stop; a short line is answered by opening up space
+where JLReq 3.8.4 and appendix 表6
 allow it — the word space first, up to a half, then the Japanese-to-Western quarter em,
 also up to a half, then a solid pair between kana, kanji, and the marks that go with
 them, up to a quarter. Space around

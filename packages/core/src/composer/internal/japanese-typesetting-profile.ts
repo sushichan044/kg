@@ -108,6 +108,13 @@ export type PairSpacing = Readonly<{
 }>;
 
 /**
+ * An アキ that stands on its own rather than between two characters. It is always `glue`: a 詰め is a
+ * negative space pulling two characters together, which is meaningless where there is only one, and
+ * the composer emits such an アキ as glue whatever the profile says.
+ */
+export type CharacterSpacing = PairSpacing & Readonly<{ kind: "glue" }>;
+
+/**
  * Which kind of line head a line begins with (JLReq 3.1.5). 改行行頭 is the head of a line that starts
  * a paragraph; 折返し行頭 is the head of a line the composer turned over. JLReq gives the two different
  * amounts of white before an opening bracket, so the profile has to know which one it is looking
@@ -168,7 +175,7 @@ export type JapaneseTypesettingProfile = Readonly<{
   spacingCharacter: (
     characterClass: JapaneseCharacterClass,
     position: LinePosition,
-  ) => PairSpacing | null;
+  ) => CharacterSpacing | null;
   lineStartSpacing: (first: JapaneseCharacterClass, lineHead: LineHeadKind) => PairSpacing | null;
   lineEndSpacing: (last: JapaneseCharacterClass) => LineEndSpacing | null;
   /**
@@ -390,7 +397,7 @@ const DASH_JOINT: PairSpacing = { kind: "kern", naturalWidthEm: 0 };
  * way `naturalWidthEm - shrink.amountEm` is exactly 0.25 and `naturalWidthEm + stretch.amountEm`
  * exactly 0.5.
  */
-const WORD_SPACE: PairSpacing = {
+const WORD_SPACE: CharacterSpacing = {
   kind: "glue",
   naturalWidthEm: 1 / 3,
   shrink: {
@@ -410,7 +417,7 @@ const WORD_SPACE: PairSpacing = {
  * adds ただし，この部分が移動し，これとは異なる配置になった場合は，欧文間隔（cl-26）の空き量を確保する — which is why the answer is given per
  * candidate line and not once per source line.
  */
-const EDGE_WORD_SPACE: PairSpacing = { kind: "glue", naturalWidthEm: 0 };
+const EDGE_WORD_SPACE: CharacterSpacing = { kind: "glue", naturalWidthEm: 0 };
 
 /**
  * The classes that take a quarter em against a numeral, unit symbol or western character (3.2.6).

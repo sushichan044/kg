@@ -440,7 +440,7 @@ describe("composeManuscript", () => {
     const wordSpace = firstLine.items.find(
       (item) => item.kind === "glue" && item.origin === "source",
     );
-    expect.assert(wordSpace?.kind === "glue", "line has no word space");
+    expect.assert(wordSpace !== undefined, "line has no word space");
 
     expect(wordSpace.widthEm).toBe(0.5);
     expect(
