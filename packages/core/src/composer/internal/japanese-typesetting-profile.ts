@@ -98,6 +98,14 @@ export type PairSpacing = Readonly<{
 }>;
 
 /**
+ * Which kind of line head a line begins with (JLReq 3.1.5). 改行行頭 is the head of a line that starts
+ * a paragraph; 折返し行頭 is the head of a line the composer turned over. JLReq gives the two different
+ * amounts of white before an opening bracket, so the profile has to know which one it is looking
+ * at.
+ */
+export type LineHeadKind = "paragraph-start" | "turned-over";
+
+/**
  * The advance a character occupies on the line, and how far its ink is shifted inside that advance.
  * The two differ for the brackets and punctuation JLReq sets on a half em rather than a full one.
  */
@@ -117,7 +125,7 @@ export type JapaneseTypesettingProfile = Readonly<{
     measuredAdvanceEm: number,
   ) => TypographicBoxMetrics;
   pairSpacing: (left: JapaneseCharacterClass, right: JapaneseCharacterClass) => PairSpacing;
-  lineStartSpacing: (first: JapaneseCharacterClass) => PairSpacing | null;
+  lineStartSpacing: (first: JapaneseCharacterClass, lineHead: LineHeadKind) => PairSpacing | null;
   lineEndSpacing: (last: JapaneseCharacterClass) => PairSpacing | null;
   /**
    * `null` where a break between two classes is prohibited, otherwise a cost a caller may weigh.
@@ -565,15 +573,19 @@ export const defaultJapaneseTypesettingProfile: JapaneseTypesettingProfile = {
   pairSpacing,
 
   /**
-   * An opening bracket at the line head keeps a half em of white, so a line of dialogue starts one
-   * half em in rather than tight against the edge. JLReq 3.1.5 lists three schemes for that white
-   * and 表1 注17 sets solid as the principle; the half em is the variant the publishers of Japanese
-   * novels use for a line that begins a paragraph.
+   * The white before an opening bracket at a line head. JLReq 3.1.5 pairs 改行行頭 with 折返し行頭 and lists
+   * three schemes for the two together: ① 全角アキ and 天付き, ② 全角半アキ and 二分アキ, ③ 二分アキ and 天付き. This
+   * profile takes ③, the scheme 講談社, 新潮社, 文藝春秋, 中央公論新社 and 筑摩書房 set novels with; ① is what JIS X
+   * 4051 and 岩波書店 use. A line of dialogue therefore starts one half em in when it opens a
+   * paragraph, and flush against the edge when the composer turned it over.
    *
    * The white is not shrinkable. 表3 excludes the line head from line adjustment altogether, and
    * shrinking it is exactly what pushed a line-head bracket flush against the edge in #94.
    */
-  lineStartSpacing: (first) => (first === "cl-01" ? { kind: "glue", naturalWidthEm: 0.5 } : null),
+  lineStartSpacing: (first, lineHead) =>
+    first === "cl-01" && lineHead === "paragraph-start"
+      ? { kind: "glue", naturalWidthEm: 0.5 }
+      : null,
 
   /**
    * The half em trailing a closing bracket, full stop or comma at the line end, and the quarter em
