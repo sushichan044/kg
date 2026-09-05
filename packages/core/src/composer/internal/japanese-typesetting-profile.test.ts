@@ -337,21 +337,22 @@ describe("defaultJapaneseTypesettingProfile", () => {
   });
 
   test("spends reducible space in the order JLReq 3.8.3 lays down", () => {
-    const lineEnd = defaultJapaneseTypesettingProfile.lineEndSpacing("cl-02")?.spacing;
+    const lineEnd = defaultJapaneseTypesettingProfile.lineEndSpacing("cl-02");
     const middleDot = defaultJapaneseTypesettingProfile.pairSpacing("cl-19", "cl-05");
     const punctuation = defaultJapaneseTypesettingProfile.pairSpacing("cl-19", "cl-01");
     const mixedText = defaultJapaneseTypesettingProfile.pairSpacing("cl-19", "cl-27");
 
-    expect.assert(lineEnd?.shrink !== undefined, "line-end space has no shrink capacity");
+    expect.assert(lineEnd !== null, "a closing bracket takes no space at the line end");
+    expect.assert(lineEnd.spacing.shrink !== undefined, "line-end space has no shrink capacity");
     expect.assert(middleDot.shrink !== undefined, "middle-dot space has no shrink capacity");
     expect.assert(punctuation.shrink !== undefined, "bracket space has no shrink capacity");
     expect.assert(mixedText.shrink !== undefined, "mixed-text space has no shrink capacity");
 
-    expect(lineEnd.shrink.priority).toBeLessThan(middleDot.shrink.priority);
+    expect(lineEnd.spacing.shrink.priority).toBeLessThan(middleDot.shrink.priority);
     expect(middleDot.shrink.priority).toBeLessThan(punctuation.shrink.priority);
     expect(punctuation.shrink.priority).toBeLessThan(mixedText.shrink.priority);
     // Priority 0 is what makes a line-end reduction free to the paragraph optimizer.
-    expect(lineEnd.shrink.priority).toBe(0);
+    expect(lineEnd.spacing.shrink.priority).toBe(0);
   });
 
   test("reduces the space before an opening bracket and after a closing bracket or comma together", () => {
@@ -365,11 +366,11 @@ describe("defaultJapaneseTypesettingProfile", () => {
 
   test("keeps the half em after a mid-line full stop out of line adjustment", () => {
     const midLine = defaultJapaneseTypesettingProfile.pairSpacing("cl-06", "cl-19");
-    const lineEnd = defaultJapaneseTypesettingProfile.lineEndSpacing("cl-06")?.spacing;
-    expect.assert(lineEnd !== undefined, "a full stop takes no space at the line end");
+    const lineEnd = defaultJapaneseTypesettingProfile.lineEndSpacing("cl-06");
+    expect.assert(lineEnd !== null, "a full stop takes no space at the line end");
 
     expect(midLine).toEqual({ kind: "glue", naturalWidthEm: 0.5 });
-    expect(lineEnd.shrink).toEqual({
+    expect(lineEnd.spacing.shrink).toEqual({
       priority: 0,
       amountEm: 0.5,
       granularity: "all-or-nothing",
@@ -378,14 +379,22 @@ describe("defaultJapaneseTypesettingProfile", () => {
 
   test("admits the whole line-end アキ or none of it, and nothing in between", () => {
     const atLineEnd = ["cl-02", "cl-05", "cl-06", "cl-07"] as const;
+    const granularities = atLineEnd.map((characterClass) => {
+      const lineEnd = defaultJapaneseTypesettingProfile.lineEndSpacing(characterClass);
+      expect.assert(lineEnd !== null, `${characterClass} takes no space at the line end`);
+      expect.assert(
+        lineEnd.spacing.shrink !== undefined,
+        `${characterClass} has no line-end shrink capacity`,
+      );
+      return lineEnd.spacing.shrink.granularity;
+    });
 
-    expect(
-      atLineEnd.map(
-        (characterClass) =>
-          defaultJapaneseTypesettingProfile.lineEndSpacing(characterClass)?.spacing.shrink
-            ?.granularity,
-      ),
-    ).toEqual(["all-or-nothing", "all-or-nothing", "all-or-nothing", "all-or-nothing"]);
+    expect(granularities).toEqual([
+      "all-or-nothing",
+      "all-or-nothing",
+      "all-or-nothing",
+      "all-or-nothing",
+    ]);
 
     // Nothing mid-line is discrete: 表3 writes `1/2=0` only against the line end.
     const midLine = japaneseCharacterClasses.flatMap((left) =>
@@ -405,10 +414,13 @@ describe("defaultJapaneseTypesettingProfile", () => {
   test("takes the quarter em before a line-end middle dot into the line-end amount", () => {
     // 表3 注5: the quarter before and the quarter after go solid together, so the profile has to name
     // the one that is not its own.
-    expect(defaultJapaneseTypesettingProfile.lineEndSpacing("cl-05")?.absorbsPrecedingEm).toBe(
-      0.25,
-    );
-    expect(defaultJapaneseTypesettingProfile.lineEndSpacing("cl-06")?.absorbsPrecedingEm).toBe(0);
+    const middleDot = defaultJapaneseTypesettingProfile.lineEndSpacing("cl-05");
+    const fullStop = defaultJapaneseTypesettingProfile.lineEndSpacing("cl-06");
+    expect.assert(middleDot !== null, "a middle dot takes no space at the line end");
+    expect.assert(fullStop !== null, "a full stop takes no space at the line end");
+
+    expect(middleDot.absorbsPrecedingEm).toBe(0.25);
+    expect(fullStop.absorbsPrecedingEm).toBe(0);
   });
 
   test("keeps a line-head opening bracket at its full half em where a paragraph starts", () => {
@@ -445,9 +457,10 @@ describe("defaultJapaneseTypesettingProfile", () => {
       advanceEm: 0.5,
       renderOffsetEm: 0,
     });
-    expect(defaultJapaneseTypesettingProfile.lineEndSpacing("cl-07")?.spacing).toMatchObject({
-      naturalWidthEm: 0.5,
-    });
+    const afterComma = defaultJapaneseTypesettingProfile.lineEndSpacing("cl-07");
+    expect.assert(afterComma !== null, "a comma takes no space at the line end");
+
+    expect(afterComma.spacing).toMatchObject({ naturalWidthEm: 0.5 });
   });
 
   test("prohibits splitting an inseparable sequence but allows it at line start", () => {
