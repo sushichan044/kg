@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.9.0](https://github.com/sushichan044/kg/compare/kg-core-v0.8.0...kg-core-v0.9.0) (2026-09-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **core:** a western word space is a third em instead of a half, nothing at a line head or line end, and resized before any other space. It also leaves the composer as a `kind: "glue"` item with `origin: "source"` rather than as a `kind: "glyph"`, so a manuscript containing Latin text wraps differently and consumers reading `NovelLine.items` see the space on the glue arm.
+* **core:** a line whose overflow is smaller than the アキ at its line end no longer takes part of it. Such lines now squeeze visible space instead, or break elsewhere, so both the widths and the line breaks change.
+* **core:** a line that falls short or overflows spreads the difference over every space of the stage that pays for it, so glue widths inside such a line change even though the line breaks in the same place.
+* **core:** a turned-over line beginning with an opening bracket is set flush against the line head instead of a half em in, so the same manuscript breaks differently wherever such a line occurs.
+
+### Features
+
+* **core:** give a turned-over line head its own opening-bracket space ([fffec2a](https://github.com/sushichan044/kg/commit/fffec2ab94feea78e3b5fa34e2e9b4251f654f8a))
+* **core:** set the western word space as a third em the line adjustment resizes ([5a8c5d2](https://github.com/sushichan044/kg/commit/5a8c5d208474433e7c0d8d47c55276f7e86f5b64))
+* **core:** spend one stage of line adjustment across all its spaces at once ([df4c96a](https://github.com/sushichan044/kg/commit/df4c96a239d3a217f480ae58304c725148418f8d))
+* **core:** take a line-end アキ whole or leave it, never a width in between ([0958b57](https://github.com/sushichan044/kg/commit/0958b5741bcee1aff471649af17e08e024f561e0))
+
+
+### Bug Fixes
+
+* **core:** keep a character's own アキ to glue, and say the stages right ([905f741](https://github.com/sushichan044/kg/commit/905f741043bf2529de3f0a510f0c6b90c2f0df8d))
+
+
+### Performance Improvements
+
+* **core:** build the adjustment units of one direction only ([e3d85d3](https://github.com/sushichan044/kg/commit/e3d85d318ac9c21ee3d5014a6b0cc4b01347e373))
+
 ## [0.8.0](https://github.com/sushichan044/kg/compare/kg-core-v0.7.0...kg-core-v0.8.0) (2026-09-03)
 
 
