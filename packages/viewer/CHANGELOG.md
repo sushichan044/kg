@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.9.0](https://github.com/sushichan044/kg/compare/kg-viewer-v0.8.0...kg-viewer-v0.9.0) (2026-09-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **core:** a western word space is a third em instead of a half, nothing at a line head or line end, and resized before any other space. It also leaves the composer as a `kind: "glue"` item with `origin: "source"` rather than as a `kind: "glyph"`, so a manuscript containing Latin text wraps differently and consumers reading `NovelLine.items` see the space on the glue arm.
+
+### Features
+
+* **core:** set the western word space as a third em the line adjustment resizes ([5a8c5d2](https://github.com/sushichan044/kg/commit/5a8c5d208474433e7c0d8d47c55276f7e86f5b64))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @sushichan044/kg-core bumped to 0.9.0
+
 ## [0.8.0](https://github.com/sushichan044/kg/compare/kg-viewer-v0.7.0...kg-viewer-v0.8.0) (2026-09-03)
 
 
