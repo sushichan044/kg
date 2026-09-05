@@ -108,12 +108,27 @@ export type PairSpacing = Readonly<{
 }>;
 
 /**
+ * An アキ that stands on its own rather than between two characters. It is always `glue`: a 詰め is a
+ * negative space pulling two characters together, which is meaningless where there is only one, and
+ * the composer emits such an アキ as glue whatever the profile says.
+ */
+export type CharacterSpacing = PairSpacing & Readonly<{ kind: "glue" }>;
+
+/**
  * Which kind of line head a line begins with (JLReq 3.1.5). 改行行頭 is the head of a line that starts
  * a paragraph; 折返し行頭 is the head of a line the composer turned over. JLReq gives the two different
  * amounts of white before an opening bracket, so the profile has to know which one it is looking
  * at.
  */
 export type LineHeadKind = "paragraph-start" | "turned-over";
+
+/**
+ * Where a character sits on the candidate line being measured. JLReq gives 欧文間隔 (cl-26) a width
+ * only away from the edges (表1 注13), and adds that the width comes back the moment another break
+ * puts the same space back inside a line — so the answer cannot be settled once per source line. A
+ * line head and a line end are one case here because JLReq treats them alike.
+ */
+export type LinePosition = "line-edge" | "mid-line";
 
 /**
  * The アキ a line end puts after its last character, and how much of the アキ before that character
@@ -152,6 +167,15 @@ export type JapaneseTypesettingProfile = Readonly<{
     measuredAdvanceEm: number,
   ) => TypographicBoxMetrics;
   pairSpacing: (left: JapaneseCharacterClass, right: JapaneseCharacterClass) => PairSpacing;
+  /**
+   * The アキ a character _is_, rather than the box it sets in, or `null` for every class that sets as
+   * a glyph. 欧文間隔 (cl-26) is the only class JLReq treats this way: it carries no ink, its width is
+   * stated by rule rather than measured, and the line adjustment resizes it before anything else.
+   */
+  spacingCharacter: (
+    characterClass: JapaneseCharacterClass,
+    position: LinePosition,
+  ) => CharacterSpacing | null;
   lineStartSpacing: (first: JapaneseCharacterClass, lineHead: LineHeadKind) => PairSpacing | null;
   lineEndSpacing: (last: JapaneseCharacterClass) => LineEndSpacing | null;
   /**
@@ -213,14 +237,17 @@ function classify({ value, presentation }: JapaneseCharacter): JapaneseCharacter
  * The stages JLReq 3.8.3 spends inter-character space in, as glue priorities: the lower the number,
  * the earlier the paragraph optimizer takes it.
  *
- * JLReq's own first stage is the western word space (cl-26), which is absent here because reducing
- * it means resizing the space's own advance rather than a space between two characters.
+ * JLReq puts the western word space first and the line-end reduction second; this profile swaps the
+ * two, because a priority here says how visible an adjustment is rather than where 3.8.3's list
+ * puts it. Priority 0 is capacity the paragraph optimizer spends for nothing, and a line that spent
+ * only priority 0 reads as tightly set as an unadjusted one. That is true of the line end and of
+ * nothing else: the half em after a closing bracket, full stop or comma — and the quarter em after
+ * a middle dot — falls outside the text area once that character sits at the line end, so taking it
+ * changes nothing on the page (3.1.9). A 欧文間隔 sits between two words the reader is looking at, so
+ * narrowing it does change the page. Spending the invisible space first can only leave the word
+ * spaces nearer their 三分アキ than JLReq's order would, never further from it.
  *
- * The line-end stage is priority 0, which the optimizer also charges nothing for. JLReq 3.1.9 is
- * what allows that: the half em after a closing bracket, full stop or comma — and the quarter em
- * after a middle dot — cannot be seen once that character sits at the line end. JLReq orders it
- * second rather than first, but only after the word space this profile does not adjust at all.
- * Stages two and three are one priority here because a line has a single line end, so the two never
+ * Stages two and three are one priority because a line has a single line end, so the two never
  * compete.
  */
 const REDUCTION_STAGE = {
@@ -229,17 +256,21 @@ const REDUCTION_STAGE = {
    */
   lineEnd: 0,
   /**
+   * Stage 1: the western word space, from its 三分アキ down to a 四分アキ.
+   */
+  wordSpace: 1,
+  /**
    * Stage 4: the quarter em on either side of a mid-line middle dot.
    */
-  middleDot: 1,
+  middleDot: 2,
   /**
    * Stage 5: the half em before an opening bracket and after a closing bracket or comma.
    */
-  punctuation: 2,
+  punctuation: 3,
   /**
    * Stage 6: the quarter em between Japanese and a numeral, unit symbol or western character.
    */
-  mixedText: 3,
+  mixedText: 4,
 } as const;
 
 /**
@@ -247,20 +278,26 @@ const REDUCTION_STAGE = {
  * {@link REDUCTION_STAGE}: the lower the number, the earlier the paragraph optimizer takes it. A
  * line is either reduced or expanded, never both, so the two scales never meet.
  *
- * Stage 1 is the western word space (cl-26), absent for the same reason it is absent from the
- * reduction stages. Stage 4 spreads whatever a、b and c could not absorb across every character gap
- * that is not unbreakable, and is deliberately not implemented: it would justify every line that
- * currently falls short, which reads as prose combed out to the margin rather than a novel.
+ * Stage 4 spreads whatever a、b and c could not absorb across every character gap that is not
+ * unbreakable, and is deliberately not implemented: it would justify every line that currently
+ * falls short, which reads as prose combed out to the margin rather than a novel.
+ *
+ * Nothing here takes priority 0. Expanding is always visible, and priority 0 means an adjustment
+ * the optimizer is charged nothing for.
  */
 const EXPANSION_STAGE = {
   /**
+   * Stage 1: the western word space, from its 三分アキ up to a 二分アキ.
+   */
+  wordSpace: 1,
+  /**
    * Stage 2: the quarter em between Japanese and a numeral, unit symbol or western character.
    */
-  mixedText: 1,
+  mixedText: 2,
   /**
    * Stage 3: everywhere else 表6 admits, from solid up to a quarter em.
    */
-  solid: 2,
+  solid: 3,
 } as const;
 
 /**
@@ -350,6 +387,37 @@ const HALF_AND_QUARTER: PairSpacing = {
  * 分離禁止文字 repeated (a 2倍ダッシュ, a 2倍リーダ) must read as one continuous rule (3.1.10).
  */
 const DASH_JOINT: PairSpacing = { kind: "kern", naturalWidthEm: 0 };
+/**
+ * 欧文間隔（cl-26）の三分アキ. JLReq states the western word space as a third em by rule rather than by
+ * measurement, and makes it the first space a line adjustment reaches for: down to a 四分アキ when the
+ * line is over (3.8.3 a), up to a 二分アキ when it is short (3.8.4 a).
+ *
+ * The two capacities are written as differences from the limits rather than as `1/12` and `1/6`,
+ * because a third of an em is not representable in binary while the limits JLReq states are: this
+ * way `naturalWidthEm - shrink.amountEm` is exactly 0.25 and `naturalWidthEm + stretch.amountEm`
+ * exactly 0.5.
+ */
+const WORD_SPACE: CharacterSpacing = {
+  kind: "glue",
+  naturalWidthEm: 1 / 3,
+  shrink: {
+    priority: REDUCTION_STAGE.wordSpace,
+    amountEm: 1 / 3 - 1 / 4,
+    granularity: "continuous",
+  },
+  stretch: {
+    priority: EXPANSION_STAGE.wordSpace,
+    amountEm: 1 / 2 - 1 / 3,
+    granularity: "continuous",
+  },
+};
+/**
+ * 表1 注13 と 表3 注4: a word space at a line head or a line end has no width and is no adjustment
+ * opportunity, since the white would fall outside the text area where no reader can see it. 注13
+ * adds ただし，この部分が移動し，これとは異なる配置になった場合は，欧文間隔（cl-26）の空き量を確保する — which is why the answer is given per
+ * candidate line and not once per source line.
+ */
+const EDGE_WORD_SPACE: CharacterSpacing = { kind: "glue", naturalWidthEm: 0 };
 
 /**
  * The classes that take a quarter em against a numeral, unit symbol or western character (3.2.6).
@@ -510,8 +578,11 @@ const PAIR_SPACING_RULES: readonly PairSpacingRule[] = [
 
   // 表1 の cl-26 行と cl-26 列: a western word space is set solid against its neighbours, except for
   // the half em an opening bracket and the quarter em a middle dot always take. 表3 marks no cell of
-  // that row or column as a reduction opportunity, so every space beside a word space is fixed —
-  // adjusting the word space itself is JLReq's first stage, which this profile does not do yet.
+  // that row or column as a reduction opportunity, and its preamble says why: the first stage of the
+  // adjustment is the word space's own width, and the table sets out 「優先順位の第2段階以降の処理」 only. The
+  // word space is therefore narrowed by `spacingCharacter`, and the spaces beside it stay fixed —
+  // collapsing a bracket's half em on top of a boundary stage 1 has already tightened would take the
+  // same word boundary away twice.
   { left: "any", right: ["cl-26"], spacing: SOLID },
   { left: PUNCTUATION_TAKING_SPACE_AFTER, right: ["cl-26"], spacing: FIXED_HALF },
   { left: ["cl-05"], right: ["cl-26"], spacing: FIXED_QUARTER },
@@ -582,6 +653,10 @@ export const defaultJapaneseTypesettingProfile: JapaneseTypesettingProfile = {
    * trailing half of its em, a middle dot in the centre, and the rest in the leading half.
    */
   boxMetrics: (characterClass, measuredAdvanceEm) => {
+    // 欧文間隔 (cl-26) sets no box at all: the whole of its width is the アキ `spacingCharacter`
+    // declares. The measured advance is discarded on purpose, the way 3.1.2's half em below
+    // overrides the measurement for brackets and punctuation.
+    if (characterClass === "cl-26") return { advanceEm: 0, renderOffsetEm: 0 };
     const advanceEm = HALF_EM_CLASSES.has(characterClass)
       ? Math.min(0.5, measuredAdvanceEm)
       : measuredAdvanceEm;
@@ -598,6 +673,9 @@ export const defaultJapaneseTypesettingProfile: JapaneseTypesettingProfile = {
     };
   },
   pairSpacing,
+
+  spacingCharacter: (characterClass, position) =>
+    characterClass !== "cl-26" ? null : position === "mid-line" ? WORD_SPACE : EDGE_WORD_SPACE,
 
   /**
    * The white before an opening bracket at a line head. JLReq 3.1.5 pairs 改行行頭 with 折返し行頭 and lists

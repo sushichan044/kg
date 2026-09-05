@@ -22,12 +22,33 @@ export type ParagraphAtom = Readonly<{
   pairSpacingAfter: boolean;
 }>;
 
-export type ResolvedPairSpacing = Readonly<{
-  boundary: number;
+/**
+ * Where an アキ of the line sits. A `gap` is the space before the atom at `boundary`, the way the
+ * pair and line-end spacings have always been keyed; a `character` is an atom that _is_ an アキ
+ * rather than a box, which for this profile means a western word space. The two are separate keys
+ * because an atom at index `i` and the gap before it both answer to `i`.
+ */
+type SpacingSlot =
+  | Readonly<{ kind: "gap"; boundary: number }>
+  | Readonly<{ kind: "character"; index: number }>;
+
+/**
+ * Interleave the two kinds onto one number so the allocator can key a plain `Map` without building
+ * a string per boundary — this runs once per adjustment unit of every candidate line.
+ */
+function slotKey(slot: SpacingSlot): number {
+  return slot.kind === "gap" ? slot.boundary * 2 : slot.index * 2 + 1;
+}
+
+type ResolvedSpacing = Readonly<{
   kind: PairSpacing["kind"];
   naturalWidthEm: number;
   widthEm: number;
 }>;
+
+export type ResolvedPairSpacing = ResolvedSpacing & Readonly<{ boundary: number }>;
+
+export type ResolvedCharacterSpacing = ResolvedSpacing & Readonly<{ index: number }>;
 
 export type ParagraphLinePlan = Readonly<{
   start: number;
@@ -35,16 +56,20 @@ export type ParagraphLinePlan = Readonly<{
   end: number;
   suppressedIndexes: readonly number[];
   pairSpacings: readonly ResolvedPairSpacing[];
+  /**
+   * The atoms of this line the profile sets as an アキ instead of a box, at their resolved width.
+   */
+  characterSpacings: readonly ResolvedCharacterSpacing[];
   inlineSizeEm: number;
   break: LineBreakResult;
   hangingIndex: number | null;
 }>;
 
 type Opportunity = Readonly<{
-  boundary: number;
+  slot: SpacingSlot;
   spacing: PairSpacing;
   /**
-   * How much of the preceding boundary's capacity this one is indivisible from, as the profile's
+   * How much of the preceding gap's capacity this one is indivisible from, as the profile's
    * line-end spacing reports it. Zero everywhere else.
    */
   absorbsPrecedingEm: number;
@@ -57,7 +82,7 @@ type Opportunity = Readonly<{
  * character away together or not at all.
  */
 type AdjustmentUnit = Readonly<{
-  parts: ReadonlyArray<Readonly<{ boundary: number; amountEm: number }>>;
+  parts: ReadonlyArray<Readonly<{ slot: SpacingSlot; amountEm: number }>>;
   priority: number;
   amountEm: number;
   granularity: SpacingCapacity["granularity"];
@@ -105,7 +130,25 @@ function opportunities(
   const startSpacing =
     firstClass === undefined ? null : profile.lineStartSpacing(firstClass, lineHead);
   if (startSpacing !== null) {
-    result.push({ boundary: start, spacing: startSpacing, absorbsPrecedingEm: 0 });
+    result.push({
+      slot: { kind: "gap", boundary: start },
+      spacing: startSpacing,
+      absorbsPrecedingEm: 0,
+    });
+  }
+  // The atoms that are an アキ rather than a box. A line head and a line end take theirs to nothing,
+  // and a break that later moves the same atom inside a line gives its width back, so the position
+  // is read off the candidate line rather than the paragraph.
+  for (let index = start; index < end; index += 1) {
+    const characterClass = classes[index];
+    if (characterClass === undefined || atoms[index]?.sourceGap === true) continue;
+    const spacing = profile.spacingCharacter(
+      characterClass,
+      index === start || index === end - 1 ? "line-edge" : "mid-line",
+    );
+    if (spacing !== null) {
+      result.push({ slot: { kind: "character", index }, spacing, absorbsPrecedingEm: 0 });
+    }
   }
   for (let right = start + 1; right < end; right += 1) {
     const leftAtom = atoms[right - 1];
@@ -124,7 +167,7 @@ function opportunities(
       continue;
     }
     result.push({
-      boundary: right,
+      slot: { kind: "gap", boundary: right },
       spacing: profile.pairSpacing(leftClass, rightClass),
       absorbsPrecedingEm: 0,
     });
@@ -133,7 +176,7 @@ function opportunities(
   const endSpacing = lastClass === undefined ? null : profile.lineEndSpacing(lastClass);
   if (endSpacing !== null) {
     result.push({
-      boundary: end,
+      slot: { kind: "gap", boundary: end },
       spacing: endSpacing.spacing,
       absorbsPrecedingEm: endSpacing.absorbsPrecedingEm,
     });
@@ -157,27 +200,30 @@ function adjustmentUnits(
     adjustment === "shrink" ? spacing.shrink : spacing.stretch;
   const units: AdjustmentUnit[] = [];
   // A straddle is one line end of one candidate line, so the bookkeeping for it is built only where
-  // the profile actually reports one. Every other line takes the second loop alone. This runs in the
-  // inner loop of the paragraph optimizer, so the common case has to stay cheap.
+  // the profile actually reports one. Every other line takes the second loop alone.
   const straddle = values.find(({ absorbsPrecedingEm }) => absorbsPrecedingEm > 0);
-  const straddleOwn = straddle === undefined ? undefined : select(straddle.spacing);
   let absorbedBoundary: number | undefined;
   let absorbedEm = 0;
   let absorbingBoundary: number | undefined;
 
-  if (straddle !== undefined && straddleOwn !== undefined) {
-    const precedingBoundary = straddle.boundary - 1;
-    const preceding = values.find(({ boundary }) => boundary === precedingBoundary);
+  const straddleSlot = straddle?.slot.kind === "gap" ? straddle.slot : undefined;
+  const straddleOwn = straddle === undefined ? undefined : select(straddle.spacing);
+
+  if (straddle !== undefined && straddleSlot !== undefined && straddleOwn !== undefined) {
+    const precedingBoundary = straddleSlot.boundary - 1;
+    const preceding = values.find(
+      ({ slot }) => slot.kind === "gap" && slot.boundary === precedingBoundary,
+    );
     const availableEm = preceding === undefined ? 0 : (select(preceding.spacing)?.amountEm ?? 0);
-    absorbingBoundary = straddle.boundary;
+    absorbingBoundary = straddleSlot.boundary;
     // 3.1.9 takes the two together: where the space before cannot give, neither goes.
     if (availableEm + EPSILON >= straddle.absorbsPrecedingEm) {
       absorbedBoundary = precedingBoundary;
       absorbedEm = straddle.absorbsPrecedingEm;
       units.push({
         parts: [
-          { boundary: precedingBoundary, amountEm: absorbedEm },
-          { boundary: straddle.boundary, amountEm: straddleOwn.amountEm },
+          { slot: { kind: "gap", boundary: precedingBoundary }, amountEm: absorbedEm },
+          { slot: straddleSlot, amountEm: straddleOwn.amountEm },
         ],
         priority: straddleOwn.priority,
         amountEm: absorbedEm + straddleOwn.amountEm,
@@ -186,14 +232,15 @@ function adjustmentUnits(
     }
   }
 
-  for (const { boundary, spacing } of values) {
-    if (boundary === absorbingBoundary) continue;
+  for (const { slot, spacing } of values) {
+    if (slot.kind === "gap" && slot.boundary === absorbingBoundary) continue;
     const own = select(spacing);
     if (own === undefined) continue;
-    const amountEm = own.amountEm - (boundary === absorbedBoundary ? absorbedEm : 0);
+    const claimedEm = slot.kind === "gap" && slot.boundary === absorbedBoundary ? absorbedEm : 0;
+    const amountEm = own.amountEm - claimedEm;
     if (amountEm <= EPSILON) continue;
     units.push({
-      parts: [{ boundary, amountEm }],
+      parts: [{ slot, amountEm }],
       priority: own.priority,
       amountEm,
       granularity: own.granularity,
@@ -223,19 +270,20 @@ function resolveSpacings(
   adjustment: "shrink" | "stretch",
   amountEm: number,
 ): Readonly<{
-  spacings: ResolvedPairSpacing[];
+  spacings: ResolvedSpacings;
   priorityCost: number;
   freeEm: number;
   unabsorbedEm: number;
 }> {
-  const usedByBoundary = new Map<number, number>();
+  const usedBySlot = new Map<number, number>();
   let remaining = amountEm;
   let priorityCost = 0;
   let freeEm = 0;
 
   const spend = (unit: AdjustmentUnit, fraction: number): void => {
-    for (const { boundary, amountEm: partEm } of unit.parts) {
-      usedByBoundary.set(boundary, (usedByBoundary.get(boundary) ?? 0) + partEm * fraction);
+    for (const { slot, amountEm: partEm } of unit.parts) {
+      const key = slotKey(slot);
+      usedBySlot.set(key, (usedBySlot.get(key) ?? 0) + partEm * fraction);
     }
     const spentEm = unit.amountEm * fraction;
     priorityCost += spentEm * unit.priority;
@@ -243,8 +291,6 @@ function resolveSpacings(
     remaining -= spentEm;
   };
 
-  // Grouped in one pass rather than filtered once per stage: this is the inner loop of the
-  // paragraph optimizer, and the filtering was quadratic in the number of units.
   const stages = new Map<number, AdjustmentUnit[]>();
   for (const unit of units) {
     const stage = stages.get(unit.priority);
@@ -270,15 +316,11 @@ function resolveSpacings(
   }
 
   return {
-    spacings: values.map(({ boundary, spacing }) => {
-      const used = usedByBoundary.get(boundary) ?? 0;
-      return {
-        boundary,
-        kind: spacing.kind,
-        naturalWidthEm: spacing.naturalWidthEm,
-        widthEm:
-          adjustment === "shrink" ? spacing.naturalWidthEm - used : spacing.naturalWidthEm + used,
-      };
+    spacings: splitBySlot(values, (slot, spacing) => {
+      const used = usedBySlot.get(slotKey(slot)) ?? 0;
+      return adjustment === "shrink"
+        ? spacing.naturalWidthEm - used
+        : spacing.naturalWidthEm + used;
     }),
     priorityCost,
     freeEm,
@@ -286,16 +328,46 @@ function resolveSpacings(
   };
 }
 
+type ResolvedSpacings = Readonly<{
+  pairSpacings: ResolvedPairSpacing[];
+  characterSpacings: ResolvedCharacterSpacing[];
+}>;
+
+function splitBySlot(
+  values: readonly Opportunity[],
+  widthOf: (slot: SpacingSlot, spacing: PairSpacing) => number,
+): ResolvedSpacings {
+  const pairSpacings: ResolvedPairSpacing[] = [];
+  const characterSpacings: ResolvedCharacterSpacing[] = [];
+  for (const { slot, spacing } of values) {
+    const resolved = {
+      kind: spacing.kind,
+      naturalWidthEm: spacing.naturalWidthEm,
+      widthEm: widthOf(slot, spacing),
+    };
+    if (slot.kind === "gap") pairSpacings.push({ boundary: slot.boundary, ...resolved });
+    else characterSpacings.push({ index: slot.index, ...resolved });
+  }
+  return { pairSpacings, characterSpacings };
+}
+
 /**
  * The same spaces at the width the profile gives them, for a line no adjustment reaches.
  */
-function naturalSpacings(values: readonly Opportunity[]): ResolvedPairSpacing[] {
-  return values.map(({ boundary, spacing }) => ({
-    boundary,
-    kind: spacing.kind,
-    naturalWidthEm: spacing.naturalWidthEm,
-    widthEm: spacing.naturalWidthEm,
-  }));
+function naturalSpacings(values: readonly Opportunity[]): ResolvedSpacings {
+  return splitBySlot(values, (_slot, spacing) => spacing.naturalWidthEm);
+}
+
+/**
+ * The same, minus the アキ the line end would have taken: a hanging character sits outside the text
+ * area and the space that would have followed it goes with it.
+ */
+function hangingSpacings(values: readonly Opportunity[], end: number): ResolvedSpacings {
+  const { pairSpacings, characterSpacings } = naturalSpacings(values);
+  return {
+    pairSpacings: pairSpacings.filter(({ boundary }) => boundary !== end),
+    characterSpacings,
+  };
 }
 
 function candidate(
@@ -342,7 +414,8 @@ function candidate(
   const lastClass = lastVisible === undefined ? undefined : classes[lastVisible];
   const lastAdvance = lastVisible === undefined ? 0 : (atoms[lastVisible]?.boxAdvanceEm ?? 0);
   const trailingSpacing =
-    pairValues.find(({ boundary }) => boundary === end)?.spacing.naturalWidthEm ?? 0;
+    pairValues.find(({ slot }) => slot.kind === "gap" && slot.boundary === end)?.spacing
+      .naturalWidthEm ?? 0;
 
   if (terminal && overflow <= EPSILON) {
     return {
@@ -350,7 +423,7 @@ function candidate(
       contentStart,
       end,
       suppressedIndexes,
-      pairSpacings: naturalSpacings(pairValues),
+      ...naturalSpacings(pairValues),
       inlineSizeEm: naturalSizeEm,
       break: { kind: "paragraph-end" },
       hangingIndex: null,
@@ -365,7 +438,7 @@ function candidate(
       contentStart,
       end,
       suppressedIndexes,
-      pairSpacings: naturalSpacings(pairValues),
+      ...naturalSpacings(pairValues),
       inlineSizeEm: naturalSizeEm,
       break: { kind: "natural" },
       hangingIndex: null,
@@ -374,7 +447,7 @@ function candidate(
     };
   }
 
-  // `capacity` is only an upper bound: an all-or-nothing unit larger than the overflow is
+  // `shrinkCapacity` is only an upper bound: an all-or-nothing unit larger than the overflow is
   // skipped rather than partly spent (JLReq 3.1.9), so a line inside the bound may still be unable
   // to give the whole amount. What it could not absorb decides whether this is a shrunk line at all.
   const shrunk =
@@ -392,7 +465,7 @@ function candidate(
       contentStart,
       end,
       suppressedIndexes,
-      pairSpacings: shrunk.spacings,
+      ...shrunk.spacings,
       inlineSizeEm: lineLengthEm,
       break: { kind: "shrunk" },
       hangingIndex: null,
@@ -414,7 +487,7 @@ function candidate(
       contentStart,
       end,
       suppressedIndexes,
-      pairSpacings: naturalSpacings(pairValues).filter(({ boundary }) => boundary !== end),
+      ...hangingSpacings(pairValues, end),
       inlineSizeEm: naturalSizeEm - lastAdvance - trailingSpacing,
       break: { kind: "hanging" },
       hangingIndex: lastVisible,
@@ -436,7 +509,7 @@ function candidate(
       contentStart,
       end,
       suppressedIndexes,
-      pairSpacings: stretched.spacings,
+      ...stretched.spacings,
       inlineSizeEm: lineLengthEm,
       break: { kind: "stretched" },
       hangingIndex: null,
@@ -450,7 +523,7 @@ function candidate(
     contentStart,
     end,
     suppressedIndexes,
-    pairSpacings: naturalSpacings(pairValues),
+    ...naturalSpacings(pairValues),
     inlineSizeEm: naturalSizeEm,
     break: { kind: "forced" },
     hangingIndex: null,

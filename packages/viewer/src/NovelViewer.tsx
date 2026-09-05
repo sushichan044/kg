@@ -94,10 +94,6 @@ function pageText(page: NovelPage): string {
     .join("\n");
 }
 
-function covers(grapheme: ComposedGlyph, diagnostic: ManuscriptDiagnostic): boolean {
-  return ManuscriptRange.overlaps(grapheme.range, diagnostic.range);
-}
-
 function graphemeSeverity(
   diagnostics: readonly ManuscriptDiagnostic[],
 ): DiagnosticSeverity | undefined {
@@ -328,12 +324,43 @@ function lineDiagnostics(
   line: NovelLine,
   diagnostics: readonly ManuscriptDiagnostic[],
 ): Readonly<{ bands: DiagnosticBand[]; graphemes: RenderedGrapheme[] }> {
-  const graphemes = line.items.flatMap((item) =>
-    item.kind === "glyph" ? [{ grapheme: item, diagnostics: [] as ManuscriptDiagnostic[] }] : [],
-  );
+  const graphemes: Array<{ grapheme: ComposedGlyph; diagnostics: ManuscriptDiagnostic[] }> = [];
+  // A band spans everything the line carries from the source, and the spaces JLReq sets as アキ —
+  // the ideographic space after a `！`, the western word space — leave the composer as glue rather
+  // than as a glyph. Only a glyph has a cell for the diagnostic to colour, so the anchors keep both
+  // and the cell entry is optional.
+  const anchors: Array<
+    Readonly<{
+      range: ManuscriptRange;
+      offsetEm: number;
+      advanceEm: number;
+      cell: { diagnostics: ManuscriptDiagnostic[] } | undefined;
+    }>
+  > = [];
+  for (const item of line.items) {
+    if (item.kind === "glyph") {
+      const cell = { grapheme: item, diagnostics: [] as ManuscriptDiagnostic[] };
+      graphemes.push(cell);
+      anchors.push({
+        range: item.range,
+        offsetEm: item.layoutSpan.offsetEm,
+        advanceEm: item.layoutSpan.advanceEm,
+        cell,
+      });
+    } else if (item.kind === "glue" && item.origin === "source") {
+      anchors.push({
+        range: item.range,
+        offsetEm: item.offsetEm,
+        advanceEm: item.widthEm,
+        cell: undefined,
+      });
+    }
+  }
   const placed = diagnostics.flatMap((diagnostic): PlacedBand[] => {
-    const covered = graphemes.filter(({ grapheme }) => covers(grapheme, diagnostic));
-    for (const entry of covered) entry.diagnostics.push(diagnostic);
+    const covered = anchors.filter(({ range }) =>
+      ManuscriptRange.overlaps(range, diagnostic.range),
+    );
+    for (const anchor of covered) anchor.cell?.diagnostics.push(diagnostic);
     const first = covered[0];
     const last = covered.at(-1);
     if (first === undefined || last === undefined) return [];
@@ -341,14 +368,11 @@ function lineDiagnostics(
     return [
       {
         diagnostic,
-        offsetEm: first.grapheme.layoutSpan.offsetEm,
-        advanceEm:
-          last.grapheme.layoutSpan.offsetEm +
-          last.grapheme.layoutSpan.advanceEm -
-          first.grapheme.layoutSpan.offsetEm,
+        offsetEm: first.offsetEm,
+        advanceEm: last.offsetEm + last.advanceEm - first.offsetEm,
         startsHere:
-          diagnostic.range.source.start >= first.grapheme.range.source.start &&
-          diagnostic.range.source.start < first.grapheme.range.source.end,
+          diagnostic.range.source.start >= first.range.source.start &&
+          diagnostic.range.source.start < first.range.source.end,
       },
     ];
   });

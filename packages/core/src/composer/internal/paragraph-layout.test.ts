@@ -20,6 +20,7 @@ const flexiblePrefixProfile: JapaneseTypesettingProfile = {
       : { kind: "glue", naturalWidthEm: 0 },
   breakPenalty: () => 0,
   canHang: () => false,
+  spacingCharacter: () => null,
   lineStartSpacing: () => null,
   lineEndSpacing: () => null,
 };
@@ -36,6 +37,7 @@ const freeLineEndProfile: JapaneseTypesettingProfile = {
       : { kind: "glue", naturalWidthEm: 0 },
   breakPenalty: () => 0,
   canHang: () => false,
+  spacingCharacter: () => null,
   lineStartSpacing: () => null,
   lineEndSpacing: (last) =>
     last === "cl-07"
@@ -95,6 +97,7 @@ const stagedProfile: JapaneseTypesettingProfile = {
           },
   breakPenalty: () => 0,
   canHang: () => false,
+  spacingCharacter: () => null,
   lineStartSpacing: () => null,
   lineEndSpacing: () => null,
 };
