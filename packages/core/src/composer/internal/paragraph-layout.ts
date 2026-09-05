@@ -155,38 +155,42 @@ function adjustmentUnits(
 ): AdjustmentUnit[] {
   const select = (spacing: PairSpacing): SpacingCapacity | undefined =>
     adjustment === "shrink" ? spacing.shrink : spacing.stretch;
-  const byBoundary = new Map(values.map((value) => [value.boundary, value]));
-  const absorbedEm = new Map<number, number>();
-  const absorbing = new Set<number>();
   const units: AdjustmentUnit[] = [];
+  // A straddle is one line end of one candidate line, so the bookkeeping for it is built only where
+  // the profile actually reports one. Every other line takes the second loop alone. This runs in the
+  // inner loop of the paragraph optimizer, so the common case has to stay cheap.
+  const straddle = values.find(({ absorbsPrecedingEm }) => absorbsPrecedingEm > 0);
+  const straddleOwn = straddle === undefined ? undefined : select(straddle.spacing);
+  let absorbedBoundary: number | undefined;
+  let absorbedEm = 0;
+  let absorbingBoundary: number | undefined;
 
-  // The straddling line ends first, so the boundary they draw from knows what is left of it.
-  for (const { boundary, spacing, absorbsPrecedingEm } of values) {
-    if (absorbsPrecedingEm <= 0) continue;
-    const own = select(spacing);
-    if (own === undefined) continue;
-    absorbing.add(boundary);
-    const preceding = byBoundary.get(boundary - 1);
+  if (straddle !== undefined && straddleOwn !== undefined) {
+    const precedingBoundary = straddle.boundary - 1;
+    const preceding = values.find(({ boundary }) => boundary === precedingBoundary);
     const availableEm = preceding === undefined ? 0 : (select(preceding.spacing)?.amountEm ?? 0);
+    absorbingBoundary = straddle.boundary;
     // 3.1.9 takes the two together: where the space before cannot give, neither goes.
-    if (availableEm + EPSILON < absorbsPrecedingEm) continue;
-    absorbedEm.set(boundary - 1, absorbsPrecedingEm);
-    units.push({
-      parts: [
-        { boundary: boundary - 1, amountEm: absorbsPrecedingEm },
-        { boundary, amountEm: own.amountEm },
-      ],
-      priority: own.priority,
-      amountEm: absorbsPrecedingEm + own.amountEm,
-      granularity: own.granularity,
-    });
+    if (availableEm + EPSILON >= straddle.absorbsPrecedingEm) {
+      absorbedBoundary = precedingBoundary;
+      absorbedEm = straddle.absorbsPrecedingEm;
+      units.push({
+        parts: [
+          { boundary: precedingBoundary, amountEm: absorbedEm },
+          { boundary: straddle.boundary, amountEm: straddleOwn.amountEm },
+        ],
+        priority: straddleOwn.priority,
+        amountEm: absorbedEm + straddleOwn.amountEm,
+        granularity: straddleOwn.granularity,
+      });
+    }
   }
 
   for (const { boundary, spacing } of values) {
-    if (absorbing.has(boundary)) continue;
+    if (boundary === absorbingBoundary) continue;
     const own = select(spacing);
     if (own === undefined) continue;
-    const amountEm = own.amountEm - (absorbedEm.get(boundary) ?? 0);
+    const amountEm = own.amountEm - (boundary === absorbedBoundary ? absorbedEm : 0);
     if (amountEm <= EPSILON) continue;
     units.push({
       parts: [{ boundary, amountEm }],
@@ -239,25 +243,30 @@ function resolveSpacings(
     remaining -= spentEm;
   };
 
-  const priorities = [...new Set(units.map(({ priority }) => priority))].sort(
-    (left, right) => left - right,
-  );
+  // Grouped in one pass rather than filtered once per stage: this is the inner loop of the
+  // paragraph optimizer, and the filtering was quadratic in the number of units.
+  const stages = new Map<number, AdjustmentUnit[]>();
+  for (const unit of units) {
+    const stage = stages.get(unit.priority);
+    if (stage === undefined) stages.set(unit.priority, [unit]);
+    else stage.push(unit);
+  }
 
-  for (const priority of priorities) {
+  for (const priority of [...stages.keys()].sort((left, right) => left - right)) {
     if (remaining <= EPSILON) break;
-    const stage = units.filter((unit) => unit.priority === priority);
+    const stage = stages.get(priority) ?? [];
+    let stageCapacityEm = 0;
 
     for (const unit of stage) {
-      if (unit.granularity !== "all-or-nothing") continue;
-      if (unit.amountEm > remaining + EPSILON) continue;
-      spend(unit, 1);
+      if (unit.granularity === "continuous") stageCapacityEm += unit.amountEm;
+      else if (unit.amountEm <= remaining + EPSILON) spend(unit, 1);
     }
 
-    const divisible = stage.filter(({ granularity }) => granularity === "continuous");
-    const stageCapacityEm = divisible.reduce((total, { amountEm: unitEm }) => total + unitEm, 0);
     if (stageCapacityEm <= EPSILON || remaining <= EPSILON) continue;
     const fraction = Math.min(remaining, stageCapacityEm) / stageCapacityEm;
-    for (const unit of divisible) spend(unit, fraction);
+    for (const unit of stage) {
+      if (unit.granularity === "continuous") spend(unit, fraction);
+    }
   }
 
   return {
@@ -316,19 +325,19 @@ function candidate(
     atoms.slice(contentStart, end).reduce((total, atom) => total + atom.boxAdvanceEm, 0) +
     pairValues.reduce((total, value) => total + value.spacing.naturalWidthEm, 0);
   const terminal = skipSourceGaps(atoms, end) === atoms.length;
-  const shrinkUnits = adjustmentUnits(pairValues, "shrink");
-  const stretchUnits = adjustmentUnits(pairValues, "stretch");
+  const overflow = naturalSizeEm - lineLengthEm;
+  const underflow = lineLengthEm - naturalSizeEm;
+  // A line is either over or under, so only one direction's units is ever wanted. Building both
+  // would double the work of the inner loop of the paragraph optimizer for nothing.
+  const units = adjustmentUnits(pairValues, overflow > 0 ? "shrink" : "stretch");
   // Summed over the units rather than over the raw capacities: the quarter em before a line-end
   // middle dot carries the mid-line stage in the pair table but belongs to a priority-0 unit, so
   // reading the table directly would count it as capacity the reader can see.
-  const shrinkCapacity = shrinkUnits.reduce((total, { amountEm }) => total + amountEm, 0);
-  const freeShrinkCapacity = shrinkUnits.reduce(
+  const capacity = units.reduce((total, { amountEm }) => total + amountEm, 0);
+  const freeShrinkCapacity = units.reduce(
     (total, { priority, amountEm }) => total + (priority === FREE_SHRINK_PRIORITY ? amountEm : 0),
     0,
   );
-  const stretchCapacity = stretchUnits.reduce((total, { amountEm }) => total + amountEm, 0);
-  const overflow = naturalSizeEm - lineLengthEm;
-  const underflow = lineLengthEm - naturalSizeEm;
   const lastVisible = previousVisible(atoms, end);
   const lastClass = lastVisible === undefined ? undefined : classes[lastVisible];
   const lastAdvance = lastVisible === undefined ? 0 : (atoms[lastVisible]?.boxAdvanceEm ?? 0);
@@ -365,18 +374,18 @@ function candidate(
     };
   }
 
-  // `shrinkCapacity` is only an upper bound: an all-or-nothing unit larger than the overflow is
+  // `capacity` is only an upper bound: an all-or-nothing unit larger than the overflow is
   // skipped rather than partly spent (JLReq 3.1.9), so a line inside the bound may still be unable
   // to give the whole amount. What it could not absorb decides whether this is a shrunk line at all.
   const shrunk =
-    overflow > 0 && overflow <= shrinkCapacity + EPSILON
-      ? resolveSpacings(pairValues, shrinkUnits, "shrink", overflow)
+    overflow > 0 && overflow <= capacity + EPSILON
+      ? resolveSpacings(pairValues, units, "shrink", overflow)
       : null;
 
   if (shrunk !== null && shrunk.unabsorbedEm <= EPSILON) {
     // No visible capacity is all-or-nothing in this profile, so every em outside the free stage can
     // still be spent in part and the denominator holds.
-    const chargeableCapacity = shrinkCapacity - freeShrinkCapacity;
+    const chargeableCapacity = capacity - freeShrinkCapacity;
     const chargeableShrink = Math.max(0, overflow - shrunk.freeEm);
     return {
       start,
@@ -417,8 +426,8 @@ function candidate(
   // Nothing this profile expands is all-or-nothing, so the remainder is always zero here. The guard
   // is what keeps `inlineSizeEm: lineLengthEm` honest the day one is.
   const stretched =
-    !terminal && underflow > EPSILON && underflow <= stretchCapacity + EPSILON
-      ? resolveSpacings(pairValues, stretchUnits, "stretch", underflow)
+    !terminal && underflow > EPSILON && underflow <= capacity + EPSILON
+      ? resolveSpacings(pairValues, units, "stretch", underflow)
       : null;
 
   if (stretched !== null && stretched.unabsorbedEm <= EPSILON) {
@@ -431,7 +440,7 @@ function candidate(
       inlineSizeEm: lineLengthEm,
       break: { kind: "stretched" },
       hangingIndex: null,
-      deformationRatio: stretchCapacity === 0 ? 0 : underflow / stretchCapacity,
+      deformationRatio: capacity === 0 ? 0 : underflow / capacity,
       priorityCost: stretched.priorityCost,
     };
   }
