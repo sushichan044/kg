@@ -43,6 +43,24 @@ export type ParagraphLinePlan = Readonly<{
 type Opportunity = Readonly<{
   boundary: number;
   spacing: PairSpacing;
+  /**
+   * How much of the preceding boundary's capacity this one is indivisible from, as the profile's
+   * line-end spacing reports it. Zero everywhere else.
+   */
+  absorbsPrecedingEm: number;
+}>;
+
+/**
+ * One indivisible amount of line adjustment: the boundaries it covers, the stage that spends it and
+ * how much it holds. Almost every unit is a single boundary. A line end the profile says straddles
+ * its last character is two, because JLReq 3.1.9 takes the アキ before and the アキ after that
+ * character away together or not at all.
+ */
+type AdjustmentUnit = Readonly<{
+  parts: ReadonlyArray<Readonly<{ boundary: number; amountEm: number }>>;
+  priority: number;
+  amountEm: number;
+  granularity: SpacingCapacity["granularity"];
 }>;
 
 type Candidate = ParagraphLinePlan &
@@ -86,7 +104,9 @@ function opportunities(
   const firstClass = classes[start];
   const startSpacing =
     firstClass === undefined ? null : profile.lineStartSpacing(firstClass, lineHead);
-  if (startSpacing !== null) result.push({ boundary: start, spacing: startSpacing });
+  if (startSpacing !== null) {
+    result.push({ boundary: start, spacing: startSpacing, absorbsPrecedingEm: 0 });
+  }
   for (let right = start + 1; right < end; right += 1) {
     const leftAtom = atoms[right - 1];
     const rightAtom = atoms[right];
@@ -103,81 +123,150 @@ function opportunities(
     ) {
       continue;
     }
-    result.push({ boundary: right, spacing: profile.pairSpacing(leftClass, rightClass) });
+    result.push({
+      boundary: right,
+      spacing: profile.pairSpacing(leftClass, rightClass),
+      absorbsPrecedingEm: 0,
+    });
   }
   const lastClass = classes[end - 1];
   const endSpacing = lastClass === undefined ? null : profile.lineEndSpacing(lastClass);
-  if (endSpacing !== null) result.push({ boundary: end, spacing: endSpacing });
-  return result;
-}
-
-function capacity(
-  values: readonly Opportunity[],
-  select: (spacing: PairSpacing) => SpacingCapacity | undefined,
-): number {
-  return values.reduce(
-    (total, opportunity) => total + (select(opportunity.spacing)?.amountEm ?? 0),
-    0,
-  );
-}
-
-/**
- * The spaces of one JLReq stage, and what each of them can give or take.
- */
-type Stage = Array<Readonly<{ boundary: number; capacityEm: number }>>;
-
-/**
- * Group the opportunities that can give or take space by the stage JLReq spends them in.
- */
-function stages(
-  values: readonly Opportunity[],
-  adjustment: "shrink" | "stretch",
-): Map<number, Stage> {
-  const result = new Map<number, Stage>();
-  for (const { boundary, spacing } of values) {
-    const capacity = adjustment === "shrink" ? spacing.shrink : spacing.stretch;
-    if (capacity === undefined || capacity.amountEm <= 0) continue;
-    const stage = result.get(capacity.priority);
-    const entry = { boundary, capacityEm: capacity.amountEm };
-    if (stage === undefined) result.set(capacity.priority, [entry]);
-    else stage.push(entry);
+  if (endSpacing !== null) {
+    result.push({
+      boundary: end,
+      spacing: endSpacing.spacing,
+      absorbsPrecedingEm: endSpacing.absorbsPrecedingEm,
+    });
   }
   return result;
 }
 
 /**
- * Spend `amountEm` over the spaces of the line, stage by stage.
+ * Break the line's spaces into the indivisible amounts the line adjustment may spend.
+ *
+ * A line end the profile says absorbs the space before it claims that much of the preceding
+ * boundary's capacity, and the two become one unit at the line-end stage — JLReq 3.8.3's third
+ * stage, which is free. Whatever the preceding boundary has left over stays an opportunity of its
+ * own stage, so the half em of a `、` before a line-end `・` is still spent where 3.8.3 puts it.
+ */
+function adjustmentUnits(
+  values: readonly Opportunity[],
+  adjustment: "shrink" | "stretch",
+): AdjustmentUnit[] {
+  const select = (spacing: PairSpacing): SpacingCapacity | undefined =>
+    adjustment === "shrink" ? spacing.shrink : spacing.stretch;
+  const units: AdjustmentUnit[] = [];
+  // A straddle is one line end of one candidate line, so the bookkeeping for it is built only where
+  // the profile actually reports one. Every other line takes the second loop alone. This runs in the
+  // inner loop of the paragraph optimizer, so the common case has to stay cheap.
+  const straddle = values.find(({ absorbsPrecedingEm }) => absorbsPrecedingEm > 0);
+  const straddleOwn = straddle === undefined ? undefined : select(straddle.spacing);
+  let absorbedBoundary: number | undefined;
+  let absorbedEm = 0;
+  let absorbingBoundary: number | undefined;
+
+  if (straddle !== undefined && straddleOwn !== undefined) {
+    const precedingBoundary = straddle.boundary - 1;
+    const preceding = values.find(({ boundary }) => boundary === precedingBoundary);
+    const availableEm = preceding === undefined ? 0 : (select(preceding.spacing)?.amountEm ?? 0);
+    absorbingBoundary = straddle.boundary;
+    // 3.1.9 takes the two together: where the space before cannot give, neither goes.
+    if (availableEm + EPSILON >= straddle.absorbsPrecedingEm) {
+      absorbedBoundary = precedingBoundary;
+      absorbedEm = straddle.absorbsPrecedingEm;
+      units.push({
+        parts: [
+          { boundary: precedingBoundary, amountEm: absorbedEm },
+          { boundary: straddle.boundary, amountEm: straddleOwn.amountEm },
+        ],
+        priority: straddleOwn.priority,
+        amountEm: absorbedEm + straddleOwn.amountEm,
+        granularity: straddleOwn.granularity,
+      });
+    }
+  }
+
+  for (const { boundary, spacing } of values) {
+    if (boundary === absorbingBoundary) continue;
+    const own = select(spacing);
+    if (own === undefined) continue;
+    const amountEm = own.amountEm - (boundary === absorbedBoundary ? absorbedEm : 0);
+    if (amountEm <= EPSILON) continue;
+    units.push({
+      parts: [{ boundary, amountEm }],
+      priority: own.priority,
+      amountEm,
+      granularity: own.granularity,
+    });
+  }
+
+  return units;
+}
+
+/**
+ * Spend `amountEm` over the line's units of adjustment, stage by stage.
  *
  * Every stage of JLReq 3.8.3 and 3.8.4 is stated as 文字サイズ比で均等に — the English text of 3.8.3 a puts
  * it as "The same width reduction is applied to all spaces on the target line at the same time."
  * Within a stage the amount is therefore split in proportion to what each space can give, rather
  * than taken out of the earliest space until it runs dry. Across stages the order stays a
- * waterfall: a later stage is reached only once every stage before it is spent out.
+ * waterfall: a later stage is reached only once every stage before it is spent out. The composer
+ * sets one character size, so a share of the stage's capacity is a share by character size.
  *
- * The composer sets one character size, so a share of the stage's capacity is the same thing as a
- * share by character size.
+ * An all-or-nothing unit larger than what is still needed is skipped rather than partly spent, and
+ * never revisited: `remaining` only falls, so a unit that did not fit at its own stage cannot fit
+ * at a later one. One forward pass is therefore exact and no search over subsets is needed.
  */
 function resolveSpacings(
   values: readonly Opportunity[],
+  units: readonly AdjustmentUnit[],
   adjustment: "shrink" | "stretch",
   amountEm: number,
-): Readonly<{ spacings: ResolvedPairSpacing[]; priorityCost: number }> {
+): Readonly<{
+  spacings: ResolvedPairSpacing[];
+  priorityCost: number;
+  freeEm: number;
+  unabsorbedEm: number;
+}> {
   const usedByBoundary = new Map<number, number>();
-  const byStage = stages(values, adjustment);
   let remaining = amountEm;
   let priorityCost = 0;
+  let freeEm = 0;
 
-  for (const priority of [...byStage.keys()].sort((left, right) => left - right)) {
-    if (remaining <= EPSILON) break;
-    const stage = byStage.get(priority) ?? [];
-    const stageCapacityEm = stage.reduce((total, { capacityEm }) => total + capacityEm, 0);
-    const takenEm = Math.min(remaining, stageCapacityEm);
-
-    for (const { boundary, capacityEm } of stage) {
-      usedByBoundary.set(boundary, (takenEm * capacityEm) / stageCapacityEm);
+  const spend = (unit: AdjustmentUnit, fraction: number): void => {
+    for (const { boundary, amountEm: partEm } of unit.parts) {
+      usedByBoundary.set(boundary, (usedByBoundary.get(boundary) ?? 0) + partEm * fraction);
     }
-    priorityCost += takenEm * priority;
-    remaining -= takenEm;
+    const spentEm = unit.amountEm * fraction;
+    priorityCost += spentEm * unit.priority;
+    if (unit.priority === FREE_SHRINK_PRIORITY) freeEm += spentEm;
+    remaining -= spentEm;
+  };
+
+  // Grouped in one pass rather than filtered once per stage: this is the inner loop of the
+  // paragraph optimizer, and the filtering was quadratic in the number of units.
+  const stages = new Map<number, AdjustmentUnit[]>();
+  for (const unit of units) {
+    const stage = stages.get(unit.priority);
+    if (stage === undefined) stages.set(unit.priority, [unit]);
+    else stage.push(unit);
+  }
+
+  for (const priority of [...stages.keys()].sort((left, right) => left - right)) {
+    if (remaining <= EPSILON) break;
+    const stage = stages.get(priority) ?? [];
+    let stageCapacityEm = 0;
+
+    for (const unit of stage) {
+      if (unit.granularity === "continuous") stageCapacityEm += unit.amountEm;
+      else if (unit.amountEm <= remaining + EPSILON) spend(unit, 1);
+    }
+
+    if (stageCapacityEm <= EPSILON || remaining <= EPSILON) continue;
+    const fraction = Math.min(remaining, stageCapacityEm) / stageCapacityEm;
+    for (const unit of stage) {
+      if (unit.granularity === "continuous") spend(unit, fraction);
+    }
   }
 
   return {
@@ -192,6 +281,8 @@ function resolveSpacings(
       };
     }),
     priorityCost,
+    freeEm,
+    unabsorbedEm: Math.max(0, remaining),
   };
 }
 
@@ -234,13 +325,19 @@ function candidate(
     atoms.slice(contentStart, end).reduce((total, atom) => total + atom.boxAdvanceEm, 0) +
     pairValues.reduce((total, value) => total + value.spacing.naturalWidthEm, 0);
   const terminal = skipSourceGaps(atoms, end) === atoms.length;
-  const shrinkCapacity = capacity(pairValues, ({ shrink }) => shrink);
-  const freeShrinkCapacity = capacity(pairValues, ({ shrink }) =>
-    shrink?.priority === FREE_SHRINK_PRIORITY ? shrink : undefined,
-  );
-  const stretchCapacity = capacity(pairValues, ({ stretch }) => stretch);
   const overflow = naturalSizeEm - lineLengthEm;
   const underflow = lineLengthEm - naturalSizeEm;
+  // A line is either over or under, so only one direction's units is ever wanted. Building both
+  // would double the work of the inner loop of the paragraph optimizer for nothing.
+  const units = adjustmentUnits(pairValues, overflow > 0 ? "shrink" : "stretch");
+  // Summed over the units rather than over the raw capacities: the quarter em before a line-end
+  // middle dot carries the mid-line stage in the pair table but belongs to a priority-0 unit, so
+  // reading the table directly would count it as capacity the reader can see.
+  const capacity = units.reduce((total, { amountEm }) => total + amountEm, 0);
+  const freeShrinkCapacity = units.reduce(
+    (total, { priority, amountEm }) => total + (priority === FREE_SHRINK_PRIORITY ? amountEm : 0),
+    0,
+  );
   const lastVisible = previousVisible(atoms, end);
   const lastClass = lastVisible === undefined ? undefined : classes[lastVisible];
   const lastAdvance = lastVisible === undefined ? 0 : (atoms[lastVisible]?.boxAdvanceEm ?? 0);
@@ -277,21 +374,30 @@ function candidate(
     };
   }
 
-  if (overflow > 0 && overflow <= shrinkCapacity + EPSILON) {
-    const resolved = resolveSpacings(pairValues, "shrink", overflow);
-    const chargeableCapacity = shrinkCapacity - freeShrinkCapacity;
-    const chargeableShrink = Math.max(0, overflow - freeShrinkCapacity);
+  // `capacity` is only an upper bound: an all-or-nothing unit larger than the overflow is
+  // skipped rather than partly spent (JLReq 3.1.9), so a line inside the bound may still be unable
+  // to give the whole amount. What it could not absorb decides whether this is a shrunk line at all.
+  const shrunk =
+    overflow > 0 && overflow <= capacity + EPSILON
+      ? resolveSpacings(pairValues, units, "shrink", overflow)
+      : null;
+
+  if (shrunk !== null && shrunk.unabsorbedEm <= EPSILON) {
+    // No visible capacity is all-or-nothing in this profile, so every em outside the free stage can
+    // still be spent in part and the denominator holds.
+    const chargeableCapacity = capacity - freeShrinkCapacity;
+    const chargeableShrink = Math.max(0, overflow - shrunk.freeEm);
     return {
       start,
       contentStart,
       end,
       suppressedIndexes,
-      pairSpacings: resolved.spacings,
+      pairSpacings: shrunk.spacings,
       inlineSizeEm: lineLengthEm,
       break: { kind: "shrunk" },
       hangingIndex: null,
       deformationRatio: chargeableCapacity <= EPSILON ? 0 : chargeableShrink / chargeableCapacity,
-      priorityCost: resolved.priorityCost,
+      priorityCost: shrunk.priorityCost,
     };
   }
 
@@ -317,19 +423,25 @@ function candidate(
     };
   }
 
-  if (!terminal && underflow > EPSILON && underflow <= stretchCapacity + EPSILON) {
-    const resolved = resolveSpacings(pairValues, "stretch", underflow);
+  // Nothing this profile expands is all-or-nothing, so the remainder is always zero here. The guard
+  // is what keeps `inlineSizeEm: lineLengthEm` honest the day one is.
+  const stretched =
+    !terminal && underflow > EPSILON && underflow <= capacity + EPSILON
+      ? resolveSpacings(pairValues, units, "stretch", underflow)
+      : null;
+
+  if (stretched !== null && stretched.unabsorbedEm <= EPSILON) {
     return {
       start,
       contentStart,
       end,
       suppressedIndexes,
-      pairSpacings: resolved.spacings,
+      pairSpacings: stretched.spacings,
       inlineSizeEm: lineLengthEm,
       break: { kind: "stretched" },
       hangingIndex: null,
-      deformationRatio: stretchCapacity === 0 ? 0 : underflow / stretchCapacity,
-      priorityCost: resolved.priorityCost,
+      deformationRatio: capacity === 0 ? 0 : underflow / capacity,
+      priorityCost: stretched.priorityCost,
     };
   }
 
