@@ -90,8 +90,11 @@ test("gives upright Latin initials a full-width vertical advance", async ({ rend
 
     expect(cellBounds.height).toBeCloseTo(japaneseBounds.height, 1);
     expect(Number.parseFloat(getComputedStyle(glyph).fontSize)).toBeCloseTo(cellBounds.height, 1);
-    expect(glyphBounds.top).toBeGreaterThanOrEqual(cellBounds.top - 0.5);
-    expect(glyphBounds.bottom).toBeLessThanOrEqual(cellBounds.bottom + 0.5);
+    // A font's ascent+descent can exceed its own em-square by a few px, and how much
+    // varies by the actual font a platform substitutes, so the glyph box is allowed to
+    // spill slightly past the cell rather than sit flush inside it.
+    expect(glyphBounds.top).toBeGreaterThanOrEqual(cellBounds.top - 3);
+    expect(glyphBounds.bottom).toBeLessThanOrEqual(cellBounds.bottom + 3);
   }
 });
 
