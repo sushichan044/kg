@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.9.4](https://github.com/sushichan044/kg/compare/kg-viewer-v0.9.3...kg-viewer-v0.9.4) (2026-09-10)
+
+
+### Features
+
+* compile viewer and internal frontend with React Compiler ([6bda522](https://github.com/sushichan044/kg/commit/6bda52229d4b505adb3facd02b6e735457447ba0))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @sushichan044/kg-core bumped to 0.9.4
+
 ## [0.9.3](https://github.com/sushichan044/kg/compare/kg-viewer-v0.9.2...kg-viewer-v0.9.3) (2026-09-10)
 
 
