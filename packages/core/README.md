@@ -81,8 +81,11 @@ The composer classifies the core prose classes from JLReq, resolves pair spacing
 and selects line breaks over the whole source paragraph. The space between two
 classes follows appendix 表1 of JLReq: a half em before an opening bracket and after
 a closing bracket, comma, or full stop, a quarter em on either side of a middle dot,
-a quarter em between Japanese and a numeral, unit symbol, or Western character, and
-solid where two of those punctuation marks meet.
+a quarter em between Japanese and a numeral, unit symbol, or a Western character rotated
+90 degrees or mixed into horizontal text, and solid where two of those punctuation marks
+meet. JLReq 3.2.4 sets that quarter em's scope: a Western character set upright — one letter,
+an all-caps or `Xxx` abbreviation, a lone digit, or a full-width letter — classes with kanji
+instead and sits solid against the kana or kanji beside it, the same as a tate-chu-yoko run.
 
 A western word space is not a character with a box but an アキ of its own: a third em
 by rule rather than by measurement, nothing at all at a line head or a line end, and
@@ -100,7 +103,8 @@ added equally to the admitted pairs in 表6 that are solid at rest, including pa
 the third stage. Intrinsic spaces keep their finite limits: a word space and a mixed
 Japanese-to-Western, numeral, or unit-symbol gap stop at a half em, while punctuation and
 explicit full-em spaces retain their own width. This keeps the unbounded stage from producing
-conspicuous holes around short upright Western words or already-spaced marks.
+double space or a hole disproportionate to a horizontal Western run's own length, since an
+upright Western run classes with kanji and has no gap of its own to begin with.
 Line-head and line-end space, inseparable pairs, and source-authored full-em gaps after
 question or exclamation marks stay fixed. A line with no admitted gap is forced. The choice is made for the
 paragraph rather than line by line,
@@ -144,6 +148,11 @@ upright Latin initials and abbreviations advance by one em per character, Wester
 words remain unbroken and render sideways, and two ASCII digits form one
 tate-chu-yoko unit. The resulting `VerticalTextPresentation` is carried by every
 glyph item, so renderers do not need to infer orientation independently.
+
+An upright Western character sets solid against the kana or kanji beside it rather than
+taking the quarter em 3.2.6 puts around a sideways run, following JLReq 3.2.4: it classes
+with kanji, the same way 3.2.5 classes a tate-chu-yoko run. `QR` and `URL` set upright by
+this rule read flush against their surrounding Japanese text, the way a kanji compound does.
 
 The default logical measurer uses East Asian Width in a Japanese context. Upright
 ASCII advances by one em; proportional ASCII and the members of a tate-chu-yoko unit

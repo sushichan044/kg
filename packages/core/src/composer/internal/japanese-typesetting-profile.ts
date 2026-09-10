@@ -215,11 +215,19 @@ const KATAKANA = /^\p{Script=Katakana}$/u;
 const WESTERN = /^[\p{Script=Latin}\p{Script=Greek}\p{Script=Cyrillic}]$/u;
 
 /**
- * Order matters: a character inside a tate-chu-yoko group is cl-30 whatever it would be on its own,
- * and anything left unmatched is cl-19, the class JLReq reserves for kanji and the like.
+ * Order matters: a character inside a tate-chu-yoko group is cl-30 (3.2.5) and an upright Latin
+ * letter or Arabic numeral is cl-19 (3.2.4), whatever either would be on its own; anything left
+ * unmatched is cl-19 too, the class JLReq reserves for kanji and the like.
+ *
+ * The quarter em 3.2.6 sets between Japanese and a Western character or numeral applies only to a
+ * character rotated 90 degrees in vertical writing mode or mixed into horizontal writing mode —
+ * 3.2.6 states that scope explicitly. A character set upright keeps its own rule, 3.2.4, which
+ * reads it as a full-width monospace glyph classed with kanji and set solid against its neighbours,
+ * the same as a tate-chu-yoko run's 3.2.5.
  */
 function classify({ value, presentation }: JapaneseCharacter): JapaneseCharacterClass {
   if (presentation === "tate-chu-yoko") return "cl-30";
+  if (presentation === "upright") return "cl-19";
   if (OPENING.has(value)) return "cl-01";
   if (CLOSING.has(value)) return "cl-02";
   if (HYPHENS.has(value)) return "cl-03";
@@ -348,7 +356,9 @@ const QUARTER: PairSpacing = {
 const FIXED_QUARTER: PairSpacing = { kind: "glue", naturalWidthEm: 0.25 };
 /**
  * `1/4-1/8` in 表3 with `1/4-1/2` in 表6: the Japanese-to-western quarter em, reducible to an eighth
- * and expandable to a half.
+ * and expandable to a half. 3.2.6 sets this only against a Western character rotated 90 degrees or
+ * mixed into horizontal text (cl-27) and a numeral or unit symbol (cl-24, cl-25); an upright
+ * Western character classifies as cl-19 instead and never reaches this constant.
  */
 const MIXED_TEXT_QUARTER: PairSpacing = {
   kind: "glue",
@@ -430,9 +440,10 @@ const WORD_SPACE: CharacterSpacing = {
 const EDGE_WORD_SPACE: CharacterSpacing = { kind: "glue", naturalWidthEm: 0 };
 
 /**
- * The classes that take a quarter em against a numeral, unit symbol or western character (3.2.6).
- * Dividing punctuation is on the list in that direction only, because the space before a `？` or `！`
- * is solid (3.1.6).
+ * The classes that take a quarter em against a numeral, unit symbol or western character rotated 90
+ * degrees or mixed into horizontal text (3.2.6) — an upright western character classifies as cl-19
+ * and is covered by the general kanji rows and columns instead. Dividing punctuation is on the list
+ * in that direction only, because the space before a `？` or `！` is solid (3.1.6).
  */
 const JAPANESE_BEFORE_WESTERN = [
   "cl-04",
@@ -614,9 +625,9 @@ function canExpandAtFinalStage(
   left: JapaneseCharacterClass,
   right: JapaneseCharacterClass,
 ): boolean {
-  // Explicit spaces supply their own width, and a western run reads as one word rather than as
-  // independent Japanese cells. Adding another unbounded boundary beside either produces double
-  // space or conspicuous holes around short upright words such as `QR` and `URL`.
+  // Explicit spaces supply their own width, and a horizontal western run (cl-27) reads as one word
+  // rather than as independent Japanese cells. Adding another unbounded boundary beside either
+  // produces double space or a hole disproportionate to the run's own length.
   if (
     left === "cl-14" ||
     left === "cl-26" ||

@@ -497,14 +497,18 @@ describe("composeManuscript", () => {
     // Ten and a quarter em in a ten em line. JLReq 3.1.9 admits the half em after a line-end full
     // stop or ベタ組 and nothing between, so it cannot give the quarter em this line is over by. The
     // comma's half em, which JLReq does reduce continuously, gives it instead.
-    const result = composeManuscript(parsed("ああああA、あああ。"), {
+    //
+    // "ab" is a sideways western word (cl-27, two letters at half an em each), matching the em width
+    // and the mixed-text quarter em an upright single letter would have carried before 3.2.4 moved
+    // upright Latin to cl-19.
+    const result = composeManuscript(parsed("ああああab、あああ。"), {
       composer: novelComposer,
       settings: settings(),
     });
 
     expect.assert(result.ok, "expected composition to succeed");
     const lines = contentLines(result.value);
-    expect(lines.map(lineText)).toEqual(["ああああA、あああ。"]);
+    expect(lines.map(lineText)).toEqual(["ああああab、あああ。"]);
     const line = lines[0];
     expect.assert(line !== undefined, "layout has no content line");
 
@@ -527,7 +531,7 @@ describe("composeManuscript", () => {
     // quarter em after one amount, and half an em is more than this line is over by, so neither
     // moves and the comma pays again. Reducing only the trailing quarter would leave the middle dot
     // lopsided.
-    const result = composeManuscript(parsed("ああああA、あああ・"), {
+    const result = composeManuscript(parsed("ああああab、あああ・"), {
       composer: novelComposer,
       settings: settings(),
     });
@@ -618,8 +622,13 @@ describe("composeManuscript", () => {
     ["あ、」い", 3.5],
     ["「『あ", 2.5],
     ["あ・い", 3],
-    ["あAい", 3.5],
-    ["あ1い", 3.5],
+    // A single upright letter or digit classifies as cl-19 (3.2.4) and sets solid against kana, the
+    // same as any other kanji-class neighbour.
+    ["あAい", 3],
+    ["あ1い", 3],
+    // A sideways western word (cl-27) keeps 3.2.6's quarter em on either side; "abc" does not match
+    // the upright abbreviation pattern, so it renders sideways at half an em per letter.
+    ["あabcい", 4],
   ] as const)("sets %s in %s em, as 表1 prescribes", (source, inlineSizeEm) => {
     const result = composeManuscript(parsed(source), {
       composer: novelComposer,
@@ -633,6 +642,25 @@ describe("composeManuscript", () => {
 
     expect(lines.map(lineText)).toEqual([source]);
     expect(line.inlineSizeEm).toBe(inlineSizeEm);
+  });
+
+  test("sets an upright western run solid against surrounding kana, as JLReq 3.2.4 prescribes", () => {
+    // "QR" is a two-letter all-caps abbreviation, which the composer sets upright rather than
+    // sideways. JLReq 3.2.4 classes an upright Latin letter with kanji (cl-19) rather than with a
+    // horizontal Western run (cl-27), so none of 3.2.6's quarter em applies here.
+    const result = composeManuscript(parsed("あQRい"), {
+      composer: novelComposer,
+      settings: settings({ lineLengthEm: 40 }),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const line = contentLines(result.value)[0];
+    expect.assert(line !== undefined, "layout has no content line");
+
+    expect(line.inlineSizeEm).toBe(4);
+    expect(line.items.flatMap((item) => (item.kind === "glue" ? [item.widthEm] : []))).toEqual([
+      0, 0,
+    ]);
   });
 
   test("sets a middle dot on a half em with a quarter on each side", () => {
@@ -876,14 +904,16 @@ describe("composeManuscript", () => {
   });
 
   test("splits an oversized group reading in proportion to measured base advances", () => {
-    const base = `A${"漢".repeat(10)}`;
+    // "ab" is a sideways western word (cl-27, JLReq 3.2.4 reserves cl-19 for an upright single
+    // letter), so the quarter em 3.2.6 sets against the following kanji still applies.
+    const base = `ab${"漢".repeat(10)}`;
     const reading = "あ".repeat(9);
     const parseResult = parseManuscript(`｜${base}《${reading}》`, { parser: kakuyomuParser });
     expect.assert(parseResult.ok, "fixture did not parse");
     const composer = createNovelComposer({
       measurer: ({ text, role }) => {
         if (role === "ruby") return { advanceEm: text.length / 10 };
-        return { advanceEm: text === "A" ? 9 : 1 };
+        return { advanceEm: text === "a" || text === "b" ? 4.5 : 1 };
       },
     });
 
