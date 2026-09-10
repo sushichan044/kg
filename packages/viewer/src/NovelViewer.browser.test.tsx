@@ -89,9 +89,29 @@ test("gives upright Latin initials a full-width vertical advance", async ({ rend
     const glyphBounds = glyph.getBoundingClientRect();
 
     expect(cellBounds.height).toBeCloseTo(japaneseBounds.height, 1);
-    expect(glyphBounds.top).toBeGreaterThanOrEqual(cellBounds.top - 0.5);
-    expect(glyphBounds.bottom).toBeLessThanOrEqual(cellBounds.bottom + 0.5);
+    expect(Number.parseFloat(getComputedStyle(glyph).fontSize)).toBeCloseTo(cellBounds.height, 1);
+    // A font's ascent+descent can exceed its own em-square by a few px, and how much
+    // varies by the actual font a platform substitutes, so the glyph box is allowed to
+    // spill slightly past the cell rather than sit flush inside it.
+    expect(glyphBounds.top).toBeGreaterThanOrEqual(cellBounds.top - 3);
+    expect(glyphBounds.bottom).toBeLessThanOrEqual(cellBounds.bottom + 3);
   }
+});
+
+test("keeps ruby and emphasis at half the base glyph size", async ({ renderViewer }) => {
+  const { screen } = await renderViewer({
+    text: "[[rb:夢>ゆめ]][[emphasismark:点>・]]",
+    flow,
+    parser: pixivParser,
+  });
+  const glyph = screen.container.querySelector<HTMLElement>(".kgv-glyph");
+  const ruby = screen.container.querySelector<HTMLElement>(".kgv-ruby");
+  const emphasis = screen.container.querySelector<HTMLElement>(".kgv-emphasis");
+  expect.assert(glyph !== null && ruby !== null && emphasis !== null);
+
+  const glyphSize = Number.parseFloat(getComputedStyle(glyph).fontSize);
+  expect(Number.parseFloat(getComputedStyle(ruby).fontSize)).toBeCloseTo(glyphSize / 2, 1);
+  expect(Number.parseFloat(getComputedStyle(emphasis).fontSize)).toBeCloseTo(glyphSize / 2, 1);
 });
 
 test("composes a two-digit number as one tate-chu-yoko cell", async ({ renderViewer }) => {
