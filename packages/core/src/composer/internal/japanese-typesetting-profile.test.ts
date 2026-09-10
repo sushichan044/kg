@@ -385,14 +385,30 @@ describe("defaultJapaneseTypesettingProfile", () => {
     expect(wrong).toEqual([]);
   });
 
-  test("opens only the colored and gray cells of 表6 at the final stage", () => {
-    const wrong = FINAL_EXPANSION_TABLE.flatMap(({ left, right, allowed }) =>
-      defaultJapaneseTypesettingProfile.canExpandAtFinalStage(left, right) === allowed
+  test("opens only naturally solid colored and gray cells at the final stage", () => {
+    const wrong = FINAL_EXPANSION_TABLE.flatMap(({ left, right, allowed }) => {
+      const excluded = new Set(["cl-14", "cl-26", "cl-27"]);
+      const expected =
+        allowed &&
+        !excluded.has(left) &&
+        !excluded.has(right) &&
+        defaultJapaneseTypesettingProfile.pairSpacing(left, right).naturalWidthEm === 0;
+      return defaultJapaneseTypesettingProfile.canExpandAtFinalStage(left, right) === expected
         ? []
-        : [`${left}/${right}: ${String(!allowed)} instead of ${String(allowed)}`],
-    );
+        : [`${left}/${right}: ${String(!expected)} instead of ${String(expected)}`];
+    });
 
     expect(wrong).toEqual([]);
+  });
+
+  test("keeps intrinsic and explicit spaces out of the unbounded final stage", () => {
+    expect(defaultJapaneseTypesettingProfile.canExpandAtFinalStage("cl-19", "cl-27")).toBe(false);
+    expect(defaultJapaneseTypesettingProfile.canExpandAtFinalStage("cl-27", "cl-15")).toBe(false);
+    expect(defaultJapaneseTypesettingProfile.canExpandAtFinalStage("cl-19", "cl-24")).toBe(false);
+    expect(defaultJapaneseTypesettingProfile.canExpandAtFinalStage("cl-02", "cl-19")).toBe(false);
+    expect(defaultJapaneseTypesettingProfile.canExpandAtFinalStage("cl-19", "cl-14")).toBe(false);
+    expect(defaultJapaneseTypesettingProfile.canExpandAtFinalStage("cl-19", "cl-26")).toBe(false);
+    expect(defaultJapaneseTypesettingProfile.canExpandAtFinalStage("cl-19", "cl-19")).toBe(true);
   });
 
   test("adds space in the order JLReq 3.8.4 lays down", () => {

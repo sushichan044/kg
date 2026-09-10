@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 
+import { defaultJapaneseTypesettingProfile } from "./japanese-typesetting-profile";
 import type { JapaneseTypesettingProfile } from "./japanese-typesetting-profile";
 import { layoutParagraph } from "./paragraph-layout";
 import type { ParagraphAtom } from "./paragraph-layout";
@@ -121,14 +122,48 @@ const finalStageProfile: JapaneseTypesettingProfile = {
       : { kind: "glue", naturalWidthEm: 0 },
 };
 
+const cappedWordSpaceProfile: JapaneseTypesettingProfile = {
+  ...flexiblePrefixProfile,
+  classify: ({ value }) => (value === " " ? "cl-26" : "cl-19"),
+  boxMetrics: (characterClass, measuredAdvanceEm) => ({
+    advanceEm: characterClass === "cl-26" ? 0 : measuredAdvanceEm,
+    renderOffsetEm: 0,
+  }),
+  pairSpacing: (left, right) =>
+    left === "cl-26" || right === "cl-26"
+      ? { kind: "glue", naturalWidthEm: 0 }
+      : {
+          kind: "glue",
+          naturalWidthEm: 0,
+          stretch: { priority: 2, amountEm: 0.25, granularity: "continuous" },
+        },
+  finalStretchPriority: 3,
+  canExpandAtFinalStage: (left, right) => left !== "cl-26" && right !== "cl-26",
+  spacingCharacter: (characterClass, position) =>
+    characterClass === "cl-26" && position === "mid-line"
+      ? {
+          kind: "glue",
+          naturalWidthEm: 1 / 3,
+          stretch: {
+            priority: 1,
+            amountEm: 1 / 2 - 1 / 3,
+            granularity: "continuous",
+          },
+        }
+      : null,
+};
+
 function atoms(text: string, profile: JapaneseTypesettingProfile): ParagraphAtom[] {
-  return text.split("").map((value) => ({
-    value,
-    boxAdvanceEm: 1,
-    sourceGap: false,
-    characterClass: profile.classify({ value, presentation: "mixed" }),
-    pairSpacingAfter: true,
-  }));
+  return text.split("").map((value) => {
+    const characterClass = profile.classify({ value, presentation: "mixed" });
+    return {
+      value,
+      boxAdvanceEm: profile.boxMetrics(characterClass, 1).advanceEm,
+      sourceGap: false,
+      characterClass,
+      pairSpacingAfter: true,
+    };
+  });
 }
 
 function spacingWidths(plan: { pairSpacings: ReadonlyArray<{ widthEm: number }> }): number[] {
@@ -258,6 +293,38 @@ describe("layoutParagraph", () => {
       expect.closeTo(0.1, 10),
     ]);
     expect(firstLine.inlineSizeEm).toBe(4.8);
+  });
+
+  test("caps spacing around a western word before applying the final stage elsewhere", () => {
+    const plans = layoutParagraph(
+      atoms("あいうURLえおか後続文章です", defaultJapaneseTypesettingProfile),
+      12,
+      defaultJapaneseTypesettingProfile,
+      (_left, right) => right === 9,
+    );
+    const firstLine = plans[0];
+    expect.assert(firstLine !== undefined, "layout has no first line");
+
+    expect(firstLine.break.kind).toBe("stretched");
+    expect(spacingWidths(firstLine)).toEqual([0.5, 0.5, 0.5, 0, 0, 0.5, 0.5, 0.5]);
+    expect(firstLine.inlineSizeEm).toBe(12);
+  });
+
+  test("caps a western word space before applying the final stage elsewhere", () => {
+    const paragraph = atoms("AA AAABBBBB", cappedWordSpaceProfile);
+    const plans = layoutParagraph(
+      paragraph,
+      7,
+      cappedWordSpaceProfile,
+      (_left, right) => right === 6,
+    );
+    const firstLine = plans[0];
+    expect.assert(firstLine !== undefined, "layout has no first line");
+
+    expect(firstLine.break.kind).toBe("stretched");
+    expect(firstLine.characterSpacings.map(({ widthEm }) => widthEm)).toEqual([0.5]);
+    expect(spacingWidths(firstLine)).toEqual([0.5, 0, 0, 0.5, 0.5]);
+    expect(firstLine.inlineSizeEm).toBe(7);
   });
 
   test("keeps candidate expansion linear in paragraph length", () => {

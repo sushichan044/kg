@@ -614,7 +614,24 @@ function canExpandAtFinalStage(
   left: JapaneseCharacterClass,
   right: JapaneseCharacterClass,
 ): boolean {
-  return FINAL_EXPANSION_AFTER.get(left)?.has(right) ?? false;
+  // Explicit spaces supply their own width, and a western run reads as one word rather than as
+  // independent Japanese cells. Adding another unbounded boundary beside either produces double
+  // space or conspicuous holes around short upright words such as `QR` and `URL`.
+  if (
+    left === "cl-14" ||
+    left === "cl-26" ||
+    left === "cl-27" ||
+    right === "cl-14" ||
+    right === "cl-26" ||
+    right === "cl-27"
+  ) {
+    return false;
+  }
+  if (FINAL_EXPANSION_AFTER.get(left)?.has(right) !== true) return false;
+
+  // A pair with intrinsic white already carries punctuation or mixed-text semantics. Its finite
+  // stage, where one exists, is the upper bound; only pairs set solid at rest take the final stage.
+  return pairSpacing(left, right).naturalWidthEm === 0;
 }
 
 /**

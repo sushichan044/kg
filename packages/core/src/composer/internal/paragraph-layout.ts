@@ -152,7 +152,9 @@ function opportunities(
       result.push({
         slot: { kind: "character", index },
         spacing,
-        finalStretch: spacing.stretch !== undefined,
+        // 欧文間隔 is the only spacing character in the profile. Its stage-1 half-em limit is a
+        // true maximum; the final stage belongs to inter-character pairs, not the space itself.
+        finalStretch: false,
         absorbsPrecedingEm: 0,
       });
     }
