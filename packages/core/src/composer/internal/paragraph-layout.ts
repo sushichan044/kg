@@ -68,6 +68,7 @@ export type ParagraphLinePlan = Readonly<{
 type Opportunity = Readonly<{
   slot: SpacingSlot;
   spacing: PairSpacing;
+  finalStretch: boolean;
   /**
    * How much of the preceding gap's capacity this one is indivisible from, as the profile's
    * line-end spacing reports it. Zero everywhere else.
@@ -133,6 +134,7 @@ function opportunities(
     result.push({
       slot: { kind: "gap", boundary: start },
       spacing: startSpacing,
+      finalStretch: false,
       absorbsPrecedingEm: 0,
     });
   }
@@ -147,7 +149,12 @@ function opportunities(
       index === start || index === end - 1 ? "line-edge" : "mid-line",
     );
     if (spacing !== null) {
-      result.push({ slot: { kind: "character", index }, spacing, absorbsPrecedingEm: 0 });
+      result.push({
+        slot: { kind: "character", index },
+        spacing,
+        finalStretch: spacing.stretch !== undefined,
+        absorbsPrecedingEm: 0,
+      });
     }
   }
   for (let right = start + 1; right < end; right += 1) {
@@ -169,6 +176,7 @@ function opportunities(
     result.push({
       slot: { kind: "gap", boundary: right },
       spacing: profile.pairSpacing(leftClass, rightClass),
+      finalStretch: profile.canExpandAtFinalStage(leftClass, rightClass),
       absorbsPrecedingEm: 0,
     });
   }
@@ -178,6 +186,7 @@ function opportunities(
     result.push({
       slot: { kind: "gap", boundary: end },
       spacing: endSpacing.spacing,
+      finalStretch: false,
       absorbsPrecedingEm: endSpacing.absorbsPrecedingEm,
     });
   }
@@ -258,7 +267,9 @@ function adjustmentUnits(
  * Within a stage the amount is therefore split in proportion to what each space can give, rather
  * than taken out of the earliest space until it runs dry. Across stages the order stays a
  * waterfall: a later stage is reached only once every stage before it is spent out. The composer
- * sets one character size, so a share of the stage's capacity is a share by character size.
+ * sets one character size, so a share of the stage's capacity is a share by character size. JLReq
+ * 3.8.4's final stage has no upper bound: after the finite stages are full, the unresolved
+ * remainder is added equally to every pair the profile admits, including the earlier-stage pairs.
  *
  * An all-or-nothing unit larger than what is still needed is skipped rather than partly spent, and
  * never revisited: `remaining` only falls, so a unit that did not fit at its own stage cannot fit
@@ -269,16 +280,19 @@ function resolveSpacings(
   units: readonly AdjustmentUnit[],
   adjustment: "shrink" | "stretch",
   amountEm: number,
+  finalStretchPriority: number,
 ): Readonly<{
   spacings: ResolvedSpacings;
   priorityCost: number;
   freeEm: number;
+  finalStretchPerSlotEm: number;
   unabsorbedEm: number;
 }> {
   const usedBySlot = new Map<number, number>();
   let remaining = amountEm;
   let priorityCost = 0;
   let freeEm = 0;
+  let finalStretchPerSlotEm = 0;
 
   const spend = (unit: AdjustmentUnit, fraction: number): void => {
     for (const { slot, amountEm: partEm } of unit.parts) {
@@ -315,6 +329,19 @@ function resolveSpacings(
     }
   }
 
+  if (adjustment === "stretch" && remaining > EPSILON) {
+    const finalSlots = values.flatMap(({ slot, finalStretch }) => (finalStretch ? [slot] : []));
+    if (finalSlots.length > 0) {
+      finalStretchPerSlotEm = remaining / finalSlots.length;
+      for (const slot of finalSlots) {
+        const key = slotKey(slot);
+        usedBySlot.set(key, (usedBySlot.get(key) ?? 0) + finalStretchPerSlotEm);
+      }
+      priorityCost += remaining * finalStretchPriority;
+      remaining = 0;
+    }
+  }
+
   return {
     spacings: splitBySlot(values, (slot, spacing) => {
       const used = usedBySlot.get(slotKey(slot)) ?? 0;
@@ -324,6 +351,7 @@ function resolveSpacings(
     }),
     priorityCost,
     freeEm,
+    finalStretchPerSlotEm,
     unabsorbedEm: Math.max(0, remaining),
   };
 }
@@ -416,6 +444,7 @@ function candidate(
   const trailingSpacing =
     pairValues.find(({ slot }) => slot.kind === "gap" && slot.boundary === end)?.spacing
       .naturalWidthEm ?? 0;
+  const hasFinalStretch = pairValues.some(({ finalStretch }) => finalStretch);
 
   if (terminal && overflow <= EPSILON) {
     return {
@@ -452,7 +481,7 @@ function candidate(
   // to give the whole amount. What it could not absorb decides whether this is a shrunk line at all.
   const shrunk =
     overflow > 0 && overflow <= capacity + EPSILON
-      ? resolveSpacings(pairValues, units, "shrink", overflow)
+      ? resolveSpacings(pairValues, units, "shrink", overflow, profile.finalStretchPriority)
       : null;
 
   if (shrunk !== null && shrunk.unabsorbedEm <= EPSILON) {
@@ -496,11 +525,11 @@ function candidate(
     };
   }
 
-  // Nothing this profile expands is all-or-nothing, so the remainder is always zero here. The guard
-  // is what keeps `inlineSizeEm: lineLengthEm` honest the day one is.
+  // Nothing this profile expands is all-or-nothing. The finite stages may still leave a remainder;
+  // the final stage takes it whenever 表6 admits at least one gap.
   const stretched =
-    !terminal && underflow > EPSILON && underflow <= capacity + EPSILON
-      ? resolveSpacings(pairValues, units, "stretch", underflow)
+    !terminal && underflow > EPSILON && (underflow <= capacity + EPSILON || hasFinalStretch)
+      ? resolveSpacings(pairValues, units, "stretch", underflow, profile.finalStretchPriority)
       : null;
 
   if (stretched !== null && stretched.unabsorbedEm <= EPSILON) {
@@ -513,7 +542,12 @@ function candidate(
       inlineSizeEm: lineLengthEm,
       break: { kind: "stretched" },
       hangingIndex: null,
-      deformationRatio: capacity === 0 ? 0 : underflow / capacity,
+      deformationRatio:
+        stretched.finalStretchPerSlotEm > 0
+          ? 1 + stretched.finalStretchPerSlotEm
+          : capacity === 0
+            ? 0
+            : underflow / capacity,
       priorityCost: stretched.priorityCost,
     };
   }

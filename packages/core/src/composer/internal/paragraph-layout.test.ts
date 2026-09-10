@@ -18,6 +18,8 @@ const flexiblePrefixProfile: JapaneseTypesettingProfile = {
           stretch: { priority: 1, amountEm: 1, granularity: "continuous" },
         }
       : { kind: "glue", naturalWidthEm: 0 },
+  finalStretchPriority: 2,
+  canExpandAtFinalStage: () => true,
   breakPenalty: () => 0,
   canHang: () => false,
   spacingCharacter: () => null,
@@ -35,6 +37,8 @@ const freeLineEndProfile: JapaneseTypesettingProfile = {
     left === "cl-07" && right === "cl-07"
       ? { kind: "kern", naturalWidthEm: 0 }
       : { kind: "glue", naturalWidthEm: 0 },
+  finalStretchPriority: 1,
+  canExpandAtFinalStage: () => false,
   breakPenalty: () => 0,
   canHang: () => false,
   spacingCharacter: () => null,
@@ -95,11 +99,26 @@ const stagedProfile: JapaneseTypesettingProfile = {
             naturalWidthEm: 0,
             stretch: { priority: 2, amountEm: 0.25, granularity: "continuous" },
           },
+  finalStretchPriority: 3,
+  canExpandAtFinalStage: () => true,
   breakPenalty: () => 0,
   canHang: () => false,
   spacingCharacter: () => null,
   lineStartSpacing: () => null,
   lineEndSpacing: () => null,
+};
+
+const finalStageProfile: JapaneseTypesettingProfile = {
+  ...flexiblePrefixProfile,
+  classify: ({ value }) => (value === "W" ? "cl-27" : "cl-19"),
+  pairSpacing: (_left, right) =>
+    right === "cl-27"
+      ? {
+          kind: "glue",
+          naturalWidthEm: 0,
+          stretch: { priority: 1, amountEm: 0.5, granularity: "continuous" },
+        }
+      : { kind: "glue", naturalWidthEm: 0 },
 };
 
 function atoms(text: string, profile: JapaneseTypesettingProfile): ParagraphAtom[] {
@@ -218,6 +237,27 @@ describe("layoutParagraph", () => {
 
     expect(firstLine.break.kind).toBe("stretched");
     expect(spacingWidths(firstLine)).toEqual([0.5, 0.125, 0.125]);
+  });
+
+  test("spreads the final-stage remainder evenly across every eligible gap", () => {
+    // The first gap reaches its half-em limit before the final stage. The remaining three tenths
+    // are then added equally to all three gaps, including the one used by the earlier stage.
+    const plans = layoutParagraph(
+      atoms("AWAAA", finalStageProfile),
+      4.8,
+      finalStageProfile,
+      (_left, right) => right === 4,
+    );
+    const firstLine = plans[0];
+    expect.assert(firstLine !== undefined, "layout has no first line");
+
+    expect(firstLine.break.kind).toBe("stretched");
+    expect(spacingWidths(firstLine)).toEqual([
+      expect.closeTo(0.6, 10),
+      expect.closeTo(0.1, 10),
+      expect.closeTo(0.1, 10),
+    ]);
+    expect(firstLine.inlineSizeEm).toBe(4.8);
   });
 
   test("keeps candidate expansion linear in paragraph length", () => {

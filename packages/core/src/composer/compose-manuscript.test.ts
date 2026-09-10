@@ -233,6 +233,38 @@ describe("composeManuscript", () => {
     expect(suppressedItems(line)).toEqual([]);
   });
 
+  test("keeps a question-mark gap fixed while spreading the final-stage remainder elsewhere", () => {
+    const result = composeManuscript(parsed("あ！？　！？　いう……"), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const firstLine = contentLines(result.value)[0];
+    expect.assert(firstLine !== undefined, "layout has no first content line");
+
+    expect(lineText(firstLine)).toBe("あ！？　！？　いう");
+    expect(firstLine.break).toEqual({ kind: "stretched" });
+    expect(firstLine.inlineSizeEm).toBe(10);
+    expect(
+      firstLine.items.flatMap((item) =>
+        item.kind === "glue" && item.origin === "source"
+          ? [{ value: item.value, widthEm: item.widthEm, adjustment: item.adjustment }]
+          : [],
+      ),
+    ).toEqual([
+      { value: "　", widthEm: 1, adjustment: "natural" },
+      { value: "　", widthEm: 1, adjustment: "natural" },
+    ]);
+    expect(
+      firstLine.items.flatMap((item) =>
+        item.kind === "glue" && item.origin === "generated" && item.adjustment === "stretched"
+          ? [item.widthEm]
+          : [],
+      ),
+    ).toEqual([1]);
+  });
+
   test("keeps a trailing suppressed gap in the preceding line range", () => {
     const source = "あいうえおかきく！？　";
     const result = composeManuscript(parsed(source), {

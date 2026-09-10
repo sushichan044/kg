@@ -179,6 +179,16 @@ export type JapaneseTypesettingProfile = Readonly<{
   lineStartSpacing: (first: JapaneseCharacterClass, lineHead: LineHeadKind) => PairSpacing | null;
   lineEndSpacing: (last: JapaneseCharacterClass) => LineEndSpacing | null;
   /**
+   * The priority charged to the unbounded final expansion stage.
+   */
+  finalStretchPriority: number;
+  /**
+   * Whether the pair participates in JLReq 3.8.4's final expansion stage. This is independent of
+   * line-breaking permission: 表6 admits some mid-line gaps that a kinsoku rule would not admit as a
+   * break boundary.
+   */
+  canExpandAtFinalStage: (left: JapaneseCharacterClass, right: JapaneseCharacterClass) => boolean;
+  /**
    * `null` where a break between two classes is prohibited, otherwise a cost a caller may weigh.
    * The composer only tests for `null` today, so every permitted break is priced at zero.
    */
@@ -278,10 +288,6 @@ const REDUCTION_STAGE = {
  * {@link REDUCTION_STAGE}: the lower the number, the earlier the paragraph optimizer takes it. A
  * line is either reduced or expanded, never both, so the two scales never meet.
  *
- * Stage 4 spreads whatever a、b and c could not absorb across every character gap that is not
- * unbreakable, and is deliberately not implemented: it would justify every line that currently
- * falls short, which reads as prose combed out to the margin rather than a novel.
- *
  * Nothing here takes priority 0. Expanding is always visible, and priority 0 means an adjustment
  * the optimizer is charged nothing for.
  */
@@ -298,6 +304,10 @@ const EXPANSION_STAGE = {
    * Stage 3: everywhere else 表6 admits, from solid up to a quarter em.
    */
   solid: 3,
+  /**
+   * Stage 4: the unbounded remainder, spread equally across every colored or gray cell of 表6.
+   */
+  final: 4,
 } as const;
 
 /**
@@ -479,6 +489,133 @@ const EXPANDABLE_AFTER = [
   "cl-19",
   "cl-30",
 ] as const;
+
+/**
+ * The gray, blue and pink cells of 表6: all pairs that join the fourth and final expansion stage.
+ * The finite capacities above cover the blue and pink cells at stages three and two; once those
+ * stages are exhausted, JLReq 3.8.4 d adds the remainder equally across every cell named here.
+ *
+ * A cl-08/cl-08 cell is blue only when the two characters are different kinds of mark (注4). This
+ * profile cannot distinguish the two halves of one 2倍ダッシュ from different marks, so it keeps the
+ * pair joined, as it already does for the finite third stage.
+ */
+const FINAL_EXPANSION_BASIC_AFTER = new Set<JapaneseCharacterClass>([
+  "cl-01",
+  "cl-08",
+  "cl-12",
+  "cl-13",
+  "cl-14",
+  "cl-15",
+  "cl-16",
+  "cl-19",
+  "cl-24",
+  "cl-25",
+  "cl-26",
+  "cl-27",
+  "cl-30",
+]);
+const FINAL_EXPANSION_WIDE_AFTER = new Set<JapaneseCharacterClass>([
+  ...FINAL_EXPANSION_BASIC_AFTER,
+  "cl-09",
+  "cl-10",
+  "cl-11",
+]);
+const FINAL_EXPANSION_AFTER = new Map<JapaneseCharacterClass, ReadonlySet<JapaneseCharacterClass>>([
+  ...(["cl-02", "cl-03", "cl-04", "cl-05", "cl-06", "cl-07", "cl-14"] as const).map(
+    (left) => [left, FINAL_EXPANSION_BASIC_AFTER] as const,
+  ),
+  ...(["cl-09", "cl-10", "cl-11", "cl-13", "cl-15", "cl-16", "cl-19", "cl-30"] as const).map(
+    (left) => [left, FINAL_EXPANSION_WIDE_AFTER] as const,
+  ),
+  [
+    "cl-08",
+    new Set([...FINAL_EXPANSION_WIDE_AFTER].filter((characterClass) => characterClass !== "cl-08")),
+  ],
+  [
+    "cl-12",
+    new Set([
+      "cl-08",
+      "cl-09",
+      "cl-10",
+      "cl-11",
+      "cl-12",
+      "cl-13",
+      "cl-15",
+      "cl-16",
+      "cl-19",
+      "cl-25",
+      "cl-26",
+      "cl-27",
+      "cl-30",
+    ]),
+  ],
+  [
+    "cl-24",
+    new Set([
+      "cl-01",
+      "cl-08",
+      "cl-09",
+      "cl-10",
+      "cl-11",
+      "cl-12",
+      "cl-14",
+      "cl-15",
+      "cl-16",
+      "cl-19",
+      "cl-25",
+      "cl-26",
+      "cl-30",
+    ]),
+  ],
+  [
+    "cl-25",
+    new Set([
+      "cl-01",
+      "cl-08",
+      "cl-09",
+      "cl-10",
+      "cl-11",
+      "cl-12",
+      "cl-13",
+      "cl-14",
+      "cl-15",
+      "cl-16",
+      "cl-19",
+      "cl-24",
+      "cl-26",
+      "cl-30",
+    ]),
+  ],
+  [
+    "cl-26",
+    new Set(japaneseCharacterClasses.filter((characterClass) => characterClass !== "cl-02")),
+  ],
+  [
+    "cl-27",
+    new Set([
+      "cl-01",
+      "cl-08",
+      "cl-09",
+      "cl-10",
+      "cl-11",
+      "cl-12",
+      "cl-13",
+      "cl-14",
+      "cl-15",
+      "cl-16",
+      "cl-19",
+      "cl-26",
+      "cl-30",
+    ]),
+  ],
+]);
+
+function canExpandAtFinalStage(
+  left: JapaneseCharacterClass,
+  right: JapaneseCharacterClass,
+): boolean {
+  return FINAL_EXPANSION_AFTER.get(left)?.has(right) ?? false;
+}
 
 /**
  * The classes JLReq 3.1.2 sets on a half em rather than a full one.
@@ -729,6 +866,9 @@ export const defaultJapaneseTypesettingProfile: JapaneseTypesettingProfile = {
             absorbsPrecedingEm: 0.25,
           }
         : null,
+
+  finalStretchPriority: EXPANSION_STAGE.final,
+  canExpandAtFinalStage,
 
   breakPenalty,
 
