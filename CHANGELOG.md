@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.7.2](https://github.com/sushichan044/kg/compare/v0.7.1...v0.7.2) (2026-09-10)
+
+
+### Features
+
+* **core:** apply JLReq final spacing expansion ([a374bb5](https://github.com/sushichan044/kg/commit/a374bb55f09767a0f93f5e1170c99c5aa47e3d35))
+* **core:** implement JLReq final spacing expansion ([227b08c](https://github.com/sushichan044/kg/commit/227b08cd953f328dc6383c47a097b1994f39c061))
+
+
+### Bug Fixes
+
+* **core:** preserve finite spacing limits ([5663421](https://github.com/sushichan044/kg/commit/56634212917295cccf0befdce41a0265108bb302))
+
+
+### Performance Improvements
+
+* **core:** speed up paragraph line-break optimizer's hot path ([263abc9](https://github.com/sushichan044/kg/commit/263abc92665e6c9f04b4ee08e4511c916e54836d))
+
 ## [0.7.1](https://github.com/sushichan044/kg/compare/v0.7.0...v0.7.1) (2026-09-10)
 
 
