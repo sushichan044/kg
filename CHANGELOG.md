@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.1](https://github.com/sushichan044/kg/compare/v0.7.0...v0.7.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* **viewer:** remove masu-me-era glyph shrink, render glyphs at full cell size ([1c2b423](https://github.com/sushichan044/kg/commit/1c2b423209d68548c64c68bc3ff4eb2dd0e0df2e))
+* **viewer:** remove masu-me-era glyph shrink, render glyphs at full cell size ([bc80398](https://github.com/sushichan044/kg/commit/bc803987445abb4c4b81415648fb2706bc8d2f6b))
+* **viewer:** widen upright glyph bounds tolerance for font-metric variance ([d48dc42](https://github.com/sushichan044/kg/commit/d48dc424ef4fa7c054f0363ea92bddb3f894ab9c))
+
 ## [0.7.0](https://github.com/sushichan044/kg/compare/v0.6.0...v0.7.0) (2026-09-05)
 
 
