@@ -68,7 +68,6 @@
   },
   "devDependencies": {
     "@arethetypeswrong/core": "catalog:dev",
-    "@rolldown/plugin-babel": "catalog:dev",
     "@types/react": "catalog:dev",
     "@types/react-dom": "catalog:dev",
     "@vitest/browser-playwright": "catalog:dev",

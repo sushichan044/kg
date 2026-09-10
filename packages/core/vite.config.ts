@@ -15,9 +15,7 @@ export default defineConfig({
     {
       attw: { level: "error", profile: "esm-only" },
       clean: true,
-      dts: {
-        tsgo: true,
-      },
+      dts: true,
       entry: ["src/index.ts", "src/lint.ts", "src/plugin.ts"],
       fixedExtension: true,
       format: "esm",
