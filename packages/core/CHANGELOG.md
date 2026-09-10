@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.3](https://github.com/sushichan044/kg/compare/kg-core-v0.9.2...kg-core-v0.9.3) (2026-09-10)
+
+
+### Bug Fixes
+
+* **core:** set upright Latin against kana solid, per JLReq 3.2.4 ([9e9fce1](https://github.com/sushichan044/kg/commit/9e9fce10b0d1e159ed2beb03239d05b79607837e))
+* **core:** set upright Latin against kana solid, per JLReq 3.2.4 ([6029441](https://github.com/sushichan044/kg/commit/6029441a46aed9e24aad789d5467fc10bb741e90))
+
 ## [0.9.2](https://github.com/sushichan044/kg/compare/kg-core-v0.9.1...kg-core-v0.9.2) (2026-09-10)
 
 
