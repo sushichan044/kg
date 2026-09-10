@@ -95,9 +95,14 @@ stage, or by hanging a comma or full stop; a short line is answered by opening u
 where JLReq 3.8.4 and appendix 表6
 allow it — the word space first, up to a half, then the Japanese-to-Western quarter em,
 also up to a half, then a solid pair between kana, kanji, and the marks that go with
-them, up to a quarter. Space around
-brackets, commas, full stops, middle dots, hyphens, and an ideographic space is never
-opened up. A line that admits none of these is forced. The choice is made for the
+them, up to a quarter. If those stages cannot fill the line, the remaining width is
+added equally to the admitted pairs in 表6 that are solid at rest, including pairs used by
+the third stage. Intrinsic spaces keep their finite limits: a word space and a mixed
+Japanese-to-Western, numeral, or unit-symbol gap stop at a half em, while punctuation and
+explicit full-em spaces retain their own width. This keeps the unbounded stage from producing
+conspicuous holes around short upright Western words or already-spaced marks.
+Line-head and line-end space, inseparable pairs, and source-authored full-em gaps after
+question or exclamation marks stay fixed. A line with no admitted gap is forced. The choice is made for the
 paragraph rather than line by line,
 minimizing in order the number of forced lines, then stretched, then hanging, then
 shrunk lines that spent visible space. Which space may be reduced, and in which

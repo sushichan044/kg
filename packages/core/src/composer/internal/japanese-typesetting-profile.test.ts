@@ -104,10 +104,10 @@ const REDUCIBLE_AMOUNTS = `
  * added to the Japanese-to-western quarter em, and `1/4` a quarter added to a solid pair. 表6 has no
  * line head or line end, because JLReq expands neither.
  *
- * A blank cell means no expansion. In the PDF a blank cell means that only where its background is
- * white; a blank cell on a coloured background is JLReq's fourth stage, which spreads the remainder
- * over every gap that is not unbreakable, and the background is the only thing that says which is
- * which. Reading every blank as no expansion is therefore exactly as far as this profile goes.
+ * A blank cell means no finite expansion. In the PDF a blank cell means that only where its
+ * background is white; a blank cell on a coloured background is JLReq's fourth stage, which spreads
+ * the remainder over every admitted gap. `FINAL_EXPANSION_OPPORTUNITIES` transcribes that
+ * background separately because the glyphs in the cells carry no record of it.
  *
  * Note-bearing cells: 注4 (two adjacent 分離禁止文字 of different kinds may be opened up, which this
  * profile cannot tell from the two halves of one 2倍ダッシュ, so it leaves the pair alone), 注8 (a
@@ -147,6 +147,40 @@ const EXPANDABLE_AMOUNTS = `
    30    .    .    .    .    .    .    .  1/4  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4
 `;
 
+/**
+ * The colored and gray backgrounds of 表6 for the supported classes. `y` means the pair joins the
+ * fourth expansion stage; `.` is a white cell and never opens. Earlier-stage cells are `y` too,
+ * because JLReq 3.8.4 d adds the final remainder across stages one through four together.
+ *
+ * 表6 注4 colors cl-08/cl-08 only for two different kinds of mark. The profile cannot distinguish
+ * that case from the two halves of one inseparable dash, so this fixture keeps the pair closed.
+ */
+const FINAL_EXPANSION_OPPORTUNITIES = `
+        01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 19 24 25 26 27 30
+   01    .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
+   02    y  .  .  .  .  .  .  y  .  .  .  y  y  y  y  y  y  y  y  y  y  y
+   03    y  .  .  .  .  .  .  y  .  .  .  y  y  y  y  y  y  y  y  y  y  y
+   04    y  .  .  .  .  .  .  y  .  .  .  y  y  y  y  y  y  y  y  y  y  y
+   05    y  .  .  .  .  .  .  y  .  .  .  y  y  y  y  y  y  y  y  y  y  y
+   06    y  .  .  .  .  .  .  y  .  .  .  y  y  y  y  y  y  y  y  y  y  y
+   07    y  .  .  .  .  .  .  y  .  .  .  y  y  y  y  y  y  y  y  y  y  y
+   08    y  .  .  .  .  .  .  .  y  y  y  y  y  y  y  y  y  y  y  y  y  y
+   09    y  .  .  .  .  .  .  y  y  y  y  y  y  y  y  y  y  y  y  y  y  y
+   10    y  .  .  .  .  .  .  y  y  y  y  y  y  y  y  y  y  y  y  y  y  y
+   11    y  .  .  .  .  .  .  y  y  y  y  y  y  y  y  y  y  y  y  y  y  y
+   12    .  .  .  .  .  .  .  y  y  y  y  y  y  .  y  y  y  .  y  y  y  y
+   13    y  .  .  .  .  .  .  y  y  y  y  y  y  y  y  y  y  y  y  y  y  y
+   14    y  .  .  .  .  .  .  y  .  .  .  y  y  y  y  y  y  y  y  y  y  y
+   15    y  .  .  .  .  .  .  y  y  y  y  y  y  y  y  y  y  y  y  y  y  y
+   16    y  .  .  .  .  .  .  y  y  y  y  y  y  y  y  y  y  y  y  y  y  y
+   19    y  .  .  .  .  .  .  y  y  y  y  y  y  y  y  y  y  y  y  y  y  y
+   24    y  .  .  .  .  .  .  y  y  y  y  y  .  y  y  y  y  .  y  y  .  y
+   25    y  .  .  .  .  .  .  y  y  y  y  y  y  y  y  y  y  y  .  y  .  y
+   26    y  .  y  y  y  y  y  y  y  y  y  y  y  y  y  y  y  y  y  y  y  y
+   27    y  .  .  .  .  .  .  y  y  y  y  y  y  y  y  y  y  .  .  y  .  y
+   30    y  .  .  .  .  .  .  y  y  y  y  y  y  y  y  y  y  y  y  y  y  y
+`;
+
 const LINE_END = "line-end";
 
 const AMOUNTS_EM = new Map([
@@ -164,6 +198,12 @@ type TableCell = Readonly<{
    * `null` where the table prohibits the placement outright (×印).
    */
   amountEm: number | null;
+}>;
+
+type ExpansionOpportunityCell = Readonly<{
+  left: JapaneseCharacterClass;
+  right: JapaneseCharacterClass;
+  allowed: boolean;
 }>;
 
 /**
@@ -209,10 +249,39 @@ function parseTable(name: string, table: string): TableCell[] {
   });
 }
 
+function parseExpansionOpportunityTable(table: string): ExpansionOpportunityCell[] {
+  const [header, ...rows] = table.trim().split("\n");
+  if (header === undefined) throw new Error("表6の地色 has no header row");
+  const columns = header.trim().split(/\s+/);
+
+  return rows.flatMap((row) => {
+    const [label, ...values] = row.trim().split(/\s+/);
+    if (label === undefined) throw new Error("表6の地色 has an empty row");
+    if (values.length !== columns.length) {
+      throw new Error(`表6の地色 row ${label} has ${values.length} of ${columns.length} cells`);
+    }
+
+    return values.map((value, index) => {
+      const column = columns[index];
+      if (column === undefined) throw new Error(`表6の地色 row ${label} has an unlabelled column`);
+      if (value !== "." && value !== "y") {
+        throw new Error(`表6の地色 cell ${label}/${column} holds an unknown value ${value}`);
+      }
+
+      return {
+        left: characterClassOf("表6の地色", label),
+        right: characterClassOf("表6の地色", column),
+        allowed: value === "y",
+      };
+    });
+  });
+}
+
 const SPACING_TABLE = parseTable("表1", SPACING_AMOUNTS);
 const REDUCTION_TABLE = parseTable("表3", REDUCIBLE_AMOUNTS);
 
 const EXPANSION_TABLE = parseTable("表6", EXPANDABLE_AMOUNTS);
+const FINAL_EXPANSION_TABLE = parseExpansionOpportunityTable(FINAL_EXPANSION_OPPORTUNITIES);
 
 function labelsOf(table: readonly TableCell[]) {
   return {
@@ -314,6 +383,32 @@ describe("defaultJapaneseTypesettingProfile", () => {
     });
 
     expect(wrong).toEqual([]);
+  });
+
+  test("opens only naturally solid colored and gray cells at the final stage", () => {
+    const wrong = FINAL_EXPANSION_TABLE.flatMap(({ left, right, allowed }) => {
+      const excluded = new Set(["cl-14", "cl-26", "cl-27"]);
+      const expected =
+        allowed &&
+        !excluded.has(left) &&
+        !excluded.has(right) &&
+        defaultJapaneseTypesettingProfile.pairSpacing(left, right).naturalWidthEm === 0;
+      return defaultJapaneseTypesettingProfile.canExpandAtFinalStage(left, right) === expected
+        ? []
+        : [`${left}/${right}: ${String(!expected)} instead of ${String(expected)}`];
+    });
+
+    expect(wrong).toEqual([]);
+  });
+
+  test("keeps intrinsic and explicit spaces out of the unbounded final stage", () => {
+    expect(defaultJapaneseTypesettingProfile.canExpandAtFinalStage("cl-19", "cl-27")).toBe(false);
+    expect(defaultJapaneseTypesettingProfile.canExpandAtFinalStage("cl-27", "cl-15")).toBe(false);
+    expect(defaultJapaneseTypesettingProfile.canExpandAtFinalStage("cl-19", "cl-24")).toBe(false);
+    expect(defaultJapaneseTypesettingProfile.canExpandAtFinalStage("cl-02", "cl-19")).toBe(false);
+    expect(defaultJapaneseTypesettingProfile.canExpandAtFinalStage("cl-19", "cl-14")).toBe(false);
+    expect(defaultJapaneseTypesettingProfile.canExpandAtFinalStage("cl-19", "cl-26")).toBe(false);
+    expect(defaultJapaneseTypesettingProfile.canExpandAtFinalStage("cl-19", "cl-19")).toBe(true);
   });
 
   test("adds space in the order JLReq 3.8.4 lays down", () => {
