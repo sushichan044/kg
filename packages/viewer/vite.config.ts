@@ -33,7 +33,7 @@ export default defineConfig({
       attw: { level: "error", profile: "esm-only" },
       clean: true,
       dts: {
-        tsgo: true,
+        generator: "tsgo",
       },
       // The stylesheets ship as plain assets straight from src (see package.json
       // exports): pack merges every CSS entry into one file, which cannot express

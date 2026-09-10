@@ -111,7 +111,7 @@ export default defineConfig({
       build: {
         command: "go build -o bin/kg .",
         dependsOn: ["kg-frontend#build"],
-        output: ["bin/kg"],
+        cache: false,
       },
       "build:packages": 'vp run --filter "./packages/**" build',
       "check:generated": {
