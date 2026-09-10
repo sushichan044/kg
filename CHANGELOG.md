@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.4](https://github.com/sushichan044/kg/compare/v0.7.3...v0.7.4) (2026-09-10)
+
+
+### Features
+
+* compile viewer and internal frontend with React Compiler ([6bda522](https://github.com/sushichan044/kg/commit/6bda52229d4b505adb3facd02b6e735457447ba0))
+
 ## [0.7.3](https://github.com/sushichan044/kg/compare/v0.7.2...v0.7.3) (2026-09-10)
 
 
