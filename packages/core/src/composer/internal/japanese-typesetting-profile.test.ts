@@ -320,7 +320,10 @@ describe("defaultJapaneseTypesettingProfile", () => {
     ["1", "sideways", "cl-24"],
     ["℃", "mixed", "cl-25"],
     [" ", "sideways", "cl-26"],
-    ["A", "upright", "cl-27"],
+    ["a", "sideways", "cl-27"],
+    // JLReq 3.2.4 classes an upright Western character with kanji rather than with a horizontal
+    // Western run.
+    ["A", "upright", "cl-19"],
     ["1", "tate-chu-yoko", "cl-30"],
   ] as const)("classifies %s (%s) as %s", (value, presentation, expected) => {
     expect(defaultJapaneseTypesettingProfile.classify({ value, presentation })).toBe(expected);
