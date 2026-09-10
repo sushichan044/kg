@@ -1,6 +1,9 @@
+[settings]
+idiomatic_version_file_enable_tools = ["node"]
+
 [tools]
 "golangci-lint" = "2.13.2"
-vite-plus = { version = "0.3.1", postinstall = "vp env off" } # do not manage nodejs with vite-plus
+vite-plus = { version = "0.3.1", postinstall = "vp env off node" } # do not manage nodejs with vite-plus
 
 [plugins]
 vite-plus = "https://github.com/markmals/mise-vite-plus"
