@@ -102,7 +102,6 @@ type State = Readonly<{
   fitness: number;
   previous: Readonly<{ index: number; fitness: number }> | null;
   line: Candidate | null;
-  breaks: readonly number[];
 }>;
 
 function skipSourceGaps(atoms: readonly ParagraphAtom[], start: number): number {
@@ -116,6 +115,22 @@ function previousVisible(atoms: readonly ParagraphAtom[], end: number): number |
     if (atoms[index]?.sourceGap === false) return index;
   }
   return undefined;
+}
+
+/**
+ * Whether a shorter line ending somewhere inside `(contentStart, end)` was ever an option — checked
+ * as a plain short-circuiting scan rather than building the boundary list first, since this runs
+ * once per over-long candidate the optimizer considers.
+ */
+function hasEarlierBoundary(
+  boundaryAllowed: (leftIndex: number, rightIndex: number) => boolean,
+  contentStart: number,
+  end: number,
+): boolean {
+  for (let boundary = contentStart + 1; boundary < end; boundary += 1) {
+    if (boundaryAllowed(boundary - 1, boundary)) return true;
+  }
+  return false;
 }
 
 function opportunities(
@@ -332,10 +347,14 @@ function resolveSpacings(
   }
 
   if (adjustment === "stretch" && remaining > EPSILON) {
-    const finalSlots = values.flatMap(({ slot, finalStretch }) => (finalStretch ? [slot] : []));
-    if (finalSlots.length > 0) {
-      finalStretchPerSlotEm = remaining / finalSlots.length;
-      for (const slot of finalSlots) {
+    let finalSlotCount = 0;
+    for (const { finalStretch } of values) {
+      if (finalStretch) finalSlotCount += 1;
+    }
+    if (finalSlotCount > 0) {
+      finalStretchPerSlotEm = remaining / finalSlotCount;
+      for (const { slot, finalStretch } of values) {
+        if (!finalStretch) continue;
         const key = slotKey(slot);
         usedBySlot.set(key, (usedBySlot.get(key) ?? 0) + finalStretchPerSlotEm);
       }
@@ -403,6 +422,7 @@ function hangingSpacings(values: readonly Opportunity[], end: number): ResolvedS
 function candidate(
   atoms: readonly ParagraphAtom[],
   classes: readonly JapaneseCharacterClass[],
+  boxPrefixEm: readonly number[],
   start: number,
   end: number,
   lineLengthEm: number,
@@ -423,9 +443,11 @@ function candidate(
     profile,
     start === 0 ? "paragraph-start" : "turned-over",
   );
+  // The paragraph optimizer tries every `end` for a given `start`, so this range sum is read from a
+  // prefix table built once rather than re-summed per candidate.
+  const boxesSizeEm = (boxPrefixEm[end] ?? 0) - (boxPrefixEm[contentStart] ?? 0);
   const naturalSizeEm =
-    atoms.slice(contentStart, end).reduce((total, atom) => total + atom.boxAdvanceEm, 0) +
-    pairValues.reduce((total, value) => total + value.spacing.naturalWidthEm, 0);
+    boxesSizeEm + pairValues.reduce((total, value) => total + value.spacing.naturalWidthEm, 0);
   const terminal = skipSourceGaps(atoms, end) === atoms.length;
   const overflow = naturalSizeEm - lineLengthEm;
   const underflow = lineLengthEm - naturalSizeEm;
@@ -609,6 +631,26 @@ function addScore(left: Score, right: Score): Score {
   ];
 }
 
+/**
+ * The line-end offsets a state's path took, earliest first. Rebuilt on demand by walking `previous`
+ * rather than carried on every `State`: every candidate line attempted would otherwise pay for a
+ * copy of its whole path, when `isBetter` only ever reads it on the exact-score tie this comparison
+ * breaks — for `boundaryAllowed` predicates permissive enough to fully saturate the optimizer's
+ * search window, ties are rare enough that this deferred cost is negligible.
+ */
+function breaksOf(state: State, states: ReadonlyMap<number, ReadonlyMap<number, State>>): number[] {
+  const result: number[] = [];
+  let cursor: State | undefined = state;
+  while (cursor?.line !== null && cursor?.line !== undefined) {
+    result.push(cursor.line.end);
+    cursor =
+      cursor.previous === null
+        ? undefined
+        : states.get(cursor.previous.index)?.get(cursor.previous.fitness);
+  }
+  return result.reverse();
+}
+
 function compareBreaks(left: readonly number[], right: readonly number[]): number {
   const length = Math.min(left.length, right.length);
   for (let index = 0; index < length; index += 1) {
@@ -618,13 +660,17 @@ function compareBreaks(left: readonly number[], right: readonly number[]): numbe
   return left.length - right.length;
 }
 
-function isBetter(candidateState: State, current: State | undefined): boolean {
+function isBetter(
+  candidateState: State,
+  current: State | undefined,
+  states: ReadonlyMap<number, ReadonlyMap<number, State>>,
+): boolean {
   if (current === undefined) return true;
   for (let index = 0; index < candidateState.score.length; index += 1) {
     const difference = (candidateState.score[index] ?? 0) - (current.score[index] ?? 0);
     if (Math.abs(difference) > EPSILON) return difference < 0;
   }
-  return compareBreaks(candidateState.breaks, current.breaks) < 0;
+  return compareBreaks(breaksOf(candidateState, states), breaksOf(current, states)) < 0;
 }
 
 export function layoutParagraph(
@@ -635,6 +681,10 @@ export function layoutParagraph(
 ): ParagraphLinePlan[] {
   if (atoms.length === 0) return [];
   const classes = atoms.map(({ characterClass }) => characterClass);
+  const boxPrefixEm = Array.from<number>({ length: atoms.length + 1 }).fill(0);
+  for (let index = 0; index < atoms.length; index += 1) {
+    boxPrefixEm[index + 1] = (boxPrefixEm[index] ?? 0) + (atoms[index]?.boxAdvanceEm ?? 0);
+  }
   const states = new Map<number, Map<number, State>>([
     [
       0,
@@ -646,7 +696,6 @@ export function layoutParagraph(
             fitness: 0,
             previous: null,
             line: null,
-            breaks: [],
           },
         ],
       ]),
@@ -661,7 +710,7 @@ export function layoutParagraph(
       const terminalStates = states.get(atoms.length) ?? new Map<number, State>();
       for (const state of activeStates.values()) {
         const current = terminalStates.get(state.fitness);
-        if (isBetter(state, current)) terminalStates.set(state.fitness, state);
+        if (isBetter(state, current, states)) terminalStates.set(state.fitness, state);
       }
       states.set(atoms.length, terminalStates);
       continue;
@@ -680,14 +729,11 @@ export function layoutParagraph(
           continue;
         }
 
-        const line = candidate(atoms, classes, start, end, lineLengthEm, profile);
+        const line = candidate(atoms, classes, boxPrefixEm, start, end, lineLengthEm, profile);
         if (
           line.break.kind === "forced" &&
           line.inlineSizeEm > lineLengthEm + EPSILON &&
-          Array.from(
-            { length: end - contentStart - 1 },
-            (_, index) => contentStart + index + 1,
-          ).some((boundary) => boundaryAllowed(boundary - 1, boundary))
+          hasEarlierBoundary(boundaryAllowed, contentStart, end)
         ) {
           if (line.inlineSizeEm > lineLengthEm * 2 && end > contentStart + 1) break;
           continue;
@@ -698,10 +744,9 @@ export function layoutParagraph(
           fitness: lineScore.fitness,
           previous: { index: start, fitness: state.fitness },
           line,
-          breaks: [...state.breaks, end],
         };
         const statesAtEnd = states.get(end) ?? new Map<number, State>();
-        if (isBetter(nextState, statesAtEnd.get(nextState.fitness))) {
+        if (isBetter(nextState, statesAtEnd.get(nextState.fitness), states)) {
           statesAtEnd.set(nextState.fitness, nextState);
           states.set(end, statesAtEnd);
         }
@@ -718,7 +763,7 @@ export function layoutParagraph(
   }
 
   const terminal = [...(states.get(atoms.length)?.values() ?? [])].reduce<State | undefined>(
-    (best, state) => (isBetter(state, best) ? state : best),
+    (best, state) => (isBetter(state, best, states) ? state : best),
     undefined,
   );
   if (terminal === undefined) return [];
