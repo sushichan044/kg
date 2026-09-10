@@ -1,5 +1,4 @@
-import babel from "@rolldown/plugin-babel";
-import react, { reactCompilerPreset } from "@vitejs/plugin-react";
+import react from "@vitejs/plugin-react";
 import { defineConfig, defineProject } from "vite-plus";
 import { playwright } from "vite-plus/test/browser-playwright";
 
@@ -77,12 +76,7 @@ export default defineConfig({
     projects: frontendTestProjects,
   },
 
-  plugins: [
-    react(),
-    babel({
-      presets: [reactCompilerPreset()],
-    }),
-  ],
+  plugins: [react({ compiler: true })],
   build: {
     // Build straight into the Go embed.FS source directory.
     outDir: "../static/dist",

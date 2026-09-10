@@ -1,3 +1,4 @@
+import react from "@vitejs/plugin-react";
 import { defineConfig, defineProject } from "vite-plus";
 import { playwright } from "vite-plus/test/browser-playwright";
 
@@ -44,11 +45,23 @@ export default defineConfig({
       fromVite: true,
       minify: "dce-only",
       nodeProtocol: true,
+      plugins: [
+        react({
+          // SEE: https://tsdown.dev/recipes/react-support#native-oxc-support-experimental
+          compiler: {
+            target: "18",
+            panicThreshold: "critical_errors",
+          },
+          // Only needed when `dts: true`: prevent the plugin from
+          // transforming the generated .d.ts files
+          exclude: [/node_modules/, /\.d\.ts$/],
+        }),
+      ],
       publint: true,
       sourcemap: false,
       treeshake: true,
       unused: {
-        ignore: ["react-dom"],
+        ignore: ["react-compiler-runtime", "react-dom"],
       },
     },
   ],

@@ -64,14 +64,16 @@
     "prepublishOnly": "vp run build"
   },
   "dependencies": {
-    "@sushichan044/kg-core": "workspace:*"
+    "@sushichan044/kg-core": "workspace:*",
+    "react-compiler-runtime": "catalog:prod"
   },
   "devDependencies": {
     "@arethetypeswrong/core": "catalog:dev",
-    "@rolldown/plugin-babel": "catalog:dev",
     "@types/react": "catalog:dev",
     "@types/react-dom": "catalog:dev",
+    "@vitejs/plugin-react": "catalog:dev",
     "@vitest/browser-playwright": "catalog:dev",
+    "oxc-transform-react": "catalog:prod",
     "playwright": "catalog:dev",
     "publint": "catalog:dev",
     "react": "catalog:prod",

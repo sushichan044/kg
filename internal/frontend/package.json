@@ -10,12 +10,11 @@
     "valibot": "catalog:prod"
   },
   "devDependencies": {
-    "@rolldown/plugin-babel": "catalog:dev",
     "@types/react": "catalog:dev",
     "@types/react-dom": "catalog:dev",
     "@vitejs/plugin-react": "catalog:dev",
     "@vitest/browser-playwright": "catalog:dev",
-    "babel-plugin-react-compiler": "1.0.0",
+    "oxc-transform-react": "catalog:prod",
     "playwright": "catalog:dev",
     "typescript": "catalog:dev",
     "vite-plus": "catalog:dev",
