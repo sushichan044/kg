@@ -1,9 +1,36 @@
 import { describe, expect, test } from "vite-plus/test";
 
+import { BoundaryRule } from "./boundary-rule";
+import { JapaneseParagraph } from "./japanese-paragraph";
+import type { JapaneseParagraphCharacter } from "./japanese-paragraph";
 import { defaultJapaneseTypesettingProfile } from "./japanese-typesetting-profile";
 import type { JapaneseTypesettingProfile } from "./japanese-typesetting-profile";
-import { layoutParagraph } from "./paragraph-layout";
-import type { ParagraphAtom } from "./paragraph-layout";
+import { layoutParagraph as optimizeParagraph } from "./paragraph-layout";
+
+function layoutParagraph(
+  characters: readonly JapaneseParagraphCharacter[],
+  lineLengthEm: number,
+  profile: JapaneseTypesettingProfile,
+  boundaryAllowed: (left: number, right: number) => boolean,
+) {
+  const boundaries = characters.map((right, boundary) => {
+    const left = characters[boundary - 1];
+    return left === undefined
+      ? undefined
+      : BoundaryRule.resolve(left.characterClass, right.characterClass, profile, {
+          runInterior: false,
+          rubyInterior: false,
+          sourceGap: left.sourceGap || right.sourceGap,
+        });
+  });
+  const paragraph = JapaneseParagraph.of(characters, boundaries, profile, lineLengthEm);
+  return optimizeParagraph(
+    paragraph.elements,
+    lineLengthEm,
+    paragraph.resolveCandidate,
+    boundaryAllowed,
+  );
+}
 
 const flexiblePrefixProfile: JapaneseTypesettingProfile = {
   classify: ({ value }) => (value === "A" ? "cl-19" : "cl-27"),
@@ -16,10 +43,10 @@ const flexiblePrefixProfile: JapaneseTypesettingProfile = {
       ? {
           kind: "glue",
           naturalWidthEm: 0,
-          stretch: { priority: 1, amountEm: 1, granularity: "continuous" },
+          stretch: { stage: 1, costPerEm: 1, amountEm: 1, granularity: "continuous" },
         }
       : { kind: "glue", naturalWidthEm: 0 },
-  finalStretchPriority: 2,
+  finalStretchCostPerEm: 2,
   canExpandAtFinalStage: () => true,
   breakPenalty: () => 0,
   canHang: () => false,
@@ -38,7 +65,7 @@ const freeLineEndProfile: JapaneseTypesettingProfile = {
     left === "cl-07" && right === "cl-07"
       ? { kind: "kern", naturalWidthEm: 0 }
       : { kind: "glue", naturalWidthEm: 0 },
-  finalStretchPriority: 1,
+  finalStretchCostPerEm: 1,
   canExpandAtFinalStage: () => false,
   breakPenalty: () => 0,
   canHang: () => false,
@@ -50,7 +77,7 @@ const freeLineEndProfile: JapaneseTypesettingProfile = {
           spacing: {
             kind: "glue",
             naturalWidthEm: 0.5,
-            shrink: { priority: 0, amountEm: 0.5, granularity: "all-or-nothing" },
+            shrink: { stage: 0, costPerEm: 0, amountEm: 0.5, granularity: "all-or-nothing" },
           },
           absorbsPrecedingEm: 0,
         }
@@ -67,7 +94,7 @@ const lineEndAndCommaProfile: JapaneseTypesettingProfile = {
       ? {
           kind: "glue",
           naturalWidthEm: 0.5,
-          shrink: { priority: 2, amountEm: 0.5, granularity: "continuous" },
+          shrink: { stage: 2, costPerEm: 2, amountEm: 0.5, granularity: "continuous" },
         }
       : { kind: "glue", naturalWidthEm: 0 },
 };
@@ -87,20 +114,20 @@ const stagedProfile: JapaneseTypesettingProfile = {
       ? {
           kind: "glue",
           naturalWidthEm: 0,
-          stretch: { priority: 2, amountEm: 0.75, granularity: "continuous" },
+          stretch: { stage: 2, costPerEm: 2, amountEm: 0.75, granularity: "continuous" },
         }
       : right === "cl-01"
         ? {
             kind: "glue",
             naturalWidthEm: 0,
-            stretch: { priority: 1, amountEm: 0.5, granularity: "continuous" },
+            stretch: { stage: 1, costPerEm: 1, amountEm: 0.5, granularity: "continuous" },
           }
         : {
             kind: "glue",
             naturalWidthEm: 0,
-            stretch: { priority: 2, amountEm: 0.25, granularity: "continuous" },
+            stretch: { stage: 2, costPerEm: 2, amountEm: 0.25, granularity: "continuous" },
           },
-  finalStretchPriority: 3,
+  finalStretchCostPerEm: 3,
   canExpandAtFinalStage: () => true,
   breakPenalty: () => 0,
   canHang: () => false,
@@ -117,7 +144,7 @@ const finalStageProfile: JapaneseTypesettingProfile = {
       ? {
           kind: "glue",
           naturalWidthEm: 0,
-          stretch: { priority: 1, amountEm: 0.5, granularity: "continuous" },
+          stretch: { stage: 1, costPerEm: 1, amountEm: 0.5, granularity: "continuous" },
         }
       : { kind: "glue", naturalWidthEm: 0 },
 };
@@ -135,9 +162,9 @@ const cappedWordSpaceProfile: JapaneseTypesettingProfile = {
       : {
           kind: "glue",
           naturalWidthEm: 0,
-          stretch: { priority: 2, amountEm: 0.25, granularity: "continuous" },
+          stretch: { stage: 2, costPerEm: 2, amountEm: 0.25, granularity: "continuous" },
         },
-  finalStretchPriority: 3,
+  finalStretchCostPerEm: 3,
   canExpandAtFinalStage: (left, right) => left !== "cl-26" && right !== "cl-26",
   spacingCharacter: (characterClass, position) =>
     characterClass === "cl-26" && position === "mid-line"
@@ -145,7 +172,8 @@ const cappedWordSpaceProfile: JapaneseTypesettingProfile = {
           kind: "glue",
           naturalWidthEm: 1 / 3,
           stretch: {
-            priority: 1,
+            stage: 1,
+            costPerEm: 1,
             amountEm: 1 / 2 - 1 / 3,
             granularity: "continuous",
           },
@@ -153,7 +181,7 @@ const cappedWordSpaceProfile: JapaneseTypesettingProfile = {
       : null,
 };
 
-function atoms(text: string, profile: JapaneseTypesettingProfile): ParagraphAtom[] {
+function atoms(text: string, profile: JapaneseTypesettingProfile): JapaneseParagraphCharacter[] {
   return text.split("").map((value) => {
     const characterClass = profile.classify({ value, presentation: "mixed" });
     return {
@@ -161,7 +189,6 @@ function atoms(text: string, profile: JapaneseTypesettingProfile): ParagraphAtom
       boxAdvanceEm: profile.boxMetrics(characterClass, 1).advanceEm,
       sourceGap: false,
       characterClass,
-      pairSpacingAfter: true,
     };
   });
 }
@@ -193,7 +220,6 @@ describe("layoutParagraph", () => {
       boxAdvanceEm: value === "P" ? 0.5 : 1,
       sourceGap: false,
       characterClass: freeLineEndProfile.classify({ value, presentation: "mixed" }),
-      pairSpacingAfter: true,
     }));
 
     const plans = layoutParagraph(paragraph, 4, freeLineEndProfile, () => true);
@@ -210,7 +236,6 @@ describe("layoutParagraph", () => {
       boxAdvanceEm: value === "P" ? 0.5 : 1,
       sourceGap: false,
       characterClass: lineEndAndCommaProfile.classify({ value, presentation: "mixed" }),
-      pairSpacingAfter: true,
     }));
 
     const plans = layoutParagraph(paragraph, 3.2, lineEndAndCommaProfile, () => true);
@@ -230,7 +255,6 @@ describe("layoutParagraph", () => {
       boxAdvanceEm: value === "P" ? 0.5 : 1,
       sourceGap: false,
       characterClass: freeLineEndProfile.classify({ value, presentation: "mixed" }),
-      pairSpacingAfter: true,
     }));
 
     const plans = layoutParagraph(paragraph, 2.8, freeLineEndProfile, () => true);
