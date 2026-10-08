@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.5](https://github.com/sushichan044/kg/compare/v0.7.4...v0.7.5) (2026-10-08)
+
+
+### Bug Fixes
+
+* **core:** measure compound punctuation on a full em ([a99554b](https://github.com/sushichan044/kg/commit/a99554b6f8d000372e3397a8a4411166162c2d04))
+* **core:** prevent compound punctuation from overlapping closing brackets ([fb6cc61](https://github.com/sushichan044/kg/commit/fb6cc61f670f2783dc936d609ce146796d22baff))
+
 ## [0.7.4](https://github.com/sushichan044/kg/compare/v0.7.3...v0.7.4) (2026-09-10)
 
 
