@@ -48,6 +48,13 @@ use distinct branded types. Source and display offsets are zero-based,
 end-exclusive UTF-16 offsets. Grapheme offsets index the parsed grapheme array.
 Plugin IDs are a branded `NamespacedId` once validated at the boundary.
 
+[Japanese typesetting model](jlreq-typesetting-model.md) documents the target
+separation of JLReq rules, book style, runs, ruby associations, boundaries, and
+render units. [ADR 0006](adr/0006-separate-jlreq-rules-policy-and-layout-model.md)
+records the design decision. That model and its cluster-capable measurement
+contract are not implemented; the processing and public APIs described here are
+the current architecture.
+
 Each concept is one module holding a type and a companion object of the same
 name, which owns that type's schema and operations. `index.ts` only re-exports.
 
