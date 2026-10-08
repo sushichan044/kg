@@ -185,6 +185,90 @@ describe("composeManuscript", () => {
     ]);
   });
 
+  test.each(["‼", "⁇", "⁈", "⁉"])(
+    "places a closing bracket after the full-em box of %s",
+    (mark) => {
+      const result = composeManuscript(parsed(`「ちゃうんか${mark}」続き`), {
+        composer: novelComposer,
+        settings: settings({ lineLengthEm: 20 }),
+      });
+
+      expect.assert(result.ok, "expected composition to succeed");
+      const line = contentLines(result.value)[0];
+      expect.assert(line !== undefined, "layout has no content line");
+      const glyphs = lineGlyphs(line);
+      expect(glyphs.slice(6, 9)).toMatchObject([
+        {
+          value: mark,
+          layoutSpan: { offsetEm: 6, advanceEm: 1 },
+          renderSpan: { offsetEm: 6, advanceEm: 1 },
+          range: { source: { start: 6, end: 7 } },
+        },
+        { value: "」", layoutSpan: { offsetEm: 7, advanceEm: 0.5 } },
+        { value: "続", layoutSpan: { offsetEm: 8, advanceEm: 1 } },
+      ]);
+    },
+  );
+
+  test.each(["‼", "⁇", "⁈", "⁉"])(
+    "keeps %s and its closing bracket together at a wrap boundary",
+    (mark) => {
+      const result = composeManuscript(parsed(`「あいうえおかきくけ${mark}」`), {
+        composer: novelComposer,
+        settings: settings(),
+      });
+
+      expect.assert(result.ok, "expected composition to succeed");
+      expect(contentLines(result.value).map(lineText)).toEqual([
+        "「あいうえおかきく",
+        `け${mark}」`,
+      ]);
+    },
+  );
+
+  test.each(["‼", "⁇", "⁈", "⁉"])(
+    "keeps the full-em gap after %s as source glue inside a line",
+    (mark) => {
+      const result = composeManuscript(parsed(`あ${mark}　続き`), {
+        composer: novelComposer,
+        settings: settings(),
+      });
+
+      expect.assert(result.ok, "expected composition to succeed");
+      const line = contentLines(result.value)[0];
+      expect.assert(line !== undefined, "layout has no content line");
+      expect(lineText(line)).toBe(`あ${mark}　続き`);
+      expect(
+        line.items.filter((item) => item.kind === "glue" && item.origin === "source"),
+      ).toMatchObject([
+        { value: "　", offsetEm: 2, widthEm: 1, naturalWidthEm: 1, adjustment: "natural" },
+      ]);
+    },
+  );
+
+  test.each(["‼", "⁇", "⁈", "⁉"])(
+    "suppresses the gap after %s when it falls at a wrap boundary",
+    (mark) => {
+      const result = composeManuscript(parsed(`あいうえおかきくけ${mark}　続き`), {
+        composer: novelComposer,
+        settings: settings(),
+      });
+
+      expect.assert(result.ok, "expected composition to succeed");
+      const lines = contentLines(result.value);
+      expect(lines.map(lineText)).toEqual([`あいうえおかきくけ${mark}`, "続き"]);
+      const secondLine = lines[1];
+      expect.assert(secondLine !== undefined, "layout has no second content line");
+      expect(suppressedItems(secondLine)).toMatchObject([
+        {
+          value: "　",
+          reason: "question-or-exclamation-gap",
+          range: { source: { start: 10, end: 11 } },
+        },
+      ]);
+    },
+  );
+
   test("records a valid question-mark gap as suppressed at a wrap boundary", () => {
     const source = "あいうえおかきく！？　続き";
     const result = composeManuscript(parsed(source), {

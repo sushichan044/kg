@@ -98,6 +98,39 @@ test("gives upright Latin initials a full-width vertical advance", async ({ rend
   }
 });
 
+for (const fontPreset of ["mincho", "gothic"] as const) {
+  test(`keeps compound punctuation clear of closing brackets in ${fontPreset}`, async ({
+    renderViewer,
+  }) => {
+    const marks = ["‼", "⁇", "⁈", "⁉"];
+    const { screen } = await renderViewer({
+      text: marks.map((mark) => `「おお${mark}」`).join("\n"),
+      flow,
+      appearance: { ...NovelCompositionSettings.defaults.appearance, fontPreset },
+    });
+    const cells = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-cell"));
+    expect(cells.map(({ textContent }) => textContent)).toEqual(
+      marks.flatMap((mark) => ["「", "お", "お", mark, "」"]),
+    );
+
+    for (const [index, mark] of marks.entries()) {
+      const japanese = cells[index * 5 + 2];
+      const punctuation = cells[index * 5 + 3];
+      const closing = cells[index * 5 + 4];
+      expect.assert(japanese !== undefined && punctuation !== undefined && closing !== undefined);
+      const glyph = punctuation.querySelector<HTMLElement>(".kgv-glyph");
+      expect.assert(glyph !== null, `viewer has no glyph for ${mark}`);
+
+      const punctuationBounds = punctuation.getBoundingClientRect();
+      const closingBounds = closing.getBoundingClientRect();
+      expect(punctuationBounds.height).toBeCloseTo(japanese.getBoundingClientRect().height, 1);
+      expect(closingBounds.top).toBeCloseTo(punctuationBounds.bottom, 1);
+      // Font metrics can extend beyond the em square even when the cell reserves the correct width.
+      expect(glyph.getBoundingClientRect().bottom).toBeLessThanOrEqual(closingBounds.top + 3);
+    }
+  });
+}
+
 test("keeps ruby and emphasis at half the base glyph size", async ({ renderViewer }) => {
   const { screen } = await renderViewer({
     text: "[[rb:夢>ゆめ]][[emphasismark:点>・]]",

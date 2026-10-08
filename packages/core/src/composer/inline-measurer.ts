@@ -2,6 +2,7 @@ import { eastAsianWidth } from "get-east-asian-width";
 import * as v from "valibot";
 
 import type { FontPresetId } from "../appearance/font-preset-id";
+import { DIVIDING_PUNCTUATION } from "../internal/japanese-punctuation";
 import { readonlyObject } from "../internal/schema";
 import { graphemeSegmenter } from "../internal/segmenter";
 import type { VerticalTextPresentation } from "./vertical-text-presentation";
@@ -33,7 +34,10 @@ function graphemeWidth(grapheme: string): number {
   for (const character of grapheme) {
     const codePoint = character.codePointAt(0);
     if (codePoint !== undefined) {
-      width = Math.max(width, eastAsianWidth(codePoint, { ambiguousAsWide: true }));
+      const characterWidth = DIVIDING_PUNCTUATION.includes(character)
+        ? 2
+        : eastAsianWidth(codePoint, { ambiguousAsWide: true });
+      width = Math.max(width, characterWidth);
     }
   }
   return width / 2;
