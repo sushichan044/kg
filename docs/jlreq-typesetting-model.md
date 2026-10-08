@@ -464,8 +464,12 @@ JLReq pair spacing, indentation, ruby expansion, or hanging. Punctuation box
 metrics and render offsets remain a separate rule-resolution step. Cluster spans
 are request-relative until the composer translates them onto a line.
 
-For `advance` results the initial composer measures constituent graphemes as it
-does today. It does not distribute a nonadditive run advance evenly across them.
+For `advance` results the initial composer measures base text per grapheme and
+reading graphemes separately for validation and final placement, as it does today.
+For base-width decisions, it also measures each complete group reading or each
+mono/jukugo reading segment. Those totals widen the associated base boxes; they
+do not replace the per-grapheme reading measurements. A nonadditive run advance
+is not distributed evenly across constituent graphemes.
 Multi-grapheme aggregate results remain usable for whole-reading width decisions;
 positioned run shaping requires `clustered` results. A clustered run's advances
 are authoritative, and it must not be remeasured one grapheme at a time.
