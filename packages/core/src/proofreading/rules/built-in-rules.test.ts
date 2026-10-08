@@ -160,6 +160,39 @@ describe("createParagraphOpeningRule", () => {
 });
 
 describe("spaceAfterQuestionOrExclamationRule", () => {
+  test.each(["‼", "⁇", "⁈", "⁉"])(
+    "applies question-mark spacing rules to the compound mark %s",
+    (mark) => {
+      const rule = spaceAfterQuestionOrExclamationRule();
+
+      const missing = diagnose(`　えっ${mark}そんな`, rule);
+      const beforeClosing = diagnose(`「えっ${mark}　」`, rule);
+      const halfwidth = diagnose(`　えっ${mark} そんな`, rule);
+
+      expect(only(missing)).toMatchObject({
+        message: "感嘆符または疑問符の直後には全角スペースか閉じ括弧が必要です",
+        range: { display: { start: 3, end: 4 } },
+      });
+      expect(only(beforeClosing)).toMatchObject({
+        message: "閉じ括弧の直前に空白を置くことはできません",
+        range: { display: { start: 4, end: 5 } },
+      });
+      expect(only(halfwidth)).toMatchObject({
+        message: "感嘆符または疑問符の直後の空白は全角スペース1字にしてください",
+        range: { display: { start: 4, end: 5 } },
+      });
+      expect(diagnose(`　えっ${mark}　そんな`, rule)).toEqual([]);
+      expect(diagnose(`「えっ${mark}」`, rule)).toEqual([]);
+      expect(diagnose(`　えっ${mark}\n　本文`, rule)).toEqual([]);
+    },
+  );
+
+  test("reports a mixed run of fullwidth and compound marks as one range", () => {
+    const diagnostics = diagnose("　えっ！⁉？そんな", spaceAfterQuestionOrExclamationRule());
+
+    expect(only(diagnostics)).toMatchObject({ range: { display: { start: 3, end: 6 } } });
+  });
+
   test("reports the whole run of marks when no gap follows", () => {
     const diagnostics = diagnose("　えっ！？そんな", spaceAfterQuestionOrExclamationRule());
 

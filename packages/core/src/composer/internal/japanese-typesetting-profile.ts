@@ -1,4 +1,5 @@
 import { CLOSING_BRACKETS, OPENING_BRACKETS } from "../../internal/japanese-brackets";
+import { DIVIDING_PUNCTUATION } from "../../internal/japanese-punctuation";
 import type { VerticalTextPresentation } from "../vertical-text-presentation";
 
 /**
@@ -199,7 +200,7 @@ export type JapaneseTypesettingProfile = Readonly<{
 const OPENING = new Set(`${OPENING_BRACKETS}【〘〝｟«`);
 const CLOSING = new Set(`${CLOSING_BRACKETS}】〙〟｠»`);
 const HYPHENS = new Set("‐‑⁃–");
-const DIVIDING_PUNCTUATION = new Set("！？‼⁇⁈⁉");
+const DIVIDING_MARKS = new Set(DIVIDING_PUNCTUATION);
 const MIDDLE_DOTS = new Set("・：；");
 const SMALL_KANA = new Set("ァィゥェォッャュョヮヵヶぁぃぅぇぉっゃゅょゎゕゖ");
 const ITERATION_MARKS = new Set("ヽヾゝゞ々〻");
@@ -231,7 +232,7 @@ function classify({ value, presentation }: JapaneseCharacter): JapaneseCharacter
   if (OPENING.has(value)) return "cl-01";
   if (CLOSING.has(value)) return "cl-02";
   if (HYPHENS.has(value)) return "cl-03";
-  if (DIVIDING_PUNCTUATION.has(value)) return "cl-04";
+  if (DIVIDING_MARKS.has(value)) return "cl-04";
   if (MIDDLE_DOTS.has(value)) return "cl-05";
   if (value === "。" || value === "．") return "cl-06";
   if (value === "、" || value === "，") return "cl-07";

@@ -1,4 +1,5 @@
-import { CLOSING_BRACKETS } from "./japanese-brackets";
+import { CLOSING_BRACKETS, characterClass } from "./japanese-brackets";
+import { DIVIDING_PUNCTUATION } from "./japanese-punctuation";
 import { IDEOGRAPHIC_SPACE, leadingSpaces } from "./japanese-spaces";
 
 type TextRange = Readonly<{ start: number; end: number }>;
@@ -12,7 +13,7 @@ export type QuestionOrExclamationSpacing =
 /**
  * Runs, not single marks: `！？` is one mark and takes one gap, so the gap belongs after the run.
  */
-const MARKS = /[？！]+/gu;
+const MARKS = new RegExp(`[${characterClass(DIVIDING_PUNCTUATION)}]+`, "gu");
 
 function analyzeMatch(
   line: string,
@@ -41,7 +42,7 @@ function analyzeMatch(
 }
 
 /**
- * Classifies the spacing after each run of fullwidth question or exclamation marks in one display
+ * Classifies the spacing after each run of Japanese question or exclamation marks in one display
  * line. Runs at the end of the line or immediately before a closing bracket need no gap and are
  * omitted from the result.
  */
