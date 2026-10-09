@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.8.0](https://github.com/sushichan044/kg/compare/v0.7.5...v0.8.0) (2026-10-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* **viewer:** The viewer requires ADR 0006 phase 3 core snapshots. Upgrade core and viewer together; legacy per-grapheme combination has no adapter.
+* **core:** NovelLine uses explicit single/combined units, exact/shared source placements, and positioned ruby/emphasis. Plugin measurers now accept run requests and return advance or clustered results; the old glyph, presentation-group, and inline-measurement contracts are removed.
+
+### Features
+
+* **core:** allocate group readings through paragraph continuation states ([b1d953a](https://github.com/sushichan044/kg/commit/b1d953a7257fd0a97f844b7d4252fdb835e09fe9))
+* **core:** apply proportional jukugo ruby spacing ([5352e45](https://github.com/sushichan044/kg/commit/5352e45a3fe67a6ca64b5a05cf0693a78b2c5020))
+* **core:** check ruby and emphasis clearance before scoring ([47bddbf](https://github.com/sushichan044/kg/commit/47bddbfbcc6ea539e92bc81b40c53ddfe4aa4576))
+* **core:** enforce fixed-pitch ruby and emphasis clearance before scoring ([82b5492](https://github.com/sushichan044/kg/commit/82b5492158b8e684b98e083301ef49e53684c849))
+* **core:** jointly arrange jukugo readings within candidate lines ([090b19f](https://github.com/sushichan044/kg/commit/090b19fda19a2608c12607f4adfb6753c91ae765))
+* **core:** refine jukugo ruby placement and spacing ([e04cd0d](https://github.com/sushichan044/kg/commit/e04cd0d9ea7462c07be10be7c678ba82e69d9b9e))
+* **core:** resolve contextual mono and group ruby before line scoring ([719d28c](https://github.com/sushichan044/kg/commit/719d28cf30d40ba5e03670a3441fccd756e93069))
+* **core:** resolve contextual mono and group ruby before scoring ([13d5c65](https://github.com/sushichan044/kg/commit/13d5c657f5738e84ed1395cb42dd0f7b5bac5eb0))
+* **core:** resolve contextual ruby and binding boundaries ([3a89326](https://github.com/sushichan044/kg/commit/3a89326c98fec14fa32d04ac79843f5e2a43810c))
+* **core:** resolve contextual ruby and binding boundaries ([d6b23da](https://github.com/sushichan044/kg/commit/d6b23daa987782e8312b5616b8a4ac3eec662abd))
+
+
+### Performance Improvements
+
+* **core:** index ruby fragments during source validation ([45d2588](https://github.com/sushichan044/kg/commit/45d2588b70b4ac2af7e46600f0b7d27f54a532b2))
+* **core:** reuse candidate lines across fitness states ([6650c82](https://github.com/sushichan044/kg/commit/6650c82c3ea3e604c1df1d78a5a7bb59251cc349))
+
+
+### Code Refactoring
+
+* **core:** publish ADR 0006 layout and measurement contracts ([e09dc85](https://github.com/sushichan044/kg/commit/e09dc85a0e8d997b43b2718f7bceb2c840c1fd21))
+* **viewer:** consume composer-owned render units and decorations ([2fedd3c](https://github.com/sushichan044/kg/commit/2fedd3c2f3eef958e3c12b4d296e63b3471da4b7))
+
 ## [0.7.5](https://github.com/sushichan044/kg/compare/v0.7.4...v0.7.5) (2026-10-08)
 
 
