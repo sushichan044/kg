@@ -75,6 +75,45 @@ const labelComposer = (
 const lyingLabel = (): LabelLayout => ({ label: 1 }) as unknown as LabelLayout;
 
 describe("composeManuscript", () => {
+  test.each(["――", "——", "──", "……", "‥‥", "〳〵", "〴〵"])(
+    "keeps %s together at a potential line boundary",
+    (marks) => {
+      const source = "あ".repeat(9) + marks + "あ".repeat(9);
+
+      const result = composeManuscript(parsed(source), {
+        composer: novelComposer,
+        settings: settings(),
+      });
+
+      expect.assert(result.ok);
+      const lines = contentLines(result.value);
+      const ends = lines.map((line) => {
+        expect.assert(line.range !== null);
+        return line.range.graphemes.end;
+      });
+      expect(lines.map(lineText).join("")).toBe(source);
+      expect(ends).not.toContain(10);
+    },
+  );
+
+  test.each(["―…", "…‥", "―—", "—─", "〵〳"])(
+    "allows a line break between the different marks in %s",
+    (marks) => {
+      const source = "あ".repeat(9) + marks + "あ".repeat(9);
+
+      const result = composeManuscript(parsed(source), {
+        composer: novelComposer,
+        settings: settings(),
+      });
+
+      expect.assert(result.ok);
+      expect(contentLines(result.value).map(lineText)).toEqual([
+        "あ".repeat(9) + marks.slice(0, 1),
+        marks.slice(1) + "あ".repeat(9),
+      ]);
+    },
+  );
+
   test("returns a self-contained positioned novel snapshot", () => {
     const source = "あいうえおかきくけこさし";
     const result = composeManuscript(parsed(source), {
@@ -989,8 +1028,7 @@ describe("composeManuscript", () => {
   });
 
   test("splits an oversized group reading in proportion to measured base advances", () => {
-    // "ab" is a sideways western word (cl-27, JLReq 3.2.4 reserves cl-19 for an upright single
-    // letter), so the quarter em 3.2.6 sets against the following kanji still applies.
+    // The sideways run and the kanji share one group-ruby complex.
     const base = `ab${"漢".repeat(10)}`;
     const reading = "あ".repeat(9);
     const parseResult = parseManuscript(`｜${base}《${reading}》`, { parser: kakuyomuParser });
@@ -1011,9 +1049,10 @@ describe("composeManuscript", () => {
     const rubyFragments = contentLines(result.value).flatMap(({ annotations }) =>
       annotations.filter((annotation) => annotation.kind === "ruby"),
     );
-    // The Latin base measures nine em against ten kanji of one em, and the quarter em JLReq 3.2.6
-    // puts between them leaves the first line to the Latin base alone.
-    expect(rubyFragments.map(({ reading }) => reading)).toEqual(["あ".repeat(4), "あ".repeat(5)]);
+    // B.2 note 10 excludes ordinary mixed-text spacing inside the group. Nine em
+    // of Latin plus one kanji fit on the first line: round(9 * 10 / 19) = 5 readings.
+    expect(contentLines(result.value).map(lineText)).toEqual([`ab漢`, "漢".repeat(9)]);
+    expect(rubyFragments.map(({ reading }) => reading)).toEqual(["あ".repeat(5), "あ".repeat(4)]);
   });
 
   test("rejects an invalid custom measurement as a typed composer rejection", () => {

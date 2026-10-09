@@ -17,8 +17,14 @@ describe("JLReq 3.3.8 ruby boundaries", () => {
     ["cl-07", "before", 0, 0],
     ["cl-01", "after", 0.25, 0.25],
     ["cl-01", "before", 0, 0.5],
-    ["cl-05", "before", 0.25, 0.5],
-    ["cl-05", "after", 0, 0.25],
+    ["cl-05", "before", 0.25, 0.25],
+    ["cl-05", "after", 0, 0],
+    ["cl-05", "after", 0.125, 0.125],
+    ["cl-14", "before", 0, 0.5],
+    ["cl-14", "after", 0, 0.5],
+    ["cl-24", "before", 0.25, 0.25],
+    ["cl-25", "after", 0.125, 0.125],
+    ["cl-27", "after", 0, 0],
   ] as const satisfies ReadonlyArray<
     readonly [JapaneseCharacterClass, "before" | "after", number, number]
   >)(

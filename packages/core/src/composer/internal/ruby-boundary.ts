@@ -1,8 +1,8 @@
-import type { JapaneseCharacterClass } from "./japanese-typesetting-rules";
+import type { JapaneseBoundaryClass, JapaneseCharacterClass } from "./japanese-typesetting-rules";
 
 export type RubyBoundary = Readonly<{
   lexicalClass: JapaneseCharacterClass;
-  effectiveClass: JapaneseCharacterClass | "cl-22" | "cl-23";
+  effectiveClass: JapaneseBoundaryClass;
   advanceEm: number;
 }>;
 
@@ -21,10 +21,12 @@ export const RubyBoundary = {
     )
       return 0;
     const { lexicalClass, advanceEm } = neighbor;
-    if (["cl-08", "cl-10", "cl-11", "cl-15", "cl-16"].some((value) => value === lexicalClass))
+    if (
+      ["cl-08", "cl-10", "cl-11", "cl-14", "cl-15", "cl-16"].some((value) => value === lexicalClass)
+    )
       return Math.min(rubySizeEm, advanceEm);
-    if (lexicalClass === "cl-05")
-      return Math.min(rubySizeEm, Math.max(0, spacingEm) + rubySizeEm / 2);
+    if (["cl-05", "cl-24", "cl-25", "cl-27"].some((value) => value === lexicalClass))
+      return Math.min(rubySizeEm / 2, Math.max(0, spacingEm));
     const closing =
       lexicalClass === "cl-02" || lexicalClass === "cl-06" || lexicalClass === "cl-07";
     if ((side === "before" && closing) || (side === "after" && lexicalClass === "cl-01"))

@@ -7,8 +7,10 @@ import { defaultJapaneseTypesettingProfile } from "./japanese-typesetting-profil
 import type { JapaneseTypesettingProfile } from "./japanese-typesetting-profile";
 import { layoutParagraph as optimizeParagraph } from "./paragraph-layout";
 
+type ParagraphFixtureCharacter = Omit<JapaneseParagraphCharacter, "effectiveClass">;
+
 function prepareParagraph(
-  characters: readonly JapaneseParagraphCharacter[],
+  characters: readonly ParagraphFixtureCharacter[],
   lineLengthEm: number,
   profile: JapaneseTypesettingProfile,
 ) {
@@ -19,14 +21,21 @@ function prepareParagraph(
       : BoundaryRule.resolve(left.characterClass, right.characterClass, profile, {
           runInterior: false,
           rubyInterior: false,
+          rubySpacingInterior: false,
+          bindingSequence: false,
           sourceGap: left.sourceGap || right.sourceGap,
         });
   });
-  return JapaneseParagraph.of(characters, boundaries, profile, lineLengthEm);
+  return JapaneseParagraph.of(
+    characters.map((character) => ({ ...character, effectiveClass: character.characterClass })),
+    boundaries,
+    profile,
+    lineLengthEm,
+  );
 }
 
 function layoutParagraph(
-  characters: readonly JapaneseParagraphCharacter[],
+  characters: readonly ParagraphFixtureCharacter[],
   lineLengthEm: number,
   profile: JapaneseTypesettingProfile,
   boundaryAllowed: (left: number, right: number) => boolean,
@@ -189,7 +198,7 @@ const cappedWordSpaceProfile: JapaneseTypesettingProfile = {
       : null,
 };
 
-function atoms(text: string, profile: JapaneseTypesettingProfile): JapaneseParagraphCharacter[] {
+function atoms(text: string, profile: JapaneseTypesettingProfile): ParagraphFixtureCharacter[] {
   return text.split("").map((value) => {
     const characterClass = profile.classify({ value, presentation: "mixed" });
     return {

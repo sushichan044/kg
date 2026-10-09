@@ -4,6 +4,7 @@ import { defaultJapaneseTypesettingRules } from "./japanese-typesetting-rules";
 import type {
   JapaneseCharacter,
   JapaneseCharacterClass,
+  JapaneseBoundaryClass,
   JapaneseTypesettingRules,
   LineHeadKind,
   LinePosition,
@@ -22,7 +23,7 @@ export type JapaneseTypesettingProfile = Readonly<{
     characterClass: JapaneseCharacterClass,
     measuredAdvanceEm: number,
   ) => TypographicBoxMetrics;
-  pairSpacing: (left: JapaneseCharacterClass, right: JapaneseCharacterClass) => PairSpacing;
+  pairSpacing: (left: JapaneseBoundaryClass, right: JapaneseBoundaryClass) => PairSpacing;
   /**
    * The アキ a character _is_, rather than the box it sets in, or `null` for every class that sets as
    * a glyph. 欧文間隔 (cl-26) is the only class JLReq treats this way: it carries no ink, its width is
@@ -32,21 +33,21 @@ export type JapaneseTypesettingProfile = Readonly<{
     characterClass: JapaneseCharacterClass,
     position: LinePosition,
   ) => CharacterSpacing | null;
-  lineStartSpacing: (first: JapaneseCharacterClass, lineHead: LineHeadKind) => PairSpacing | null;
-  lineEndSpacing: (last: JapaneseCharacterClass) => LineEndSpacing | null;
+  lineStartSpacing: (first: JapaneseBoundaryClass, lineHead: LineHeadKind) => PairSpacing | null;
+  lineEndSpacing: (last: JapaneseBoundaryClass) => LineEndSpacing | null;
   finalStretchCostPerEm: number;
   /**
    * Whether the pair participates in JLReq 3.8.4's final expansion stage. This is independent of
    * line-breaking permission: 表6 admits some mid-line gaps that a kinsoku rule would not admit as a
    * break boundary.
    */
-  canExpandAtFinalStage: (left: JapaneseCharacterClass, right: JapaneseCharacterClass) => boolean;
+  canExpandAtFinalStage: (left: JapaneseBoundaryClass, right: JapaneseBoundaryClass) => boolean;
   /**
    * `null` where a break between two classes is prohibited, otherwise a cost a caller may weigh.
    * The composer only tests for `null` today, so every permitted break is priced at zero.
    */
-  breakPenalty: (left: JapaneseCharacterClass, right: JapaneseCharacterClass) => number | null;
-  canHang: (characterClass: JapaneseCharacterClass) => boolean;
+  breakPenalty: (left: JapaneseBoundaryClass, right: JapaneseBoundaryClass) => number | null;
+  canHang: (characterClass: JapaneseBoundaryClass) => boolean;
 }>;
 
 export const JapaneseTypesettingProfile = {

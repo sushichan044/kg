@@ -109,13 +109,13 @@ const REDUCIBLE_AMOUNTS = `
  * the remainder over every admitted gap. `FINAL_EXPANSION_OPPORTUNITIES` transcribes that
  * background separately because the glyphs in the cells carry no record of it.
  *
- * Note-bearing cells: 注4 (two adjacent 分離禁止文字 of different kinds may be opened up, which this
- * profile cannot tell from the two halves of one 2倍ダッシュ, so it leaves the pair alone), 注8 (a
- * numeral before a postfixed abbreviation may not be opened up), 注9 and 注11 (a numeral before a
- * western character, and two western characters, only in variant schemes), 注10 (a postfixed
- * abbreviation after a western character may be, unless that character is a quantity symbol or an
- * Arabic numeral — which this profile classifies as cl-24 anyway) and 注12 (two tate-chu-yoko
- * characters may be, but only across a group boundary, which is the only place the composer asks).
+ * Note-bearing cells: 注4 (two adjacent 分離禁止文字 of different kinds may be opened up; the boundary
+ * resolver excludes binding sequences), 注8 (a numeral before a postfixed abbreviation may not be
+ * opened up), 注9 and 注11 (a numeral before a western character, and two western characters, only in
+ * variant schemes), 注10 (a postfixed abbreviation after a western character may be, unless that
+ * character is a quantity symbol or an Arabic numeral — which this profile classifies as cl-24
+ * anyway) and 注12 (two tate-chu-yoko characters may be, but only across a group boundary, which is
+ * the only place the composer asks).
  *
  * Copyright © 2008 W3C® (MIT, ERCIM, Keio), All Rights Reserved.
  *
@@ -130,7 +130,7 @@ const EXPANDABLE_AMOUNTS = `
    05    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .
    06    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .
    07    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .    .
-   08    .    .    .    .    .    .    .    .  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4  1/4    .    .    .  1/4  1/4
+   08    .    .    .    .    .    .    .  1/4  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4  1/4    .    .    .  1/4  1/4
    09    .    .    .    .    .    .    .    .  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4
    10    .    .    .    .    .    .    .    .  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4
    11    .    .    .    .    .    .    .    .  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4  1/4  1/4  1/4    .  1/4  1/4
@@ -152,8 +152,8 @@ const EXPANDABLE_AMOUNTS = `
  * fourth expansion stage; `.` is a white cell and never opens. Earlier-stage cells are `y` too,
  * because JLReq 3.8.4 d adds the final remainder across stages one through four together.
  *
- * 表6 注4 colors cl-08/cl-08 only for two different kinds of mark. The profile cannot distinguish
- * that case from the two halves of one inseparable dash, so this fixture keeps the pair closed.
+ * 表6 注4 colors cl-08/cl-08 only for two different kinds of mark. BoundaryRule excludes binding
+ * sequences using the original character values.
  */
 const FINAL_EXPANSION_OPPORTUNITIES = `
         01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 19 24 25 26 27 30
@@ -164,7 +164,7 @@ const FINAL_EXPANSION_OPPORTUNITIES = `
    05    y  .  .  .  .  .  .  y  .  .  .  y  y  y  y  y  y  y  y  y  y  y
    06    y  .  .  .  .  .  .  y  .  .  .  y  y  y  y  y  y  y  y  y  y  y
    07    y  .  .  .  .  .  .  y  .  .  .  y  y  y  y  y  y  y  y  y  y  y
-   08    y  .  .  .  .  .  .  .  y  y  y  y  y  y  y  y  y  y  y  y  y  y
+   08    y  .  .  .  .  .  .  y  y  y  y  y  y  y  y  y  y  y  y  y  y  y
    09    y  .  .  .  .  .  .  y  y  y  y  y  y  y  y  y  y  y  y  y  y  y
    10    y  .  .  .  .  .  .  y  y  y  y  y  y  y  y  y  y  y  y  y  y  y
    11    y  .  .  .  .  .  .  y  y  y  y  y  y  y  y  y  y  y  y  y  y  y
@@ -612,12 +612,13 @@ describe("defaultJapaneseTypesettingProfile", () => {
     expect(afterComma.spacing).toMatchObject({ naturalWidthEm: 0.5 });
   });
 
-  test("prohibits splitting an inseparable sequence but allows it at line start", () => {
+  test("leaves inseparable mark identity to the boundary resolver", () => {
     expect(defaultJapaneseTypesettingProfile.breakPenalty("cl-19", "cl-08")).toBe(0);
-    expect(defaultJapaneseTypesettingProfile.breakPenalty("cl-08", "cl-08")).toBeNull();
-    expect(defaultJapaneseTypesettingProfile.pairSpacing("cl-08", "cl-08")).toEqual({
-      kind: "kern",
+    expect(defaultJapaneseTypesettingProfile.breakPenalty("cl-08", "cl-08")).toBe(0);
+    expect(defaultJapaneseTypesettingProfile.pairSpacing("cl-08", "cl-08")).toMatchObject({
+      kind: "glue",
       naturalWidthEm: 0,
+      stretch: { amountEm: 0.25 },
     });
   });
 

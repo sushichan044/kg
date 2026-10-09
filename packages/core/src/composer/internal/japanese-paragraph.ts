@@ -4,11 +4,11 @@ import { CandidateLine } from "./candidate-line";
 import { adjustmentUnits } from "./japanese-adjustment-units";
 import type { JapaneseSpacingOpportunity } from "./japanese-adjustment-units";
 import type { JapaneseTypesettingProfile } from "./japanese-typesetting-profile";
-import type { JapaneseCharacterClass } from "./japanese-typesetting-rules";
+import type { JapaneseBoundaryClass, JapaneseCharacterClass } from "./japanese-typesetting-rules";
 import type { ParagraphElement } from "./paragraph-layout";
 
 export type JapaneseParagraphCharacter = ParagraphElement &
-  Readonly<{ characterClass: JapaneseCharacterClass }>;
+  Readonly<{ characterClass: JapaneseCharacterClass; effectiveClass: JapaneseBoundaryClass }>;
 
 export type JapaneseParagraph = Readonly<{
   elements: readonly ParagraphElement[];
@@ -51,13 +51,13 @@ export const JapaneseParagraph = {
       previousVisible[end] =
         characters[end - 1]?.sourceGap === true ? previousVisible[end - 1] : end - 1;
     }
-    const edges = characters.map(({ characterClass }) => ({
-      paragraphHead: profile.lineStartSpacing(characterClass, "paragraph-start"),
-      turnedHead: profile.lineStartSpacing(characterClass, "turned-over"),
-      end: profile.lineEndSpacing(characterClass),
+    const edges = characters.map(({ characterClass, effectiveClass }) => ({
+      paragraphHead: profile.lineStartSpacing(effectiveClass, "paragraph-start"),
+      turnedHead: profile.lineStartSpacing(effectiveClass, "turned-over"),
+      end: profile.lineEndSpacing(effectiveClass),
       sourceMid: profile.spacingCharacter(characterClass, "mid-line"),
       sourceEdge: profile.spacingCharacter(characterClass, "line-edge"),
-      canHang: profile.canHang(characterClass),
+      canHang: profile.canHang(effectiveClass),
     }));
     return {
       elements: characters,
