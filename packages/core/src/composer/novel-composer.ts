@@ -13,6 +13,7 @@ import type { ComposedManuscript } from "./composed-manuscript";
 import { NovelCompositionSettings } from "./composition-settings";
 import type { InlineSpan } from "./inline-span";
 import { BoundaryRule } from "./internal/boundary-rule";
+import type { BoxAdjustment } from "./internal/box-adjustment";
 import { CompositionRun } from "./internal/composition-run";
 import { JapaneseParagraph } from "./internal/japanese-paragraph";
 import { defaultJapaneseTypesettingProfile } from "./internal/japanese-typesetting-profile";
@@ -23,6 +24,8 @@ import { NovelSourceContract } from "./internal/novel-source-contract";
 import { layoutParagraph } from "./internal/paragraph-layout";
 import type { ParagraphLinePlan } from "./internal/paragraph-line-plan";
 import { RubyAssociation } from "./internal/ruby-association";
+import { RubyLineLayout } from "./internal/ruby-line-layout";
+import type { RubyLineBase, RubyLinePlacement, RubyLineSegment } from "./internal/ruby-line-layout";
 import { SourceSpace } from "./internal/source-space";
 import { LineOffset } from "./line-offset";
 import type { ManuscriptComposer } from "./manuscript-composer";
@@ -65,6 +68,7 @@ type MeasuredSourceLine = Readonly<{
   sourceSpaces: readonly SourceSpace[];
   atoms: readonly Atom[];
   suppressedIndexes: ReadonlySet<number>;
+  candidateReadings: readonly RubyLineSegment[];
 }>;
 
 type AnnotationFragmentPlan = Readonly<{
@@ -116,6 +120,7 @@ function measureSourceLine(
   sourceLine: readonly ParsedGrapheme[],
   annotations: readonly ManuscriptAnnotation[],
   measurements: MeasurementSession,
+  lineLengthEm: number,
 ): MeasuredSourceLine | undefined {
   const runs = CompositionRun.recognize(sourceLine);
   const rubyAssociations = RubyAssociation.collect(annotations, sourceLine);
@@ -159,6 +164,20 @@ function measureSourceLine(
     }
   }
 
+  const candidateReadings: RubyLineSegment[] = [];
+  const physicalRange = (first: number, last: number) => {
+    const left = atoms[first];
+    const right = atoms[last];
+    while (first > 0 && left?.combineRun === true && atoms[first - 1]?.runIndex === left.runIndex)
+      first -= 1;
+    while (
+      last + 1 < atoms.length &&
+      right?.combineRun === true &&
+      atoms[last + 1]?.runIndex === right.runIndex
+    )
+      last += 1;
+    return { start: first, end: last + 1 };
+  };
   for (const association of rubyAssociations) {
     const { indexes } = association;
     const readingTexts =
@@ -175,6 +194,18 @@ function measureSourceLine(
         (total, index) => total + (atoms[index]?.boxAdvanceEm ?? 0),
         0,
       );
+      const first = indexes[0];
+      const last = indexes.at(-1);
+      const pieces = measurements.pieces(association.reading.text, "ruby");
+      if (
+        first !== undefined &&
+        last !== undefined &&
+        pieces !== undefined &&
+        Math.max(baseAdvance, readingAdvance) <= lineLengthEm
+      ) {
+        candidateReadings.push({ association, ...physicalRange(first, last), pieces });
+        continue;
+      }
       const extra = Math.max(0, readingAdvance - baseAdvance) / indexes.length;
       for (const index of indexes) {
         const atom = atoms[index];
@@ -189,6 +220,12 @@ function measureSourceLine(
       if (segment === undefined || atom === undefined) continue;
       const readingAdvance = measurements.get(segment, "ruby")?.advanceEm;
       if (readingAdvance === undefined) return undefined;
+      if (association.reading.kind === "mono") {
+        const pieces = measurements.pieces(segment, "ruby");
+        if (pieces === undefined) return undefined;
+        candidateReadings.push({ association, ...physicalRange(index, index), pieces });
+        continue;
+      }
       widenForReading(atom, readingAdvance - atom.boxAdvanceEm);
     }
   }
@@ -201,6 +238,7 @@ function measureSourceLine(
     atoms,
     runs,
     rubyAssociations,
+    candidateReadings,
     sourceSpaces,
     suppressedIndexes: new Set(
       sourceSpaces.filter((space) => space.edgeBehavior === "suppress").map((space) => space.index),
@@ -407,6 +445,7 @@ function annotationFragments(
   annotations: readonly ManuscriptAnnotation[],
   measurements: MeasurementSession,
   fragmentPlansByAnnotation: ReadonlyMap<ManuscriptAnnotation, AnnotationFragmentPlan>,
+  candidatePlacements: readonly RubyLinePlacement[],
 ): ComposedAnnotationFragment[] | undefined {
   const fragments: ComposedAnnotationFragment[] = [];
 
@@ -454,6 +493,31 @@ function annotationFragments(
         break;
       }
       case "ruby": {
+        const resolved = candidatePlacements.filter(
+          ({ segment }) => segment.association.baseRange === annotation.range,
+        );
+        if (resolved.length > 0) {
+          let textOffset = 0;
+          const readingItems = resolved.flatMap(({ items }) => {
+            const mapped = items.map((item) => ({
+              ...item,
+              textRange: MeasurementTextRange.of({
+                start: textOffset + item.textRange.start,
+                end: textOffset + item.textRange.end,
+              }),
+            }));
+            textOffset += items.at(-1)?.textRange.end ?? 0;
+            return mapped;
+          });
+          fragments.push({
+            kind: "ruby",
+            rubyKind: annotation.reading.kind,
+            reading: readingItems.map(({ value }) => value).join(""),
+            readingItems,
+            ...common,
+          });
+          break;
+        }
         const fragmentPlan = fragmentPlansByAnnotation.get(annotation);
         if (fragmentPlan === undefined) break;
         const baseOffsetEm = first.layoutSpan.offsetEm;
@@ -635,6 +699,7 @@ function positionedLine(
   const characterSpacings = new Map(
     plan.characterSpacings.map((spacing) => [spacing.index, spacing]),
   );
+  const boxAdjustments = new Map(plan.boxAdjustments?.map((box) => [box.index, box]));
   let offsetEm = 0;
   const adjustmentOf = (widthEm: number, naturalWidthEm: number) =>
     widthEm < naturalWidthEm ? "shrunk" : widthEm > naturalWidthEm ? "stretched" : "natural";
@@ -682,13 +747,14 @@ function positionedLine(
     }
 
     const hanging = plan.hangingIndex === index;
-    const layoutAdvanceEm = hanging ? 0 : atom.boxAdvanceEm;
+    const adjusted = boxAdjustments.get(index);
+    const layoutAdvanceEm = hanging ? 0 : (adjusted?.advanceEm ?? atom.boxAdvanceEm);
     items.push({
       kind: "member",
       atom,
       layoutSpan: { offsetEm, advanceEm: layoutAdvanceEm },
       renderSpan: {
-        offsetEm: offsetEm + atom.renderOffsetEm,
+        offsetEm: offsetEm + (adjusted?.renderOffsetEm ?? atom.renderOffsetEm),
         advanceEm: atom.renderAdvanceEm,
       },
       disposition: hanging ? "hanging" : "placed",
@@ -763,10 +829,41 @@ function wrapSourceLine(
     profile,
     settings.flow.lineLengthEm,
   );
+  const rubyByIndex = new Map(
+    sourceLine.rubyAssociations.flatMap((association) =>
+      association.indexes.map((index) => [index, association] as const),
+    ),
+  );
+  const rubyBases: RubyLineBase[] = sourceLine.atoms.map((atom, index) => {
+    const association = rubyByIndex.get(index);
+    return {
+      lexicalClass: atom.characterClass,
+      effectiveClass:
+        association === undefined
+          ? atom.characterClass
+          : association.reading.kind === "jukugo"
+            ? "cl-23"
+            : "cl-22",
+      advanceEm: atom.boxAdvanceEm,
+      renderOffsetEm: atom.renderOffsetEm,
+      sourceGap: sourceLine.suppressedIndexes.has(index),
+    };
+  });
+  const readingIndex = RubyLineLayout.index(sourceLine.candidateReadings);
+  const resolvedRuby = new WeakMap<readonly BoxAdjustment[], readonly RubyLinePlacement[]>();
   const plans = layoutParagraph(
     paragraph.elements,
     settings.flow.lineLengthEm,
-    paragraph.resolveCandidate,
+    (start, end) => {
+      if (sourceLine.candidateReadings.length === 0) return paragraph.resolveCandidate(start, end);
+      const result = RubyLineLayout.resolve(rubyBases, readingIndex, start, end, (metrics) =>
+        paragraph.resolveCandidate(start, end, metrics),
+      );
+      if (result === undefined) return undefined;
+      if (result.line.boxAdjustments !== undefined)
+        resolvedRuby.set(result.line.boxAdjustments, result.placements);
+      return result.line;
+    },
     (left, right) =>
       (right === left + 1 ? boundaries[right] : acrossGaps[left])?.break.kind !== "prohibited",
   );
@@ -798,7 +895,8 @@ function wrapSourceLine(
   );
 
   const annotated: NovelLine[] = [];
-  for (const line of lines) {
+  for (const [index, line] of lines.entries()) {
+    const plan = plans[index];
     const fragments = annotationFragments(
       line.items.filter(PositionedInlineItem.isRenderUnit),
       line.items.filter((item) => item.kind === "suppressed"),
@@ -808,6 +906,7 @@ function wrapSourceLine(
       annotations,
       measurements,
       fragmentPlansByAnnotation,
+      plan?.boxAdjustments === undefined ? [] : (resolvedRuby.get(plan.boxAdjustments) ?? []),
     );
     if (fragments === undefined) return undefined;
     annotated.push({ ...line, annotations: fragments });
@@ -865,7 +964,7 @@ function createCompose(provider: RunMeasurer) {
     const measurements = MeasurementSession.create(provider, settings);
     const sourceLines = displayedLines(manuscript.graphemes);
     const measured = sourceLines.map((line) =>
-      measureSourceLine(line, manuscript.annotations, measurements),
+      measureSourceLine(line, manuscript.annotations, measurements, settings.flow.lineLengthEm),
     );
     if (measured.some((line) => line === undefined)) {
       return ManuscriptResult.fail({

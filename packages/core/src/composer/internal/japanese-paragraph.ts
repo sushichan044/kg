@@ -1,4 +1,5 @@
 import type { BoundaryRule } from "./boundary-rule";
+import type { BoxAdjustment } from "./box-adjustment";
 import { CandidateLine } from "./candidate-line";
 import { adjustmentUnits } from "./japanese-adjustment-units";
 import type { JapaneseSpacingOpportunity } from "./japanese-adjustment-units";
@@ -11,7 +12,12 @@ export type JapaneseParagraphCharacter = ParagraphElement &
 
 export type JapaneseParagraph = Readonly<{
   elements: readonly ParagraphElement[];
-  resolveCandidate: (start: number, end: number) => CandidateLine;
+  resolveCandidate: (start: number, end: number, metrics?: CandidateMetrics) => CandidateLine;
+}>;
+
+export type CandidateMetrics = Readonly<{
+  boxAdjustments: readonly BoxAdjustment[];
+  extraSpacings: ReadonlyArray<Readonly<{ boundary: number; widthEm: number }>>;
 }>;
 
 export const JapaneseParagraph = {
@@ -55,7 +61,7 @@ export const JapaneseParagraph = {
     }));
     return {
       elements: characters,
-      resolveCandidate: (start, end) => {
+      resolveCandidate: (start, end, metrics) => {
         const contentStart = nextVisible[start] ?? characters.length;
         const values: JapaneseSpacingOpportunity[] = [];
         const head = edges[contentStart];
@@ -91,7 +97,32 @@ export const JapaneseParagraph = {
             absorbsPrecedingEm: tail.absorbsPrecedingEm,
           });
         const lastVisible = previousVisible[end];
-        return CandidateLine.resolve(
+        for (const extra of metrics?.extraSpacings ?? []) {
+          const index = values.findIndex(
+            ({ slot }) => slot.kind === "gap" && slot.boundary === extra.boundary,
+          );
+          const existing = values[index];
+          if (existing === undefined)
+            values.push({
+              slot: { kind: "gap", boundary: extra.boundary },
+              spacing: { kind: "glue", naturalWidthEm: extra.widthEm },
+              absorbsPrecedingEm: 0,
+            });
+          else
+            values[index] = {
+              ...existing,
+              spacing: {
+                ...existing.spacing,
+                naturalWidthEm: existing.spacing.naturalWidthEm + extra.widthEm,
+              },
+            };
+        }
+        const extraBoxesEm =
+          metrics?.boxAdjustments.reduce(
+            (sum, box) => sum + box.advanceEm - (characters[box.index]?.boxAdvanceEm ?? 0),
+            0,
+          ) ?? 0;
+        const line = CandidateLine.resolve(
           {
             start,
             contentStart,
@@ -100,11 +131,15 @@ export const JapaneseParagraph = {
               { length: contentStart - start },
               (_, index) => start + index,
             ),
-            boxesSizeEm: (prefixEm[end] ?? 0) - (prefixEm[contentStart] ?? 0),
+            boxesSizeEm: (prefixEm[end] ?? 0) - (prefixEm[contentStart] ?? 0) + extraBoxesEm,
             terminal: nextVisible[end] === characters.length,
             lastVisible,
             lastAdvance:
-              lastVisible === undefined ? 0 : (characters[lastVisible]?.boxAdvanceEm ?? 0),
+              lastVisible === undefined
+                ? 0
+                : (metrics?.boxAdjustments.find((box) => box.index === lastVisible)?.advanceEm ??
+                  characters[lastVisible]?.boxAdvanceEm ??
+                  0),
             canHang: lastVisible !== undefined && edges[lastVisible]?.canHang === true,
             pairValues: values,
             unitsFor: (direction) => adjustmentUnits(values, direction),
@@ -112,6 +147,7 @@ export const JapaneseParagraph = {
           },
           lineLengthEm,
         );
+        return metrics === undefined ? line : { ...line, boxAdjustments: metrics.boxAdjustments };
       },
     };
   },

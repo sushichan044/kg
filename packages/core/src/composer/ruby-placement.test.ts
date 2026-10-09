@@ -1,0 +1,147 @@
+import { describe, expect, test } from "vite-plus/test";
+
+import type { RubyReading } from "../parser/annotation/ruby-annotation";
+import { parseManuscript } from "../parser/parse-manuscript";
+import { ManuscriptRange } from "../range/manuscript-range";
+import { composeManuscript } from "./compose-manuscript";
+import { NovelCompositionSettings } from "./composition-settings";
+import { novelComposer } from "./novel-composer";
+import { PositionedInlineItem } from "./positioned-inline-item";
+
+function composeRuby(
+  text: string,
+  readings: ReadonlyArray<Readonly<{ start: number; length: number; reading: RubyReading }>>,
+) {
+  const parsed = parseManuscript(text);
+  expect.assert(parsed.ok);
+  const annotations = readings.map(({ start, length, reading }) => {
+    const range = ManuscriptRange.merge(
+      parsed.value.graphemes.slice(start, start + length).map((grapheme) => grapheme.range),
+    );
+    expect.assert(range !== null);
+    return { kind: "ruby", range, reading } as const;
+  });
+
+  const composed = composeManuscript(
+    { ...parsed.value, annotations },
+    {
+      composer: novelComposer,
+      settings: {
+        ...NovelCompositionSettings.defaults,
+        flow: { ...NovelCompositionSettings.defaults.flow, lineLengthEm: 10 },
+      },
+    },
+  );
+
+  expect.assert(composed.ok);
+  const lines = composed.value.layout.pages.flatMap((page) =>
+    page.stages.flatMap((stage) => stage.lines.filter((line) => line.range !== null)),
+  );
+  const glyphs = lines.flatMap((line) => line.items.filter(PositionedInlineItem.isRenderUnit));
+  const ruby = lines.flatMap((line) => line.annotations.filter((item) => item.kind === "ruby"));
+  return { lines, glyphs, ruby };
+}
+
+describe("contextual ruby placement", () => {
+  test("lets a long mono reading overhang adjacent kana without widening its base", () => {
+    const { glyphs, ruby } = composeRuby("あ漢あ", [
+      { start: 1, length: 1, reading: { kind: "mono", segments: ["かんじよ"] } },
+    ]);
+    const base = glyphs[1];
+    const first = ruby[0]?.readingItems[0];
+    const last = ruby[0]?.readingItems.at(-1);
+    expect.assert(base !== undefined && first !== undefined && last !== undefined);
+
+    expect(base.layoutSpan).toEqual({ offsetEm: 1, advanceEm: 1 });
+    expect(first.placement.inlineSpan.offsetEm).toBe(0.5);
+    expect(last.placement.inlineSpan.offsetEm + last.placement.inlineSpan.advanceEm).toBe(2.5);
+  });
+
+  test("widens a mono base instead of letting its reading overhang adjacent kanji", () => {
+    const { glyphs, ruby } = composeRuby("字漢字", [
+      { start: 1, length: 1, reading: { kind: "mono", segments: ["かんじよ"] } },
+    ]);
+    const base = glyphs[1];
+    const first = ruby[0]?.readingItems[0];
+    expect.assert(base !== undefined && first !== undefined);
+
+    expect(base.layoutSpan.advanceEm).toBe(2);
+    expect(first.placement.inlineSpan.offsetEm).toBe(1);
+    expect(base.renderSpan.offsetEm).toBe(1.5);
+  });
+
+  test.each(["漢あ", "あ漢"])("keeps a long reading inside the line edge in %s", (text) => {
+    const { lines, glyphs, ruby } = composeRuby(text, [
+      { start: text.indexOf("漢"), length: 1, reading: { kind: "mono", segments: ["かんじよ"] } },
+    ]);
+    const line = lines[0];
+    const base = glyphs.find((glyph) => glyph.value === "漢");
+    const first = ruby[0]?.readingItems[0];
+    const last = ruby[0]?.readingItems.at(-1);
+    expect.assert(
+      line !== undefined && base !== undefined && first !== undefined && last !== undefined,
+    );
+
+    expect(base.layoutSpan.advanceEm).toBe(1.5);
+    expect(first.placement.inlineSpan.offsetEm).toBeGreaterThanOrEqual(0);
+    expect(
+      last.placement.inlineSpan.offsetEm + last.placement.inlineSpan.advanceEm,
+    ).toBeLessThanOrEqual(line.inlineSizeEm);
+  });
+
+  test("anchors each mono reading to its own base", () => {
+    const { ruby } = composeRuby("漢字", [
+      { start: 0, length: 2, reading: { kind: "mono", segments: ["か", "むずかし"] } },
+    ]);
+    const first = ruby[0]?.readingItems[0];
+    const second = ruby[0]?.readingItems[1];
+    expect.assert(first !== undefined && second !== undefined);
+
+    expect(first.placement.inlineSpan.offsetEm).toBe(0.25);
+    expect(second.placement.inlineSpan.offsetEm).toBe(1);
+  });
+
+  test("separates readings that overhang the same intervening kana by one ruby em", () => {
+    const { lines, ruby } = composeRuby("あ漢あ字あ", [
+      { start: 1, length: 1, reading: { kind: "mono", segments: ["かんじよ"] } },
+      { start: 3, length: 1, reading: { kind: "mono", segments: ["じのよみ"] } },
+    ]);
+    const left = ruby[0]?.readingItems.at(-1);
+    const right = ruby[1]?.readingItems[0];
+    const line = lines[0];
+    expect.assert(left !== undefined && right !== undefined && line !== undefined);
+
+    expect(
+      right.placement.inlineSpan.offsetEm -
+        (left.placement.inlineSpan.offsetEm + left.placement.inlineSpan.advanceEm),
+    ).toBeCloseTo(0.5, 10);
+    expect(line.inlineSizeEm).toBe(5.5);
+  });
+
+  test("lets a fittable group overhang kana while retaining the whole association", () => {
+    const { glyphs, ruby } = composeRuby("あ漢字あ", [
+      { start: 1, length: 2, reading: { kind: "group", text: "かんじのよみ" } },
+    ]);
+    const first = ruby[0]?.readingItems[0];
+    const last = ruby[0]?.readingItems.at(-1);
+    expect.assert(first !== undefined && last !== undefined);
+
+    expect(glyphs.map((glyph) => glyph.layoutSpan.advanceEm)).toEqual([1, 1, 1, 1]);
+    expect(first.placement.inlineSpan.offsetEm).toBe(0.5);
+    expect(last.placement.inlineSpan.offsetEm + last.placement.inlineSpan.advanceEm).toBe(3.5);
+    expect(ruby).toHaveLength(1);
+    expect(ruby[0]?.fragmentRange.graphemes).toEqual({ start: 1, end: 3 });
+  });
+
+  test("uses the punctuation space before a ruby instead of widening its base", () => {
+    const { glyphs, ruby } = composeRuby("）漢あ", [
+      { start: 1, length: 1, reading: { kind: "mono", segments: ["かんじよ"] } },
+    ]);
+    const base = glyphs[1];
+    const reading = ruby[0]?.readingItems[0];
+    expect.assert(base !== undefined && reading !== undefined);
+
+    expect(base.layoutSpan).toEqual({ offsetEm: 1, advanceEm: 1 });
+    expect(reading.placement.inlineSpan.offsetEm).toBe(0.5);
+  });
+});

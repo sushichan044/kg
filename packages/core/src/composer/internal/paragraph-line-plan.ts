@@ -1,4 +1,5 @@
 import type { LineBreakResult } from "../line-break-result";
+import type { BoxAdjustment } from "./box-adjustment";
 
 type ResolvedSpacing = Readonly<{
   kind: "glue" | "kern";
@@ -23,4 +24,5 @@ export type ParagraphLinePlan = Readonly<{
   inlineSizeEm: number;
   break: LineBreakResult;
   hangingIndex: number | null;
+  boxAdjustments?: readonly BoxAdjustment[];
 }>;
