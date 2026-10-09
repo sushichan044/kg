@@ -1,7 +1,7 @@
 # Separate Japanese typesetting rules, policy, and layout data
 
-Status: Phases 1–2 implemented. Public output and measurement contracts, and
-additional typesetting behavior, remain proposed.
+Status: Phases 1–3 implemented. Additional typesetting behavior and actual font
+shaping remain proposed.
 
 The composer represents characters, text runs, ruby associations, boundaries,
 and candidate lines separately. This gives each Japanese typesetting rule an owner
@@ -40,16 +40,16 @@ The core separates parsing, composition, and proofreading. The composition
 pipeline now separates reference admissibility, selected book style, candidate
 resolution, adjustment allocation, and paragraph evaluation.
 
-| Concept                                 | Implemented responsibility                                                                 | Remaining work                                                       |
-| --------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
-| `JapaneseTypesettingRules`              | Classification, box metrics, spacing capacities, break permission, and hanging eligibility | Contextual ruby classes and additional reference coverage            |
-| `BookStyle` and `ParagraphEvaluation`   | Selected bracket scheme; independent adjustment stages and visual costs; paragraph scoring | Additional selectable styles                                         |
-| `CompositionRun` and `RubyAssociation`  | Oriented run members and independent ruby indexes retaining parsed ranges                  | Composer-owned combined public render units                          |
-| `BoundaryRule`                          | Separate break constraints, spacing permission, and final expansion eligibility            | Neighbor-dependent ruby constraints                                  |
-| `SourceSpace`                           | Authored range, purpose, natural width, and edge behavior                                  | New semantic space purposes only with corresponding input features   |
-| `JapaneseParagraph` and `CandidateLine` | Candidate-local line edges, explicit coupled adjustment units, and numeric fitting         | Candidate-local ruby overhang and joint jukugo placement             |
-| `measureSourceLine`                     | Intrinsic metrics retained separately from conservative ruby widening                      | Clustered measurements and contextual annotation requirements        |
-| Viewer                                  | Existing per-grapheme output and `groupRange` combination                                  | Explicit render units, shared placements, and positioned decorations |
+| Concept                                 | Implemented responsibility                                                                    | Remaining work                                                     |
+| --------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `JapaneseTypesettingRules`              | Classification, box metrics, spacing capacities, break permission, and hanging eligibility    | Contextual ruby classes and additional reference coverage          |
+| `BookStyle` and `ParagraphEvaluation`   | Selected bracket scheme; independent adjustment stages and visual costs; paragraph scoring    | Additional selectable styles                                       |
+| `CompositionRun` and `RubyAssociation`  | Oriented members, independent ruby indexes, and composer-owned combined render units          | Additional annotation placement rules                              |
+| `BoundaryRule`                          | Separate break constraints, spacing permission, and final expansion eligibility               | Neighbor-dependent ruby constraints                                |
+| `SourceSpace`                           | Authored range, purpose, natural width, and edge behavior                                     | New semantic space purposes only with corresponding input features |
+| `JapaneseParagraph` and `CandidateLine` | Candidate-local line edges, explicit coupled adjustment units, and numeric fitting            | Candidate-local ruby overhang and joint jukugo placement           |
+| `measureSourceLine`                     | Intrinsic metrics, validated aggregate/clustered measurements, and conservative ruby widening | Real font shaping and contextual annotation requirements           |
+| Viewer                                  | Explicit render units, exact/shared diagnostic positions, and core-positioned ruby/emphasis   | Agreement with a future shaped provider's fonts                    |
 
 Paragraph preparation classifies each base once and indexes ruby membership
 before candidate expansion. The DP and allocator receive numeric data and do not
@@ -99,21 +99,21 @@ concept outside the current body-text design.
 | [3.1.11][no-expansion]                                        | Decide expansion permission separately from break permission                              | Partial: independent boundary spacing and expansion records; current style excludes run and fittable-group interiors                            | Boundary / a forbidden break that still admits a specified spacing adjustment         |
 | [3.1.12][adjustment-examples], [3.8.1–3.8.2][line-adjustment] | Evaluate feasible fitting and hanging alternatives before selecting paragraph breaks      | Partial: paragraph DP and comma/period hanging; paragraph-end handling is a kg policy                                                           | Candidate resolver and optimizer / closing bracket after a potential hanging comma    |
 | [3.2.1][mixed], [3.2.3–3.2.4][vertical-mixed]                 | Recognize orientation before measurement; keep orientation separate from membership       | Policy: ASCII two-digit runs combine, single characters and recognized abbreviations stand upright, other ASCII alphanumeric runs turn sideways | Run recognition / `A`, `NASA`, `spring`, `12`, fullwidth letters                      |
-| [3.2.5][tcy]                                                  | Compose tate-chu-yoko as a unit whose interior is not a line-break opportunity            | Partial: explicit core runs, per-grapheme public output, and combination in viewer; automatic recognition is narrower than all described uses   | Combined unit / one-em `12`, ruby and diagnostics on its members                      |
+| [3.2.5][tcy]                                                  | Compose tate-chu-yoko as a unit whose interior is not a line-break opportunity            | Partial: composer-owned combined public units and exact member positions; automatic recognition is narrower than all described uses             | Combined unit / one-em `12`, ruby and diagnostics on its members                      |
 | [3.2.6][western-spacing]                                      | Apply mixed-text spacing to the appropriate composition context                           | Partial: quarter-em pair rules and source word spaces; no actual proportional font shaping                                                      | Boundary and measurement / upright Latin beside kana versus sideways Western text     |
 | [3.3.1–3.3.2][ruby-usage]                                     | Preserve ruby kind and the base-to-reading association supplied by notation               | Implemented: group, mono, jukugo; overlapping ruby associations and mismatched segments are rejected                                            | Ruby association / association survives run recognition                               |
-| [3.3.3][ruby-size]                                            | Make reading size explicit in measurement and placement                                   | Policy: logical ruby uses half of body size; renderer also assumes half size                                                                    | Annotation style / one consistent ratio in measurement and output                     |
-| [3.3.4][ruby-side]                                            | Decide the annotation side before placement                                               | Partial: usual right-side vertical ruby is renderer-owned; no semantic side choice                                                              | Annotation style and placement / chosen side independent of renderer                  |
+| [3.3.3][ruby-size]                                            | Make reading size explicit in measurement and placement                                   | Policy: half-size ruby is explicit in measurement scale and decoration placement                                                                | Annotation style / one consistent ratio in measurement and output                     |
+| [3.3.4][ruby-side]                                            | Decide the annotation side before placement                                               | Partial: explicit right-side placement in core output; no selectable annotation side                                                            | Annotation style and placement / chosen side independent of renderer                  |
 | [3.3.5][mono-ruby]                                            | Place each mono reading against its own base                                              | Partial: per-base widening and centering; no adjacent overhang constraints                                                                      | Ruby candidate layout / short and long mono readings                                  |
 | [3.3.6][group-ruby]                                           | Place a reading against its whole base group and account for internal spacing             | Partial: widening and fittable-group protection; oversized splitting is a kg extension                                                          | Ruby association and candidate layout / short, equal, and long reading                |
 | [3.3.7][jukugo-ruby], [F.1–F.4][jukugo-appendix]              | Preserve per-base readings while jointly arranging the compound and its fragments         | Partial: semantic segments retained; no joint jukugo placement algorithm                                                                        | Ruby candidate layout / reading lengths 1 and 3; compound split between bases         |
 | [3.3.8][ruby-overhang], [B.2][spacing-notes]                  | Resolve permitted overhang from neighboring context and keep reading runs distinguishable | Missing: current widening does not resolve overhang or adjacent reading collisions                                                              | Boundary annotation constraints and candidate placement / kana versus kanji neighbors |
-| [3.3.9][emphasis]                                             | Position emphasis marks against their associated base text                                | Partial: parser annotation and viewer-generated mark positions                                                                                  | Positioned annotation / combining marks, combined units, ruby coexistence             |
+| [3.3.9][emphasis]                                             | Position emphasis marks against their associated base text                                | Partial: parser association and explicit core mark placements, including combined units                                                         | Positioned annotation / combining marks, combined units, ruby coexistence             |
 | [3.5.1–3.5.2][paragraphs]                                     | Keep paragraph-start indentation and continuation indentation explicit                    | Partial: source spaces and bracket scheme; every source newline starts a composition paragraph, with no semantic indent contract                | Paragraph context / authored indentation and continuation line                        |
 | [3.8.3][reduction], [D.1–D.2][reduction-table]                | Separate admissible reductions from the order selected by the book style                  | Partial + policy: explicit units with independent stages and costs; kg spends invisible line-end space before word spaces                       | Adjustment unit and policy / a line with both opportunities                           |
 | [3.8.4][expansion], [E.1–E.2][expansion-table]                | Distinguish bounded stages from the final expansion opportunities                         | Partial: finite stages and final-stage pair set for current classes                                                                             | Adjustment unit and policy / bounded word space and evenly distributed remainder      |
 | [3.9][classes], [A.1–A.30][class-list]                        | Derive contextual classes without erasing original character identity                     | Partial: cl-01–cl-16, cl-19, cl-24–cl-27, cl-30; no ruby-context classes                                                                        | Classification and association / cl-22 and cl-23 at ruby boundaries                   |
-| [4.5.1–4.5.2][line-gap]                                       | Keep body pitch stable while allocating annotation space and paragraph separation         | Partial: fixed geometry and source blank lines; no explicit annotation or paragraph-separation contract                                         | Geometry and paragraph style / adjacent annotated lines                               |
+| [4.5.1–4.5.2][line-gap]                                       | Keep body pitch stable while allocating annotation space and paragraph separation         | Partial: fixed geometry, source blank lines, and explicit decoration coordinates; no semantic paragraph-separation contract                     | Geometry and paragraph style / adjacent annotated lines                               |
 
 ### Deferred requirements
 
@@ -160,7 +160,8 @@ or cl-23 would lose punctuation and internal base-layout rules.
 
 The following target type sketch uses the existing range and ruby types. The
 implemented internal records use paragraph-local indexes and resolved spacing;
-the public-output and measurement sketches below remain future contracts.
+the public-output and measurement sections below describe the phase 3 contracts;
+future decoration variants remain explicitly deferred.
 Numeric slot indexes are paragraph-local; separate validated index brands should
 be used if these indexes ever cross a public boundary.
 
@@ -305,7 +306,7 @@ are future contract additions with explicit source notation.
 
 ## Public composition output
 
-The target output makes a combined render unit explicit while retaining the
+The public output makes a combined render unit explicit while retaining the
 existing glyph, glue, kern, and suppressed concepts. A source mapping locates
 logical text; it does not promise an exact caret position inside a shaped glyph.
 
@@ -353,10 +354,11 @@ type PositionedInlineItem =
 ```
 
 `CombinedGlyphUnit` is a single rendering instruction with at least two source
-graphemes. The first implementation uses it for tate-chu-yoko. Sideways text
-remains separate glyphs during the behavior-preserving migration; a later shaped
-run can use a combined unit when its clusters cannot be drawn independently.
-The complete run text and font realization must then be rendered together.
+graphemes. The logical implementation uses it for tate-chu-yoko. Default sideways text
+remains separate glyphs. A synthetic clustered sideways run uses one combined
+unit for the complete run whenever a cluster covers multiple source graphemes.
+An actual shaped provider must later agree with the renderer's font realization;
+synthetic cluster coverage does not establish that agreement.
 
 Source placement offsets, layout spans, and render spans are line-relative.
 Tate-chu-yoko `12` occupies one logical em and retains the current half-em logical
@@ -442,10 +444,11 @@ Measurement remains a synchronous, pure request/result function. The composer
 does not own font loading, DOM access, or asynchronous scheduling. A future
 provider must be ready before composition begins.
 
-The target contract accepts text runs and distinguishes aggregate metrics from
-cluster mappings. The following types are proposals, not current plugin exports.
-`MeasurementTextRange` is a request-local UTF-16 range; its implementation schema
-must brand it separately from the manuscript's offset types.
+The public contract accepts text runs and distinguishes aggregate metrics from
+cluster mappings. These measurement concepts are exported from the plugin entry.
+`MeasurementTextRange` is a request-local UTF-16 range branded separately from the
+manuscript's offset types. Companion schemas validate provider results at the
+measurement boundary; internal candidate fitting trusts the validated data.
 
 ```ts
 type MeasurementTextRange = Readonly<{ start: number; end: number }>;
@@ -543,18 +546,18 @@ the existing typed composition failures rather than throwing or clamping.
 | Viewer                  | Consume combined units directly; use exact/shared mappings for diagnostic bands; consume annotation positions instead of resolving typography |
 | Frontend                | Update exhaustive item handling and test fixtures; keep persisted flow and appearance settings unchanged during structural migration          |
 
-Publish the output and measurement contract changes together with the updated
-viewer as one coordinated breaking revision. Update core/plugin documentation
-and custom-composer examples at that revision. Do not keep an adapter that
-recreates the old per-grapheme combination contract. Phases 1–2 preserve the current public imports and output. The contracts in
-this section belong to phase 3.
+The output and measurement changes form one coordinated breaking revision with
+the updated viewer, package documentation, and custom-composer examples. The old
+per-grapheme combination contract has no adapter. Parser/proofreading entrypoints
+and persisted settings remain unchanged. Phase 3 publishes existing ruby and
+emphasis positions; phase 4 enables new placement behavior and annotation styles.
 
 ## Worked verification scenarios
 
-The examples below distinguish preserved behavior from acceptance cases for
-future contracts and behavior. Existing
-test titles refer to `compose-manuscript.test.ts`, the internal profile tests,
-and `paragraph-layout.test.ts`. Future cases are design checks, not passing tests.
+The examples distinguish implemented behavior from future acceptance cases.
+Evidence comes from `compose-manuscript.test.ts`, `public-contract.test.ts`,
+`run-measurement.test.ts`, internal profile/paragraph tests, and viewer browser
+tests. Cases still labelled future are design checks, not passing tests.
 
 | Case                                                                          | Expected decision and responsible data                                                                                                                  | Evidence / phase                                                                             |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
@@ -570,26 +573,27 @@ and `paragraph-layout.test.ts`. Future cases are design checks, not passing test
 | Two long readings overhang the same intervening kana                          | Resolve their ink separation jointly; independent base widening is insufficient                                                                         | Future reading-collision case                                                                |
 | Jukugo `温泉` has readings `おん` and `せん`, or `京都` has `きょう` and `と` | Preserve per-base association, jointly place readings, and recompute fragments if split between bases                                                   | Future appendix F cases; lengths and splits varied explicitly                                |
 | Group `今日` carries `きょう` at an actual line boundary                      | Keep a fittable group whole; distinguish the kg oversized split extension from the reference's ordinary group handling                                  | Existing association + future candidate edge checks                                          |
-| `12` has a diagnostic or ruby on its first digit                              | Emit one combined unit, retain both member ranges, attach the diagnostic to its logical member and ruby to the physical unit                            | Existing TCY/browser test plus future overlap cases                                          |
-| A provider returns one cluster for `ffi`                                      | Keep all three source graphemes, prohibit an interior break, and highlight the shared cluster without inventing three caret positions                   | Future clustered-provider fixture                                                            |
-| A provider returns overlapping text ranges, a split surrogate, or NaN         | Reject the result at the plugin boundary; never render a partial snapshot                                                                               | Existing invalid-measurement behavior + future cluster contract tests                        |
-| Ruby and emphasis reach a page's first or last line                           | Preserve body pitch and emit explicit block extents; the selected annotation lane may extend beyond the body text area                                  | Future geometry and annotation-output checks                                                 |
+| `12` has a diagnostic or ruby on its first digit                              | Emit one combined unit, retain both member ranges, attach the diagnostic to its logical member and ruby to the physical unit                            | Public render-unit tests and viewer exact-digit, ruby, and emphasis browser cases            |
+| A provider returns one cluster for `ffi`                                      | Keep all three source graphemes, prohibit an interior break, and highlight the shared cluster without inventing three caret positions                   | Synthetic clustered-provider and viewer shared-ligature tests                                |
+| A provider returns overlapping text ranges, a split surrogate, or NaN         | Reject the result at the plugin boundary; never render a partial snapshot                                                                               | Measurement boundary cases and typed invalid-provider rejection tests                        |
+| Ruby and emphasis reach a page's first or last line                           | Preserve body pitch and emit explicit block extents; the selected annotation lane may extend beyond the body text area                                  | Explicit placement contracts and browser coordinate tests; future lane/collision geometry    |
 
 The current source tests protect ruby kind preservation, mono/group centering,
 and group reading conservation. They do not establish appendix F placement,
-neighbor overhang, cluster shaping, or side/extent contracts. New behavior tests
+neighbor overhang, real font shaping, or selectable annotation sides. Phase 3
+tests cover synthetic cluster mappings and the existing decoration coordinates. New behavior tests
 must use specification-derived outcomes rather than copying the resolver's
 algorithm. Use arrange/act/assert separation, existing `test.extend` fixtures
 where needed, and `expect.assert` for premises.
 
 ## Migration sequence and completion criteria
 
-| Phase                             | Work                                                                                                                                                     | Behavior gate                                                                                                                                                  |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Rules and policy — implemented | Separate admissibility tables, book-style selection, adjustment order, and scoring; keep the profile internal                                            | Existing pair-table, prohibition, stage, and paragraph-score outcomes are preserved; stage/cost independence has dedicated tests                               |
-| 2. Internal model — implemented   | Introduce run and ruby indexes, boundary records, source-space elements, and coupled adjustment units                                                    | Same breaks, widths, source ranges, ruby allocation, and forced-overflow results; preserve the existing candidate-expansion regression check                   |
-| 3. Public contract                | Introduce explicit combined units and source placements; migrate measurement types, viewer, frontend fixtures, exports, and package docs together        | Equivalent logical and visual results with the default measurer; combined-unit diagnostics, annotation anchors, plugin failures, and viewer browser tests pass |
-| 4. Body-text additions            | Enable contextual ruby classes, joint jukugo placement, permitted overhang, positioned decorations, and new semantic styles in separate behavior changes | Each enabled coverage row gains independent acceptance tests; changed layouts are recorded with the selected style and reference                               |
+| Phase                             | Work                                                                                                                                               | Behavior gate                                                                                                                                                  |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Rules and policy — implemented | Separate admissibility tables, book-style selection, adjustment order, and scoring; keep the profile internal                                      | Existing pair-table, prohibition, stage, and paragraph-score outcomes are preserved; stage/cost independence has dedicated tests                               |
+| 2. Internal model — implemented   | Introduce run and ruby indexes, boundary records, source-space elements, and coupled adjustment units                                              | Same breaks, widths, source ranges, ruby allocation, and forced-overflow results; preserve the existing candidate-expansion regression check                   |
+| 3. Public contract — implemented  | Introduce explicit combined units and source placements; migrate measurement types, viewer, frontend fixtures, exports, and package docs together  | Equivalent logical and visual results with the default measurer; combined-unit diagnostics, annotation anchors, plugin failures, and viewer browser tests pass |
+| 4. Body-text additions            | Enable contextual ruby classes, joint jukugo placement, permitted overhang, new decoration rules, and semantic styles in separate behavior changes | Each enabled coverage row gains independent acceptance tests; changed layouts are recorded with the selected style and reference                               |
 
 Phase 3 validates the new `clustered` variant using synthetic provider fixtures;
 an actual font-shaping provider is later work. No persistence migration is needed

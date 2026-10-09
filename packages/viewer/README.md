@@ -108,14 +108,18 @@ The ruling, text, ruby, emphasis, and diagnostics are independent
 absolute-positioned layers. Text positions use core's logical em offsets and
 advances. A hanging glyph carries `data-disposition="hanging"`; a source item
 suppressed by composition is intentionally absent from visible text. Glyph cells
-use `renderSpan`, while ruby and diagnostic bands use the typographic
-`layoutSpan`. Glue and kern affect the resolved offsets but are not reconstructed
+use `renderSpan`; diagnostic bands use exact or shared source `layoutSpan`
+positions. A combined unit is drawn once, without reconstructing `groupRange`
+membership. Glue and kern affect the resolved offsets but are not reconstructed
 by the viewer.
 
-Emphasis marks are placed by the viewer rather than drawn with `text-emphasis`,
-which reserves the mark's room inside the marked character's own box and moves
-the character off its cell. One mark is drawn per marked cell, in the gap beside
-the line the ruby reading also uses.
+Ruby and emphasis use core's `AnnotationPlacement` for both inline and block
+coordinates. The viewer draws the supplied reading items and mark placements;
+it does not choose their anchors, side, count, or offset. The current core style
+places half-size decorations on the right of the body while preserving line
+pitch. Marks are independent boxes rather than browser `text-emphasis`, so they
+do not move the body glyphs. Update this viewer with the matching core public
+contract; the old per-grapheme combination contract has no adapter.
 
 One diagnostic band covers the range that reaches a line. Identical ranges are
 split into lanes so each remains visible and clickable. The band where a
@@ -130,6 +134,7 @@ State is exposed through these attributes:
 | `data-overflow`             | `.kgv-page`                        | present when content overflows |
 | `data-offscreen`            | `.kgv-page`                        | present on later pages         |
 | `data-disposition`          | `.kgv-cell`                        | `placed`, `hanging`            |
+| `data-side`                 | ruby characters and emphasis marks | `before`, `after`              |
 | `data-annotation`           | annotation elements                | annotation kind                |
 | `data-ruby-fit`             | `.kgv-ruby-fragment`               | `group`, `mono`, `jukugo`      |
 | `data-diagnostic-active`    | cells and diagnostic bands         | present when selected          |
