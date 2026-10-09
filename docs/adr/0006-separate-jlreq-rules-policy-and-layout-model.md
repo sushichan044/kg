@@ -134,7 +134,9 @@ shaping later with renderer agreement and dedicated mapping tests.
 
 Contextual mono and fittable-group ruby placement now resolves neighbor overhang,
 punctuation spacing limits, per-base anchors, and independent-reading clearance
-before candidate scoring. The [body-text plan](../plans/adr-0006-phase-4/overview.md)
+before candidate scoring. Jukugo segments now use joint succeeding-base-first
+placement and are recomposed when their bases split across lines. Full appendix F
+spacing distributions remain partial. The [body-text plan](../plans/adr-0006-phase-4/overview.md)
 tracks the remaining dependent changes. Sidelines, selectable sides, and mixed
 body sizes remain deferred; their future implementation will use semantic parser
 input and fixed-pitch composition without adding unused public contracts now.

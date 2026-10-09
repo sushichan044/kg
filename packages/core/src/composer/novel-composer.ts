@@ -218,15 +218,9 @@ function measureSourceLine(
       const segment = association.reading.segments[segmentIndex];
       const atom = atoms[index];
       if (segment === undefined || atom === undefined) continue;
-      const readingAdvance = measurements.get(segment, "ruby")?.advanceEm;
-      if (readingAdvance === undefined) return undefined;
-      if (association.reading.kind === "mono") {
-        const pieces = measurements.pieces(segment, "ruby");
-        if (pieces === undefined) return undefined;
-        candidateReadings.push({ association, ...physicalRange(index, index), pieces });
-        continue;
-      }
-      widenForReading(atom, readingAdvance - atom.boxAdvanceEm);
+      const pieces = measurements.pieces(segment, "ruby");
+      if (pieces === undefined) return undefined;
+      candidateReadings.push({ association, ...physicalRange(index, index), pieces });
     }
   }
 
@@ -801,16 +795,25 @@ function wrapSourceLine(
     characters.map(({ boxAdvanceEm }) => boxAdvanceEm),
     settings.flow.lineLengthEm,
   );
+  const rubyByIndex = new Map(
+    sourceLine.rubyAssociations.flatMap((association) =>
+      association.indexes.map((index) => [index, association] as const),
+    ),
+  );
   const resolveBoundary = (leftIndex: number, rightIndex: number): BoundaryRule | undefined => {
     const left = sourceLine.atoms[leftIndex];
     const right = sourceLine.atoms[rightIndex];
     if (left === undefined || right === undefined) return undefined;
-    return BoundaryRule.resolve(left.characterClass, right.characterClass, profile, {
+    const rule = BoundaryRule.resolve(left.characterClass, right.characterClass, profile, {
       runInterior: left.runIndex === right.runIndex,
       rubyInterior: rubyInteriors.has(rightIndex),
       sourceGap:
         sourceLine.suppressedIndexes.has(leftIndex) || sourceLine.suppressedIndexes.has(rightIndex),
     });
+    const compound = rubyByIndex.get(leftIndex);
+    return compound?.reading.kind === "jukugo" && compound === rubyByIndex.get(rightIndex)
+      ? { ...rule, spacing: null, finalStretch: false }
+      : rule;
   };
   const boundaries = Array.from({ length: characters.length + 1 }, (_, boundary) =>
     resolveBoundary(boundary - 1, boundary),
@@ -828,11 +831,6 @@ function wrapSourceLine(
     boundaries,
     profile,
     settings.flow.lineLengthEm,
-  );
-  const rubyByIndex = new Map(
-    sourceLine.rubyAssociations.flatMap((association) =>
-      association.indexes.map((index) => [index, association] as const),
-    ),
   );
   const rubyBases: RubyLineBase[] = sourceLine.atoms.map((atom, index) => {
     const association = rubyByIndex.get(index);

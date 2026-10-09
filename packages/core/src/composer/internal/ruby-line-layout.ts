@@ -3,6 +3,7 @@ import type { MeasurementTextRange } from "../measurement-text-range";
 import type { BoxAdjustment } from "./box-adjustment";
 import type { CandidateLine } from "./candidate-line";
 import type { CandidateMetrics } from "./japanese-paragraph";
+import { JukugoRuby } from "./jukugo-ruby";
 import type { MeasurementPiece } from "./measurement-session";
 import type { RubyAssociation } from "./ruby-association";
 import { RubyBoundary } from "./ruby-boundary";
@@ -54,17 +55,26 @@ function allowances(
   line: CandidateLine,
   gaps: ReadonlyMap<number, number>,
 ) {
+  const first = segment.association.indexes[0] ?? segment.start;
+  const last = segment.association.indexes.at(-1) ?? segment.end - 1;
+  const jukugo = segment.association.reading.kind === "jukugo";
   return {
-    before: RubyBoundary.overhang(
-      segment.start > line.contentStart ? bases[segment.start - 1] : undefined,
-      "before",
-      gaps.get(segment.start) ?? 0,
-    ),
-    after: RubyBoundary.overhang(
-      segment.end < line.end ? bases[segment.end] : undefined,
-      "after",
-      gaps.get(segment.end) ?? 0,
-    ),
+    before:
+      jukugo && segment.start > first && segment.start > line.contentStart
+        ? 0.5
+        : RubyBoundary.overhang(
+            segment.start > line.contentStart ? bases[segment.start - 1] : undefined,
+            "before",
+            gaps.get(segment.start) ?? 0,
+          ),
+    after:
+      jukugo && segment.end <= last && segment.end < line.end
+        ? 0.5
+        : RubyBoundary.overhang(
+            segment.end < line.end ? bases[segment.end] : undefined,
+            "after",
+            gaps.get(segment.end) ?? 0,
+          ),
   };
 }
 
@@ -78,6 +88,7 @@ function place(
   baseAdvanceEm: number,
   before: number,
   after: number,
+  resolvedOffsetEm?: number,
 ): RubyLinePlacement {
   const total = readingAdvance(segment);
   const overhang = total > baseAdvanceEm ? Math.min(total - baseAdvanceEm, before + after) : 0;
@@ -86,7 +97,7 @@ function place(
     total < baseAdvanceEm && segment.pieces.length > 0
       ? (baseAdvanceEm - total) / (2 * segment.pieces.length)
       : 0;
-  let offsetEm = baseOffsetEm - leading + edgeGap;
+  let offsetEm = resolvedOffsetEm ?? baseOffsetEm - leading + edgeGap;
   const items = segment.pieces.map((piece, index) => {
     const item: PositionedReadingItem = {
       value: piece.value,
@@ -151,7 +162,7 @@ export const RubyLineLayout = {
     };
     let line = resolve();
     // Each pass adds only missing width. The final pass verifies fitting and ink clearance.
-    for (let pass = 0; pass <= selected.length + 2; pass += 1) {
+    for (let pass = 0; pass <= selected.length * 2 + 2; pass += 1) {
       const { offsets, gaps } = positions(bases, line);
       const placements: RubyLinePlacement[] = [];
       let changed = false;
@@ -173,6 +184,64 @@ export const RubyLineLayout = {
           changed = true;
         }
         placements.push(place(segment, first.offsetEm, span, before, after));
+      }
+      if (changed) {
+        line = resolve(metrics());
+        continue;
+      }
+      for (let index = 0; index < selected.length; index += 1) {
+        const first = selected[index];
+        if (first?.association.reading.kind !== "jukugo") continue;
+        const group = [first];
+        while (selected[index + group.length]?.association === first.association) {
+          const next = selected[index + group.length];
+          if (next === undefined) break;
+          if (next.start < (group.at(-1)?.end ?? next.start)) return undefined;
+          group.push(next);
+        }
+        const readings = group.flatMap((segment) => {
+          const baseStart = offsets.get(segment.start);
+          const baseEnd = offsets.get(segment.end - 1);
+          if (baseStart === undefined || baseEnd === undefined) return [];
+          const baseAdvanceEm = baseEnd.offsetEm + baseEnd.advanceEm - baseStart.offsetEm;
+          const total = readingAdvance(segment);
+          const edgeGap =
+            segment.pieces.length > 0 && total < baseAdvanceEm
+              ? (baseAdvanceEm - total) / (2 * segment.pieces.length)
+              : 0;
+          const limits = allowances(bases, segment, line, gaps);
+          return [
+            {
+              baseOffsetEm: baseStart.offsetEm,
+              baseAdvanceEm,
+              readingAdvanceEm: total + Math.max(0, segment.pieces.length - 1) * edgeGap * 2,
+              beforeEm: limits.before,
+              afterEm: limits.after,
+            },
+          ];
+        });
+        const result = JukugoRuby.resolve(readings);
+        if (result.kind === "needs-spacing") {
+          const following = group[result.afterIndex + 1];
+          if (following === undefined) return undefined;
+          extraGaps.set(following.start, (extraGaps.get(following.start) ?? 0) + result.amountEm);
+          changed = true;
+        } else {
+          for (const [groupIndex, segment] of group.entries()) {
+            const reading = readings[groupIndex];
+            const offsetEm = result.offsetsEm[groupIndex];
+            if (reading === undefined || offsetEm === undefined) return undefined;
+            placements[index + groupIndex] = place(
+              segment,
+              reading.baseOffsetEm,
+              reading.baseAdvanceEm,
+              reading.beforeEm,
+              reading.afterEm,
+              offsetEm,
+            );
+          }
+        }
+        index += group.length - 1;
       }
       if (changed) {
         line = resolve(metrics());

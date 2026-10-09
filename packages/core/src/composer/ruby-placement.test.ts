@@ -145,3 +145,70 @@ describe("contextual ruby placement", () => {
     expect(reading.placement.inlineSpan.offsetEm).toBe(0.5);
   });
 });
+
+describe("joint jukugo placement", () => {
+  test.each([
+    ["京都", ["きょう", "と"], [0, 1.5]],
+    ["字熟", ["じ", "じゅく"], [0, 0.5]],
+    ["温泉", ["おん", "せん"], [0, 1]],
+    ["漢字語", ["かんじ", "じご", "ご"], [0, 1.5, 2.5]],
+  ] as const)("jointly arranges %s without expanding its bases", (text, segments, offsets) => {
+    const { glyphs, ruby } = composeRuby(text, [
+      { start: 0, length: text.length, reading: { kind: "jukugo", segments } },
+    ]);
+    const fragment = ruby[0];
+    expect.assert(fragment !== undefined);
+    const starts: number[] = [];
+    let itemIndex = 0;
+    for (const segment of segments) {
+      const first = fragment.readingItems[itemIndex];
+      expect.assert(first !== undefined);
+      starts.push(first.placement.inlineSpan.offsetEm);
+      itemIndex += segment.length;
+    }
+
+    expect(glyphs.map((glyph) => glyph.layoutSpan.advanceEm)).toEqual(
+      Array.from({ length: text.length }, () => 1),
+    );
+    expect(starts).toEqual(offsets);
+    expect(fragment.reading).toBe(segments.join(""));
+    expect(fragment.rubyKind).toBe("jukugo");
+  });
+
+  test("uses succeeding outer kana before increasing the compound width", () => {
+    const { glyphs, ruby } = composeRuby("漢字あ", [
+      { start: 0, length: 2, reading: { kind: "jukugo", segments: ["かんじ", "じご"] } },
+    ]);
+    const last = ruby[0]?.readingItems.at(-1);
+    expect.assert(last !== undefined);
+
+    expect(glyphs.map((glyph) => glyph.layoutSpan.advanceEm)).toEqual([1, 1, 1]);
+    expect(last.placement.inlineSpan.offsetEm + last.placement.inlineSpan.advanceEm).toBe(2.5);
+  });
+
+  test("adds base spacing when two long compound readings cannot share the natural width", () => {
+    const { lines, glyphs, ruby } = composeRuby("漢字", [
+      { start: 0, length: 2, reading: { kind: "jukugo", segments: ["かんじ", "じゅく"] } },
+    ]);
+    const first = ruby[0]?.readingItems[0];
+    const second = ruby[0]?.readingItems[3];
+    expect.assert(first !== undefined && second !== undefined);
+
+    expect(glyphs.map((glyph) => glyph.layoutSpan.advanceEm)).toEqual([1, 1]);
+    expect(glyphs.map((glyph) => glyph.layoutSpan.offsetEm)).toEqual([0, 2]);
+    expect(lines[0]?.inlineSizeEm).toBe(3);
+    expect(first.placement.inlineSpan.offsetEm).toBe(0);
+    expect(second.placement.inlineSpan.offsetEm).toBe(1.5);
+  });
+
+  test("recomputes the readings when a compound splits between bases", () => {
+    const { lines, ruby } = composeRuby(`${"あ".repeat(9)}京都`, [
+      { start: 9, length: 2, reading: { kind: "jukugo", segments: ["きょう", "と"] } },
+    ]);
+
+    expect(lines).toHaveLength(2);
+    expect(ruby.map((fragment) => fragment.reading)).toEqual(["きょう", "と"]);
+    expect(ruby.map((fragment) => fragment.continuation)).toEqual(["start", "end"]);
+    expect(ruby[1]?.readingItems[0]?.placement.inlineSpan.offsetEm).toBe(0.25);
+  });
+});
