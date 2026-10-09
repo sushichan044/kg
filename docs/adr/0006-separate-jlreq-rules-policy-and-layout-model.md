@@ -1,6 +1,6 @@
 # ADR 0006: Separate JLReq rules, book style, and layout data
 
-- Status: Accepted; phases 1–3 implemented, phase 4 pending
+- Status: Accepted; phases 1–3 implemented, phase 4 in progress
 - Date: 2026-10-08
 - Extends: ADR 0005
 - Detailed design: [Japanese typesetting model](../jlreq-typesetting-model.md)
@@ -129,3 +129,12 @@ without duplicating source characters to fit a hierarchy.
 Current deterministic logical measurement is sufficient to verify the structural
 migration. Define the cluster-capable interface now and implement real font
 shaping later with renderer agreement and dedicated mapping tests.
+
+## Phase 4 progress
+
+Contextual mono and fittable-group ruby placement now resolves neighbor overhang,
+punctuation spacing limits, per-base anchors, and independent-reading clearance
+before candidate scoring. The [body-text plan](../plans/adr-0006-phase-4/overview.md)
+tracks the remaining dependent changes. Sidelines, selectable sides, and mixed
+body sizes remain deferred; their future implementation will use semantic parser
+input and fixed-pitch composition without adding unused public contracts now.

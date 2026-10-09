@@ -88,7 +88,7 @@ function isBetter(
 export function layoutParagraph(
   atoms: readonly ParagraphElement[],
   lineLengthEm: number,
-  resolveCandidate: (start: number, end: number) => CandidateLine,
+  resolveCandidate: (start: number, end: number) => CandidateLine | undefined,
   boundaryAllowed: (leftIndex: number, rightIndex: number) => boolean,
   evaluation: ParagraphEvaluation = defaultParagraphEvaluation,
 ): ParagraphLinePlan[] {
@@ -126,9 +126,11 @@ export function layoutParagraph(
 
     // Geometry depends on the line interval, not the preceding line's fitness. Retain only
     // this start's bounded search window rather than a graph of every paragraph candidate.
-    const candidatesByEnd = new Map<number, CandidateLine>();
+    const candidatesByEnd = new Map<number, CandidateLine | undefined>();
     for (const state of activeStates.values()) {
+      let minimumSizeEm = 0;
       for (let end = contentStart + 1; end <= atoms.length; end += 1) {
+        minimumSizeEm += atoms[end - 1]?.boxAdvanceEm ?? 0;
         const right = skipSourceGaps(atoms, end);
         const left = previousVisible(atoms, end);
         if (atoms[end - 1]?.sourceGap === true) continue;
@@ -141,9 +143,13 @@ export function layoutParagraph(
         }
 
         let line = candidatesByEnd.get(end);
-        if (line === undefined) {
+        if (!candidatesByEnd.has(end)) {
           line = resolveCandidate(start, end);
           candidatesByEnd.set(end, line);
+        }
+        if (line === undefined) {
+          if (minimumSizeEm > lineLengthEm * 2 && end > contentStart + 1) break;
+          continue;
         }
         if (
           line.break.kind === "forced" &&

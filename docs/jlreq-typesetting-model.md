@@ -1,7 +1,8 @@
 # Separate Japanese typesetting rules, policy, and layout data
 
-Status: Phases 1–3 implemented. Additional typesetting behavior and actual font
-shaping remain proposed.
+Status: Phases 1–3 implemented. Phase 4 contextual mono and fittable-group ruby
+is implemented; joint jukugo, oversized-group allocation, and decoration clearance
+remain pending. Actual font shaping remains proposed.
 
 The composer represents characters, text runs, ruby associations, boundaries,
 and candidate lines separately. This gives each Japanese typesetting rule an owner
@@ -63,13 +64,14 @@ middle-dot reduction spends its preceding and trailing slots once and leaves
 any other capacity at its original stage. Finite capacities and the eligible
 slot set for final expansion remain separate.
 
-The implementation currently classifies base characters without cl-22 or cl-23
-ruby context. It preserves all three ruby kinds in parsed annotations, but the
-measurement path treats mono and jukugo readings alike. It widens base boxes for
-long readings without consulting adjacent characters for overhang. Group readings
-that span lines are allocated by measured base advances after line selection.
-Those are distinct limitations: input association is present, while several
-placement procedures are not.
+Mono and fittable-group readings are resolved for each candidate. Lexical classes
+remain available for base metrics, while ruby boundary queries distinguish cl-22
+and cl-23 context. JLReq 3.3.8 supplies neighbor-dependent overhang limits, including
+punctuation spacing after adjustment. Independent readings over intervening kana
+retain one ruby-em clearance. Unresolved excess widens the bases before scoring.
+Jukugo and oversized groups retain their conservative widening and post-selection
+allocation until their own behavior changes. The [phase 4 plan](plans/adr-0006-phase-4/overview.md)
+records that sequence and the deferred semantic-style boundary.
 
 ## Coverage and ownership
 
@@ -104,15 +106,15 @@ concept outside the current body-text design.
 | [3.3.1–3.3.2][ruby-usage]                                     | Preserve ruby kind and the base-to-reading association supplied by notation               | Implemented: group, mono, jukugo; overlapping ruby associations and mismatched segments are rejected                                            | Ruby association / association survives run recognition                               |
 | [3.3.3][ruby-size]                                            | Make reading size explicit in measurement and placement                                   | Policy: half-size ruby is explicit in measurement scale and decoration placement                                                                | Annotation style / one consistent ratio in measurement and output                     |
 | [3.3.4][ruby-side]                                            | Decide the annotation side before placement                                               | Partial: explicit right-side placement in core output; no selectable annotation side                                                            | Annotation style and placement / chosen side independent of renderer                  |
-| [3.3.5][mono-ruby]                                            | Place each mono reading against its own base                                              | Partial: per-base widening and centering; no adjacent overhang constraints                                                                      | Ruby candidate layout / short and long mono readings                                  |
-| [3.3.6][group-ruby]                                           | Place a reading against its whole base group and account for internal spacing             | Partial: widening and fittable-group protection; oversized splitting is a kg extension                                                          | Ruby association and candidate layout / short, equal, and long reading                |
+| [3.3.5][mono-ruby]                                            | Place each mono reading against its own base                                              | Implemented for logical mono placement: per-base anchors and contextual overhang                                                                | Ruby candidate layout / short and long mono readings                                  |
+| [3.3.6][group-ruby]                                           | Place a reading against its whole base group and account for internal spacing             | Partial: fittable-group protection and candidate-local overhang; oversized splitting is a kg extension                                          | Ruby association and candidate layout / short, equal, and long reading                |
 | [3.3.7][jukugo-ruby], [F.1–F.4][jukugo-appendix]              | Preserve per-base readings while jointly arranging the compound and its fragments         | Partial: semantic segments retained; no joint jukugo placement algorithm                                                                        | Ruby candidate layout / reading lengths 1 and 3; compound split between bases         |
-| [3.3.8][ruby-overhang], [B.2][spacing-notes]                  | Resolve permitted overhang from neighboring context and keep reading runs distinguishable | Missing: current widening does not resolve overhang or adjacent reading collisions                                                              | Boundary annotation constraints and candidate placement / kana versus kanji neighbors |
+| [3.3.8][ruby-overhang], [B.2][spacing-notes]                  | Resolve permitted overhang from neighboring context and keep reading runs distinguishable | Partial: mono/fittable-group overhang, punctuation limits, and independent-reading clearance; oversized/jukugo pending                          | Boundary annotation constraints and candidate placement / kana versus kanji neighbors |
 | [3.3.9][emphasis]                                             | Position emphasis marks against their associated base text                                | Partial: parser association and explicit core mark placements, including combined units                                                         | Positioned annotation / combining marks, combined units, ruby coexistence             |
 | [3.5.1–3.5.2][paragraphs]                                     | Keep paragraph-start indentation and continuation indentation explicit                    | Partial: source spaces and bracket scheme; every source newline starts a composition paragraph, with no semantic indent contract                | Paragraph context / authored indentation and continuation line                        |
 | [3.8.3][reduction], [D.1–D.2][reduction-table]                | Separate admissible reductions from the order selected by the book style                  | Partial + policy: explicit units with independent stages and costs; kg spends invisible line-end space before word spaces                       | Adjustment unit and policy / a line with both opportunities                           |
 | [3.8.4][expansion], [E.1–E.2][expansion-table]                | Distinguish bounded stages from the final expansion opportunities                         | Partial: finite stages and final-stage pair set for current classes                                                                             | Adjustment unit and policy / bounded word space and evenly distributed remainder      |
-| [3.9][classes], [A.1–A.30][class-list]                        | Derive contextual classes without erasing original character identity                     | Partial: cl-01–cl-16, cl-19, cl-24–cl-27, cl-30; no ruby-context classes                                                                        | Classification and association / cl-22 and cl-23 at ruby boundaries                   |
+| [3.9][classes], [A.1–A.30][class-list]                        | Derive contextual classes without erasing original character identity                     | Partial: lexical classes plus separate cl-22/cl-23 overhang context; complete appendix B ruby cells pending                                     | Classification and association / cl-22 and cl-23 at ruby boundaries                   |
 | [4.5.1–4.5.2][line-gap]                                       | Keep body pitch stable while allocating annotation space and paragraph separation         | Partial: fixed geometry, source blank lines, and explicit decoration coordinates; no semantic paragraph-separation contract                     | Geometry and paragraph style / adjacent annotated lines                               |
 
 ### Deferred requirements
@@ -256,8 +258,9 @@ does not introduce a public arbitrary rule plugin or a new settings UI.
 
 ### Ruby and other annotation placement
 
-The initial resolver reproduces current widening and reading allocation. The
-following candidate procedure defines where future ruby behavior belongs:
+The mono and fittable-group resolver implements contextual placement before
+candidate scoring. The complete procedure below also defines the remaining
+jukugo, oversized-group, and decoration work:
 
 1. Intersect the candidate base range with each ruby association. Keep mono and
    jukugo reading segments tied to their base graphemes. For oversized group
@@ -281,8 +284,8 @@ following candidate procedure defines where future ruby behavior belongs:
 
 The initial style allows the reference's usual overhang over kana and forbids it
 over adjacent kanji. Bracket and punctuation amounts come from the applicable
-notes, not one global overhang constant. This is a future style choice; enabling
-it changes existing layouts and belongs to the final migration phase.
+notes, not one global overhang constant. The mono and fittable-group implementation enables this style. Changed breaks
+and reading positions are intentional phase 4 behavior changes.
 
 Group-ruby fragments must account for the reading already assigned to preceding
 fragments. The future implementation carries that reading cursor in DP state.
