@@ -44,12 +44,15 @@ export type { NovelLine } from "./composer/novel-line";
 export type { CompositionStatistics } from "./composer/composition-statistics";
 export type { LineBreakResult } from "./composer/line-break-result";
 export type { InlineSpan } from "./composer/inline-span";
-export type { VerticalTextPresentation } from "./composer/vertical-text-presentation";
+export type { PresentationKind } from "./composer/presentation-kind";
+export type { SingleGlyphUnit } from "./composer/single-glyph-unit";
+export type { CombinedGlyphUnit } from "./composer/combined-glyph-unit";
+export type { PositionedInlineItem } from "./composer/positioned-inline-item";
+export type { SourcePlacement } from "./composer/source-placement";
+export type { AnnotationPlacement } from "./composer/annotation-placement";
 export type { ComposedAnnotationFragment } from "./composer/composed-annotation-fragment";
 export type {
   ComposedGlue,
-  ComposedGlyph,
-  ComposedInlineItem,
   ComposedKern,
   SuppressedInlineItem,
 } from "./composer/composed-inline-item";

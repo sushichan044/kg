@@ -37,7 +37,7 @@ persistence.
 Parsers normalize service-specific source notation into display graphemes and a
 closed annotation union. Ruby readings preserve their semantic association as
 `group`, `mono`, or `jukugo`. The built-in `novelComposer` applies Japanese line
-breaking and paragraph-wide line adjustment, then emits a `glyph | glue | kern |
+breaking and paragraph-wide line adjustment, then emits a `glyph | combined-glyph | glue | kern |
 suppressed` inline-item stream and positioned annotation fragments. Glyphs expose
 separate typographic layout and visual render spans. Core pairs that layout with the
 manuscript and the settings it already validated. Proofreading rules declare
@@ -54,8 +54,11 @@ render units. [ADR 0006](adr/0006-separate-jlreq-rules-policy-and-layout-model.m
 records the design decision. Rules/policy and internal-model migration are
 implemented: oriented runs and ruby indexes feed independent boundary records,
 a candidate resolver, a numeric allocator, and paragraph DP. Adjustment order
-and visual cost are separate. Public render units and the cluster-capable
-measurement contract remain planned; the public APIs described here are current.
+and visual cost are separate. Public render units retain exact or shared source
+placements. The synchronous run measurement contract distinguishes aggregate
+advance from cluster mappings; the default provider remains logical and a real
+font-shaping provider remains later work. Ruby reading units and emphasis marks
+carry explicit inline and block placement.
 
 Each concept is one module holding a type and a companion object of the same
 name, which owns that type's schema and operations. `index.ts` only re-exports.
@@ -110,7 +113,9 @@ turning it off does not recompose or reposition the text.
 The viewer does not parse source, compose pages, run rules, register plugins,
 manage settings, or persist preferences. DOM-only navigation remains available
 through the viewer ref handle. Visible-page and effective-zoom changes are
-reported as events.
+reported as events. The viewer draws combined units directly, maps diagnostic
+bands through exact/shared source placements, and consumes core's decoration
+coordinates without deciding typography.
 
 Viewer CSS is explicitly imported and scoped with the `kgv-` namespace. React
 and React DOM remain peer dependencies.

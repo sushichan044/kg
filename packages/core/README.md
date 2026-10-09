@@ -146,36 +146,58 @@ The composer classifies vertical text before measuring and breaking lines. Follo
 [JLReq](https://www.w3.org/TR/jlreq/#mixed_text_composition_in_vertical_writing_mode),
 upright Latin initials and abbreviations advance by one em per character, Western
 words remain unbroken and render sideways, and two ASCII digits form one
-tate-chu-yoko unit. The resulting `VerticalTextPresentation` is carried by every
-glyph item, so renderers do not need to infer orientation independently.
+tate-chu-yoko unit. Each render unit carries its selected `presentation` as a
+string. A `CombinedGlyphUnit` renders the two digits together; the composer owns
+that decision, so renderers do not compare source group ranges.
 
 An upright Western character sets solid against the kana or kanji beside it rather than
 taking the quarter em 3.2.6 puts around a sideways run, following JLReq 3.2.4: it classes
 with kanji, the same way 3.2.5 classes a tate-chu-yoko run. `QR` and `URL` set upright by
 this rule read flush against their surrounding Japanese text, the way a kanji compound does.
 
-The default logical measurer uses East Asian Width in a Japanese context. Upright
-ASCII advances by one em; proportional ASCII and the members of a tate-chu-yoko unit
-advance by half an em. Supply a synchronous measurer when the caller has more accurate
-font metrics. Base-text requests also include the selected `presentation`:
+The default `logicalRunMeasurer` uses East Asian Width in a Japanese context.
+Upright ASCII advances by one em; sideways ASCII and tate-chu-yoko members
+advance by half an em. Measurement is synchronous and DOM-independent.
+
+Supply a `RunMeasurer` through the plugin entry when metrics are already available:
 
 ```ts
-import { createNovelComposer } from "@sushichan044/kg-core/plugin";
+import { createNovelComposer, logicalRunMeasurer } from "@sushichan044/kg-core/plugin";
 
-const composer = createNovelComposer({
-  measurer: (request) => ({
-    advanceEm: measureWithAvailableFont(request.text, {
-      role: request.role,
-      fontPreset: request.fontPreset,
-      writingMode: request.writingMode,
-      ...(request.role === "base" ? { presentation: request.presentation } : {}),
-    }),
-  }),
-});
+const composer = createNovelComposer({ measurer: logicalRunMeasurer });
 ```
 
-A measurer returns `{ advanceEm }` in logical em units. Negative or non-finite
-results reject the composition instead of producing a partial layout.
+`MeasurementRequest` includes `text`, `kind` (`base` or `ruby`), `presentation`,
+`fontPreset`, body `fontSizePt`, `writingMode`, and `scale`. A provider returns
+measurements in body em and applies `scale` once: `1` for base text, `0.5` for ruby.
+Measured widths exclude punctuation box adjustments, pair spacing, hanging, and
+ruby expansion.
+
+`RunMeasurement` has two variants:
+
+- `{ kind: "advance", advanceEm }` supplies aggregate width. The composer retains
+  per-grapheme measurement for positioning; it never divides a nonadditive run
+  width equally among its members. Complete reading widths still inform base
+  widening.
+- `{ kind: "clustered", advanceEm, clusters }` supplies authoritative cluster
+  positions. Each `MeasuredCluster` has a request-local `textRange`, `layoutSpan`,
+  and `renderSpan`. Use `MeasurementTextRange.of({ start, end })` to construct the
+  branded UTF-16 range. Clusters partition text at grapheme boundaries and layout
+  advance within `1e-9`; render spans can overlap and overhang. The composer does
+  not remeasure cluster members or break a line inside a cluster.
+
+A multi-grapheme sideways cluster, such as a shaped `ffi` ligature, is drawn in a
+combined run with shared source positions. Upright `QR` and `URL` are orientation
+choices; they do not by themselves imply a shared cluster. The combined-unit
+contract supports sideways text and tate-chu-yoko. A provider result that cannot
+be represented by that contract is refused rather than split or approximated.
+The logical provider returns `advance`; a real shaped provider and matching font
+realization remain later work.
+
+Tate-chu-yoko retains the sum of member advances, including custom widths. The
+composer does not silently rescale a custom measurement to one em. Negative or
+non-finite advances and invalid cluster mappings produce a typed composition
+failure rather than a partial layout.
 
 Ruby annotations retain one of three associations: `group` for one reading over
 the entire base, `mono` for one reading segment per base grapheme, and `jukugo`
@@ -206,7 +228,7 @@ ranges are distinct branded types, and plugin IDs are branded `NamespacedId`.
 
 A companion object is exported as a value only when one of the three roles
 calls something on it. Concepts you only ever read out of a composed layout —
-`NovelPage`, `ComposedGlyph`, `LineBreakResult`, and the like — are exported as
+`NovelPage`, `SingleGlyphUnit`, `CombinedGlyphUnit`, `LineBreakResult`, and the like — are exported as
 types alone, so their schemas are not part of the API. The settings you persist
 and re-validate keep theirs: `NovelCompositionSettings.schema`,
 `ManuscriptAppearanceSettings.schema`, `ManuscriptOffsets.schema`,
@@ -218,12 +240,52 @@ failure carries exactly one error from a discriminated union, so callers can
 as typed fields; `describe` renders one for display. Invalid settings and
 plugin output fail explicitly; values are never clamped or partially trusted.
 
-## Source mapping
+## Source mapping and render units
 
 Source and display ranges are zero-based, end-exclusive UTF-16 offsets.
-Grapheme ranges index the normalized grapheme array. Diagnostics include
-one-based source line and column positions, so renderers do not need to search
-or recalculate locations.
+Grapheme ranges index the normalized grapheme array. Measurement text ranges are
+local to a request and have a different brand.
+
+`NovelLine.items` contains `PositionedInlineItem`: single glyphs, combined glyphs,
+glue, kern, and suppressed source text. Render units have distinct `layoutSpan`
+and `renderSpan` values plus `sources`. An `exact` source placement locates one
+parsed grapheme; a `shared` placement associates several graphemes with one span
+without inventing interior caret positions. Default tate-chu-yoko retains exact
+half-em positions for each digit. A diagnostic on a shared member highlights the
+shared span while keeping the diagnostic's original range.
+
+Hanging glyphs have zero layout advance and a nonzero render span. Authored glue
+and suppressed separators keep their source ranges, including at line edges.
+`NovelLine.range` includes all source-backed members. Generated spacing has no
+source range.
+
+Ruby fragments contain `readingItems`, each with a fragment-local `textRange`
+and `AnnotationPlacement`. Emphasis fragments contain `placements`. Inline
+positions are line-relative; block offsets start at the body's right edge and
+increase leftward. The current right-side, half-size decorations use `side:
+"before"`, `blockOffsetEm: -0.5`, and `blockSizeEm: 0.5`. The viewer consumes these
+coordinates without computing ruby or emphasis placement.
+
+Annotations retain their original logical association even on part of a combined
+unit, whose whole physical span anchors the decoration. Incompatible readings on
+members of the same unit cause a composition refusal. Bold and italic retain
+source-range fragments. New overhang and jukugo placement rules are separate
+future behavior changes.
+
+Diagnostics include one-based source line and column positions, so renderers do
+not need to search or recalculate locations.
+
+### Breaking API migration
+
+Update core and viewer together. `SingleGlyphUnit`, `CombinedGlyphUnit`, and
+`PositionedInlineItem` replace `ComposedGlyph` and `ComposedInlineItem`;
+`PresentationKind` replaces the `VerticalTextPresentation` group object. The
+plugin entry replaces `InlineMeasureRequest`, `InlineMeasurement`,
+`InlineMeasurer`, and `logicalInlineMeasurer` with the run measurement contracts
+above. `createNovelComposer({ measurer })` keeps its option name but requires the
+new request and discriminated result. Ruby `readingGraphemes` becomes
+`readingItems`; decoration positions move into core output. Persisted settings
+and parser/proofreading entrypoints are unchanged.
 
 ## Proofreading rules
 

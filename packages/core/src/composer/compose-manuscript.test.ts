@@ -16,7 +16,7 @@ import { createNovelComposer, novelComposer } from "./novel-composer";
 import type { NovelLine } from "./novel-line";
 
 function lineGlyphs(line: NovelLine) {
-  return line.items.filter((item) => item.kind === "glyph");
+  return line.items.filter((item) => item.kind === "glyph" || item.kind === "combined-glyph");
 }
 
 function suppressedItems(line: NovelLine) {
@@ -44,7 +44,9 @@ function settings(patch: Partial<NovelCompositionSettings["flow"]> = {}): NovelC
 function lineText(line: NovelLine): string {
   return line.items
     .flatMap((item) =>
-      item.kind === "glyph" || (item.kind === "glue" && item.origin === "source")
+      item.kind === "glyph" ||
+      item.kind === "combined-glyph" ||
+      (item.kind === "glue" && item.origin === "source")
         ? [item.value]
         : [],
     )
@@ -115,7 +117,7 @@ describe("composeManuscript", () => {
       lineGlyphs(line).map(({ value, layoutSpan, presentation }) => ({
         value,
         advanceEm: layoutSpan.advanceEm,
-        presentation: presentation.kind,
+        presentation,
       })),
     ).toEqual([
       { value: "あ", advanceEm: 1, presentation: "mixed" },
@@ -134,8 +136,7 @@ describe("composeManuscript", () => {
       { value: "o", advanceEm: 0.5, presentation: "sideways" },
       { value: "r", advanceEm: 0.5, presentation: "sideways" },
       { value: "え", advanceEm: 1, presentation: "mixed" },
-      { value: "1", advanceEm: 0.5, presentation: "tate-chu-yoko" },
-      { value: "2", advanceEm: 0.5, presentation: "tate-chu-yoko" },
+      { value: "12", advanceEm: 1, presentation: "tate-chu-yoko" },
       { value: "お", advanceEm: 1, presentation: "mixed" },
       { value: "Ｗ", advanceEm: 1, presentation: "upright" },
     ]);
@@ -817,7 +818,7 @@ describe("composeManuscript", () => {
 
     // The seven-grapheme reading measures three and a half em over a one em base, so the base box
     // grows to the reading and the surplus falls either side of the character rather than after it.
-    expect(base.layoutSpan.advanceEm).toBe(ruby.baseAdvanceEm);
+    expect(base.layoutSpan.advanceEm).toBe(3.5);
     expect(base.renderSpan.offsetEm - base.layoutSpan.offsetEm).toBeCloseTo(
       base.layoutSpan.offsetEm +
         base.layoutSpan.advanceEm -
@@ -843,12 +844,12 @@ describe("composeManuscript", () => {
     expect.assert(first !== undefined && second !== undefined, "line has no base characters");
     expect.assert(ruby !== undefined, "line has no ruby fragment");
 
-    const leading = first.renderSpan.offsetEm - ruby.baseOffsetEm;
+    const leading = first.renderSpan.offsetEm - first.layoutSpan.offsetEm;
     const between =
       second.renderSpan.offsetEm - (first.renderSpan.offsetEm + first.renderSpan.advanceEm);
     const trailing =
-      ruby.baseOffsetEm +
-      ruby.baseAdvanceEm -
+      second.layoutSpan.offsetEm +
+      second.layoutSpan.advanceEm -
       (second.renderSpan.offsetEm + second.renderSpan.advanceEm);
 
     expect(leading).toBeGreaterThan(0);
@@ -995,9 +996,9 @@ describe("composeManuscript", () => {
     const parseResult = parseManuscript(`｜${base}《${reading}》`, { parser: kakuyomuParser });
     expect.assert(parseResult.ok, "fixture did not parse");
     const composer = createNovelComposer({
-      measurer: ({ text, role }) => {
-        if (role === "ruby") return { advanceEm: text.length / 10 };
-        return { advanceEm: text === "a" || text === "b" ? 4.5 : 1 };
+      measurer: ({ text, kind }) => {
+        if (kind === "ruby") return { kind: "advance", advanceEm: text.length / 10 };
+        return { kind: "advance", advanceEm: text === "a" || text === "b" ? 4.5 : 1 };
       },
     });
 
@@ -1017,7 +1018,9 @@ describe("composeManuscript", () => {
 
   test("rejects an invalid custom measurement as a typed composer rejection", () => {
     const result = composeManuscript(parsed("本文"), {
-      composer: createNovelComposer({ measurer: () => ({ advanceEm: Number.NaN }) }),
+      composer: createNovelComposer({
+        measurer: () => ({ kind: "advance", advanceEm: Number.NaN }),
+      }),
       settings: settings(),
     });
 
@@ -1029,8 +1032,9 @@ describe("composeManuscript", () => {
     const parseResult = parseManuscript("｜漢字《かんじ》", { parser: kakuyomuParser });
     expect.assert(parseResult.ok, "fixture did not parse");
     const composer = createNovelComposer({
-      measurer: ({ text, role }) => ({
-        advanceEm: role === "ruby" && text === "か" ? Number.NaN : 1,
+      measurer: ({ text, kind }) => ({
+        kind: "advance",
+        advanceEm: kind === "ruby" && text === "か" ? Number.NaN : 1,
       }),
     });
 

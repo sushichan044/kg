@@ -84,6 +84,22 @@ const test = base.extend<Fixtures>({
   ],
 });
 
+test("renders composer-owned combined units without duplicating the accessible manuscript", async ({
+  novelSource,
+}) => {
+  novelSource.current = "あ12い";
+
+  const screen = await render(<App />);
+
+  await vi.waitFor(() => {
+    const cells = Array.from(screen.container.querySelectorAll(".kgv-cell"));
+    expect(cells.map((cell) => cell.textContent)).toEqual(["あ", "12", "い"]);
+    const text = screen.container.querySelector(".kgv-visually-hidden");
+    expect.assert(text !== null);
+    expect(text.textContent.trim()).toBe("あ12い");
+  });
+});
+
 test("connects proofreading feedback to the drawer and manuscript cells", async () => {
   await page.viewport(1280, 800);
   const screen = await render(<App />);

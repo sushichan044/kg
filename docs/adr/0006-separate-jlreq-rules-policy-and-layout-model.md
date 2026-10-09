@@ -1,6 +1,6 @@
 # ADR 0006: Separate JLReq rules, book style, and layout data
 
-- Status: Accepted; phases 1–2 implemented, phases 3–4 pending
+- Status: Accepted; phases 1–3 implemented, phase 4 pending
 - Date: 2026-10-08
 - Extends: ADR 0005
 - Detailed design: [Japanese typesetting model](../jlreq-typesetting-model.md)
@@ -58,20 +58,47 @@ em and DOM-independent. Future cluster mappings can cover multiple graphemes
 without inventing caret positions inside a ligature. Actual font realization and
 renderer agreement require a later shaped-provider implementation.
 
+### Orientation, combination, and measurement clusters
+
+Orientation describes how a run is presented. Upright `QR` and `URL` do not imply
+that their letters share one measured position. Tate-chu-yoko is a composer-owned
+combination, independent of whether a provider reports aggregate or clustered
+metrics. Its default two digits retain exact half-em logical source placements.
+
+A measurement cluster records the source-to-position correspondence supplied by
+a provider. Font shaping can merge characters into a ligature, such as `ffi`,
+whose members share a span. Aggregate width for a whole string is only an
+`advance` result; it does not establish a shared cluster or positions for its
+members. Preserve per-grapheme positioning for that variant instead of evenly
+dividing a nonadditive width.
+
+Phase 3 tests the clustered contract with synthetic providers, including shared
+`ffi` sources and invalid boundaries. It does not implement font shaping or
+promise that arbitrary browser fonts reproduce provider metrics. Keep the
+combined-unit variants in the detailed design; expand them when a concrete
+provider and rendering use case requires another orientation.
+
+Phase 3 also moves the existing ruby and emphasis positions into the public
+inline/block coordinate contract. Phase 4 adds new placement behavior, including
+overhang, joint jukugo arrangement, annotation-side choices, and future semantic
+decorations. Publishing existing positions does not establish those additional
+JLReq procedures as implemented.
+
 ## Consequences
 
-The design document defines proposed types, source invariants, coverage owners,
-worked cases, and migration gates. It describes future contracts explicitly;
-the current code and published package APIs are unchanged by this ADR.
+The design document defines implemented contracts, source invariants, coverage
+owners, worked cases, and migration gates. Phases 1–3 are implemented in core,
+viewer, and the frontend. Additional body-text behavior remains explicitly
+proposed. The phase 3 public contracts require a coordinated package revision.
 
-The later public-output and measurement migration is a coordinated breaking
+The public-output and measurement migration is a coordinated breaking
 change to core, plugin authors, viewer, and application fixtures. Parser source
 identity remains stable. No legacy combination adapter or arbitrary profile
 plugin is introduced. Existing persisted settings remain valid until a separate
 feature adds settings requiring migration.
 
-Ruby overhang, joint jukugo placement, positioned decorations, and additional
-styles follow the structural migration as separate behavior changes. Each gains
+Ruby overhang, joint jukugo placement, new decoration placement rules, and
+additional styles follow the structural migration as separate behavior changes. Each gains
 reference-derived acceptance cases before its coverage status changes. Warichu,
 formulas, reference marks, subscripts, horizontal composition, and document blocks
 remain deferred with their required input concepts documented.
