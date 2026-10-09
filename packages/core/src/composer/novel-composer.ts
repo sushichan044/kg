@@ -1,5 +1,3 @@
-import * as v from "valibot";
-
 import { graphemeSegmenter } from "../internal/segmenter";
 import { NamespacedId } from "../namespaced-id";
 import type { ManuscriptAnnotation } from "../parser/annotation/manuscript-annotation";
@@ -8,21 +6,20 @@ import type { ParsedGrapheme } from "../parser/parsed-grapheme";
 import type { ParsedManuscript } from "../parser/parsed-manuscript";
 import { ManuscriptRange } from "../range/manuscript-range";
 import { ManuscriptResult } from "../result/manuscript-result";
+import type { CombinedGlyphUnit } from "./combined-glyph-unit";
 import type { ComposedAnnotationFragment } from "./composed-annotation-fragment";
-import type {
-  ComposedGlyph,
-  ComposedInlineItem,
-  SuppressedInlineItem,
-} from "./composed-inline-item";
+import type { SuppressedInlineItem } from "./composed-inline-item";
 import type { ComposedManuscript } from "./composed-manuscript";
 import { NovelCompositionSettings } from "./composition-settings";
-import type { InlineMeasurer } from "./inline-measurer";
-import { InlineMeasurement, logicalInlineMeasurer } from "./inline-measurer";
+import type { InlineSpan } from "./inline-span";
 import { BoundaryRule } from "./internal/boundary-rule";
 import { CompositionRun } from "./internal/composition-run";
 import { JapaneseParagraph } from "./internal/japanese-paragraph";
 import { defaultJapaneseTypesettingProfile } from "./internal/japanese-typesetting-profile";
 import type { JapaneseCharacterClass } from "./internal/japanese-typesetting-rules";
+import { MeasurementSession } from "./internal/measurement-session";
+import type { MeasurementPiece } from "./internal/measurement-session";
+import { NovelSourceContract } from "./internal/novel-source-contract";
 import { layoutParagraph } from "./internal/paragraph-layout";
 import type { ParagraphLinePlan } from "./internal/paragraph-line-plan";
 import { RubyAssociation } from "./internal/ruby-association";
@@ -30,13 +27,19 @@ import { SourceSpace } from "./internal/source-space";
 import { LineOffset } from "./line-offset";
 import type { ManuscriptComposer } from "./manuscript-composer";
 import { ManuscriptGeometry } from "./manuscript-geometry";
+import { MeasurementTextRange } from "./measurement-text-range";
 import type { NovelLayout } from "./novel-layout";
 import { NovelLayout as NovelLayoutContract } from "./novel-layout";
 import type { NovelLine } from "./novel-line";
 import { NovelLine as NovelLineContract } from "./novel-line";
 import { NovelPage } from "./novel-page";
 import { NovelStage } from "./novel-stage";
-import type { VerticalTextPresentation } from "./vertical-text-presentation";
+import { PositionedInlineItem } from "./positioned-inline-item";
+import type { PresentationKind } from "./presentation-kind";
+import type { RunMeasurer } from "./run-measurer";
+import { logicalRunMeasurer } from "./run-measurer";
+import type { SingleGlyphUnit } from "./single-glyph-unit";
+import { SourcePlacement } from "./source-placement";
 
 const COMPOSER_ID = NamespacedId.of("kg/novel");
 const TYPESETTING_PROFILE = defaultJapaneseTypesettingProfile;
@@ -49,7 +52,9 @@ type Atom = Readonly<{
   boxAdvanceEm: number;
   renderAdvanceEm: number;
   renderOffsetEm: number;
-  presentation: VerticalTextPresentation;
+  presentation: PresentationKind;
+  clusterRange: ManuscriptRange | null;
+  combineRun: boolean;
 }>;
 
 type MutableAtom = { -readonly [Key in keyof Atom]: Atom[Key] };
@@ -67,7 +72,9 @@ type AnnotationFragmentPlan = Readonly<{
   groupReadings: readonly string[];
 }>;
 
-type SourceGlue = Extract<ComposedInlineItem, { kind: "glue"; origin: "source" }>;
+type RenderUnit = SingleGlyphUnit | CombinedGlyphUnit;
+
+type SourceGlue = Extract<PositionedInlineItem, { kind: "glue"; origin: "source" }>;
 
 export type NovelComposedManuscript = ComposedManuscript<NovelCompositionSettings, NovelLayout>;
 
@@ -89,29 +96,6 @@ function displayedLines(graphemes: readonly ParsedGrapheme[]): ParsedGrapheme[][
   return lines;
 }
 
-function measure(
-  measurer: InlineMeasurer,
-  text: string,
-  role: "base" | "ruby",
-  settings: NovelCompositionSettings,
-  presentationKind?: VerticalTextPresentation["kind"],
-): number | undefined {
-  const context = {
-    text,
-    fontPreset: settings.appearance.fontPreset,
-    writingMode: "vertical-rl",
-  } as const;
-  const measurement =
-    role === "base"
-      ? measurer({ ...context, role, presentation: presentationKind ?? "mixed" })
-      : measurer({ ...context, role });
-  const parsed = v.safeParse(InlineMeasurement.schema, measurement);
-  if (!parsed.success) return undefined;
-  const { advanceEm } = parsed.output;
-
-  return advanceEm;
-}
-
 /**
  * Widen a base character by `extraEm` so a reading longer than it has room, keeping the character's
  * ink in the middle of the widened box.
@@ -131,40 +115,49 @@ function widenForReading(atom: MutableAtom, extraEm: number): void {
 function measureSourceLine(
   sourceLine: readonly ParsedGrapheme[],
   annotations: readonly ManuscriptAnnotation[],
-  settings: NovelCompositionSettings,
-  measurer: InlineMeasurer,
+  measurements: MeasurementSession,
 ): MeasuredSourceLine | undefined {
   const runs = CompositionRun.recognize(sourceLine);
   const rubyAssociations = RubyAssociation.collect(annotations, sourceLine);
-  const presented = runs.flatMap((run, runIndex) =>
-    run.members.map((grapheme) => ({
-      grapheme,
-      runIndex,
-      presentation: CompositionRun.presentationOf(run),
-    })),
-  );
-  const mutable = presented.map(({ grapheme, runIndex, presentation }) => {
-    const renderAdvanceEm = measure(measurer, grapheme.value, "base", settings, presentation.kind);
-    if (renderAdvanceEm === undefined) return undefined;
-    const characterClass = TYPESETTING_PROFILE.classify({
-      value: grapheme.value,
-      presentation: presentation.kind,
-    });
-    const metrics = TYPESETTING_PROFILE.boxMetrics(characterClass, renderAdvanceEm);
-    return {
-      grapheme,
-      runIndex,
-      characterClass,
-      intrinsicBoxAdvanceEm: metrics.advanceEm,
-      boxAdvanceEm: metrics.advanceEm,
-      renderAdvanceEm,
-      renderOffsetEm: metrics.renderOffsetEm,
-      presentation,
-    };
-  });
-  if (mutable.some((atom) => atom === undefined)) return undefined;
-
-  const atoms: MutableAtom[] = mutable.flatMap((atom) => (atom === undefined ? [] : [atom]));
+  const atoms: MutableAtom[] = [];
+  for (const [runIndex, run] of runs.entries()) {
+    const text = run.members.map(({ value }) => value).join("");
+    const pieces = measurements.pieces(text, "base", run.presentation);
+    if (pieces === undefined) return undefined;
+    const combineRun = run.presentation === "tate-chu-yoko" || pieces.length < run.members.length;
+    let memberStart = 0;
+    for (const piece of pieces) {
+      const memberCount = [...graphemeSegmenter.segment(piece.value)].length;
+      const members = run.members.slice(memberStart, memberStart + memberCount);
+      const clusterRange =
+        memberCount > 1 ? ManuscriptRange.merge(members.map(({ range }) => range)) : null;
+      for (const [memberIndex, grapheme] of members.entries()) {
+        const first = memberIndex === 0;
+        const renderAdvanceEm = first ? piece.renderSpan.advanceEm : 0;
+        const measuredAdvanceEm = first ? piece.layoutSpan.advanceEm : 0;
+        const characterClass = TYPESETTING_PROFILE.classify({
+          value: grapheme.value,
+          presentation: run.presentation,
+        });
+        const metrics = TYPESETTING_PROFILE.boxMetrics(characterClass, measuredAdvanceEm);
+        atoms.push({
+          grapheme,
+          runIndex,
+          characterClass,
+          intrinsicBoxAdvanceEm: metrics.advanceEm,
+          boxAdvanceEm: metrics.advanceEm,
+          renderAdvanceEm,
+          renderOffsetEm:
+            metrics.renderOffsetEm +
+            (first ? piece.renderSpan.offsetEm - piece.layoutSpan.offsetEm : 0),
+          presentation: run.presentation,
+          clusterRange,
+          combineRun,
+        });
+      }
+      memberStart += memberCount;
+    }
+  }
 
   for (const association of rubyAssociations) {
     const { indexes } = association;
@@ -172,15 +165,11 @@ function measureSourceLine(
       association.reading.kind === "group"
         ? [association.reading.text]
         : association.reading.segments;
-    const hasInvalidReadingGrapheme = readingTexts.some((text) =>
-      [...graphemeSegmenter.segment(text)].some(
-        ({ segment }) => measure(measurer, segment, "ruby", settings) === undefined,
-      ),
-    );
-    if (hasInvalidReadingGrapheme) return undefined;
+    if (readingTexts.some((text) => measurements.pieces(text, "ruby") === undefined))
+      return undefined;
 
     if (association.reading.kind === "group") {
-      const readingAdvance = measure(measurer, association.reading.text, "ruby", settings);
+      const readingAdvance = measurements.get(association.reading.text, "ruby")?.advanceEm;
       if (readingAdvance === undefined) return undefined;
       const baseAdvance = indexes.reduce(
         (total, index) => total + (atoms[index]?.boxAdvanceEm ?? 0),
@@ -198,7 +187,7 @@ function measureSourceLine(
       const segment = association.reading.segments[segmentIndex];
       const atom = atoms[index];
       if (segment === undefined || atom === undefined) continue;
-      const readingAdvance = measure(measurer, segment, "ruby", settings);
+      const readingAdvance = measurements.get(segment, "ruby")?.advanceEm;
       if (readingAdvance === undefined) return undefined;
       widenForReading(atom, readingAdvance - atom.boxAdvanceEm);
     }
@@ -305,46 +294,103 @@ function readingForFragment(
   };
 }
 
+function fragmentReadingPieces(
+  annotation: RubyAnnotation,
+  range: ManuscriptRange,
+  fragmentPlan: AnnotationFragmentPlan,
+  measurements: MeasurementSession,
+): readonly MeasurementPiece[] | undefined {
+  if (annotation.reading.kind !== "group") {
+    const start = range.graphemes.start - annotation.range.graphemes.start;
+    const length = range.graphemes.end - range.graphemes.start;
+    const pieces: MeasurementPiece[] = [];
+    let textOffset = 0;
+    let layoutOffset = 0;
+    for (const text of annotation.reading.segments.slice(start, start + length)) {
+      const measured = measurements.pieces(text, "ruby");
+      if (measured === undefined) return undefined;
+      for (const piece of measured)
+        pieces.push({
+          ...piece,
+          textRange: MeasurementTextRange.of({
+            start: textOffset + piece.textRange.start,
+            end: textOffset + piece.textRange.end,
+          }),
+          layoutSpan: { ...piece.layoutSpan, offsetEm: layoutOffset + piece.layoutSpan.offsetEm },
+          renderSpan: { ...piece.renderSpan, offsetEm: layoutOffset + piece.renderSpan.offsetEm },
+        });
+      textOffset += text.length;
+      layoutOffset += measured.reduce((sum, piece) => sum + piece.layoutSpan.advanceEm, 0);
+    }
+    return pieces;
+  }
+  const index = fragmentPlan.ranges.findIndex(
+    (fragment) =>
+      fragment.graphemes.start === range.graphemes.start &&
+      fragment.graphemes.end === range.graphemes.end,
+  );
+  const textStart = fragmentPlan.groupReadings
+    .slice(0, index)
+    .reduce((sum, text) => sum + text.length, 0);
+  const textEnd = textStart + (fragmentPlan.groupReadings[index]?.length ?? 0);
+  const measured = measurements.pieces(annotation.reading.text, "ruby");
+  if (measured === undefined) return undefined;
+  const selected = measured.filter(
+    (piece) => piece.textRange.start < textEnd && piece.textRange.end > textStart,
+  );
+  if (selected.some((piece) => piece.textRange.start < textStart || piece.textRange.end > textEnd))
+    return undefined;
+  const layoutStart = selected[0]?.layoutSpan.offsetEm ?? 0;
+  return selected.map((piece) => ({
+    value: piece.value,
+    textRange: MeasurementTextRange.of({
+      start: piece.textRange.start - textStart,
+      end: piece.textRange.end - textStart,
+    }),
+    layoutSpan: { ...piece.layoutSpan, offsetEm: piece.layoutSpan.offsetEm - layoutStart },
+    renderSpan: { ...piece.renderSpan, offsetEm: piece.renderSpan.offsetEm - layoutStart },
+  }));
+}
+
 function positionReading(
-  text: string,
+  pieces: readonly MeasurementPiece[],
   baseOffsetEm: number,
   baseAdvanceEm: number,
-  settings: NovelCompositionSettings,
-  measurer: InlineMeasurer,
 ) {
-  const measured = [...graphemeSegmenter.segment(text)].map(({ segment }) => ({
-    value: segment,
-    advanceEm: measure(measurer, segment, "ruby", settings) ?? 0,
-  }));
-  const total = measured.reduce((sum, grapheme) => sum + grapheme.advanceEm, 0);
+  const total = pieces.reduce((sum, piece) => sum + piece.layoutSpan.advanceEm, 0);
   const edgeGap =
-    measured.length > 0 && total < baseAdvanceEm
-      ? (baseAdvanceEm - total) / (2 * measured.length)
-      : 0;
+    pieces.length > 0 && total < baseAdvanceEm ? (baseAdvanceEm - total) / (2 * pieces.length) : 0;
   let offsetEm = baseOffsetEm + (total > baseAdvanceEm ? (baseAdvanceEm - total) / 2 : edgeGap);
-
-  return measured.map((grapheme, index) => {
+  return pieces.map((piece, index) => {
     const positioned = {
-      value: grapheme.value,
-      advanceEm: grapheme.advanceEm,
-      offsetEm,
-    };
-    offsetEm += grapheme.advanceEm;
-    if (index < measured.length - 1) offsetEm += edgeGap * 2;
+      value: piece.value,
+      textRange: piece.textRange,
+      placement: {
+        side: "before",
+        inlineSpan: {
+          offsetEm: offsetEm + piece.renderSpan.offsetEm - piece.layoutSpan.offsetEm,
+          advanceEm: piece.renderSpan.advanceEm,
+        },
+        blockOffsetEm: -0.5,
+        blockSizeEm: 0.5,
+      },
+    } as const;
+    offsetEm += piece.layoutSpan.advanceEm;
+    if (index < pieces.length - 1) offsetEm += edgeGap * 2;
     return positioned;
   });
 }
 
 function annotationFragmentRange(
-  graphemes: readonly ComposedGlyph[],
+  graphemes: readonly RenderUnit[],
   suppressed: readonly SuppressedInlineItem[],
   sourceGlues: readonly SourceGlue[],
   annotation: ManuscriptAnnotation,
 ): ManuscriptRange | null {
   return ManuscriptRange.merge([
     ...graphemes
-      .filter(({ range }) => ManuscriptRange.overlaps(range, annotation.range))
-      .map(({ range }) => range),
+      .flatMap((unit) => unit.sources.flatMap(SourcePlacement.ranges))
+      .filter((range) => ManuscriptRange.overlaps(range, annotation.range)),
     ...suppressed
       .filter(({ range }) => ManuscriptRange.overlaps(range, annotation.range))
       .map(({ range }) => range),
@@ -355,14 +401,13 @@ function annotationFragmentRange(
 }
 
 function annotationFragments(
-  graphemes: readonly ComposedGlyph[],
+  graphemes: readonly RenderUnit[],
   suppressed: readonly SuppressedInlineItem[],
   sourceGlues: readonly SourceGlue[],
   annotations: readonly ManuscriptAnnotation[],
-  settings: NovelCompositionSettings,
-  measurer: InlineMeasurer,
+  measurements: MeasurementSession,
   fragmentPlansByAnnotation: ReadonlyMap<ManuscriptAnnotation, AnnotationFragmentPlan>,
-): ComposedAnnotationFragment[] {
+): ComposedAnnotationFragment[] | undefined {
   const fragments: ComposedAnnotationFragment[] = [];
 
   for (const annotation of annotations) {
@@ -387,7 +432,25 @@ function annotationFragments(
         break;
       }
       case "emphasis": {
-        fragments.push({ kind: "emphasis", mark: annotation.mark, ...common });
+        fragments.push({
+          kind: "emphasis",
+          mark: annotation.mark,
+          placements: covered
+            .filter(
+              (unit) =>
+                annotations.find(
+                  (other) =>
+                    other.kind === "emphasis" && ManuscriptRange.overlaps(unit.range, other.range),
+                ) === annotation,
+            )
+            .map((unit) => ({
+              side: "before",
+              inlineSpan: unit.renderSpan,
+              blockOffsetEm: -0.5,
+              blockSizeEm: 0.5,
+            })),
+          ...common,
+        });
         break;
       }
       case "ruby": {
@@ -396,19 +459,13 @@ function annotationFragments(
         const baseOffsetEm = first.layoutSpan.offsetEm;
         const baseAdvanceEm = last.layoutSpan.offsetEm + last.layoutSpan.advanceEm - baseOffsetEm;
         const reading = readingForFragment(annotation, fragmentRange, fragmentPlan);
+        const pieces = fragmentReadingPieces(annotation, fragmentRange, fragmentPlan, measurements);
+        if (pieces === undefined) return undefined;
         fragments.push({
           kind: "ruby",
           rubyKind: reading.kind,
           reading: reading.text,
-          baseOffsetEm,
-          baseAdvanceEm,
-          readingGraphemes: positionReading(
-            reading.text,
-            baseOffsetEm,
-            baseAdvanceEm,
-            settings,
-            measurer,
-          ),
+          readingItems: positionReading(pieces, baseOffsetEm, baseAdvanceEm),
           ...common,
         });
         break;
@@ -416,27 +473,164 @@ function annotationFragments(
     }
   }
 
+  for (const unit of graphemes.filter((glyph) => glyph.kind === "combined-glyph")) {
+    const readings = fragments.filter(
+      (fragment) =>
+        fragment.kind === "ruby" && ManuscriptRange.overlaps(fragment.fragmentRange, unit.range),
+    );
+    for (const [index, left] of readings.entries()) {
+      if (left.kind !== "ruby") continue;
+      if (
+        readings
+          .slice(index + 1)
+          .some(
+            (right) =>
+              right.kind === "ruby" &&
+              left.readingItems.some(({ placement: a }) =>
+                right.readingItems.some(
+                  ({ placement: b }) =>
+                    a.inlineSpan.offsetEm < b.inlineSpan.offsetEm + b.inlineSpan.advanceEm - 1e-9 &&
+                    b.inlineSpan.offsetEm < a.inlineSpan.offsetEm + a.inlineSpan.advanceEm - 1e-9 &&
+                    a.blockOffsetEm < b.blockOffsetEm + b.blockSizeEm &&
+                    b.blockOffsetEm < a.blockOffsetEm + a.blockSizeEm,
+                ),
+              ),
+          )
+      )
+        return undefined;
+    }
+  }
   return fragments;
+}
+
+type PositionedMember = Readonly<{
+  kind: "member";
+  atom: Atom;
+  layoutSpan: InlineSpan;
+  renderSpan: InlineSpan;
+  disposition: "placed" | "hanging";
+}>;
+
+type PositionedSpacing = Exclude<PositionedInlineItem, RenderUnit>;
+
+function renderUnits(
+  raw: ReadonlyArray<PositionedMember | PositionedSpacing>,
+): PositionedInlineItem[] | undefined {
+  const items: PositionedInlineItem[] = [];
+  for (let index = 0; index < raw.length; index += 1) {
+    const first = raw[index];
+    if (first === undefined) continue;
+    if (first.kind !== "member") {
+      items.push(first);
+      continue;
+    }
+    const members = [first];
+    if (first.atom.combineRun) {
+      while (index + 1 < raw.length) {
+        const next = raw[index + 1];
+        if (next?.kind !== "member" || next.atom.runIndex !== first.atom.runIndex) break;
+        members.push(next);
+        index += 1;
+      }
+    }
+    const last = members.at(-1);
+    if (last === undefined) return undefined;
+    const range = ManuscriptRange.merge(members.map(({ atom }) => atom.grapheme.range));
+    if (range === null) return undefined;
+    const sources: SourcePlacement[] = [];
+    for (let memberIndex = 0; memberIndex < members.length; memberIndex += 1) {
+      const member = members[memberIndex];
+      if (member === undefined) return undefined;
+      const cluster = member.atom.clusterRange;
+      if (cluster === null) {
+        sources.push({
+          kind: "exact",
+          range: member.atom.grapheme.range,
+          layoutSpan: member.layoutSpan,
+        });
+        continue;
+      }
+      const shared = members.slice(
+        memberIndex,
+        memberIndex + cluster.graphemes.end - cluster.graphemes.start,
+      );
+      if (
+        shared.some(
+          ({ atom }) =>
+            atom.clusterRange === null ||
+            atom.clusterRange.graphemes.start !== cluster.graphemes.start ||
+            atom.clusterRange.graphemes.end !== cluster.graphemes.end,
+        )
+      )
+        return undefined;
+      const end = shared.at(-1);
+      if (end === undefined || shared.length !== cluster.graphemes.end - cluster.graphemes.start)
+        return undefined;
+      sources.push({
+        kind: "shared",
+        ranges: shared.map(({ atom }) => atom.grapheme.range),
+        layoutSpan: {
+          offsetEm: member.layoutSpan.offsetEm,
+          advanceEm:
+            end.layoutSpan.offsetEm + end.layoutSpan.advanceEm - member.layoutSpan.offsetEm,
+        },
+      });
+      memberIndex += shared.length - 1;
+    }
+    let renderStart = Number.POSITIVE_INFINITY;
+    let renderEnd = Number.NEGATIVE_INFINITY;
+    for (const { atom, renderSpan } of members) {
+      if (
+        atom.clusterRange !== null &&
+        atom.grapheme.range.graphemes.start !== atom.clusterRange.graphemes.start
+      )
+        continue;
+      renderStart = Math.min(renderStart, renderSpan.offsetEm);
+      renderEnd = Math.max(renderEnd, renderSpan.offsetEm + renderSpan.advanceEm);
+    }
+    const common = {
+      value: members.map(({ atom }) => atom.grapheme.value).join(""),
+      range,
+      sources,
+      layoutSpan: {
+        offsetEm: first.layoutSpan.offsetEm,
+        advanceEm: last.layoutSpan.offsetEm + last.layoutSpan.advanceEm - first.layoutSpan.offsetEm,
+      },
+      renderSpan: { offsetEm: renderStart, advanceEm: renderEnd - renderStart },
+    };
+    const presentation = first.atom.presentation;
+    if (first.atom.combineRun) {
+      if (members.length < 2 || (presentation !== "tate-chu-yoko" && presentation !== "sideways"))
+        return undefined;
+      items.push({ ...common, kind: "combined-glyph", presentation, disposition: "placed" });
+    } else {
+      if (presentation === "tate-chu-yoko") return undefined;
+      items.push({ ...common, kind: "glyph", presentation, disposition: first.disposition });
+    }
+  }
+  return items;
 }
 
 function positionedLine(
   atoms: readonly Atom[],
   sourceGapIndexes: ReadonlySet<number>,
   plan: ParagraphLinePlan,
-): NovelLine {
-  const items: ComposedInlineItem[] = plan.suppressedIndexes.flatMap((index) => {
-    const atom = atoms[index];
-    return atom === undefined
-      ? []
-      : [
-          {
-            kind: "suppressed",
-            value: atom.grapheme.value,
-            range: atom.grapheme.range,
-            reason: "question-or-exclamation-gap",
-          } as const,
-        ];
-  });
+): NovelLine | undefined {
+  const items: Array<PositionedMember | PositionedSpacing> = plan.suppressedIndexes.flatMap(
+    (index) => {
+      const atom = atoms[index];
+      return atom === undefined
+        ? []
+        : [
+            {
+              kind: "suppressed",
+              value: atom.grapheme.value,
+              range: atom.grapheme.range,
+              reason: "question-or-exclamation-gap",
+            } as const,
+          ];
+    },
+  );
   const spacings = new Map(plan.pairSpacings.map((spacing) => [spacing.boundary, spacing]));
   const characterSpacings = new Map(
     plan.characterSpacings.map((spacing) => [spacing.index, spacing]),
@@ -490,24 +684,24 @@ function positionedLine(
     const hanging = plan.hangingIndex === index;
     const layoutAdvanceEm = hanging ? 0 : atom.boxAdvanceEm;
     items.push({
-      kind: "glyph",
-      value: atom.grapheme.value,
-      range: atom.grapheme.range,
+      kind: "member",
+      atom,
       layoutSpan: { offsetEm, advanceEm: layoutAdvanceEm },
       renderSpan: {
         offsetEm: offsetEm + atom.renderOffsetEm,
         advanceEm: atom.renderAdvanceEm,
       },
       disposition: hanging ? "hanging" : "placed",
-      presentation: atom.presentation,
     });
     offsetEm += layoutAdvanceEm;
   }
   const trailingSpacing = spacings.get(plan.end);
   if (trailingSpacing !== undefined) positionSpacing(trailingSpacing);
 
-  const ranges = items.flatMap((item) =>
-    item.kind === "glyph" ||
+  const positioned = renderUnits(items);
+  if (positioned === undefined) return undefined;
+  const ranges = positioned.flatMap((item) =>
+    PositionedInlineItem.isRenderUnit(item) ||
     item.kind === "suppressed" ||
     (item.kind === "glue" && item.origin === "source")
       ? [item.range]
@@ -516,7 +710,7 @@ function positionedLine(
   return {
     range: ManuscriptRange.merge(ranges),
     inlineSizeEm: Math.max(0, plan.inlineSizeEm),
-    items,
+    items: positioned,
     break: plan.break,
     annotations: [],
   };
@@ -526,9 +720,9 @@ function wrapSourceLine(
   sourceLine: MeasuredSourceLine,
   annotations: readonly ManuscriptAnnotation[],
   settings: NovelCompositionSettings,
-  measurer: InlineMeasurer,
+  measurements: MeasurementSession,
   baseAdvances: ReadonlyMap<number, number>,
-): NovelLine[] {
+): NovelLine[] | undefined {
   if (sourceLine.atoms.length === 0) return [NovelLineContract.empty()];
   const profile = TYPESETTING_PROFILE;
   const characters = sourceLine.atoms.map((atom, index) => ({
@@ -576,14 +770,17 @@ function wrapSourceLine(
     (left, right) =>
       (right === left + 1 ? boundaries[right] : acrossGaps[left])?.break.kind !== "prohibited",
   );
-  const lines = plans.map((plan) =>
-    positionedLine(sourceLine.atoms, sourceLine.suppressedIndexes, plan),
-  );
+  const lines: NovelLine[] = [];
+  for (const plan of plans) {
+    const line = positionedLine(sourceLine.atoms, sourceLine.suppressedIndexes, plan);
+    if (line === undefined) return undefined;
+    lines.push(line);
+  }
 
   const fragmentPlansByAnnotation = new Map(
     annotations.map((annotation) => {
       const ranges = lines.flatMap((line) => {
-        const graphemes = line.items.filter((item) => item.kind === "glyph");
+        const graphemes = line.items.filter(PositionedInlineItem.isRenderUnit);
         const suppressed = line.items.filter((item) => item.kind === "suppressed");
         const sourceGlues = line.items.flatMap((item) =>
           item.kind === "glue" && item.origin === "source" ? [item] : [],
@@ -600,23 +797,22 @@ function wrapSourceLine(
     }),
   );
 
-  return lines.map((line) => ({
-    range: line.range,
-    inlineSizeEm: line.inlineSizeEm,
-    items: line.items,
-    break: line.break,
-    annotations: annotationFragments(
-      line.items.filter((item) => item.kind === "glyph"),
+  const annotated: NovelLine[] = [];
+  for (const line of lines) {
+    const fragments = annotationFragments(
+      line.items.filter(PositionedInlineItem.isRenderUnit),
       line.items.filter((item) => item.kind === "suppressed"),
       line.items.flatMap((item) =>
         item.kind === "glue" && item.origin === "source" ? [item] : [],
       ),
       annotations,
-      settings,
-      measurer,
+      measurements,
       fragmentPlansByAnnotation,
-    ),
-  }));
+    );
+    if (fragments === undefined) return undefined;
+    annotated.push({ ...line, annotations: fragments });
+  }
+  return annotated;
 }
 
 function blankLines(count: number): NovelLine[] {
@@ -661,18 +857,19 @@ function buildPages(
   return pages;
 }
 
-function createCompose(measurer: InlineMeasurer) {
+function createCompose(provider: RunMeasurer) {
   return (
     manuscript: ParsedManuscript,
     settings: NovelCompositionSettings,
   ): ManuscriptResult<NovelLayout, { reason: string }> => {
+    const measurements = MeasurementSession.create(provider, settings);
     const sourceLines = displayedLines(manuscript.graphemes);
     const measured = sourceLines.map((line) =>
-      measureSourceLine(line, manuscript.annotations, settings, measurer),
+      measureSourceLine(line, manuscript.annotations, measurements),
     );
     if (measured.some((line) => line === undefined)) {
       return ManuscriptResult.fail({
-        reason: "inline measurer returned a negative or non-finite value",
+        reason: "run measurer returned invalid metrics or cluster mappings",
       });
     }
 
@@ -683,11 +880,28 @@ function createCompose(measurer: InlineMeasurer) {
       }
     }
 
-    const manuscriptLines = measured.flatMap((line) =>
-      line === undefined
-        ? []
-        : wrapSourceLine(line, manuscript.annotations, settings, measurer, baseAdvances),
-    );
+    const manuscriptLines: NovelLine[] = [];
+    for (const line of measured) {
+      if (line === undefined) continue;
+      const wrapped = wrapSourceLine(
+        line,
+        manuscript.annotations,
+        settings,
+        measurements,
+        baseAdvances,
+      );
+      if (wrapped === undefined)
+        return ManuscriptResult.fail({
+          reason:
+            "render units or reading clusters cannot be placed without splitting or collision",
+        });
+      manuscriptLines.push(...wrapped);
+    }
+    if (!NovelSourceContract.matches(manuscript, manuscriptLines)) {
+      return ManuscriptResult.fail({
+        reason: "composition did not preserve source members or ruby readings",
+      });
+    }
     const pages = buildPages(
       [
         ...blankLines(settings.offsets.document.leading),
@@ -710,7 +924,7 @@ function createCompose(measurer: InlineMeasurer) {
 }
 
 export function createNovelComposer(
-  options: Readonly<{ measurer: InlineMeasurer }>,
+  options: Readonly<{ measurer: RunMeasurer }>,
 ): ManuscriptComposer<NovelCompositionSettings, NovelLayout> {
   return {
     id: COMPOSER_ID,
@@ -720,4 +934,4 @@ export function createNovelComposer(
   };
 }
 
-export const novelComposer = createNovelComposer({ measurer: logicalInlineMeasurer });
+export const novelComposer = createNovelComposer({ measurer: logicalRunMeasurer });

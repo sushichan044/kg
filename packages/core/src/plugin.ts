@@ -13,9 +13,10 @@ export type { ManuscriptParser } from "./parser/manuscript-parser";
 export type { ManuscriptComposer } from "./composer/manuscript-composer";
 
 export { createNovelComposer } from "./composer/novel-composer";
-export { logicalInlineMeasurer } from "./composer/inline-measurer";
-export type {
-  InlineMeasureRequest,
-  InlineMeasurement,
-  InlineMeasurer,
-} from "./composer/inline-measurer";
+export { logicalRunMeasurer } from "./composer/run-measurer";
+export type { RunMeasurer } from "./composer/run-measurer";
+export { MeasurementRequest } from "./composer/measurement-request";
+export { MeasurementTextRange } from "./composer/measurement-text-range";
+export { MeasuredCluster } from "./composer/measured-cluster";
+export { RunMeasurement } from "./composer/run-measurement";
+export type { PresentationKind } from "./composer/presentation-kind";

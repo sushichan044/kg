@@ -2,20 +2,8 @@ import * as v from "valibot";
 
 import { readonlyObject } from "../internal/schema";
 import { ManuscriptRange } from "../range/manuscript-range";
-import { InlineSpan } from "./inline-span";
-import { VerticalTextPresentation } from "./vertical-text-presentation";
 
 const signedEm = () => v.pipe(v.number(), v.finite());
-
-const GlyphItemSchema = readonlyObject({
-  kind: v.literal("glyph"),
-  value: v.string(),
-  range: ManuscriptRange.schema,
-  layoutSpan: InlineSpan.schema,
-  renderSpan: InlineSpan.schema,
-  disposition: v.union([v.literal("placed"), v.literal("hanging")]),
-  presentation: VerticalTextPresentation.schema,
-});
 
 const GeneratedGlueItemSchema = readonlyObject({
   kind: v.literal("glue"),
@@ -50,37 +38,6 @@ const SuppressedItemSchema = readonlyObject({
   reason: v.literal("question-or-exclamation-gap"),
 });
 
-const ComposedInlineItemSchema = v.union([
-  GlyphItemSchema,
-  GeneratedGlueItemSchema,
-  SourceGlueItemSchema,
-  KernItemSchema,
-  SuppressedItemSchema,
-]);
-
-/**
- * Everything the composer decided about one line, in visual order: the glyphs, every spacing
- * decision made between them, and the source characters it chose not to set. A renderer can lay out
- * a line from these items alone, without reapplying any Japanese typesetting rule itself.
- *
- * Only the first two occupy the line. A `suppressed` item has no width and nothing to draw; it is
- * here so the line still maps back to the whole span of source it came from.
- */
-export type ComposedInlineItem = v.InferOutput<typeof ComposedInlineItemSchema>;
-
-/**
- * One positioned character. `layoutSpan` is the advance the line was measured and broken against —
- * a half em for the brackets and punctuation JLReq sets that way — and `renderSpan` is where the
- * glyph is actually drawn, so a renderer never has to rediscover the offset.
- *
- * The two come apart wherever the ink and the advance disagree. A hanging character (ぶら下げ組,
- * `disposition: "hanging"`) is the clearest case: it takes no room on the line, so its `layoutSpan`
- * is zero wide while its `renderSpan` still occupies a full em outside the text area.
- *
- * `presentation` carries the vertical orientation already chosen for the run.
- */
-export type ComposedGlyph = v.InferOutput<typeof GlyphItemSchema>;
-
 /**
  * An inter-character space (アキ) the line adjustment was allowed to resize. `naturalWidthEm` is what
  * the pair called for and `widthEm` what the chosen break settled on, with `adjustment` naming
@@ -108,4 +65,8 @@ export type ComposedKern = v.InferOutput<typeof KernItemSchema>;
  */
 export type SuppressedInlineItem = v.InferOutput<typeof SuppressedItemSchema>;
 
-export const ComposedInlineItem = { schema: ComposedInlineItemSchema } as const;
+export const ComposedGlue = {
+  schema: v.union([GeneratedGlueItemSchema, SourceGlueItemSchema]),
+} as const;
+export const ComposedKern = { schema: KernItemSchema } as const;
+export const SuppressedInlineItem = { schema: SuppressedItemSchema } as const;

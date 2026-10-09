@@ -1,6 +1,6 @@
 import type { ParsedGrapheme } from "../../parser/parsed-grapheme";
 import { ManuscriptRange } from "../../range/manuscript-range";
-import type { VerticalTextPresentation } from "../vertical-text-presentation";
+import type { PresentationKind } from "../presentation-kind";
 
 const ASCII_ALPHANUMERIC = /^[A-Za-z0-9]$/u;
 const ASCII_TWO_DIGITS = /^[0-9]{2}$/u;
@@ -9,7 +9,7 @@ const FULLWIDTH_ALPHANUMERIC = /^[Ａ-Ｚａ-ｚ０-９]$/u;
 
 export type CompositionRun = Readonly<{
   range: ManuscriptRange;
-  presentation: VerticalTextPresentation["kind"];
+  presentation: PresentationKind;
   members: readonly ParsedGrapheme[];
 }>;
 
@@ -44,9 +44,4 @@ function recognize(graphemes: readonly ParsedGrapheme[]): CompositionRun[] {
 
 export const CompositionRun = {
   recognize,
-  // The public per-grapheme presentation contract remains in place until phase 3.
-  presentationOf: (run: CompositionRun): VerticalTextPresentation => ({
-    kind: run.presentation,
-    groupRange: run.range,
-  }),
 } as const;

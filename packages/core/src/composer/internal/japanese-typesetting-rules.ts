@@ -1,6 +1,6 @@
 import { CLOSING_BRACKETS, OPENING_BRACKETS } from "../../internal/japanese-brackets";
 import { DIVIDING_PUNCTUATION } from "../../internal/japanese-punctuation";
-import type { VerticalTextPresentation } from "../vertical-text-presentation";
+import type { PresentationKind } from "../presentation-kind";
 
 /**
  * The JLReq character classes (文字クラス) these rules distinguish. The bare `cl-NN` identifiers are
@@ -71,7 +71,7 @@ export type JapaneseCharacterClass = (typeof japaneseCharacterClasses)[number];
  */
 export type JapaneseCharacter = Readonly<{
   value: string;
-  presentation: VerticalTextPresentation["kind"];
+  presentation: PresentationKind;
 }>;
 
 export type AdjustmentCategory =
