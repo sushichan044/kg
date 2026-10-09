@@ -419,10 +419,7 @@ const FINAL_EXPANSION_AFTER = new Map<JapaneseCharacterClass, ReadonlySet<Japane
   ...(["cl-09", "cl-10", "cl-11", "cl-13", "cl-15", "cl-16", "cl-19", "cl-30"] as const).map(
     (left) => [left, FINAL_EXPANSION_WIDE_AFTER] as const,
   ),
-  [
-    "cl-08",
-    new Set([...FINAL_EXPANSION_WIDE_AFTER].filter((characterClass) => characterClass !== "cl-08")),
-  ],
+  ["cl-08", FINAL_EXPANSION_WIDE_AFTER],
   [
     "cl-12",
     new Set([
@@ -520,7 +517,6 @@ function canExpandAtFinalStage(left: JapaneseBoundaryClass, right: JapaneseBound
   // restrictions are resolved by BoundaryRule before these numeric capacities are used.
   const leftClass = left === "cl-22" || left === "cl-23" ? "cl-19" : left;
   const rightClass = right === "cl-22" || right === "cl-23" ? "cl-19" : right;
-  if (left === "cl-08" && right === "cl-08") return true;
   if (FINAL_EXPANSION_AFTER.get(leftClass)?.has(rightClass) !== true) return false;
 
   // A pair with intrinsic white already carries punctuation or mixed-text semantics. Its finite
