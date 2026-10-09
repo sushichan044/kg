@@ -1,13 +1,14 @@
 import { FontPreset, ManuscriptRange } from "@sushichan044/kg-core";
 import type {
-  ComposedGlyph,
+  SingleGlyphUnit,
+  AnnotationPlacement,
   ComposedAnnotationFragment,
   DiagnosticSeverity,
   ManuscriptDiagnostic,
   NovelComposedManuscript,
   NovelLine,
   NovelPage,
-  VerticalTextPresentation,
+  PresentationKind,
 } from "@sushichan044/kg-core";
 import {
   forwardRef,
@@ -84,7 +85,9 @@ function pageText(page: NovelPage): string {
       lines.map(({ items }) =>
         items
           .flatMap((item) =>
-            item.kind === "glyph" || (item.kind === "glue" && item.origin === "source")
+            item.kind === "glyph" ||
+            item.kind === "combined-glyph" ||
+            (item.kind === "glue" && item.origin === "source")
               ? [item.value]
               : [],
           )
@@ -111,7 +114,7 @@ function annotationKey(annotation: ComposedAnnotationFragment): string {
 
 function annotationsForRange(
   line: NovelLine,
-  range: ComposedGlyph["range"],
+  range: SingleGlyphUnit["range"],
 ): readonly ComposedAnnotationFragment[] {
   return line.annotations.filter(
     (annotation) =>
@@ -166,82 +169,36 @@ type DiagnosticBand = Readonly<{
 }>;
 
 type PlacedBand = Omit<DiagnosticBand, "lane" | "lanes">;
-type RenderedGrapheme = Readonly<{
-  grapheme: ComposedGlyph;
-  diagnostics: readonly ManuscriptDiagnostic[];
-}>;
 type RenderedCell = Readonly<{
   value: string;
-  range: ComposedGlyph["range"];
+  range: SingleGlyphUnit["range"];
   offsetEm: number;
   advanceEm: number;
-  disposition: ComposedGlyph["disposition"];
-  presentation: VerticalTextPresentation["kind"];
+  disposition: SingleGlyphUnit["disposition"];
+  presentation: PresentationKind;
   diagnostics: readonly ManuscriptDiagnostic[];
 }>;
 type EmphasisMark = Readonly<{
   key: string;
   mark: string;
-  offsetEm: number;
-  advanceEm: number;
+  placement: AnnotationPlacement;
 }>;
 
-function samePresentationGroup(left: ComposedGlyph, right: ComposedGlyph): boolean {
-  return (
-    left.presentation.kind === right.presentation.kind &&
-    left.presentation.groupRange.graphemes.start ===
-      right.presentation.groupRange.graphemes.start &&
-    left.presentation.groupRange.graphemes.end === right.presentation.groupRange.graphemes.end
-  );
+type DecorationStyle = PositionedStyle & {
+  "--kgv-decoration-block-offset": number;
+  "--kgv-decoration-block-size": number;
+};
+
+function decorationStyle(placement: AnnotationPlacement): DecorationStyle {
+  return {
+    "--kgv-item-offset": placement.inlineSpan.offsetEm,
+    "--kgv-item-advance": placement.inlineSpan.advanceEm,
+    "--kgv-decoration-block-offset": placement.blockOffsetEm,
+    "--kgv-decoration-block-size": placement.blockSizeEm,
+  };
 }
 
-function renderedCells(graphemes: readonly RenderedGrapheme[]): RenderedCell[] {
-  const groups: RenderedGrapheme[][] = [];
-  for (const entry of graphemes) {
-    const previous = groups.at(-1);
-    const first = previous?.[0];
-    if (
-      entry.grapheme.presentation.kind === "tate-chu-yoko" &&
-      previous !== undefined &&
-      first !== undefined &&
-      samePresentationGroup(first.grapheme, entry.grapheme)
-    ) {
-      previous.push(entry);
-    } else {
-      groups.push([entry]);
-    }
-  }
-
-  return groups.flatMap((group): RenderedCell[] => {
-    const first = group[0];
-    const last = group.at(-1);
-    if (first === undefined || last === undefined) return [];
-    const combinesPresentation = first.grapheme.presentation.kind === "tate-chu-yoko";
-    const diagnostics = new Map<string, ManuscriptDiagnostic>();
-    for (const entry of group) {
-      for (const diagnostic of entry.diagnostics) diagnostics.set(diagnostic.id, diagnostic);
-    }
-
-    return [
-      {
-        value: group.map(({ grapheme }) => grapheme.value).join(""),
-        range: combinesPresentation ? first.grapheme.presentation.groupRange : first.grapheme.range,
-        offsetEm: first.grapheme.renderSpan.offsetEm,
-        advanceEm:
-          last.grapheme.renderSpan.offsetEm +
-          last.grapheme.renderSpan.advanceEm -
-          first.grapheme.renderSpan.offsetEm,
-        disposition: group.some(({ grapheme }) => grapheme.disposition === "hanging")
-          ? "hanging"
-          : "placed",
-        presentation: first.grapheme.presentation.kind,
-        diagnostics: [...diagnostics.values()],
-      },
-    ];
-  });
-}
-
-function presentationClass(kind: VerticalTextPresentation["kind"]): string | undefined {
+function presentationClass(kind: PresentationKind): string | undefined {
   switch (kind) {
     case "mixed": {
       return undefined;
@@ -258,25 +215,16 @@ function presentationClass(kind: VerticalTextPresentation["kind"]): string | und
   }
 }
 
-/**
- * One mark per cell an emphasis fragment covers, on the coordinates the cell was drawn at.
- */
-function emphasisMarks(line: NovelLine, cells: readonly RenderedCell[]): EmphasisMark[] {
-  return cells.flatMap((cell): EmphasisMark[] => {
-    const emphasis = annotationsForRange(line, cell.range).find(
-      (annotation) => annotation.kind === "emphasis",
-    );
-    if (emphasis?.kind !== "emphasis") return [];
-
-    return [
-      {
-        key: `${annotationKey(emphasis)}:${cell.range.graphemes.start}`,
-        mark: emphasis.mark,
-        offsetEm: cell.offsetEm,
-        advanceEm: cell.advanceEm,
-      },
-    ];
-  });
+function emphasisMarks(line: NovelLine): EmphasisMark[] {
+  return line.annotations.flatMap((annotation) =>
+    annotation.kind === "emphasis"
+      ? annotation.placements.map((placement, index) => ({
+          key: `${annotationKey(annotation)}:${index}`,
+          mark: annotation.mark,
+          placement,
+        }))
+      : [],
+  );
 }
 
 function assignBandLanes(placed: readonly PlacedBand[]): DiagnosticBand[] {
@@ -323,33 +271,38 @@ function assignBandLanes(placed: readonly PlacedBand[]): DiagnosticBand[] {
 function lineDiagnostics(
   line: NovelLine,
   diagnostics: readonly ManuscriptDiagnostic[],
-): Readonly<{ bands: DiagnosticBand[]; graphemes: RenderedGrapheme[] }> {
-  const graphemes: Array<{ grapheme: ComposedGlyph; diagnostics: ManuscriptDiagnostic[] }> = [];
-  // A band spans everything the line carries from the source, and the spaces JLReq sets as アキ —
-  // the ideographic space after a `！`, the western word space — leave the composer as glue rather
-  // than as a glyph. Only a glyph has a cell for the diagnostic to colour, so the anchors keep both
-  // and the cell entry is optional.
+): Readonly<{ bands: DiagnosticBand[]; cells: RenderedCell[] }> {
+  const cells: RenderedCell[] = [];
   const anchors: Array<
     Readonly<{
-      range: ManuscriptRange;
+      ranges: readonly ManuscriptRange[];
       offsetEm: number;
       advanceEm: number;
       cell: { diagnostics: ManuscriptDiagnostic[] } | undefined;
     }>
   > = [];
   for (const item of line.items) {
-    if (item.kind === "glyph") {
-      const cell = { grapheme: item, diagnostics: [] as ManuscriptDiagnostic[] };
-      graphemes.push(cell);
-      anchors.push({
+    if (item.kind === "glyph" || item.kind === "combined-glyph") {
+      const cell = {
+        value: item.value,
         range: item.range,
-        offsetEm: item.layoutSpan.offsetEm,
-        advanceEm: item.layoutSpan.advanceEm,
-        cell,
-      });
+        offsetEm: item.renderSpan.offsetEm,
+        advanceEm: item.renderSpan.advanceEm,
+        disposition: item.disposition,
+        presentation: item.presentation,
+        diagnostics: [] as ManuscriptDiagnostic[],
+      } satisfies RenderedCell;
+      cells.push(cell);
+      for (const source of item.sources)
+        anchors.push({
+          ranges: source.kind === "exact" ? [source.range] : source.ranges,
+          offsetEm: source.layoutSpan.offsetEm,
+          advanceEm: source.layoutSpan.advanceEm,
+          cell,
+        });
     } else if (item.kind === "glue" && item.origin === "source") {
       anchors.push({
-        range: item.range,
+        ranges: [item.range],
         offsetEm: item.offsetEm,
         advanceEm: item.widthEm,
         cell: undefined,
@@ -357,28 +310,31 @@ function lineDiagnostics(
     }
   }
   const placed = diagnostics.flatMap((diagnostic): PlacedBand[] => {
-    const covered = anchors.filter(({ range }) =>
-      ManuscriptRange.overlaps(range, diagnostic.range),
+    const covered = anchors.filter(({ ranges }) =>
+      ranges.some((range) => ManuscriptRange.overlaps(range, diagnostic.range)),
     );
-    for (const anchor of covered) anchor.cell?.diagnostics.push(diagnostic);
+    for (const anchor of covered) {
+      if (anchor.cell !== undefined && !anchor.cell.diagnostics.includes(diagnostic))
+        anchor.cell.diagnostics.push(diagnostic);
+    }
     const first = covered[0];
     const last = covered.at(-1);
     if (first === undefined || last === undefined) return [];
-
     return [
       {
         diagnostic,
         offsetEm: first.offsetEm,
         advanceEm: last.offsetEm + last.advanceEm - first.offsetEm,
-        startsHere:
-          diagnostic.range.source.start >= first.range.source.start &&
-          diagnostic.range.source.start < first.range.source.end,
+        startsHere: first.ranges.some(
+          (range) =>
+            diagnostic.range.source.start >= range.source.start &&
+            diagnostic.range.source.start < range.source.end,
+        ),
       },
     ];
   });
   placed.sort((left, right) => left.offsetEm - right.offsetEm || right.advanceEm - left.advanceEm);
-
-  return { bands: assignBandLanes(placed), graphemes };
+  return { bands: assignBandLanes(placed), cells };
 }
 
 function renderRuby(annotation: Extract<ComposedAnnotationFragment, { kind: "ruby" }>) {
@@ -388,29 +344,19 @@ function renderRuby(annotation: Extract<ComposedAnnotationFragment, { kind: "rub
       className="kgv-annotation kgv-ruby-fragment"
       data-annotation="ruby"
       data-ruby-fit={annotation.rubyKind}
-      style={
-        {
-          "--kgv-item-offset": annotation.baseOffsetEm,
-          "--kgv-item-advance": annotation.baseAdvanceEm,
-        } as PositionedStyle
-      }
       aria-hidden="true"
     >
       <span className="kgv-ruby-base-placeholder" />
       <rt>
         <span className="kgv-ruby">
-          {annotation.readingGraphemes.map((grapheme) => (
+          {annotation.readingItems.map((item) => (
             <span
-              key={`${grapheme.offsetEm}:${grapheme.value}`}
+              key={`${item.textRange.start}:${item.value}`}
               className="kgv-ruby-character"
-              style={
-                {
-                  "--kgv-item-offset": grapheme.offsetEm,
-                  "--kgv-item-advance": grapheme.advanceEm,
-                } as PositionedStyle
-              }
+              data-side={item.placement.side}
+              style={decorationStyle(item.placement)}
             >
-              {grapheme.value}
+              {item.value}
             </span>
           ))}
         </span>
@@ -557,13 +503,12 @@ function NovelViewerComponent(
         stages: page.stages.map((stage, stageIndex) => ({
           id: `page:${pageIndex}:stage:${stageIndex}`,
           lines: stage.lines.map((line, lineIndex) => {
-            const { bands, graphemes } = lineDiagnostics(line, diagnostics);
-            const cells = renderedCells(graphemes);
+            const { bands, cells } = lineDiagnostics(line, diagnostics);
             return {
               id: `page:${pageIndex}:stage:${stageIndex}:line:${lineIndex}`,
               bands,
               cells,
-              marks: emphasisMarks(line, cells),
+              marks: emphasisMarks(line),
               line,
             };
           }),
@@ -699,16 +644,12 @@ function NovelViewerComponent(
                           {marks.length > 0 && (
                             <span className="kgv-line-emphasis" aria-hidden="true">
                               <span className="kgv-emphasis">
-                                {marks.map(({ key, mark, offsetEm, advanceEm }) => (
+                                {marks.map(({ key, mark, placement }) => (
                                   <span
                                     key={key}
                                     className="kgv-emphasis-mark"
-                                    style={
-                                      {
-                                        "--kgv-item-offset": offsetEm,
-                                        "--kgv-item-advance": advanceEm,
-                                      } as PositionedStyle
-                                    }
+                                    data-side={placement.side}
+                                    style={decorationStyle(placement)}
                                   >
                                     {mark}
                                   </span>

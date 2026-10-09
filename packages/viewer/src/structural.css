@@ -147,42 +147,28 @@
   display: none;
 }
 
-/* The reading runs beside the line rather than in it, so it is taken out of flow and placed at the
-   line's edge, one ruby em across — narrow enough to sit in the gap beside the line instead of
-   covering the line written before it.
-
-   Sized by inline-size and block-size, which are this box's own vertical-rl axes: the run goes the
-   whole way down the line and one em across it. Sizing it by the axes of the horizontal-tb box it
-   is positioned in collapses it to nothing, and the placed characters below then fall back to a
-   static position that walks left over the characters they annotate. */
-.kgv-ruby {
+/* These containers share the body's bounds. The composer supplies both axes for each mark. */
+.kgv-ruby,
+.kgv-emphasis {
   position: absolute;
-  top: 0;
-  left: 100%;
-  inline-size: 100%;
-  block-size: 1em;
-  /* One placed box per reading character, so the reading sits where the composer put it and nothing
-     depends on how an engine spaces characters. */
+  inset: 0;
   writing-mode: vertical-rl;
   text-orientation: upright;
   font-family: var(--kgv-manuscript-font);
-  /* Half the size of the characters it annotates, the usual proportion for ruby. */
   font-size: calc(var(--kgv-cell-size) / 2);
   line-height: 1;
 }
 
-/* Placed along the inline axis, not the block axis the cells above use: the run is inside .kgv-ruby,
-   whose vertical-rl turns the inline axis into the one that goes down the line. Position it by the
-   block axis instead and the reading walks sideways across the neighbouring lines. */
-.kgv-ruby-character {
+.kgv-ruby-character,
+.kgv-emphasis-mark {
   position: absolute;
   inset-inline-start: calc(var(--kgv-item-offset) * var(--kgv-cell-size));
-  /* Pinned across the run as well as down it: left to the static position, a character in an
-     orthogonal flow lands wherever the engine of the day puts it. */
-  inset-block-start: 0;
+  inset-block-start: calc(var(--kgv-decoration-block-offset) * var(--kgv-cell-size));
   display: grid;
   place-items: center;
   inline-size: calc(var(--kgv-item-advance) * var(--kgv-cell-size));
+  block-size: calc(var(--kgv-decoration-block-size) * var(--kgv-cell-size));
+  font-size: calc(var(--kgv-decoration-block-size) * var(--kgv-cell-size));
 }
 
 /* bold, italic and emphasis reach the glyph by inheritance alone, so they need no box of their own.
@@ -199,35 +185,6 @@
 
 .kgv-line-text [data-annotation="italic"] {
   font-style: italic;
-}
-
-/* The emphasis marks run beside the line on the same axes as a ruby reading, and are placed the same
-   way: one box per mark, on the coordinates the composer gave the character it belongs to.
-
-   Drawn with text-emphasis instead, the marks are laid out by the engine, which reserves their room
-   inside the character's own box — and engines disagree about where in that box the room goes, so
-   the character itself moves off its cell. */
-.kgv-emphasis {
-  position: absolute;
-  top: 0;
-  left: 100%;
-  inline-size: 100%;
-  block-size: 1em;
-  writing-mode: vertical-rl;
-  text-orientation: upright;
-  font-family: var(--kgv-manuscript-font);
-  /* Half the size of the characters it marks, the same proportion ruby uses. */
-  font-size: calc(var(--kgv-cell-size) / 2);
-  line-height: 1;
-}
-
-.kgv-emphasis-mark {
-  position: absolute;
-  inset-inline-start: calc(var(--kgv-item-offset) * var(--kgv-cell-size));
-  inset-block-start: 0;
-  display: grid;
-  place-items: center;
-  inline-size: calc(var(--kgv-item-advance) * var(--kgv-cell-size));
 }
 
 .kgv-glyph {

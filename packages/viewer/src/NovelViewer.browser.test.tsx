@@ -1,5 +1,6 @@
 import {
   NovelCompositionSettings,
+  ManuscriptDiagnostic,
   composeManuscript,
   kakuyomuParser,
   novelComposer,
@@ -8,12 +9,17 @@ import {
 } from "@sushichan044/kg-core";
 import type {
   ManuscriptAppearanceSettings,
-  ManuscriptDiagnostic,
   ManuscriptOffsets,
   NovelFlowSettings,
 } from "@sushichan044/kg-core";
 import { createDefaultProofreadingRules, proofreadManuscript } from "@sushichan044/kg-core/lint";
 import type { ManuscriptParser } from "@sushichan044/kg-core/plugin";
+import {
+  createNovelComposer,
+  logicalRunMeasurer,
+  MeasurementTextRange,
+  NamespacedId,
+} from "@sushichan044/kg-core/plugin";
 import { useState } from "react";
 import { expect, test as base } from "vite-plus/test";
 import { render } from "vitest-browser-react";
@@ -35,6 +41,7 @@ type ViewerFixtureOptions = Readonly<{
   offsets?: ManuscriptOffsets;
   appearance?: ManuscriptAppearanceSettings;
   parser?: ManuscriptParser;
+  composer?: typeof novelComposer;
   reportedAs?: (found: readonly ManuscriptDiagnostic[]) => readonly ManuscriptDiagnostic[];
 }>;
 
@@ -45,7 +52,7 @@ async function renderViewer(options: ViewerFixtureOptions, props: ViewerFixtureP
   expect.assert(parsed.ok, "fixture did not parse");
 
   const composed = composeManuscript(parsed.value, {
-    composer: novelComposer,
+    composer: options.composer ?? novelComposer,
     settings: {
       flow: options.flow ?? NovelCompositionSettings.defaults.flow,
       offsets: options.offsets ?? NovelCompositionSettings.defaults.offsets,
@@ -155,6 +162,129 @@ test("composes a two-digit number as one tate-chu-yoko cell", async ({ renderVie
   const [japanese, digits] = cells.map((cell) => cell.getBoundingClientRect());
   expect.assert(japanese !== undefined && digits !== undefined);
   expect(digits.height).toBeCloseTo(japanese.height, 1);
+});
+
+test("keeps a diagnostic on one digit selectable through its exact source placement", async ({
+  renderViewer,
+}) => {
+  const parsed = parseManuscript("12");
+  expect.assert(parsed.ok);
+  const digit = parsed.value.graphemes[1];
+  expect.assert(digit !== undefined);
+  const diagnostic = ManuscriptDiagnostic.of({
+    source: "12",
+    range: digit.range,
+    code: "digit",
+    message: "second digit",
+    origin: { kind: "rule", id: NamespacedId.of("example/digit") },
+    severity: "warning",
+  });
+  let selected: ManuscriptDiagnostic | undefined;
+
+  const { screen } = await renderViewer(
+    { text: "12", reportedAs: () => [diagnostic] },
+    {
+      onDiagnosticSelect: (found) => {
+        selected = found;
+      },
+    },
+  );
+
+  const cells = screen.container.querySelectorAll(".kgv-cell");
+  const band = screen.container.querySelector<HTMLElement>(".kgv-diagnostic-band");
+  expect.assert(band !== null);
+  expect(cells).toHaveLength(1);
+  expect(band.style.getPropertyValue("--kgv-band-offset")).toBe("0.5");
+  expect(band.style.getPropertyValue("--kgv-band-length")).toBe("0.5");
+  await screen.getByRole("button", { name: "1行2列: second digit" }).click();
+  expect(selected).toEqual(diagnostic);
+  const assistiveText = screen.container.querySelector(".kgv-visually-hidden");
+  expect.assert(assistiveText !== null);
+  expect(assistiveText.textContent.trim()).toBe("12");
+});
+
+test("highlights a shared ligature for a diagnostic on one source member", async ({
+  renderViewer,
+}) => {
+  const parsed = parseManuscript("ffi");
+  expect.assert(parsed.ok);
+  const member = parsed.value.graphemes[1];
+  expect.assert(member !== undefined);
+  const diagnostic = ManuscriptDiagnostic.of({
+    source: "ffi",
+    range: member.range,
+    code: "ligature",
+    message: "middle letter",
+    origin: { kind: "rule", id: NamespacedId.of("example/ligature") },
+    severity: "warning",
+  });
+  const composer = createNovelComposer({
+    measurer: (request) =>
+      request.kind === "base" && request.text === "ffi"
+        ? {
+            kind: "clustered",
+            advanceEm: 1.25,
+            clusters: [
+              {
+                textRange: MeasurementTextRange.of({ start: 0, end: 3 }),
+                layoutSpan: { offsetEm: 0, advanceEm: 1.25 },
+                renderSpan: { offsetEm: 0, advanceEm: 1.25 },
+              },
+            ],
+          }
+        : logicalRunMeasurer(request),
+  });
+  let selected: ManuscriptDiagnostic | undefined;
+
+  const { screen } = await renderViewer(
+    { text: "ffi", composer, reportedAs: () => [diagnostic] },
+    {
+      onDiagnosticSelect: (found) => {
+        selected = found;
+      },
+    },
+  );
+
+  const cells = screen.container.querySelectorAll(".kgv-cell");
+  const band = screen.container.querySelector<HTMLElement>(".kgv-diagnostic-band");
+  expect.assert(band !== null);
+  expect(cells).toHaveLength(1);
+  const cell = cells[0];
+  expect.assert(cell !== undefined);
+  expect(cell.textContent).toBe("ffi");
+  expect(band.style.getPropertyValue("--kgv-band-offset")).toBe("0");
+  expect(band.style.getPropertyValue("--kgv-band-length")).toBe("1.25");
+  await screen.getByRole("button", { name: "1行2列: middle letter" }).click();
+  expect.assert(selected !== undefined);
+  expect(selected.range).toEqual(member.range);
+});
+
+test("renders core-owned ruby and emphasis placements on a combined unit", async ({
+  renderViewer,
+}) => {
+  const { composed, screen } = await renderViewer({
+    text: "[[rb:1>い]]2 [[emphasismark:12>・]]",
+    parser: pixivParser,
+  });
+
+  const reading = screen.container.querySelector<HTMLElement>(".kgv-ruby-character");
+  const mark = screen.container.querySelector<HTMLElement>(".kgv-emphasis-mark");
+  expect.assert(reading !== null && mark !== null);
+  const annotations = composed.layout.pages.flatMap(({ stages }) =>
+    stages.flatMap(({ lines }) => lines.flatMap((line) => line.annotations)),
+  );
+  const ruby = annotations.find((annotation) => annotation.kind === "ruby");
+  expect.assert(ruby !== undefined);
+  const item = ruby.readingItems[0];
+  expect.assert(item !== undefined);
+  expect(reading.style.getPropertyValue("--kgv-item-offset")).toBe(
+    String(item.placement.inlineSpan.offsetEm),
+  );
+  expect(reading.style.getPropertyValue("--kgv-decoration-block-offset")).toBe(
+    String(item.placement.blockOffsetEm),
+  );
+  expect(screen.container.querySelectorAll(".kgv-emphasis-mark")).toHaveLength(1);
+  expect(Number.parseFloat(mark.style.getPropertyValue("--kgv-item-advance"))).toBeCloseTo(1, 10);
 });
 
 test("renders a hanging glyph from its render span", async ({ renderViewer }) => {
