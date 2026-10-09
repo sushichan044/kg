@@ -7,11 +7,10 @@ import { defaultJapaneseTypesettingProfile } from "./japanese-typesetting-profil
 import type { JapaneseTypesettingProfile } from "./japanese-typesetting-profile";
 import { layoutParagraph as optimizeParagraph } from "./paragraph-layout";
 
-function layoutParagraph(
+function prepareParagraph(
   characters: readonly JapaneseParagraphCharacter[],
   lineLengthEm: number,
   profile: JapaneseTypesettingProfile,
-  boundaryAllowed: (left: number, right: number) => boolean,
 ) {
   const boundaries = characters.map((right, boundary) => {
     const left = characters[boundary - 1];
@@ -23,7 +22,16 @@ function layoutParagraph(
           sourceGap: left.sourceGap || right.sourceGap,
         });
   });
-  const paragraph = JapaneseParagraph.of(characters, boundaries, profile, lineLengthEm);
+  return JapaneseParagraph.of(characters, boundaries, profile, lineLengthEm);
+}
+
+function layoutParagraph(
+  characters: readonly JapaneseParagraphCharacter[],
+  lineLengthEm: number,
+  profile: JapaneseTypesettingProfile,
+  boundaryAllowed: (left: number, right: number) => boolean,
+) {
+  const paragraph = prepareParagraph(characters, lineLengthEm, profile);
   return optimizeParagraph(
     paragraph.elements,
     lineLengthEm,
@@ -353,12 +361,25 @@ describe("layoutParagraph", () => {
 
   test("keeps candidate expansion linear in paragraph length", () => {
     const paragraph = atoms("A".repeat(2_000), flexiblePrefixProfile);
+    const lineLengthEm = 20;
+    let resolvedCandidates = 0;
 
     const startedAt = Date.now();
-    const plans = layoutParagraph(paragraph, 20, flexiblePrefixProfile, () => true);
+    const prepared = prepareParagraph(paragraph, lineLengthEm, flexiblePrefixProfile);
+    const plans = optimizeParagraph(
+      prepared.elements,
+      lineLengthEm,
+      (start, end) => {
+        resolvedCandidates += 1;
+        return prepared.resolveCandidate(start, end);
+      },
+      () => true,
+    );
     const elapsedMs = Date.now() - startedAt;
 
     expect(plans).toHaveLength(100);
+    // Unit-width boxes reach the search cutoff after twice the line length, plus its sentinel.
+    expect(resolvedCandidates).toBeLessThanOrEqual(paragraph.length * (2 * lineLengthEm + 1));
     expect(elapsedMs).toBeLessThan(2_000);
   });
 });

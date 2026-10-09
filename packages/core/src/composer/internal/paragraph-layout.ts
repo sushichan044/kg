@@ -124,6 +124,9 @@ export function layoutParagraph(
       continue;
     }
 
+    // Geometry depends on the line interval, not the preceding line's fitness. Retain only
+    // this start's bounded search window rather than a graph of every paragraph candidate.
+    const candidatesByEnd = new Map<number, CandidateLine>();
     for (const state of activeStates.values()) {
       for (let end = contentStart + 1; end <= atoms.length; end += 1) {
         const right = skipSourceGaps(atoms, end);
@@ -137,7 +140,11 @@ export function layoutParagraph(
           continue;
         }
 
-        const line = resolveCandidate(start, end);
+        let line = candidatesByEnd.get(end);
+        if (line === undefined) {
+          line = resolveCandidate(start, end);
+          candidatesByEnd.set(end, line);
+        }
         if (
           line.break.kind === "forced" &&
           line.inlineSizeEm > lineLengthEm + EPSILON &&
