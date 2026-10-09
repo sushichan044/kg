@@ -4,9 +4,9 @@
 
 ```typescript
 import { createOk, createErr, isOk, isErr, unwrapOk } from "option-t/plain_result";
-import { mapForResult } from "option-t/plain_result/map";
 import { andThenForResult } from "option-t/plain_result/and_then";
 import { andThenAsyncForResult } from "option-t/plain_result/and_then_async";
+import { mapForResult } from "option-t/plain_result/map";
 import { mapErrForResult } from "option-t/plain_result/map_err";
 import { orElseForResult } from "option-t/plain_result/or_else";
 ```
@@ -33,9 +33,9 @@ Main differences from neverthrow:
 ## Composition with Functions
 
 ```typescript
+import { andThenForResult } from "option-t/plain_result/and_then";
 import { mapForResult } from "option-t/plain_result/map";
 import { mapErrForResult } from "option-t/plain_result/map_err";
-import { andThenForResult } from "option-t/plain_result/and_then";
 import { orElseForResult } from "option-t/plain_result/or_else";
 
 const mapped = mapForResult(result, (value) => transform(value));

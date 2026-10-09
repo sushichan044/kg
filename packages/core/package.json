@@ -55,7 +55,7 @@
     "prepublishOnly": "vp run build"
   },
   "dependencies": {
-    "get-east-asian-width": "^1.6.0",
+    "get-east-asian-width": "^1.7.0",
     "valibot": "catalog:prod"
   },
   "devDependencies": {

@@ -186,7 +186,8 @@ type BreakConstraint =
     }>;
 
 type SpacingSlot =
-  Readonly<{ kind: "boundary"; index: number }> | Readonly<{ kind: "source-space"; index: number }>;
+  | Readonly<{ kind: "boundary"; index: number }>
+  | Readonly<{ kind: "source-space"; index: number }>;
 
 type BoundaryRule = Readonly<{
   break: BreakConstraint;
@@ -344,7 +345,11 @@ type CombinedGlyphUnit = RenderUnitCommon &
   }>;
 
 type PositionedInlineItem =
-  SingleGlyphUnit | CombinedGlyphUnit | ComposedGlue | ComposedKern | SuppressedInlineItem;
+  | SingleGlyphUnit
+  | CombinedGlyphUnit
+  | ComposedGlue
+  | ComposedKern
+  | SuppressedInlineItem;
 ```
 
 `CombinedGlyphUnit` is a single rendering instruction with at least two source

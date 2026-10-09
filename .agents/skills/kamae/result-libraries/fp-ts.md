@@ -4,8 +4,8 @@
 
 ```typescript
 import * as E from "fp-ts/Either";
-import * as TE from "fp-ts/TaskEither";
 import { pipe } from "fp-ts/function";
+import * as TE from "fp-ts/TaskEither";
 ```
 
 | Function/Type         | Description                                                                                      |
@@ -54,8 +54,8 @@ For the design of `RequestResolver` / `RequestStore` and how domain events are p
 
 ```typescript
 import * as E from "fp-ts/Either";
-import * as TE from "fp-ts/TaskEither";
 import { pipe } from "fp-ts/function";
+import * as TE from "fp-ts/TaskEither";
 
 // --- Branded Types ---
 

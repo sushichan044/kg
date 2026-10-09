@@ -14,8 +14,8 @@ Render React components in Vitest Browser Mode. This library follows `testing-li
 Requires `vitest` 4.0.0 or higher.
 
 ```tsx
-import { render } from "vitest-browser-react";
 import { expect, test } from "vitest";
+import { render } from "vitest-browser-react";
 
 test("counter button increments the count", async () => {
   const screen = await render(<Component count={1} />);
@@ -32,8 +32,8 @@ test("counter button increments the count", async () => {
 `vitest-browser-react` also exposes `renderHook` helper to test React hooks.
 
 ```tsx
-import { renderHook } from "vitest-browser-react";
 import { expect, test } from "vitest";
+import { renderHook } from "vitest-browser-react";
 
 test("should increment counter", async () => {
   const { result, act } = await renderHook(() => useCounter());
@@ -49,9 +49,9 @@ test("should increment counter", async () => {
 `vitest-browser-react` also automatically injects `render` method on the `page`. Example:
 
 ```ts
+import react from "@vitejs/plugin-react";
 // vitest.config.ts
 import { defineConfig } from "vitest/config";
-import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],

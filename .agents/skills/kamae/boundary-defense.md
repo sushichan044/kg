@@ -62,8 +62,8 @@ These factories use the [Standard Schema](https://github.com/standard-schema/sta
 #### For neverthrow
 
 ```typescript
-import { ok, err, Result } from "neverthrow";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
+import { ok, err, Result } from "neverthrow";
 
 type ValidationError = Readonly<{
   kind: "ValidationError";
@@ -90,8 +90,8 @@ const result = parseCreateRequestInput(rawBody);
 #### For fp-ts
 
 ```typescript
-import * as E from "fp-ts/Either";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
+import * as E from "fp-ts/Either";
 
 type ValidationError = Readonly<{
   kind: "ValidationError";
@@ -111,8 +111,8 @@ const schemaEither =
 #### For option-t
 
 ```typescript
-import { createOk, createErr, type Result } from "option-t/plain_result";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
+import { createOk, createErr, type Result } from "option-t/plain_result";
 
 type ValidationError = Readonly<{
   kind: "ValidationError";

@@ -17,6 +17,7 @@ Import a stylesheet explicitly and pass already processed values:
 
 ```tsx
 import { DiagnosticList, NovelViewer } from "@sushichan044/kg-viewer";
+
 import "@sushichan044/kg-viewer/styles.css";
 
 <>
