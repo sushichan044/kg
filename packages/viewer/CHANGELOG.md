@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.10.0](https://github.com/sushichan044/kg/compare/kg-viewer-v0.9.5...kg-viewer-v0.10.0) (2026-10-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* **viewer:** The viewer requires ADR 0006 phase 3 core snapshots. Upgrade core and viewer together; legacy per-grapheme combination has no adapter.
+
+### Features
+
+* **core:** check ruby and emphasis clearance before scoring ([47bddbf](https://github.com/sushichan044/kg/commit/47bddbfbcc6ea539e92bc81b40c53ddfe4aa4576))
+* **core:** enforce fixed-pitch ruby and emphasis clearance before scoring ([82b5492](https://github.com/sushichan044/kg/commit/82b5492158b8e684b98e083301ef49e53684c849))
+
+
+### Code Refactoring
+
+* **viewer:** consume composer-owned render units and decorations ([2fedd3c](https://github.com/sushichan044/kg/commit/2fedd3c2f3eef958e3c12b4d296e63b3471da4b7))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @sushichan044/kg-core bumped to 0.10.0
+
 ## [0.9.5](https://github.com/sushichan044/kg/compare/kg-viewer-v0.9.4...kg-viewer-v0.9.5) (2026-10-08)
 
 
