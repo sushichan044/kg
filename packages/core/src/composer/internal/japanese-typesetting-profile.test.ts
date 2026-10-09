@@ -421,7 +421,7 @@ describe("defaultJapaneseTypesettingProfile", () => {
     expect.assert(mixedText.stretch !== undefined, "mixed-text space has no stretch capacity");
     expect.assert(solid.stretch !== undefined, "solid pair has no stretch capacity");
 
-    expect(mixedText.stretch.priority).toBeLessThan(solid.stretch.priority);
+    expect(mixedText.stretch.stage).toBeLessThan(solid.stretch.stage);
     // Stage 2 opens the quarter em to a half, stage 3 opens a solid pair to a quarter.
     expect(mixedText.naturalWidthEm + mixedText.stretch.amountEm).toBe(0.5);
     expect(solid.naturalWidthEm + solid.stretch.amountEm).toBe(0.25);
@@ -446,11 +446,12 @@ describe("defaultJapaneseTypesettingProfile", () => {
     expect.assert(punctuation.shrink !== undefined, "bracket space has no shrink capacity");
     expect.assert(mixedText.shrink !== undefined, "mixed-text space has no shrink capacity");
 
-    expect(lineEnd.spacing.shrink.priority).toBeLessThan(middleDot.shrink.priority);
-    expect(middleDot.shrink.priority).toBeLessThan(punctuation.shrink.priority);
-    expect(punctuation.shrink.priority).toBeLessThan(mixedText.shrink.priority);
-    // Priority 0 is what makes a line-end reduction free to the paragraph optimizer.
-    expect(lineEnd.spacing.shrink.priority).toBe(0);
+    expect(lineEnd.spacing.shrink.stage).toBeLessThan(middleDot.shrink.stage);
+    expect(middleDot.shrink.stage).toBeLessThan(punctuation.shrink.stage);
+    expect(punctuation.shrink.stage).toBeLessThan(mixedText.shrink.stage);
+    // Cost is independent of the stage that executes the reduction.
+    expect(lineEnd.spacing.shrink.stage).toBe(0);
+    expect(lineEnd.spacing.shrink.costPerEm).toBe(0);
   });
 
   test("reduces the space before an opening bracket and after a closing bracket or comma together", () => {
@@ -469,7 +470,8 @@ describe("defaultJapaneseTypesettingProfile", () => {
 
     expect(midLine).toEqual({ kind: "glue", naturalWidthEm: 0.5 });
     expect(lineEnd.spacing.shrink).toEqual({
-      priority: 0,
+      stage: 0,
+      costPerEm: 0,
       amountEm: 0.5,
       granularity: "all-or-nothing",
     });
@@ -518,10 +520,10 @@ describe("defaultJapaneseTypesettingProfile", () => {
 
     // JLReq 3.8.3 a and 3.8.4 a: the word space is the first stage of both directions. Only the
     // line-end reduction, which the reader cannot see at all, is taken ahead of it.
-    expect(wordSpace.shrink.priority).toBeLessThan(middleDot.shrink.priority);
-    expect(wordSpace.stretch.priority).toBeLessThan(mixedText.stretch.priority);
-    expect(wordSpace.shrink.priority).toBeGreaterThan(0);
-    expect(wordSpace.stretch.priority).toBeGreaterThan(0);
+    expect(wordSpace.shrink.stage).toBeLessThan(middleDot.shrink.stage);
+    expect(wordSpace.stretch.stage).toBeLessThan(mixedText.stretch.stage);
+    expect(wordSpace.shrink.stage).toBeGreaterThan(0);
+    expect(wordSpace.stretch.stage).toBeGreaterThan(0);
   });
 
   test("admits the whole line-end アキ or none of it, and nothing in between", () => {

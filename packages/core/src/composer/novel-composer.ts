@@ -1,6 +1,5 @@
 import * as v from "valibot";
 
-import { questionOrExclamationSpacings } from "../internal/question-or-exclamation-spacing";
 import { graphemeSegmenter } from "../internal/segmenter";
 import { NamespacedId } from "../namespaced-id";
 import type { ManuscriptAnnotation } from "../parser/annotation/manuscript-annotation";
@@ -19,10 +18,15 @@ import type { ComposedManuscript } from "./composed-manuscript";
 import { NovelCompositionSettings } from "./composition-settings";
 import type { InlineMeasurer } from "./inline-measurer";
 import { InlineMeasurement, logicalInlineMeasurer } from "./inline-measurer";
+import { BoundaryRule } from "./internal/boundary-rule";
+import { CompositionRun } from "./internal/composition-run";
+import { JapaneseParagraph } from "./internal/japanese-paragraph";
 import { defaultJapaneseTypesettingProfile } from "./internal/japanese-typesetting-profile";
-import type { JapaneseTypesettingProfile } from "./internal/japanese-typesetting-profile";
+import type { JapaneseCharacterClass } from "./internal/japanese-typesetting-rules";
 import { layoutParagraph } from "./internal/paragraph-layout";
-import type { ParagraphLinePlan } from "./internal/paragraph-layout";
+import type { ParagraphLinePlan } from "./internal/paragraph-line-plan";
+import { RubyAssociation } from "./internal/ruby-association";
+import { SourceSpace } from "./internal/source-space";
 import { LineOffset } from "./line-offset";
 import type { ManuscriptComposer } from "./manuscript-composer";
 import { ManuscriptGeometry } from "./manuscript-geometry";
@@ -37,13 +41,11 @@ import type { VerticalTextPresentation } from "./vertical-text-presentation";
 const COMPOSER_ID = NamespacedId.of("kg/novel");
 const TYPESETTING_PROFILE = defaultJapaneseTypesettingProfile;
 
-const ASCII_ALPHANUMERIC = /^[A-Za-z0-9]$/u;
-const ASCII_TWO_DIGITS = /^[0-9]{2}$/u;
-const UPRIGHT_LATIN_ABBREVIATION = /^(?:[A-Z]+|[A-Z][a-z]{1,2})$/u;
-const FULLWIDTH_ALPHANUMERIC = /^[Ａ-Ｚａ-ｚ０-９]$/u;
-
 type Atom = Readonly<{
   grapheme: ParsedGrapheme;
+  runIndex: number;
+  characterClass: JapaneseCharacterClass;
+  intrinsicBoxAdvanceEm: number;
   boxAdvanceEm: number;
   renderAdvanceEm: number;
   renderOffsetEm: number;
@@ -53,6 +55,9 @@ type Atom = Readonly<{
 type MutableAtom = { -readonly [Key in keyof Atom]: Atom[Key] };
 
 type MeasuredSourceLine = Readonly<{
+  runs: readonly CompositionRun[];
+  rubyAssociations: readonly RubyAssociation[];
+  sourceSpaces: readonly SourceSpace[];
   atoms: readonly Atom[];
   suppressedIndexes: ReadonlySet<number>;
 }>;
@@ -65,56 +70,6 @@ type AnnotationFragmentPlan = Readonly<{
 type SourceGlue = Extract<ComposedInlineItem, { kind: "glue"; origin: "source" }>;
 
 export type NovelComposedManuscript = ComposedManuscript<NovelCompositionSettings, NovelLayout>;
-
-function presentation(
-  kind: VerticalTextPresentation["kind"],
-  graphemes: readonly ParsedGrapheme[],
-): VerticalTextPresentation | undefined {
-  const groupRange = ManuscriptRange.merge(graphemes.map(({ range }) => range));
-  return groupRange === null ? undefined : { kind, groupRange };
-}
-
-function presentedSourceLine(
-  sourceLine: readonly ParsedGrapheme[],
-): Array<Readonly<{ grapheme: ParsedGrapheme; presentation: VerticalTextPresentation }>> {
-  const presented: Array<
-    Readonly<{ grapheme: ParsedGrapheme; presentation: VerticalTextPresentation }>
-  > = [];
-  let cursor = 0;
-
-  while (cursor < sourceLine.length) {
-    const first = sourceLine[cursor];
-    if (first === undefined) break;
-
-    if (!ASCII_ALPHANUMERIC.test(first.value)) {
-      const itemPresentation = presentation(
-        FULLWIDTH_ALPHANUMERIC.test(first.value) ? "upright" : "mixed",
-        [first],
-      );
-      if (itemPresentation !== undefined) {
-        presented.push({ grapheme: first, presentation: itemPresentation });
-      }
-      cursor += 1;
-      continue;
-    }
-
-    const start = cursor;
-    while (ASCII_ALPHANUMERIC.test(sourceLine[cursor]?.value ?? "")) cursor += 1;
-    const run = sourceLine.slice(start, cursor);
-    const text = run.map(({ value }) => value).join("");
-    const kind = ASCII_TWO_DIGITS.test(text)
-      ? "tate-chu-yoko"
-      : text.length === 1 || UPRIGHT_LATIN_ABBREVIATION.test(text)
-        ? "upright"
-        : "sideways";
-    const runPresentation = presentation(kind, run);
-    if (runPresentation !== undefined) {
-      presented.push(...run.map((grapheme) => ({ grapheme, presentation: runPresentation })));
-    }
-  }
-
-  return presented;
-}
 
 function displayedLines(graphemes: readonly ParsedGrapheme[]): ParsedGrapheme[][] {
   const lines: ParsedGrapheme[][] = [[]];
@@ -132,30 +87,6 @@ function displayedLines(graphemes: readonly ParsedGrapheme[]): ParsedGrapheme[][
 
   if (lines.length > 1 && endedWithLineBreak) lines.pop();
   return lines;
-}
-
-function validGapIndexes(sourceLine: readonly ParsedGrapheme[]): ReadonlySet<number> {
-  const line = sourceLine.map(({ value }) => value).join("");
-  const gapStarts = new Set(
-    questionOrExclamationSpacings(line)
-      .filter((spacing) => spacing.kind === "valid")
-      .map(({ gap }) => gap.start),
-  );
-  const indexes = new Set<number>();
-  let offset = 0;
-
-  for (const [index, grapheme] of sourceLine.entries()) {
-    if (gapStarts.has(offset)) indexes.add(index);
-    offset += grapheme.value.length;
-  }
-
-  return indexes;
-}
-
-function indicesInside(atoms: readonly Atom[], annotation: RubyAnnotation): number[] {
-  return atoms.flatMap(({ grapheme }, index) =>
-    ManuscriptRange.overlaps(grapheme.range, annotation.range) ? [index] : [],
-  );
 }
 
 function measure(
@@ -203,7 +134,16 @@ function measureSourceLine(
   settings: NovelCompositionSettings,
   measurer: InlineMeasurer,
 ): MeasuredSourceLine | undefined {
-  const mutable = presentedSourceLine(sourceLine).map(({ grapheme, presentation }) => {
+  const runs = CompositionRun.recognize(sourceLine);
+  const rubyAssociations = RubyAssociation.collect(annotations, sourceLine);
+  const presented = runs.flatMap((run, runIndex) =>
+    run.members.map((grapheme) => ({
+      grapheme,
+      runIndex,
+      presentation: CompositionRun.presentationOf(run),
+    })),
+  );
+  const mutable = presented.map(({ grapheme, runIndex, presentation }) => {
     const renderAdvanceEm = measure(measurer, grapheme.value, "base", settings, presentation.kind);
     if (renderAdvanceEm === undefined) return undefined;
     const characterClass = TYPESETTING_PROFILE.classify({
@@ -213,6 +153,9 @@ function measureSourceLine(
     const metrics = TYPESETTING_PROFILE.boxMetrics(characterClass, renderAdvanceEm);
     return {
       grapheme,
+      runIndex,
+      characterClass,
+      intrinsicBoxAdvanceEm: metrics.advanceEm,
       boxAdvanceEm: metrics.advanceEm,
       renderAdvanceEm,
       renderOffsetEm: metrics.renderOffsetEm,
@@ -223,12 +166,12 @@ function measureSourceLine(
 
   const atoms: MutableAtom[] = mutable.flatMap((atom) => (atom === undefined ? [] : [atom]));
 
-  for (const annotation of annotations) {
-    if (annotation.kind !== "ruby") continue;
-    const indexes = indicesInside(atoms, annotation);
-    if (indexes.length === 0) continue;
+  for (const association of rubyAssociations) {
+    const { indexes } = association;
     const readingTexts =
-      annotation.reading.kind === "group" ? [annotation.reading.text] : annotation.reading.segments;
+      association.reading.kind === "group"
+        ? [association.reading.text]
+        : association.reading.segments;
     const hasInvalidReadingGrapheme = readingTexts.some((text) =>
       [...graphemeSegmenter.segment(text)].some(
         ({ segment }) => measure(measurer, segment, "ruby", settings) === undefined,
@@ -236,8 +179,8 @@ function measureSourceLine(
     );
     if (hasInvalidReadingGrapheme) return undefined;
 
-    if (annotation.reading.kind === "group") {
-      const readingAdvance = measure(measurer, annotation.reading.text, "ruby", settings);
+    if (association.reading.kind === "group") {
+      const readingAdvance = measure(measurer, association.reading.text, "ruby", settings);
       if (readingAdvance === undefined) return undefined;
       const baseAdvance = indexes.reduce(
         (total, index) => total + (atoms[index]?.boxAdvanceEm ?? 0),
@@ -252,7 +195,7 @@ function measureSourceLine(
     }
 
     for (const [segmentIndex, index] of indexes.entries()) {
-      const segment = annotation.reading.segments[segmentIndex];
+      const segment = association.reading.segments[segmentIndex];
       const atom = atoms[index];
       if (segment === undefined || atom === undefined) continue;
       const readingAdvance = measure(measurer, segment, "ruby", settings);
@@ -261,61 +204,19 @@ function measureSourceLine(
     }
   }
 
-  return { atoms, suppressedIndexes: validGapIndexes(sourceLine) };
-}
-
-function breakInsideFittableGroupRuby(
-  atoms: readonly Atom[],
-  annotations: readonly ManuscriptAnnotation[],
-  boundary: number,
-  lineLengthEm: number,
-): boolean {
-  const right = atoms[boundary];
-  if (right === undefined) return false;
-  const graphemeIndex = right.grapheme.range.graphemes.start;
-
-  return annotations.some((annotation) => {
-    if (annotation.kind !== "ruby" || annotation.reading.kind !== "group") return false;
-    if (
-      graphemeIndex <= annotation.range.graphemes.start ||
-      graphemeIndex >= annotation.range.graphemes.end
-    ) {
-      return false;
-    }
-    const indexes = indicesInside(atoms, annotation);
-    const advance = indexes.reduce((total, index) => total + (atoms[index]?.boxAdvanceEm ?? 0), 0);
-    return advance <= lineLengthEm;
-  });
-}
-
-function samePresentationGroup(left: Atom, right: Atom): boolean {
-  return (
-    left.presentation.groupRange.graphemes.start ===
-      right.presentation.groupRange.graphemes.start &&
-    left.presentation.groupRange.graphemes.end === right.presentation.groupRange.graphemes.end
+  const sourceSpaces = SourceSpace.collect(
+    sourceLine,
+    atoms.map(({ boxAdvanceEm }) => boxAdvanceEm),
   );
-}
-
-function legalBoundary(
-  atoms: readonly Atom[],
-  annotations: readonly ManuscriptAnnotation[],
-  leftIndex: number,
-  rightIndex: number,
-  lineLengthEm: number,
-  profile: JapaneseTypesettingProfile,
-): boolean {
-  const left = atoms[leftIndex];
-  const right = atoms[rightIndex];
-  if (left === undefined || right === undefined) return true;
-
-  return (
-    !samePresentationGroup(left, right) &&
-    profile.breakPenalty(
-      profile.classify({ value: left.grapheme.value, presentation: left.presentation.kind }),
-      profile.classify({ value: right.grapheme.value, presentation: right.presentation.kind }),
-    ) !== null &&
-    !breakInsideFittableGroupRuby(atoms, annotations, rightIndex, lineLengthEm)
-  );
+  return {
+    atoms,
+    runs,
+    rubyAssociations,
+    sourceSpaces,
+    suppressedIndexes: new Set(
+      sourceSpaces.filter((space) => space.edgeBehavior === "suppress").map((space) => space.index),
+    ),
+  };
 }
 
 function continuationFor(annotation: ManuscriptAnnotation, range: ManuscriptRange) {
@@ -630,41 +531,50 @@ function wrapSourceLine(
 ): NovelLine[] {
   if (sourceLine.atoms.length === 0) return [NovelLineContract.empty()];
   const profile = TYPESETTING_PROFILE;
-  const plans = layoutParagraph(
-    sourceLine.atoms.map(({ grapheme, boxAdvanceEm, presentation }, index) => {
-      const current = sourceLine.atoms[index];
-      const next = sourceLine.atoms[index + 1];
-      return {
-        value: grapheme.value,
-        boxAdvanceEm,
-        sourceGap: sourceLine.suppressedIndexes.has(index),
-        characterClass: profile.classify({
-          value: grapheme.value,
-          presentation: presentation.kind,
-        }),
-        pairSpacingAfter:
-          current === undefined ||
-          next === undefined ||
-          (!samePresentationGroup(current, next) &&
-            !breakInsideFittableGroupRuby(
-              sourceLine.atoms,
-              annotations,
-              index + 1,
-              settings.flow.lineLengthEm,
-            )),
-      };
-    }),
+  const characters = sourceLine.atoms.map((atom, index) => ({
+    boxAdvanceEm: atom.boxAdvanceEm,
+    sourceGap: sourceLine.suppressedIndexes.has(index),
+    characterClass: atom.characterClass,
+  }));
+  const rubyInteriors = RubyAssociation.fittableInteriors(
+    sourceLine.rubyAssociations,
+    characters.map(({ boxAdvanceEm }) => boxAdvanceEm),
     settings.flow.lineLengthEm,
+  );
+  const resolveBoundary = (leftIndex: number, rightIndex: number): BoundaryRule | undefined => {
+    const left = sourceLine.atoms[leftIndex];
+    const right = sourceLine.atoms[rightIndex];
+    if (left === undefined || right === undefined) return undefined;
+    return BoundaryRule.resolve(left.characterClass, right.characterClass, profile, {
+      runInterior: left.runIndex === right.runIndex,
+      rubyInterior: rubyInteriors.has(rightIndex),
+      sourceGap:
+        sourceLine.suppressedIndexes.has(leftIndex) || sourceLine.suppressedIndexes.has(rightIndex),
+    });
+  };
+  const boundaries = Array.from({ length: characters.length + 1 }, (_, boundary) =>
+    resolveBoundary(boundary - 1, boundary),
+  );
+  const nextVisible = Array.from<number>({ length: characters.length + 1 }).fill(characters.length);
+  for (let index = characters.length - 1; index >= 0; index -= 1) {
+    nextVisible[index] =
+      characters[index]?.sourceGap === true ? (nextVisible[index + 1] ?? characters.length) : index;
+  }
+  const acrossGaps = characters.map((_, left) =>
+    resolveBoundary(left, nextVisible[left + 1] ?? characters.length),
+  );
+  const paragraph = JapaneseParagraph.of(
+    characters,
+    boundaries,
     profile,
-    (leftIndex, rightIndex) =>
-      legalBoundary(
-        sourceLine.atoms,
-        annotations,
-        leftIndex,
-        rightIndex,
-        settings.flow.lineLengthEm,
-        profile,
-      ),
+    settings.flow.lineLengthEm,
+  );
+  const plans = layoutParagraph(
+    paragraph.elements,
+    settings.flow.lineLengthEm,
+    paragraph.resolveCandidate,
+    (left, right) =>
+      (right === left + 1 ? boundaries[right] : acrossGaps[left])?.break.kind !== "prohibited",
   );
   const lines = plans.map((plan) =>
     positionedLine(sourceLine.atoms, sourceLine.suppressedIndexes, plan),

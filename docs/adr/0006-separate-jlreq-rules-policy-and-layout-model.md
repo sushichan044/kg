@@ -1,6 +1,6 @@
 # ADR 0006: Separate JLReq rules, book style, and layout data
 
-- Status: Accepted design; implementation pending
+- Status: Accepted; phases 1–2 implemented, phases 3–4 pending
 - Date: 2026-10-08
 - Extends: ADR 0005
 - Detailed design: [Japanese typesetting model](../jlreq-typesetting-model.md)
