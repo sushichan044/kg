@@ -15,6 +15,10 @@ function sameRange(left: ManuscriptRange, right: ManuscriptRange): boolean {
   );
 }
 
+function rangeKey(range: ManuscriptRange): string {
+  return `${range.source.start}:${range.source.end}:${range.display.start}:${range.display.end}:${range.graphemes.start}:${range.graphemes.end}`;
+}
+
 export const NovelSourceContract = {
   matches: (manuscript: ParsedManuscript, lines: readonly NovelLine[]): boolean => {
     const expected = manuscript.graphemes.filter(
@@ -49,22 +53,23 @@ export const NovelSourceContract = {
       }
     }
     if (seen.size !== expected.length) return false;
-    const fragments = lines.flatMap(({ annotations }) => annotations);
+    const readings = new Map<string, string[]>();
+    for (const { annotations } of lines) {
+      for (const fragment of annotations) {
+        if (fragment.kind !== "ruby") continue;
+        const key = rangeKey(fragment.annotationRange);
+        const parts = readings.get(key);
+        if (parts === undefined) readings.set(key, [fragment.reading]);
+        else parts.push(fragment.reading);
+      }
+    }
     return manuscript.annotations.every((annotation) => {
       if (annotation.kind !== "ruby") return true;
       const reading =
         annotation.reading.kind === "group"
           ? annotation.reading.text
           : annotation.reading.segments.join("");
-      return (
-        fragments
-          .filter(
-            (fragment) =>
-              fragment.kind === "ruby" && sameRange(fragment.annotationRange, annotation.range),
-          )
-          .map((fragment) => (fragment.kind === "ruby" ? fragment.reading : ""))
-          .join("") === reading
-      );
+      return (readings.get(rangeKey(annotation.range)) ?? []).join("") === reading;
     });
   },
 } as const;

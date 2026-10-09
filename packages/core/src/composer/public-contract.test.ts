@@ -5,6 +5,7 @@ import { kakuyomuParser } from "../parser/kakuyomu-parser";
 import { parseManuscript } from "../parser/parse-manuscript";
 import { composeManuscript } from "./compose-manuscript";
 import { NovelCompositionSettings } from "./composition-settings";
+import { NovelSourceContract } from "./internal/novel-source-contract";
 import { MeasurementTextRange } from "./measurement-text-range";
 import { novelComposer } from "./novel-composer";
 import { createNovelComposer } from "./novel-composer";
@@ -28,6 +29,27 @@ function compose(source: string, measurer?: RunMeasurer) {
 }
 
 describe("public render units", () => {
+  test("checks each ruby reading independently by annotation range", () => {
+    const source = "｜あ《い》｜う《え》";
+    const parsed = parseManuscript(source, { parser: kakuyomuParser });
+    expect.assert(parsed.ok);
+    const lines = compose(source);
+    const fragments = lines.flatMap((line) => line.annotations);
+    expect(fragments).toHaveLength(2);
+
+    const changed = lines.map((line) => ({
+      ...line,
+      annotations: line.annotations.map((annotation) =>
+        annotation.kind === "ruby" && annotation.reading === "え"
+          ? { ...annotation, reading: "い" }
+          : annotation,
+      ),
+    }));
+
+    expect(NovelSourceContract.matches(parsed.value, lines)).toBe(true);
+    expect(NovelSourceContract.matches(parsed.value, changed)).toBe(false);
+  });
+
   test("emits one tate-chu-yoko unit with exact positions for both source digits", () => {
     const lines = compose("あ12い");
 
