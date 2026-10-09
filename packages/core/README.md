@@ -271,7 +271,11 @@ unit, whose whole physical span anchors the decoration. Incompatible readings on
 members of the same unit cause a composition refusal. Bold and italic retain
 source-range fragments. Ruby overhang depends on adjacent characters, resolved
 punctuation spacing, and the candidate's line edges. Mono readings anchor to their
-own bases; jukugo readings are arranged jointly. Oversized group readings are
+own bases; jukugo readings use solid shoulder placement and joint arrangement.
+Jukugo placement tries compound-interior overhang before outside neighbours, then
+distributes required spacing around long readings in proportion to their measured
+widths. Line-edge shares go inward. A single-base fragment touching both edges
+uses head alignment and box expansion when needed. Oversized group readings are
 assigned as contiguous measurement-cluster intervals before line scoring.
 
 Emphasis placements have a half-em inline extent centered on their render unit.

@@ -377,6 +377,117 @@ describe("joint jukugo placement", () => {
     expect(lines).toHaveLength(2);
     expect(ruby.map((fragment) => fragment.reading)).toEqual(["きょう", "と"]);
     expect(ruby.map((fragment) => fragment.continuation)).toEqual(["start", "end"]);
-    expect(ruby[1]?.readingItems[0]?.placement.inlineSpan.offsetEm).toBe(0.25);
+    expect(ruby[1]?.readingItems[0]?.placement.inlineSpan.offsetEm).toBe(0);
+  });
+
+  test("uses solid shoulder readings before unannotated text", () => {
+    const { ruby } = composeRuby("漢字あ", [
+      { start: 0, length: 2, reading: { kind: "jukugo", segments: ["か", "じご"] } },
+    ]);
+
+    expect(ruby[0]?.readingItems.map((item) => item.placement.inlineSpan.offsetEm)).toEqual([
+      0, 1, 1.5,
+    ]);
+  });
+
+  test("distributes excess around both long bases between unrelated kanji", () => {
+    const { glyphs, ruby } = composeRuby("前漢字後", [
+      { start: 1, length: 2, reading: { kind: "jukugo", segments: ["かんじ", "じゅく"] } },
+    ]);
+
+    expect(glyphs.map((glyph) => glyph.layoutSpan.offsetEm)).toEqual([0, 1.25, 2.75, 4]);
+    expect(ruby[0]?.readingItems.map((item) => item.placement.inlineSpan.offsetEm)).toEqual([
+      1, 1.5, 2, 2.5, 3, 3.5,
+    ]);
+  });
+
+  test("uses compound overhang before borrowing from outer kana", () => {
+    const { ruby } = composeRuby("あ漢字あ", [
+      { start: 1, length: 2, reading: { kind: "jukugo", segments: ["か", "じゅく"] } },
+    ]);
+
+    expect(ruby[0]?.readingItems.map((item) => item.placement.inlineSpan.offsetEm)).toEqual([
+      1, 1.5, 2, 2.5,
+    ]);
+  });
+
+  test("shares spacing in proportion to unequal reading widths", () => {
+    const { glyphs, ruby } = composeRuby("前漢字後", [
+      { start: 1, length: 2, reading: { kind: "jukugo", segments: ["かんじ", "じゅくご"] } },
+    ]);
+    const first = glyphs[1];
+    const second = glyphs[2];
+    const last = glyphs[3];
+    expect.assert(first !== undefined && second !== undefined && last !== undefined);
+
+    expect(first.layoutSpan.offsetEm).toBeCloseTo(1 + 9 / 28);
+    expect(second.layoutSpan.offsetEm).toBeCloseTo(2 + 9 / 28 + 3 / 4);
+    expect(last.layoutSpan.offsetEm).toBeCloseTo(4.5);
+    expect(ruby[0]?.reading).toBe("かんじじゅくご");
+  });
+
+  test("keeps an oversized single-base fragment inside its line span", () => {
+    const { lines, ruby } = composeRuby("漢", [
+      { start: 0, length: 1, reading: { kind: "jukugo", segments: ["かんじよ"] } },
+    ]);
+
+    expect(lines[0]?.inlineSizeEm).toBe(2);
+    expect(ruby[0]?.readingItems.map((item) => item.placement.inlineSpan.offsetEm)).toEqual([
+      0, 0.5, 1, 1.5,
+    ]);
+  });
+
+  test("retains indivisible measured reading clusters during distribution", () => {
+    const composer = createNovelComposer({
+      measurer: (request) =>
+        request.kind === "ruby"
+          ? {
+              kind: "clustered",
+              advanceEm: request.text === "かんじ" ? 1.5 : 2,
+              clusters: [
+                {
+                  textRange: MeasurementTextRange.of({ start: 0, end: request.text.length }),
+                  layoutSpan: { offsetEm: 0, advanceEm: request.text === "かんじ" ? 1.5 : 2 },
+                  renderSpan: { offsetEm: 0, advanceEm: request.text === "かんじ" ? 1.5 : 2 },
+                },
+              ],
+            }
+          : logicalRunMeasurer(request),
+    });
+
+    const { glyphs, ruby } = composeRuby(
+      "前漢字後",
+      [{ start: 1, length: 2, reading: { kind: "jukugo", segments: ["かんじ", "じゅくご"] } }],
+      composer,
+    );
+
+    expect(ruby[0]?.readingItems.map((item) => item.value)).toEqual(["かんじ", "じゅくご"]);
+    expect(glyphs[1]?.layoutSpan.offsetEm).toBeCloseTo(1 + 9 / 28);
+    expect(glyphs[3]?.layoutSpan.offsetEm).toBeCloseTo(4.5);
+  });
+
+  test.each([
+    ["前漢字後", 5],
+    ["あ漢字後", 4.5],
+    ["前漢字あ", 4.5],
+    ["あ漢字あ", 4],
+  ] as const)("uses permitted outer overhang before spacing in %s", (text, widthEm) => {
+    const { lines, glyphs, ruby } = composeRuby(text, [
+      { start: 1, length: 2, reading: { kind: "jukugo", segments: ["かんじ", "じゅく"] } },
+    ]);
+    const items = ruby[0]?.readingItems;
+    expect.assert(items !== undefined);
+
+    expect(lines[0]?.inlineSizeEm).toBeCloseTo(widthEm);
+    expect(glyphs.map((glyph) => glyph.layoutSpan.advanceEm)).toEqual([1, 1, 1, 1]);
+    expect(glyphs.map((glyph) => glyph.value).join("")).toBe(text);
+    for (let index = 1; index < items.length; index += 1) {
+      const previous = items[index - 1];
+      const current = items[index];
+      expect.assert(previous !== undefined && current !== undefined);
+      expect(current.placement.inlineSpan.offsetEm + 1e-9).toBeGreaterThanOrEqual(
+        previous.placement.inlineSpan.offsetEm + previous.placement.inlineSpan.advanceEm,
+      );
+    }
   });
 });
