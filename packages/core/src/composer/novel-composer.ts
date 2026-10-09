@@ -1,25 +1,28 @@
 import { graphemeSegmenter } from "../internal/segmenter";
 import { NamespacedId } from "../namespaced-id";
+import type { EmphasisAnnotation } from "../parser/annotation/emphasis-annotation";
 import type { ManuscriptAnnotation } from "../parser/annotation/manuscript-annotation";
-import type { RubyAnnotation, RubyReading } from "../parser/annotation/ruby-annotation";
 import type { ParsedGrapheme } from "../parser/parsed-grapheme";
 import type { ParsedManuscript } from "../parser/parsed-manuscript";
 import { ManuscriptRange } from "../range/manuscript-range";
 import { ManuscriptResult } from "../result/manuscript-result";
+import type { AnnotationPlacement } from "./annotation-placement";
 import type { CombinedGlyphUnit } from "./combined-glyph-unit";
 import type { ComposedAnnotationFragment } from "./composed-annotation-fragment";
 import type { SuppressedInlineItem } from "./composed-inline-item";
 import type { ComposedManuscript } from "./composed-manuscript";
 import { NovelCompositionSettings } from "./composition-settings";
 import type { InlineSpan } from "./inline-span";
+import { AnnotationClearance } from "./internal/annotation-clearance";
 import { BoundaryRule } from "./internal/boundary-rule";
 import type { BoxAdjustment } from "./internal/box-adjustment";
 import { CompositionRun } from "./internal/composition-run";
+import { EmphasisPlacement } from "./internal/emphasis-placement";
+import { GroupRubyAllocation } from "./internal/group-ruby-allocation";
 import { JapaneseParagraph } from "./internal/japanese-paragraph";
 import { defaultJapaneseTypesettingProfile } from "./internal/japanese-typesetting-profile";
 import type { JapaneseCharacterClass } from "./internal/japanese-typesetting-rules";
 import { MeasurementSession } from "./internal/measurement-session";
-import type { MeasurementPiece } from "./internal/measurement-session";
 import { NovelSourceContract } from "./internal/novel-source-contract";
 import { layoutParagraph } from "./internal/paragraph-layout";
 import type { ParagraphLinePlan } from "./internal/paragraph-line-plan";
@@ -60,8 +63,6 @@ type Atom = Readonly<{
   combineRun: boolean;
 }>;
 
-type MutableAtom = { -readonly [Key in keyof Atom]: Atom[Key] };
-
 type MeasuredSourceLine = Readonly<{
   runs: readonly CompositionRun[];
   rubyAssociations: readonly RubyAssociation[];
@@ -69,16 +70,17 @@ type MeasuredSourceLine = Readonly<{
   atoms: readonly Atom[];
   suppressedIndexes: ReadonlySet<number>;
   candidateReadings: readonly RubyLineSegment[];
-}>;
-
-type AnnotationFragmentPlan = Readonly<{
-  ranges: readonly ManuscriptRange[];
-  groupReadings: readonly string[];
+  groupReadings: readonly GroupRubyAllocation[];
 }>;
 
 type RenderUnit = SingleGlyphUnit | CombinedGlyphUnit;
 
 type SourceGlue = Extract<PositionedInlineItem, { kind: "glue"; origin: "source" }>;
+
+type PositionedEmphasis = Readonly<{
+  annotation: EmphasisAnnotation;
+  placement: AnnotationPlacement;
+}>;
 
 export type NovelComposedManuscript = ComposedManuscript<NovelCompositionSettings, NovelLayout>;
 
@@ -100,31 +102,14 @@ function displayedLines(graphemes: readonly ParsedGrapheme[]): ParsedGrapheme[][
   return lines;
 }
 
-/**
- * Widen a base character by `extraEm` so a reading longer than it has room, keeping the character's
- * ink in the middle of the widened box.
- *
- * JLReq 3.3.6 sets such a reading solid and spends the surplus on the base instead: two units
- * between the base characters for one unit before the first and after the last. Handing every base
- * character an equal share of the surplus and centring it inside that share produces exactly those
- * proportions, and it is also the 中付き position JLReq 3.3.5 asks of a mono ruby whose reading
- * outruns its single base character.
- */
-function widenForReading(atom: MutableAtom, extraEm: number): void {
-  if (extraEm <= 0) return;
-  atom.boxAdvanceEm += extraEm;
-  atom.renderOffsetEm += extraEm / 2;
-}
-
 function measureSourceLine(
   sourceLine: readonly ParsedGrapheme[],
   annotations: readonly ManuscriptAnnotation[],
   measurements: MeasurementSession,
-  lineLengthEm: number,
 ): MeasuredSourceLine | undefined {
   const runs = CompositionRun.recognize(sourceLine);
   const rubyAssociations = RubyAssociation.collect(annotations, sourceLine);
-  const atoms: MutableAtom[] = [];
+  const atoms: Atom[] = [];
   for (const [runIndex, run] of runs.entries()) {
     const text = run.members.map(({ value }) => value).join("");
     const pieces = measurements.pieces(text, "base", run.presentation);
@@ -165,6 +150,8 @@ function measureSourceLine(
   }
 
   const candidateReadings: RubyLineSegment[] = [];
+  const groupReadings: GroupRubyAllocation[] = [];
+  const baseAdvances = atoms.map((atom) => atom.boxAdvanceEm);
   const physicalRange = (first: number, last: number) => {
     const left = atoms[first];
     const right = atoms[last];
@@ -188,29 +175,11 @@ function measureSourceLine(
       return undefined;
 
     if (association.reading.kind === "group") {
-      const readingAdvance = measurements.get(association.reading.text, "ruby")?.advanceEm;
-      if (readingAdvance === undefined) return undefined;
-      const baseAdvance = indexes.reduce(
-        (total, index) => total + (atoms[index]?.boxAdvanceEm ?? 0),
-        0,
-      );
-      const first = indexes[0];
-      const last = indexes.at(-1);
       const pieces = measurements.pieces(association.reading.text, "ruby");
-      if (
-        first !== undefined &&
-        last !== undefined &&
-        pieces !== undefined &&
-        Math.max(baseAdvance, readingAdvance) <= lineLengthEm
-      ) {
-        candidateReadings.push({ association, ...physicalRange(first, last), pieces });
-        continue;
-      }
-      const extra = Math.max(0, readingAdvance - baseAdvance) / indexes.length;
-      for (const index of indexes) {
-        const atom = atoms[index];
-        if (atom !== undefined) widenForReading(atom, extra);
-      }
+      if (pieces === undefined) return undefined;
+      const group = GroupRubyAllocation.prepare(association, pieces, baseAdvances);
+      if (group === undefined) return undefined;
+      groupReadings.push(group);
       continue;
     }
 
@@ -218,15 +187,9 @@ function measureSourceLine(
       const segment = association.reading.segments[segmentIndex];
       const atom = atoms[index];
       if (segment === undefined || atom === undefined) continue;
-      const readingAdvance = measurements.get(segment, "ruby")?.advanceEm;
-      if (readingAdvance === undefined) return undefined;
-      if (association.reading.kind === "mono") {
-        const pieces = measurements.pieces(segment, "ruby");
-        if (pieces === undefined) return undefined;
-        candidateReadings.push({ association, ...physicalRange(index, index), pieces });
-        continue;
-      }
-      widenForReading(atom, readingAdvance - atom.boxAdvanceEm);
+      const pieces = measurements.pieces(segment, "ruby");
+      if (pieces === undefined) return undefined;
+      candidateReadings.push({ association, ...physicalRange(index, index), pieces });
     }
   }
 
@@ -239,6 +202,7 @@ function measureSourceLine(
     runs,
     rubyAssociations,
     candidateReadings,
+    groupReadings,
     sourceSpaces,
     suppressedIndexes: new Set(
       sourceSpaces.filter((space) => space.edgeBehavior === "suppress").map((space) => space.index),
@@ -253,170 +217,6 @@ function continuationFor(annotation: ManuscriptAnnotation, range: ManuscriptRang
   if (starts) return "start" as const;
   if (ends) return "end" as const;
   return "middle" as const;
-}
-
-function groupReadingsForFragments(
-  annotation: RubyAnnotation,
-  fragmentRanges: readonly ManuscriptRange[],
-  baseAdvances: ReadonlyMap<number, number>,
-): string[] {
-  const baseLength = annotation.range.graphemes.end - annotation.range.graphemes.start;
-  if (annotation.reading.kind !== "group") return [];
-  const reading = [...graphemeSegmenter.segment(annotation.reading.text)].map(
-    ({ segment }) => segment,
-  );
-  const advances = Array.from({ length: baseLength }, (_, index) =>
-    baseAdvances.get(annotation.range.graphemes.start + index),
-  );
-  const measured = advances.every((advance) => advance !== undefined);
-  const advanceFor = (fragment: ManuscriptRange): number => {
-    const fragmentStart = fragment.graphemes.start - annotation.range.graphemes.start;
-    const fragmentLength = fragment.graphemes.end - fragment.graphemes.start;
-    return measured
-      ? advances
-          .slice(fragmentStart, fragmentStart + fragmentLength)
-          .reduce((total, advance) => total + advance, 0)
-      : fragmentLength;
-  };
-  const weights = fragmentRanges.map(advanceFor);
-  const measuredTotal = weights.reduce((total, weight) => total + weight, 0);
-  const effectiveWeights =
-    measuredTotal > 0
-      ? weights
-      : fragmentRanges.map(({ graphemes }) => graphemes.end - graphemes.start);
-  const totalWeight = effectiveWeights.reduce((total, weight) => total + weight, 0);
-  const reserveEveryFragment = reading.length >= fragmentRanges.length;
-  const fragments: string[] = [];
-  let readingStart = 0;
-  let accumulatedWeight = 0;
-
-  for (const [index, weight] of effectiveWeights.entries()) {
-    accumulatedWeight += weight;
-    const remainingFragments = effectiveWeights.length - index - 1;
-    const proportionalEnd =
-      index === effectiveWeights.length - 1
-        ? reading.length
-        : Math.round((accumulatedWeight * reading.length) / totalWeight);
-    const minimumEnd = reserveEveryFragment ? readingStart + 1 : readingStart;
-    const maximumEnd = reserveEveryFragment ? reading.length - remainingFragments : reading.length;
-    const readingEnd = Math.min(maximumEnd, Math.max(minimumEnd, proportionalEnd));
-    fragments.push(reading.slice(readingStart, readingEnd).join(""));
-    readingStart = readingEnd;
-  }
-
-  return fragments;
-}
-
-function readingForFragment(
-  annotation: RubyAnnotation,
-  range: ManuscriptRange,
-  fragmentPlan: AnnotationFragmentPlan,
-): Readonly<{ kind: RubyReading["kind"]; text: string }> {
-  const start = range.graphemes.start - annotation.range.graphemes.start;
-  const length = range.graphemes.end - range.graphemes.start;
-
-  if (annotation.reading.kind !== "group") {
-    return {
-      kind: annotation.reading.kind,
-      text: annotation.reading.segments.slice(start, start + length).join(""),
-    };
-  }
-
-  const fragmentIndex = fragmentPlan.ranges.findIndex(
-    ({ graphemes }) =>
-      graphemes.start === range.graphemes.start && graphemes.end === range.graphemes.end,
-  );
-  return {
-    kind: "group",
-    text: fragmentPlan.groupReadings[fragmentIndex] ?? "",
-  };
-}
-
-function fragmentReadingPieces(
-  annotation: RubyAnnotation,
-  range: ManuscriptRange,
-  fragmentPlan: AnnotationFragmentPlan,
-  measurements: MeasurementSession,
-): readonly MeasurementPiece[] | undefined {
-  if (annotation.reading.kind !== "group") {
-    const start = range.graphemes.start - annotation.range.graphemes.start;
-    const length = range.graphemes.end - range.graphemes.start;
-    const pieces: MeasurementPiece[] = [];
-    let textOffset = 0;
-    let layoutOffset = 0;
-    for (const text of annotation.reading.segments.slice(start, start + length)) {
-      const measured = measurements.pieces(text, "ruby");
-      if (measured === undefined) return undefined;
-      for (const piece of measured)
-        pieces.push({
-          ...piece,
-          textRange: MeasurementTextRange.of({
-            start: textOffset + piece.textRange.start,
-            end: textOffset + piece.textRange.end,
-          }),
-          layoutSpan: { ...piece.layoutSpan, offsetEm: layoutOffset + piece.layoutSpan.offsetEm },
-          renderSpan: { ...piece.renderSpan, offsetEm: layoutOffset + piece.renderSpan.offsetEm },
-        });
-      textOffset += text.length;
-      layoutOffset += measured.reduce((sum, piece) => sum + piece.layoutSpan.advanceEm, 0);
-    }
-    return pieces;
-  }
-  const index = fragmentPlan.ranges.findIndex(
-    (fragment) =>
-      fragment.graphemes.start === range.graphemes.start &&
-      fragment.graphemes.end === range.graphemes.end,
-  );
-  const textStart = fragmentPlan.groupReadings
-    .slice(0, index)
-    .reduce((sum, text) => sum + text.length, 0);
-  const textEnd = textStart + (fragmentPlan.groupReadings[index]?.length ?? 0);
-  const measured = measurements.pieces(annotation.reading.text, "ruby");
-  if (measured === undefined) return undefined;
-  const selected = measured.filter(
-    (piece) => piece.textRange.start < textEnd && piece.textRange.end > textStart,
-  );
-  if (selected.some((piece) => piece.textRange.start < textStart || piece.textRange.end > textEnd))
-    return undefined;
-  const layoutStart = selected[0]?.layoutSpan.offsetEm ?? 0;
-  return selected.map((piece) => ({
-    value: piece.value,
-    textRange: MeasurementTextRange.of({
-      start: piece.textRange.start - textStart,
-      end: piece.textRange.end - textStart,
-    }),
-    layoutSpan: { ...piece.layoutSpan, offsetEm: piece.layoutSpan.offsetEm - layoutStart },
-    renderSpan: { ...piece.renderSpan, offsetEm: piece.renderSpan.offsetEm - layoutStart },
-  }));
-}
-
-function positionReading(
-  pieces: readonly MeasurementPiece[],
-  baseOffsetEm: number,
-  baseAdvanceEm: number,
-) {
-  const total = pieces.reduce((sum, piece) => sum + piece.layoutSpan.advanceEm, 0);
-  const edgeGap =
-    pieces.length > 0 && total < baseAdvanceEm ? (baseAdvanceEm - total) / (2 * pieces.length) : 0;
-  let offsetEm = baseOffsetEm + (total > baseAdvanceEm ? (baseAdvanceEm - total) / 2 : edgeGap);
-  return pieces.map((piece, index) => {
-    const positioned = {
-      value: piece.value,
-      textRange: piece.textRange,
-      placement: {
-        side: "before",
-        inlineSpan: {
-          offsetEm: offsetEm + piece.renderSpan.offsetEm - piece.layoutSpan.offsetEm,
-          advanceEm: piece.renderSpan.advanceEm,
-        },
-        blockOffsetEm: -0.5,
-        blockSizeEm: 0.5,
-      },
-    } as const;
-    offsetEm += piece.layoutSpan.advanceEm;
-    if (index < pieces.length - 1) offsetEm += edgeGap * 2;
-    return positioned;
-  });
 }
 
 function annotationFragmentRange(
@@ -443,9 +243,8 @@ function annotationFragments(
   suppressed: readonly SuppressedInlineItem[],
   sourceGlues: readonly SourceGlue[],
   annotations: readonly ManuscriptAnnotation[],
-  measurements: MeasurementSession,
-  fragmentPlansByAnnotation: ReadonlyMap<ManuscriptAnnotation, AnnotationFragmentPlan>,
   candidatePlacements: readonly RubyLinePlacement[],
+  emphasisForUnit: (unit: RenderUnit) => PositionedEmphasis | undefined,
 ): ComposedAnnotationFragment[] | undefined {
   const fragments: ComposedAnnotationFragment[] = [];
 
@@ -474,20 +273,10 @@ function annotationFragments(
         fragments.push({
           kind: "emphasis",
           mark: annotation.mark,
-          placements: covered
-            .filter(
-              (unit) =>
-                annotations.find(
-                  (other) =>
-                    other.kind === "emphasis" && ManuscriptRange.overlaps(unit.range, other.range),
-                ) === annotation,
-            )
-            .map((unit) => ({
-              side: "before",
-              inlineSpan: unit.renderSpan,
-              blockOffsetEm: -0.5,
-              blockSizeEm: 0.5,
-            })),
+          placements: covered.flatMap((unit) => {
+            const mark = emphasisForUnit(unit);
+            return mark?.annotation === annotation ? [mark.placement] : [];
+          }),
           ...common,
         });
         break;
@@ -518,21 +307,7 @@ function annotationFragments(
           });
           break;
         }
-        const fragmentPlan = fragmentPlansByAnnotation.get(annotation);
-        if (fragmentPlan === undefined) break;
-        const baseOffsetEm = first.layoutSpan.offsetEm;
-        const baseAdvanceEm = last.layoutSpan.offsetEm + last.layoutSpan.advanceEm - baseOffsetEm;
-        const reading = readingForFragment(annotation, fragmentRange, fragmentPlan);
-        const pieces = fragmentReadingPieces(annotation, fragmentRange, fragmentPlan, measurements);
-        if (pieces === undefined) return undefined;
-        fragments.push({
-          kind: "ruby",
-          rubyKind: reading.kind,
-          reading: reading.text,
-          readingItems: positionReading(pieces, baseOffsetEm, baseAdvanceEm),
-          ...common,
-        });
-        break;
+        return undefined;
       }
     }
   }
@@ -786,10 +561,8 @@ function wrapSourceLine(
   sourceLine: MeasuredSourceLine,
   annotations: readonly ManuscriptAnnotation[],
   settings: NovelCompositionSettings,
-  measurements: MeasurementSession,
-  baseAdvances: ReadonlyMap<number, number>,
-): NovelLine[] | undefined {
-  if (sourceLine.atoms.length === 0) return [NovelLineContract.empty()];
+): ManuscriptResult<NovelLine[], { reason: string }> {
+  if (sourceLine.atoms.length === 0) return ManuscriptResult.succeed([NovelLineContract.empty()]);
   const profile = TYPESETTING_PROFILE;
   const characters = sourceLine.atoms.map((atom, index) => ({
     boxAdvanceEm: atom.boxAdvanceEm,
@@ -800,17 +573,37 @@ function wrapSourceLine(
     sourceLine.rubyAssociations,
     characters.map(({ boxAdvanceEm }) => boxAdvanceEm),
     settings.flow.lineLengthEm,
+    new Set(
+      sourceLine.groupReadings
+        .filter(
+          (group) =>
+            Math.max(
+              group.basePrefixEm.at(-1) ?? 0,
+              group.pieces.reduce((sum, piece) => sum + piece.layoutSpan.advanceEm, 0),
+            ) <= settings.flow.lineLengthEm,
+        )
+        .map((group) => group.association),
+    ),
+  );
+  const rubyByIndex = new Map(
+    sourceLine.rubyAssociations.flatMap((association) =>
+      association.indexes.map((index) => [index, association] as const),
+    ),
   );
   const resolveBoundary = (leftIndex: number, rightIndex: number): BoundaryRule | undefined => {
     const left = sourceLine.atoms[leftIndex];
     const right = sourceLine.atoms[rightIndex];
     if (left === undefined || right === undefined) return undefined;
-    return BoundaryRule.resolve(left.characterClass, right.characterClass, profile, {
+    const rule = BoundaryRule.resolve(left.characterClass, right.characterClass, profile, {
       runInterior: left.runIndex === right.runIndex,
       rubyInterior: rubyInteriors.has(rightIndex),
       sourceGap:
         sourceLine.suppressedIndexes.has(leftIndex) || sourceLine.suppressedIndexes.has(rightIndex),
     });
+    const compound = rubyByIndex.get(leftIndex);
+    return compound?.reading.kind === "jukugo" && compound === rubyByIndex.get(rightIndex)
+      ? { ...rule, spacing: null, finalStretch: false }
+      : rule;
   };
   const boundaries = Array.from({ length: characters.length + 1 }, (_, boundary) =>
     resolveBoundary(boundary - 1, boundary),
@@ -829,11 +622,6 @@ function wrapSourceLine(
     profile,
     settings.flow.lineLengthEm,
   );
-  const rubyByIndex = new Map(
-    sourceLine.rubyAssociations.flatMap((association) =>
-      association.indexes.map((index) => [index, association] as const),
-    ),
-  );
   const rubyBases: RubyLineBase[] = sourceLine.atoms.map((atom, index) => {
     const association = rubyByIndex.get(index);
     return {
@@ -850,49 +638,133 @@ function wrapSourceLine(
     };
   });
   const readingIndex = RubyLineLayout.index(sourceLine.candidateReadings);
+  const groupByIndex = new Map(
+    sourceLine.groupReadings.flatMap((group) =>
+      group.association.indexes.map((index) => [index, group] as const),
+    ),
+  );
   const resolvedRuby = new WeakMap<readonly BoxAdjustment[], readonly RubyLinePlacement[]>();
+  const emphasisBySource = new Map<
+    number,
+    Readonly<{ annotation: EmphasisAnnotation; order: number }>
+  >();
+  const globalStart = sourceLine.atoms[0]?.grapheme.range.graphemes.start ?? 0;
+  for (const [order, annotation] of annotations.entries()) {
+    if (annotation.kind !== "emphasis") continue;
+    const start = Math.max(annotation.range.graphemes.start, globalStart);
+    const end = Math.min(annotation.range.graphemes.end, globalStart + characters.length);
+    for (let index = start; index < end; index += 1)
+      if (!emphasisBySource.has(index)) emphasisBySource.set(index, { annotation, order });
+  }
+  const emphasisForUnit = (unit: RenderUnit): PositionedEmphasis | undefined => {
+    if (
+      !EmphasisPlacement.accepts(
+        sourceLine.atoms[unit.range.graphemes.start - globalStart]?.characterClass,
+      )
+    )
+      return undefined;
+    let selected: Readonly<{ annotation: EmphasisAnnotation; order: number }> | undefined;
+    for (let index = unit.range.graphemes.start; index < unit.range.graphemes.end; index += 1) {
+      const candidate = emphasisBySource.get(index);
+      if (candidate !== undefined && (selected === undefined || candidate.order < selected.order))
+        selected = candidate;
+    }
+    return selected === undefined
+      ? undefined
+      : { annotation: selected.annotation, placement: EmphasisPlacement.of(unit.renderSpan) };
+  };
+  let refusalReason =
+    "render units or reading clusters cannot be placed without splitting or collision";
   const plans = layoutParagraph(
     paragraph.elements,
     settings.flow.lineLengthEm,
-    (start, end) => {
-      if (sourceLine.candidateReadings.length === 0) return paragraph.resolveCandidate(start, end);
-      const result = RubyLineLayout.resolve(rubyBases, readingIndex, start, end, (metrics) =>
-        paragraph.resolveCandidate(start, end, metrics),
+    (start, end, cursor) => {
+      if (
+        sourceLine.candidateReadings.length === 0 &&
+        sourceLine.groupReadings.length === 0 &&
+        emphasisBySource.size === 0
+      )
+        return paragraph.resolveCandidate(start, end);
+      const effectiveEnd = nextVisible[end] === characters.length ? characters.length : end;
+      const groups = new Set<GroupRubyAllocation>();
+      for (let index = start; index < effectiveEnd; index += 1) {
+        const group = groupByIndex.get(index);
+        if (group !== undefined) groups.add(group);
+      }
+      const assigned: RubyLineSegment[] = [];
+      let nextCursor = cursor;
+      for (const group of groups) {
+        const allocation = GroupRubyAllocation.assign(
+          group,
+          start,
+          effectiveEnd,
+          nextCursor,
+          settings.flow.lineLengthEm,
+        );
+        const physical = allocation.segment;
+        const first = sourceLine.atoms[Math.max(physical.start, nextVisible[start] ?? start)];
+        const last = sourceLine.atoms[Math.min(physical.end, end) - 1];
+        if (first === undefined || last === undefined) return undefined;
+        const firstRun = first.combineRun ? sourceLine.runs[first.runIndex] : undefined;
+        const lastRun = last.combineRun ? sourceLine.runs[last.runIndex] : undefined;
+        const globalStart = sourceLine.atoms[0]?.grapheme.range.graphemes.start ?? 0;
+        assigned.push({
+          ...physical,
+          start:
+            firstRun === undefined
+              ? Math.max(physical.start, nextVisible[start] ?? start)
+              : firstRun.range.graphemes.start - globalStart,
+          end:
+            lastRun === undefined
+              ? Math.min(physical.end, end)
+              : lastRun.range.graphemes.end - globalStart,
+        });
+        nextCursor = allocation.nextCursor;
+      }
+      const result = RubyLineLayout.resolve(
+        rubyBases,
+        readingIndex,
+        start,
+        end,
+        (metrics) => paragraph.resolveCandidate(start, end, metrics),
+        assigned,
       );
       if (result === undefined) return undefined;
+      const areas: AnnotationPlacement[][] = result.placements.map((reading) =>
+        reading.items.map((item) => item.placement),
+      );
+      if (emphasisBySource.size > 0) {
+        const positioned = positionedLine(
+          sourceLine.atoms,
+          sourceLine.suppressedIndexes,
+          result.line,
+        );
+        if (positioned === undefined) return undefined;
+        for (const unit of positioned.items.filter(PositionedInlineItem.isRenderUnit)) {
+          const mark = emphasisForUnit(unit);
+          if (mark !== undefined && mark.annotation.mark !== "") areas.push([mark.placement]);
+        }
+      }
+      const clearance = AnnotationClearance.resolve(areas);
+      if (clearance.kind === "refused") {
+        refusalReason = clearance.reason;
+        return undefined;
+      }
       if (result.line.boxAdjustments !== undefined)
         resolvedRuby.set(result.line.boxAdjustments, result.placements);
-      return result.line;
+      return { ...result.line, nextCursor };
     },
     (left, right) =>
       (right === left + 1 ? boundaries[right] : acrossGaps[left])?.break.kind !== "prohibited",
   );
+  if (plans.length === 0) return ManuscriptResult.fail({ reason: refusalReason });
   const lines: NovelLine[] = [];
   for (const plan of plans) {
     const line = positionedLine(sourceLine.atoms, sourceLine.suppressedIndexes, plan);
-    if (line === undefined) return undefined;
+    if (line === undefined)
+      return ManuscriptResult.fail({ reason: "render units cannot preserve their source members" });
     lines.push(line);
   }
-
-  const fragmentPlansByAnnotation = new Map(
-    annotations.map((annotation) => {
-      const ranges = lines.flatMap((line) => {
-        const graphemes = line.items.filter(PositionedInlineItem.isRenderUnit);
-        const suppressed = line.items.filter((item) => item.kind === "suppressed");
-        const sourceGlues = line.items.flatMap((item) =>
-          item.kind === "glue" && item.origin === "source" ? [item] : [],
-        );
-        const range = annotationFragmentRange(graphemes, suppressed, sourceGlues, annotation);
-        return range === null ? [] : [range];
-      });
-      const groupReadings =
-        annotation.kind === "ruby"
-          ? groupReadingsForFragments(annotation, ranges, baseAdvances)
-          : [];
-
-      return [annotation, { ranges, groupReadings }] as const;
-    }),
-  );
 
   const annotated: NovelLine[] = [];
   for (const [index, line] of lines.entries()) {
@@ -904,14 +776,16 @@ function wrapSourceLine(
         item.kind === "glue" && item.origin === "source" ? [item] : [],
       ),
       annotations,
-      measurements,
-      fragmentPlansByAnnotation,
       plan?.boxAdjustments === undefined ? [] : (resolvedRuby.get(plan.boxAdjustments) ?? []),
+      emphasisForUnit,
     );
-    if (fragments === undefined) return undefined;
+    if (fragments === undefined)
+      return ManuscriptResult.fail({
+        reason: "annotation fragments cannot preserve their reading positions",
+      });
     annotated.push({ ...line, annotations: fragments });
   }
-  return annotated;
+  return ManuscriptResult.succeed(annotated);
 }
 
 function blankLines(count: number): NovelLine[] {
@@ -964,7 +838,7 @@ function createCompose(provider: RunMeasurer) {
     const measurements = MeasurementSession.create(provider, settings);
     const sourceLines = displayedLines(manuscript.graphemes);
     const measured = sourceLines.map((line) =>
-      measureSourceLine(line, manuscript.annotations, measurements, settings.flow.lineLengthEm),
+      measureSourceLine(line, manuscript.annotations, measurements),
     );
     if (measured.some((line) => line === undefined)) {
       return ManuscriptResult.fail({
@@ -972,29 +846,12 @@ function createCompose(provider: RunMeasurer) {
       });
     }
 
-    const baseAdvances = new Map<number, number>();
-    for (const line of measured) {
-      for (const atom of line?.atoms ?? []) {
-        baseAdvances.set(atom.grapheme.range.graphemes.start, atom.boxAdvanceEm);
-      }
-    }
-
     const manuscriptLines: NovelLine[] = [];
     for (const line of measured) {
       if (line === undefined) continue;
-      const wrapped = wrapSourceLine(
-        line,
-        manuscript.annotations,
-        settings,
-        measurements,
-        baseAdvances,
-      );
-      if (wrapped === undefined)
-        return ManuscriptResult.fail({
-          reason:
-            "render units or reading clusters cannot be placed without splitting or collision",
-        });
-      manuscriptLines.push(...wrapped);
+      const wrapped = wrapSourceLine(line, manuscript.annotations, settings);
+      if (!wrapped.ok) return ManuscriptResult.fail(wrapped.error);
+      manuscriptLines.push(...wrapped.value);
     }
     if (!NovelSourceContract.matches(manuscript, manuscriptLines)) {
       return ManuscriptResult.fail({

@@ -26,7 +26,7 @@ describe("JLReq 3.3.8 ruby boundaries", () => {
     (lexicalClass, side, spacing, expected) => {
       const neighbor: RubyBoundary = { lexicalClass, effectiveClass: lexicalClass, advanceEm: 1 };
 
-      const overhang = RubyBoundary.overhang(neighbor, side, spacing);
+      const overhang = RubyBoundary.overhang(neighbor, side, spacing, 0.5);
 
       expect(overhang).toBe(expected);
     },
@@ -35,7 +35,7 @@ describe("JLReq 3.3.8 ruby boundaries", () => {
   test("keeps ruby context separate from the neighbor's lexical class", () => {
     const neighbor: RubyBoundary = { lexicalClass: "cl-15", effectiveClass: "cl-22", advanceEm: 1 };
 
-    const overhang = RubyBoundary.overhang(neighbor, "before", 0);
+    const overhang = RubyBoundary.overhang(neighbor, "before", 0, 0.5);
 
     expect(overhang).toBe(0);
     expect(neighbor.lexicalClass).toBe("cl-15");

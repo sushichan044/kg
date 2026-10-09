@@ -10,7 +10,8 @@ export type ParagraphElement = Readonly<{ boxAdvanceEm: number; sourceGap: boole
 type State = Readonly<{
   score: Score;
   fitness: number;
-  previous: Readonly<{ index: number; fitness: number }> | null;
+  cursor: number;
+  previous: Readonly<{ index: number; key: string }> | null;
   line: CandidateLine | null;
 }>;
 
@@ -50,7 +51,7 @@ function hasEarlierBoundary(
  * breaks — for `boundaryAllowed` predicates permissive enough to fully saturate the optimizer's
  * search window, ties are rare enough that this deferred cost is negligible.
  */
-function breaksOf(state: State, states: ReadonlyMap<number, ReadonlyMap<number, State>>): number[] {
+function breaksOf(state: State, states: ReadonlyMap<number, ReadonlyMap<string, State>>): number[] {
   const result: number[] = [];
   let cursor: State | undefined = state;
   while (cursor?.line !== null && cursor?.line !== undefined) {
@@ -58,7 +59,7 @@ function breaksOf(state: State, states: ReadonlyMap<number, ReadonlyMap<number, 
     cursor =
       cursor.previous === null
         ? undefined
-        : states.get(cursor.previous.index)?.get(cursor.previous.fitness);
+        : states.get(cursor.previous.index)?.get(cursor.previous.key);
   }
   return result.reverse();
 }
@@ -75,7 +76,7 @@ function compareBreaks(left: readonly number[], right: readonly number[]): numbe
 function isBetter(
   candidateState: State,
   current: State | undefined,
-  states: ReadonlyMap<number, ReadonlyMap<number, State>>,
+  states: ReadonlyMap<number, ReadonlyMap<string, State>>,
 ): boolean {
   if (current === undefined) return true;
   for (let index = 0; index < candidateState.score.length; index += 1) {
@@ -88,20 +89,22 @@ function isBetter(
 export function layoutParagraph(
   atoms: readonly ParagraphElement[],
   lineLengthEm: number,
-  resolveCandidate: (start: number, end: number) => CandidateLine | undefined,
+  resolveCandidate: (start: number, end: number, cursor: number) => CandidateLine | undefined,
   boundaryAllowed: (leftIndex: number, rightIndex: number) => boolean,
   evaluation: ParagraphEvaluation = defaultParagraphEvaluation,
 ): ParagraphLinePlan[] {
   if (atoms.length === 0) return [];
-  const states = new Map<number, Map<number, State>>([
+  const stateKey = (cursor: number, fitness: number) => `${cursor}:${fitness}`;
+  const states = new Map<number, Map<string, State>>([
     [
       0,
       new Map([
         [
-          0,
+          stateKey(0, 0),
           {
             score: [0, 0, 0, 0, 0, 0, 0],
             fitness: 0,
+            cursor: 0,
             previous: null,
             line: null,
           },
@@ -115,18 +118,19 @@ export function layoutParagraph(
     if (activeStates === undefined) continue;
     const contentStart = skipSourceGaps(atoms, start);
     if (contentStart === atoms.length) {
-      const terminalStates = states.get(atoms.length) ?? new Map<number, State>();
+      const terminalStates = states.get(atoms.length) ?? new Map<string, State>();
       for (const state of activeStates.values()) {
-        const current = terminalStates.get(state.fitness);
-        if (isBetter(state, current, states)) terminalStates.set(state.fitness, state);
+        const key = stateKey(state.cursor, state.fitness);
+        const current = terminalStates.get(key);
+        if (isBetter(state, current, states)) terminalStates.set(key, state);
       }
       states.set(atoms.length, terminalStates);
       continue;
     }
 
-    // Geometry depends on the line interval, not the preceding line's fitness. Retain only
-    // this start's bounded search window rather than a graph of every paragraph candidate.
-    const candidatesByEnd = new Map<number, CandidateLine | undefined>();
+    // Continuation can change geometry; fitness cannot. Keep only this start's
+    // window, including refused candidates, rather than a dense paragraph graph.
+    const candidatesByEnd = new Map<string, CandidateLine | undefined>();
     for (const state of activeStates.values()) {
       let minimumSizeEm = 0;
       for (let end = contentStart + 1; end <= atoms.length; end += 1) {
@@ -142,10 +146,11 @@ export function layoutParagraph(
           continue;
         }
 
-        let line = candidatesByEnd.get(end);
-        if (!candidatesByEnd.has(end)) {
-          line = resolveCandidate(start, end);
-          candidatesByEnd.set(end, line);
+        const candidateKey = `${end}:${state.cursor}`;
+        let line = candidatesByEnd.get(candidateKey);
+        if (!candidatesByEnd.has(candidateKey)) {
+          line = resolveCandidate(start, end, state.cursor);
+          candidatesByEnd.set(candidateKey, line);
         }
         if (line === undefined) {
           if (minimumSizeEm > lineLengthEm * 2 && end > contentStart + 1) break;
@@ -163,12 +168,14 @@ export function layoutParagraph(
         const nextState: State = {
           score: addScore(state.score, lineScore.score),
           fitness: lineScore.fitness,
-          previous: { index: start, fitness: state.fitness },
+          cursor: line.nextCursor ?? 0,
+          previous: { index: start, key: stateKey(state.cursor, state.fitness) },
           line,
         };
-        const statesAtEnd = states.get(end) ?? new Map<number, State>();
-        if (isBetter(nextState, statesAtEnd.get(nextState.fitness), states)) {
-          statesAtEnd.set(nextState.fitness, nextState);
+        const statesAtEnd = states.get(end) ?? new Map<string, State>();
+        const nextKey = stateKey(nextState.cursor, nextState.fitness);
+        if (isBetter(nextState, statesAtEnd.get(nextKey), states)) {
+          statesAtEnd.set(nextKey, nextState);
           states.set(end, statesAtEnd);
         }
 
@@ -195,7 +202,7 @@ export function layoutParagraph(
     cursor =
       cursor.previous === null
         ? undefined
-        : states.get(cursor.previous.index)?.get(cursor.previous.fitness);
+        : states.get(cursor.previous.index)?.get(cursor.previous.key);
   }
   lines.reverse();
   const last = lines.at(-1);

@@ -7,7 +7,7 @@ import type { SpacingOpportunity } from "./spacing-opportunity";
 const EPSILON = 1e-9;
 
 export type CandidateLine = ParagraphLinePlan &
-  Readonly<{ deformationRatio: number; deformationCost: number }>;
+  Readonly<{ deformationRatio: number; deformationCost: number; nextCursor?: number }>;
 export type CandidateLineContext = Readonly<{
   start: number;
   contentStart: number;

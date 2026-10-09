@@ -12,6 +12,7 @@ export const RubyBoundary = {
     neighbor: RubyBoundary | undefined,
     side: "before" | "after",
     spacingEm: number,
+    rubySizeEm: number,
   ): number => {
     if (
       neighbor === undefined ||
@@ -21,14 +22,15 @@ export const RubyBoundary = {
       return 0;
     const { lexicalClass, advanceEm } = neighbor;
     if (["cl-08", "cl-10", "cl-11", "cl-15", "cl-16"].some((value) => value === lexicalClass))
-      return Math.min(0.5, advanceEm);
-    if (lexicalClass === "cl-05") return Math.min(0.5, Math.max(0, spacingEm) + 0.25);
+      return Math.min(rubySizeEm, advanceEm);
+    if (lexicalClass === "cl-05")
+      return Math.min(rubySizeEm, Math.max(0, spacingEm) + rubySizeEm / 2);
     const closing =
       lexicalClass === "cl-02" || lexicalClass === "cl-06" || lexicalClass === "cl-07";
     if ((side === "before" && closing) || (side === "after" && lexicalClass === "cl-01"))
-      return Math.min(0.5, Math.max(0, spacingEm));
+      return Math.min(rubySizeEm, Math.max(0, spacingEm));
     if ((side === "after" && closing) || (side === "before" && lexicalClass === "cl-01"))
-      return Math.min(0.5, advanceEm);
+      return Math.min(rubySizeEm, advanceEm);
     return 0;
   },
 } as const;

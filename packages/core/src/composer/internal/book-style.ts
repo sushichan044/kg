@@ -1,3 +1,5 @@
+import { defaultAnnotationStyle } from "./annotation-style";
+import type { AnnotationStyle } from "./annotation-style";
 import type {
   AdjustmentCategory,
   JapaneseCharacterClass,
@@ -12,6 +14,7 @@ export type BookStyle = Readonly<{
   ) => Readonly<{ stage: number; costPerEm: number }>;
   lineStartSpacing: (first: JapaneseCharacterClass, head: LineHeadKind) => PairSpacing | null;
   finalStretchCostPerEm: number;
+  annotation: AnnotationStyle;
 }>;
 
 // kg reduces invisible line-end space before Western word spaces. This order is a product
@@ -39,4 +42,5 @@ export const defaultBookStyle: BookStyle = {
   lineStartSpacing: (first, head) =>
     first === "cl-01" && head === "paragraph-start" ? { kind: "glue", naturalWidthEm: 0.5 } : null,
   finalStretchCostPerEm: 4,
+  annotation: defaultAnnotationStyle,
 };
