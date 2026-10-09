@@ -135,9 +135,11 @@ shaping later with renderer agreement and dedicated mapping tests.
 Contextual mono and fittable-group ruby placement now resolves neighbor overhang,
 punctuation spacing limits, per-base anchors, and independent-reading clearance
 before candidate scoring. Jukugo segments now use joint succeeding-base-first
-placement and are recomposed when their bases split across lines. Full appendix F
-spacing distributions remain partial. Oversized groups now carry a cluster cursor
-through paragraph transitions and assign their readings before scoring, without
+placement and are recomposed when their bases split across lines. The selected
+appendix F shoulder and proportional-spacing procedure now uses measured reading
+widths and directs line-edge shares inward. Reference coverage remains limited
+to the logical profile, without font shaping. Oversized groups carry a cluster
+cursor through paragraph transitions and assign their readings before scoring, without
 post-selection redistribution. The [body-text plan](../plans/adr-0006-phase-4/overview.md)
 records the implemented dependent changes and their acceptance cases. Ruby and
 emphasis clearance is checked before line scoring in the fixed right-side area;
@@ -162,3 +164,14 @@ identical supported cl-08 characters and the kana-repeat pairs `〳〵` and `〴
 stay together. Unlike marks, including mixed dash variants, may break and expand.
 Tests cover the supported ruby pair-table cells, membership constraints, and
 source-preserving composition. Public contracts and persisted settings are unchanged.
+
+## Jukugo spacing follow-up
+
+Jukugo readings now use solid shoulder placement. Candidate resolution first
+tries overhang within the compound, then permitted outside neighbours, and
+finally proportional spacing around bases with long readings. Adjacent shares
+add at their common boundary; line-head and line-tail shares go inward. A
+single-base fragment touching both edges follows line-head alignment and retains
+box expansion for an oversized reading. Split fragments are resolved separately
+without changing reading associations or dividing measurement clusters. Public
+contracts and persisted settings are unchanged.

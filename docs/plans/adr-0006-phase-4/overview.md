@@ -20,8 +20,8 @@ publishing each draft PR. Run the applicable checks before advancing a layer.
 All four existing-annotation layers are implemented. Tests cover contextual
 neighbors, joint jukugo bounds, cluster-aligned reading conservation, continuation
 state identity, and annotation collisions. The coverage table continues to mark
-full appendix F spacing distributions and reference structures requiring new
-semantic inputs as partial or deferred. Those are distinct from the selected behavior implemented here.
+appendix F font realization and reference structures requiring new semantic
+inputs as partial or deferred. Those are distinct from the selected behavior implemented here.
 
 ## Contextual boundary follow-up
 
@@ -41,3 +41,11 @@ Body pitch stays fixed; combinations that cannot fit the selected annotation
 area are refused. Add public variants, notation, UI, and persistence only when
 a concrete feature needs them. Real shaping, horizontal text, warichu, and
 formulas are separate work.
+
+## Jukugo spacing follow-up
+
+The selected appendix F procedure now adds solid shoulder placement,
+compound-interior-first overhang, and proportional spacing around long readings.
+Line-edge shares go inward. Candidate-local recomposition preserves split
+reading associations and provider clusters. No new public types or settings are
+required.

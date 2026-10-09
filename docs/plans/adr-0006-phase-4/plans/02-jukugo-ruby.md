@@ -12,3 +12,17 @@ forbidden outer kanji; and split compounds have reference-derived coordinates.
 
 Parent: contextual ruby. Child: group reading allocation. Use `stacked-pr` for
 stack maintenance.
+
+## Implemented spacing follow-up
+
+The selected appendix F procedure uses solid shoulder readings. It tries
+compound-interior overhang before outside neighbours, then distributes required
+spacing among long readings in proportion to their measured solid widths. Each
+base receives equal leading and trailing shares; line-edge bases receive their
+shares inward. A single-base fragment touching both edges uses head alignment
+and retains box expansion when its reading is longer than the base span.
+
+Tests cover equal and unequal long readings, short-reading exclusion, shoulder
+placement, kana/kanji outer contexts, line-edge alignment, split compounds, and
+indivisible provider clusters. The coverage claim remains limited to logical
+vertical body metrics, rather than actual font realization.

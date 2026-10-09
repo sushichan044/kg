@@ -89,9 +89,14 @@ ruby em and the adjusted gap. Authored ideographic spaces, including paragraph
 indentation, permit one ruby em of overhang; suppressed separators do not.
 Independent readings over intervening kana
 retain one ruby-em clearance. Unresolved excess widens the bases before scoring.
-Jukugo segments use candidate-local one-ruby-em bounds and succeeding-base-first
-packing. Their interiors allow legal base breaks but exclude ordinary line
-expansion. Oversized groups carry a reading-cluster cursor through the paragraph states.
+Jukugo segments use solid shoulder placement and candidate-local one-ruby-em
+bounds. Succeeding-base-first packing tries compound interiors before outside
+neighbours. Unresolved width is distributed in proportion to the measured solid
+widths of long readings, equally before and after their bases. Line-head and
+line-tail shares go inward; a single-base fragment touching both edges follows
+line-head alignment and uses box expansion for unresolved width. Their interiors
+allow legal base breaks but exclude ordinary line expansion. Oversized groups
+carry a reading-cluster cursor through the paragraph states.
 Their contiguous reading intervals are assigned in proportion to intrinsic base
 advances before fitting, with reading reserved for remaining fragments when
 possible. The terminal transition consumes the complete reading. The [phase 4 plan](plans/adr-0006-phase-4/overview.md)
@@ -132,7 +137,7 @@ concept outside the current body-text design.
 | [3.3.4][ruby-side]                                            | Decide the annotation side before placement                                               | Partial: explicit right-side placement in core output; no selectable annotation side                                                            | Annotation style and placement / chosen side independent of renderer                  |
 | [3.3.5][mono-ruby]                                            | Place each mono reading against its own base                                              | Implemented for logical mono placement: per-base anchors and contextual overhang                                                                | Ruby candidate layout / short and long mono readings                                  |
 | [3.3.6][group-ruby]                                           | Place a reading against its whole base group and account for internal spacing             | Partial: fittable-group protection and candidate-local overhang; oversized splitting is a kg extension                                          | Ruby association and candidate layout / short, equal, and long reading                |
-| [3.3.7][jukugo-ruby], [F.1–F.4][jukugo-appendix]              | Preserve per-base readings while jointly arranging the compound and its fragments         | Partial: joint one-ruby-em placement and split recomposition; full appendix F spacing distributions pending                                     | Ruby candidate layout / reading lengths 1 and 3; compound split between bases         |
+| [3.3.7][jukugo-ruby], [F.1–F.4][jukugo-appendix]              | Preserve per-base readings while jointly arranging the compound and its fragments         | Partial: appendix F shoulder placement, proportional spacing, inward edge shares, and split recomposition; logical metrics                      | Ruby candidate layout / reading lengths 1 and 3; compound split between bases         |
 | [3.3.8][ruby-overhang], [B.2][spacing-notes]                  | Resolve permitted overhang from neighboring context and keep reading runs distinguishable | Partial: candidate-local overhang, adjusted half/quarter-space limits, authored ideographic spaces, and independent-reading clearance           | Boundary annotation constraints and candidate placement / kana versus kanji neighbors |
 | [3.3.9][emphasis]                                             | Position emphasis marks against their associated base text                                | Implemented for the logical profile: centered half-em marks, punctuation exclusions, and annotation clearance                                   | Positioned annotation / combining marks, combined units, ruby coexistence             |
 | [3.5.1–3.5.2][paragraphs]                                     | Keep paragraph-start indentation and continuation indentation explicit                    | Partial: source spaces and bracket scheme; every source newline starts a composition paragraph, with no semantic indent contract                | Paragraph context / authored indentation and continuation line                        |
@@ -297,8 +302,11 @@ and decoration handling:
    separate context; overhang cannot consume space in a neighboring line.
 4. Arrange jukugo segments jointly, retaining their associations and legal split
    points. The book style selects appendix F's one-ruby-em overhang
-   variant and the succeeding-base-first procedure. Mono placement is not an
-   adequate replacement for this compound-level decision.
+   variant, solid shoulder placement, and succeeding-base-first procedure. Try
+   compound interiors before outside neighbours. Distribute unresolved width
+   among long readings in proportion to their measured solid widths, splitting
+   each share equally around its base and directing line-edge shares inward.
+   Keep this required spacing separate from ordinary line expansion.
 5. Resolve the complete sequence of reading runs on the candidate, including
    collisions over intervening kana. Use the one-ruby-em separation scheme
    discussed in 3.3.8, inserting required base spacing rather than overlapping
@@ -620,8 +628,10 @@ final-stage policy, break permission, and ruby-complex line edges. Annotated
 bracket and full-stop cases preserve lexical box metrics without ordinary
 punctuation edge spacing. Binding tests cover identical and unlike
 marks and both kana-repeat upper/lower pairs. Phase 4 tests cover contextual overhang, joint
-jukugo bounds, and cluster-aligned group allocation. Full appendix F spacing
-distributions, real font shaping, and selectable sides remain incomplete. Phase 3
+jukugo bounds, proportional appendix F spacing, solid shoulder positions, inward
+line-edge shares, indivisible reading clusters, and cluster-aligned group
+allocation. Appendix F coverage uses the selected logical profile; real font
+shaping and selectable sides remain incomplete. Phase 3
 tests cover synthetic cluster mappings and the existing decoration coordinates. New behavior tests
 must use specification-derived outcomes rather than copying the resolver's
 algorithm. Use arrange/act/assert separation, existing `test.extend` fixtures

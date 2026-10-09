@@ -56,6 +56,7 @@ function allowances(
   segment: RubyLineSegment,
   line: CandidateLine,
   gaps: ReadonlyMap<number, number>,
+  ownSpacing: Readonly<{ beforeEm: number; afterEm: number }> = { beforeEm: 0, afterEm: 0 },
 ) {
   const first = segment.association.indexes[0] ?? segment.start;
   const last = segment.association.indexes.at(-1) ?? segment.end - 1;
@@ -67,7 +68,7 @@ function allowances(
         : RubyBoundary.overhang(
             segment.start > line.contentStart ? bases[segment.start - 1] : undefined,
             "before",
-            gaps.get(segment.start) ?? 0,
+            Math.max(0, (gaps.get(segment.start) ?? 0) - ownSpacing.beforeEm),
             rubySizeEm,
           ),
     after:
@@ -76,7 +77,7 @@ function allowances(
         : RubyBoundary.overhang(
             segment.end < line.end ? bases[segment.end] : undefined,
             "after",
-            gaps.get(segment.end) ?? 0,
+            Math.max(0, (gaps.get(segment.end) ?? 0) - ownSpacing.afterEm),
             rubySizeEm,
           ),
   };
@@ -98,7 +99,9 @@ function place(
   const overhang = total > baseAdvanceEm ? Math.min(total - baseAdvanceEm, before + after) : 0;
   const leading = Math.min(before, overhang / 2 + Math.max(0, overhang / 2 - after));
   const edgeGap =
-    total < baseAdvanceEm && segment.pieces.length > 0
+    segment.association.reading.kind !== "jukugo" &&
+    total < baseAdvanceEm &&
+    segment.pieces.length > 0
       ? (baseAdvanceEm - total) / (2 * segment.pieces.length)
       : 0;
   let offsetEm = resolvedOffsetEm ?? baseOffsetEm - leading + edgeGap;
@@ -149,8 +152,17 @@ export const RubyLineLayout = {
         if (segment.end <= end) selected.push(segment);
     selected.push(...assignedSegments);
     selected.sort((left, right) => left.start - right.start);
+    const jukugoCounts = new Map<RubyAssociation, number>();
+    for (const segment of selected) {
+      if (segment.association.reading.kind === "jukugo")
+        jukugoCounts.set(segment.association, (jukugoCounts.get(segment.association) ?? 0) + 1);
+    }
     const expansions = new Map<number, number>();
     const extraGaps = new Map<number, number>();
+    const jukugoSpacings = new Map<
+      RubyLineSegment,
+      Readonly<{ beforeEm: number; afterEm: number }>
+    >();
     const metrics = (): CandidateMetrics => {
       const boxAdjustments: BoxAdjustment[] = [];
       for (const [index, extraEm] of expansions) {
@@ -180,7 +192,8 @@ export const RubyLineLayout = {
         const span = last.offsetEm + last.advanceEm - first.offsetEm;
         const { before, after } = allowances(bases, segment, line, gaps);
         const missing = readingAdvance(segment) - span - before - after;
-        if (missing > EPSILON) {
+        const sharedJukugo = (jukugoCounts.get(segment.association) ?? 0) > 1;
+        if (missing > EPSILON && !sharedJukugo) {
           const indexes = Array.from(
             { length: segment.end - segment.start },
             (_, index) => segment.start + index,
@@ -212,26 +225,45 @@ export const RubyLineLayout = {
           if (baseStart === undefined || baseEnd === undefined) return [];
           const baseAdvanceEm = baseEnd.offsetEm + baseEnd.advanceEm - baseStart.offsetEm;
           const total = readingAdvance(segment);
-          const edgeGap =
-            segment.pieces.length > 0 && total < baseAdvanceEm
-              ? (baseAdvanceEm - total) / (2 * segment.pieces.length)
-              : 0;
-          const limits = allowances(bases, segment, line, gaps);
+          const spacing = jukugoSpacings.get(segment);
+          const limits = allowances(bases, segment, line, gaps, spacing);
           return [
             {
               baseOffsetEm: baseStart.offsetEm,
               baseAdvanceEm,
-              readingAdvanceEm: total + Math.max(0, segment.pieces.length - 1) * edgeGap * 2,
+              intrinsicBaseAdvanceEm: bases
+                .slice(segment.start, segment.end)
+                .reduce((sum, base) => sum + base.advanceEm, 0),
+              readingAdvanceEm: total,
               beforeEm: limits.before,
               afterEm: limits.after,
+              beforeSpacingEm: spacing?.beforeEm ?? 0,
+              afterSpacingEm: spacing?.afterEm ?? 0,
             },
           ];
         });
-        const result = JukugoRuby.resolve(readings);
+        const result = JukugoRuby.resolve(readings, {
+          head: first.start === line.contentStart,
+          tail: group.at(-1)?.end === line.end,
+        });
+        if (result.kind === "refused") return undefined;
         if (result.kind === "needs-spacing") {
-          const following = group[result.afterIndex + 1];
-          if (following === undefined) return undefined;
-          extraGaps.set(following.start, (extraGaps.get(following.start) ?? 0) + result.amountEm);
+          for (const [groupIndex, spacing] of result.spacings.entries()) {
+            const segment = group[groupIndex];
+            if (segment === undefined) return undefined;
+            const existing = jukugoSpacings.get(segment);
+            jukugoSpacings.set(segment, {
+              beforeEm: (existing?.beforeEm ?? 0) + spacing.beforeEm,
+              afterEm: (existing?.afterEm ?? 0) + spacing.afterEm,
+            });
+            for (const [boundary, widthEm] of [
+              [segment.start, spacing.beforeEm],
+              [segment.end, spacing.afterEm],
+            ] as const) {
+              if (widthEm > EPSILON)
+                extraGaps.set(boundary, (extraGaps.get(boundary) ?? 0) + widthEm);
+            }
+          }
           changed = true;
         } else {
           for (const [groupIndex, segment] of group.entries()) {
