@@ -145,3 +145,20 @@ collisions are refused without changing body pitch. Half-em emphasis boxes retai
 their original centers and omit brackets, commas, and full stops. Sidelines, selectable sides, and mixed
 body sizes remain deferred; their future implementation will use semantic parser
 input and fixed-pitch composition without adding unused public contracts now.
+
+## Contextual boundary follow-up
+
+Ruby bases now retain lexical metrics while using cl-22/cl-23 for boundary
+spacing, adjustment capacities, break permission, and line edges. Shared group and jukugo
+interiors exclude ordinary pair spacing independently of their legal split
+points; mono segments remain separate per-base complexes. The oversized-group
+continuation policy is unchanged, though removing ordinary mixed-text gaps can
+change its selected breaks and reading shares.
+
+Ruby overhang includes authored ideographic spaces and paragraph indentation.
+Half- and quarter-space limits use the adjusted gap; quarter spaces admit at
+most half a ruby em. Binding sequences now depend on original character values:
+identical supported cl-08 characters and the kana-repeat pairs `〳〵` and `〴〵`
+stay together. Unlike marks, including mixed dash variants, may break and expand.
+Tests cover the supported ruby pair-table cells, membership constraints, and
+source-preserving composition. Public contracts and persisted settings are unchanged.

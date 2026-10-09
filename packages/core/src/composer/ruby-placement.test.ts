@@ -46,6 +46,87 @@ function composeRuby(
 }
 
 describe("contextual ruby placement", () => {
+  test("uses the ruby complex class at the paragraph head without changing the bracket box", () => {
+    const { lines, glyphs } = composeRuby("「あ", [
+      { start: 0, length: 1, reading: { kind: "mono", segments: ["か"] } },
+    ]);
+    const bracket = glyphs[0];
+    const line = lines[0];
+    expect.assert(bracket !== undefined && line !== undefined);
+
+    expect(bracket.layoutSpan).toEqual({ offsetEm: 0, advanceEm: 0.5 });
+    expect(line.inlineSizeEm).toBe(1.5);
+  });
+
+  test("omits ordinary punctuation tail spacing on an annotated full stop", () => {
+    const { lines } = composeRuby("漢。", [
+      { start: 1, length: 1, reading: { kind: "mono", segments: ["てん"] } },
+    ]);
+    const line = lines[0];
+    expect.assert(line !== undefined);
+
+    expect(line.inlineSizeEm).toBe(2);
+  });
+
+  test("allows separate mono complexes on identical marks to split between their readings", () => {
+    const { lines } = composeRuby(`${"あ".repeat(9)}……${"あ".repeat(9)}`, [
+      { start: 9, length: 2, reading: { kind: "mono", segments: ["てん", "てん"] } },
+    ]);
+
+    expect(lines).toHaveLength(2);
+    expect(
+      lines.map((line) => {
+        expect.assert(line.range !== null);
+        return line.range.graphemes.end;
+      }),
+    ).toEqual([10, 20]);
+    expect(
+      lines.map((line) =>
+        line.annotations.flatMap((annotation) =>
+          annotation.kind === "ruby" ? [annotation.reading] : [],
+        ),
+      ),
+    ).toEqual([["てん"], ["てん"]]);
+  });
+
+  test("widens a base when its reading cannot fit the middle-dot quarter space", () => {
+    const { glyphs, ruby } = composeRuby("あ漢・あ", [
+      { start: 1, length: 1, reading: { kind: "mono", segments: ["かんじよ"] } },
+    ]);
+    const base = glyphs[1];
+    const dot = glyphs[2];
+    const last = ruby[0]?.readingItems.at(-1);
+    expect.assert(base !== undefined && dot !== undefined && last !== undefined);
+
+    expect(base.layoutSpan).toEqual({ offsetEm: 1, advanceEm: 1.25 });
+    expect(dot.layoutSpan.offsetEm).toBe(2.5);
+    expect(last.placement.inlineSpan.offsetEm + last.placement.inlineSpan.advanceEm).toBe(2.5);
+  });
+
+  test("lets a reading use authored paragraph indentation and the following ideographic space", () => {
+    const { glyphs, ruby } = composeRuby("　漢　", [
+      { start: 1, length: 1, reading: { kind: "mono", segments: ["かんじよ"] } },
+    ]);
+    const base = glyphs[1];
+    const first = ruby[0]?.readingItems[0];
+    const last = ruby[0]?.readingItems.at(-1);
+    expect.assert(base !== undefined && first !== undefined && last !== undefined);
+
+    expect(base.layoutSpan).toEqual({ offsetEm: 1, advanceEm: 1 });
+    expect(first.placement.inlineSpan.offsetEm).toBe(0.5);
+    expect(last.placement.inlineSpan.offsetEm + last.placement.inlineSpan.advanceEm).toBe(2.5);
+  });
+
+  test("uses the ruby complex class for an annotated mark beside a Western run", () => {
+    const { glyphs } = composeRuby("…abcd", [
+      { start: 0, length: 1, reading: { kind: "mono", segments: ["てん"] } },
+    ]);
+    const western = glyphs[1];
+    expect.assert(western !== undefined);
+
+    expect(western.layoutSpan.offsetEm).toBe(1.25);
+  });
+
   test("lets a long mono reading overhang adjacent kana without widening its base", () => {
     const { glyphs, ruby } = composeRuby("あ漢あ", [
       { start: 1, length: 1, reading: { kind: "mono", segments: ["かんじよ"] } },

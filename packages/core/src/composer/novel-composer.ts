@@ -14,6 +14,7 @@ import type { ComposedManuscript } from "./composed-manuscript";
 import { NovelCompositionSettings } from "./composition-settings";
 import type { InlineSpan } from "./inline-span";
 import { AnnotationClearance } from "./internal/annotation-clearance";
+import { BindingSequence } from "./internal/binding-sequence";
 import { BoundaryRule } from "./internal/boundary-rule";
 import type { BoxAdjustment } from "./internal/box-adjustment";
 import { CompositionRun } from "./internal/composition-run";
@@ -590,38 +591,6 @@ function wrapSourceLine(
       association.indexes.map((index) => [index, association] as const),
     ),
   );
-  const resolveBoundary = (leftIndex: number, rightIndex: number): BoundaryRule | undefined => {
-    const left = sourceLine.atoms[leftIndex];
-    const right = sourceLine.atoms[rightIndex];
-    if (left === undefined || right === undefined) return undefined;
-    const rule = BoundaryRule.resolve(left.characterClass, right.characterClass, profile, {
-      runInterior: left.runIndex === right.runIndex,
-      rubyInterior: rubyInteriors.has(rightIndex),
-      sourceGap:
-        sourceLine.suppressedIndexes.has(leftIndex) || sourceLine.suppressedIndexes.has(rightIndex),
-    });
-    const compound = rubyByIndex.get(leftIndex);
-    return compound?.reading.kind === "jukugo" && compound === rubyByIndex.get(rightIndex)
-      ? { ...rule, spacing: null, finalStretch: false }
-      : rule;
-  };
-  const boundaries = Array.from({ length: characters.length + 1 }, (_, boundary) =>
-    resolveBoundary(boundary - 1, boundary),
-  );
-  const nextVisible = Array.from<number>({ length: characters.length + 1 }).fill(characters.length);
-  for (let index = characters.length - 1; index >= 0; index -= 1) {
-    nextVisible[index] =
-      characters[index]?.sourceGap === true ? (nextVisible[index + 1] ?? characters.length) : index;
-  }
-  const acrossGaps = characters.map((_, left) =>
-    resolveBoundary(left, nextVisible[left + 1] ?? characters.length),
-  );
-  const paragraph = JapaneseParagraph.of(
-    characters,
-    boundaries,
-    profile,
-    settings.flow.lineLengthEm,
-  );
   const rubyBases: RubyLineBase[] = sourceLine.atoms.map((atom, index) => {
     const association = rubyByIndex.get(index);
     return {
@@ -637,6 +606,57 @@ function wrapSourceLine(
       sourceGap: sourceLine.suppressedIndexes.has(index),
     };
   });
+  const resolveBoundary = (leftIndex: number, rightIndex: number): BoundaryRule | undefined => {
+    const left = sourceLine.atoms[leftIndex];
+    const right = sourceLine.atoms[rightIndex];
+    const leftBase = rubyBases[leftIndex];
+    const rightBase = rubyBases[rightIndex];
+    if (
+      left === undefined ||
+      right === undefined ||
+      leftBase === undefined ||
+      rightBase === undefined
+    )
+      return undefined;
+    const compound = rubyByIndex.get(leftIndex);
+    const rubySpacingInterior =
+      compound !== undefined &&
+      compound === rubyByIndex.get(rightIndex) &&
+      compound.reading.kind !== "mono";
+    return BoundaryRule.resolve(leftBase.effectiveClass, rightBase.effectiveClass, profile, {
+      bindingSequence:
+        leftBase.effectiveClass === "cl-08" &&
+        rightBase.effectiveClass === "cl-08" &&
+        BindingSequence.contains(left.grapheme.value, right.grapheme.value),
+      runInterior: left.runIndex === right.runIndex,
+      rubyInterior: rubyInteriors.has(rightIndex),
+      rubySpacingInterior,
+      sourceGap:
+        sourceLine.suppressedIndexes.has(leftIndex) || sourceLine.suppressedIndexes.has(rightIndex),
+    });
+  };
+  const boundaries = Array.from({ length: characters.length + 1 }, (_, boundary) =>
+    resolveBoundary(boundary - 1, boundary),
+  );
+  const nextVisible = Array.from<number>({ length: characters.length + 1 }).fill(characters.length);
+  for (let index = characters.length - 1; index >= 0; index -= 1) {
+    nextVisible[index] =
+      characters[index]?.sourceGap === true ? (nextVisible[index + 1] ?? characters.length) : index;
+  }
+  const acrossGaps = characters.map((_, left) =>
+    resolveBoundary(left, nextVisible[left + 1] ?? characters.length),
+  );
+  const paragraph = JapaneseParagraph.of(
+    rubyBases.map((base) => ({
+      boxAdvanceEm: base.advanceEm,
+      characterClass: base.lexicalClass,
+      effectiveClass: base.effectiveClass,
+      sourceGap: base.sourceGap,
+    })),
+    boundaries,
+    profile,
+    settings.flow.lineLengthEm,
+  );
   const readingIndex = RubyLineLayout.index(sourceLine.candidateReadings);
   const groupByIndex = new Map(
     sourceLine.groupReadings.flatMap((group) =>

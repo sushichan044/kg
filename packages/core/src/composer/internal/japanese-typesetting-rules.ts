@@ -65,6 +65,9 @@ export const japaneseCharacterClasses = [
 
 export type JapaneseCharacterClass = (typeof japaneseCharacterClasses)[number];
 
+export type JapaneseBoundaryClass = JapaneseCharacterClass | "cl-22" | "cl-23";
+const boundaryClasses = [...japaneseCharacterClasses, "cl-22", "cl-23"] as const;
+
 /**
  * A character together with the vertical presentation already chosen for it, because the same
  * character classifies differently inside a tate-chu-yoko group than it does on its own.
@@ -113,7 +116,7 @@ export type JapaneseTypesettingRules = Readonly<{
     characterClass: JapaneseCharacterClass,
     measuredAdvanceEm: number,
   ) => TypographicBoxMetrics;
-  pairSpacing: (left: JapaneseCharacterClass, right: JapaneseCharacterClass) => RuleSpacing;
+  pairSpacing: (left: JapaneseBoundaryClass, right: JapaneseBoundaryClass) => RuleSpacing;
   /**
    * The アキ a character _is_, rather than the box it sets in, or `null` for every class that sets as
    * a glyph. 欧文間隔 (cl-26) is the only class JLReq treats this way: it carries no ink, its width is
@@ -123,19 +126,19 @@ export type JapaneseTypesettingRules = Readonly<{
     characterClass: JapaneseCharacterClass,
     position: LinePosition,
   ) => RuleCharacterSpacing | null;
-  lineEndSpacing: (last: JapaneseCharacterClass) => RuleLineEndSpacing | null;
+  lineEndSpacing: (last: JapaneseBoundaryClass) => RuleLineEndSpacing | null;
   /**
    * Whether the pair participates in JLReq 3.8.4's final expansion stage. This is independent of
    * line-breaking permission: 表6 admits some mid-line gaps that a kinsoku rule would not admit as a
    * break boundary.
    */
-  canExpandAtFinalStage: (left: JapaneseCharacterClass, right: JapaneseCharacterClass) => boolean;
+  canExpandAtFinalStage: (left: JapaneseBoundaryClass, right: JapaneseBoundaryClass) => boolean;
   /**
    * `null` where a break between two classes is prohibited, otherwise a cost a caller may weigh.
    * The composer only tests for `null` today, so every permitted break is priced at zero.
    */
-  breakPenalty: (left: JapaneseCharacterClass, right: JapaneseCharacterClass) => number | null;
-  canHang: (characterClass: JapaneseCharacterClass) => boolean;
+  breakPenalty: (left: JapaneseBoundaryClass, right: JapaneseBoundaryClass) => number | null;
+  canHang: (characterClass: JapaneseBoundaryClass) => boolean;
 }>;
 
 const OPENING = new Set(`${OPENING_BRACKETS}【〘〝｟«`);
@@ -145,7 +148,7 @@ const DIVIDING_MARKS = new Set(DIVIDING_PUNCTUATION);
 const MIDDLE_DOTS = new Set("・：；");
 const SMALL_KANA = new Set("ァィゥェォッャュョヮヵヶぁぃぅぇぉっゃゅょゎゕゖ");
 const ITERATION_MARKS = new Set("ヽヾゝゞ々〻");
-const INSEPARABLE = new Set("—―…‥─〳〵");
+const INSEPARABLE = new Set("—―…‥─〳〴〵");
 const PREFIXED_ABBREVIATIONS = new Set("￥＄£#＃");
 const POSTFIXED_ABBREVIATIONS = new Set("°′″％‰");
 const UNIT_SYMBOLS = new Set(
@@ -279,10 +282,6 @@ const HALF_AND_QUARTER: RuleSpacing = {
   shrink: { category: "punctuation", amountEm: 0.75, granularity: "continuous" },
 };
 /**
- * 分離禁止文字 repeated (a 2倍ダッシュ, a 2倍リーダ) must read as one continuous rule (3.1.10).
- */
-const DASH_JOINT: RuleSpacing = { kind: "kern", naturalWidthEm: 0 };
-/**
  * 欧文間隔（cl-26）の三分アキ. JLReq states the western word space as a third em by rule rather than by
  * measurement, and makes it the first space a line adjustment reaches for: down to a 四分アキ when the
  * line is over (3.8.3 a), up to a 二分アキ when it is short (3.8.4 a).
@@ -329,6 +328,8 @@ const JAPANESE_BEFORE_WESTERN = [
   "cl-16",
   "cl-19",
   "cl-30",
+  "cl-22",
+  "cl-23",
 ] as const;
 const JAPANESE_AFTER_WESTERN = [
   "cl-09",
@@ -338,6 +339,8 @@ const JAPANESE_AFTER_WESTERN = [
   "cl-16",
   "cl-19",
   "cl-30",
+  "cl-22",
+  "cl-23",
 ] as const;
 const NUMERAL_UNIT_OR_WESTERN = ["cl-24", "cl-25", "cl-27"] as const;
 const PUNCTUATION_TAKING_SPACE_AFTER = ["cl-02", "cl-06", "cl-07"] as const;
@@ -362,6 +365,8 @@ const EXPANDABLE_BEFORE = [
   "cl-25",
   "cl-27",
   "cl-30",
+  "cl-22",
+  "cl-23",
 ] as const;
 const EXPANDABLE_AFTER = [
   "cl-08",
@@ -374,6 +379,8 @@ const EXPANDABLE_AFTER = [
   "cl-16",
   "cl-19",
   "cl-30",
+  "cl-22",
+  "cl-23",
 ] as const;
 
 /**
@@ -381,9 +388,8 @@ const EXPANDABLE_AFTER = [
  * The finite capacities above cover the blue and pink cells at stages three and two; once those
  * stages are exhausted, JLReq 3.8.4 d adds the remainder equally across every cell named here.
  *
- * A cl-08/cl-08 cell is blue only when the two characters are different kinds of mark (注4). This
- * profile cannot distinguish the two halves of one 2倍ダッシュ from different marks, so it keeps the
- * pair joined, as it already does for the finite third stage.
+ * A cl-08/cl-08 cell is blue only for different kinds of mark (注4). BoundaryRule excludes binding
+ * sequences using the original character values.
  */
 const FINAL_EXPANSION_BASIC_AFTER = new Set<JapaneseCharacterClass>([
   "cl-01",
@@ -496,10 +502,7 @@ const FINAL_EXPANSION_AFTER = new Map<JapaneseCharacterClass, ReadonlySet<Japane
   ],
 ]);
 
-function canExpandAtFinalStage(
-  left: JapaneseCharacterClass,
-  right: JapaneseCharacterClass,
-): boolean {
+function canExpandAtFinalStage(left: JapaneseBoundaryClass, right: JapaneseBoundaryClass): boolean {
   // Explicit spaces supply their own width, and a horizontal western run (cl-27) reads as one word
   // rather than as independent Japanese cells. Adding another unbounded boundary beside either
   // produces double space or a hole disproportionate to the run's own length.
@@ -513,7 +516,12 @@ function canExpandAtFinalStage(
   ) {
     return false;
   }
-  if (FINAL_EXPANSION_AFTER.get(left)?.has(right) !== true) return false;
+  // Ruby complexes share the ordinary Japanese final-stage cells. Membership
+  // restrictions are resolved by BoundaryRule before these numeric capacities are used.
+  const leftClass = left === "cl-22" || left === "cl-23" ? "cl-19" : left;
+  const rightClass = right === "cl-22" || right === "cl-23" ? "cl-19" : right;
+  if (left === "cl-08" && right === "cl-08") return true;
+  if (FINAL_EXPANSION_AFTER.get(leftClass)?.has(rightClass) !== true) return false;
 
   // A pair with intrinsic white already carries punctuation or mixed-text semantics. Its finite
   // stage, where one exists, is the upper bound; only pairs set solid at rest take the final stage.
@@ -531,7 +539,7 @@ const HALF_EM_CLASSES = new Set<JapaneseCharacterClass>([
   "cl-07",
 ]);
 
-type ClassSelector = readonly JapaneseCharacterClass[] | "any";
+type ClassSelector = readonly JapaneseBoundaryClass[] | "any";
 
 type PairSpacingRule = Readonly<{
   left: ClassSelector;
@@ -630,20 +638,20 @@ const PAIR_SPACING_RULES: readonly PairSpacingRule[] = [
   { left: ["cl-26"], right: ["cl-01"], spacing: FIXED_HALF },
   { left: ["cl-26"], right: ["cl-05"], spacing: FIXED_QUARTER },
 
-  { left: ["cl-08"], right: ["cl-08"], spacing: DASH_JOINT },
+  { left: ["cl-08"], right: ["cl-08"], spacing: SOLID_EXPANDABLE },
 ];
 
 const PAIR_SPACING_TABLE: ReadonlyMap<string, RuleSpacing> = new Map(
   PAIR_SPACING_RULES.flatMap(({ left, right, spacing }) =>
-    (left === "any" ? japaneseCharacterClasses : left).flatMap((leftClass) =>
-      (right === "any" ? japaneseCharacterClasses : right).map(
+    (left === "any" ? boundaryClasses : left).flatMap((leftClass) =>
+      (right === "any" ? boundaryClasses : right).map(
         (rightClass) => [`${leftClass}/${rightClass}`, spacing] as const,
       ),
     ),
   ),
 );
 
-function pairSpacing(left: JapaneseCharacterClass, right: JapaneseCharacterClass): RuleSpacing {
+function pairSpacing(left: JapaneseBoundaryClass, right: JapaneseBoundaryClass): RuleSpacing {
   return PAIR_SPACING_TABLE.get(`${left}/${right}`) ?? SOLID;
 }
 
@@ -658,10 +666,10 @@ function pairSpacing(left: JapaneseCharacterClass, right: JapaneseCharacterClass
  * middle dots, full stops, commas, iteration marks, the prolonged sound mark, small kana and
  * postfixed abbreviations may not open a line.
  *
- * Unbreakable sequences (分割禁止, JLReq 3.1.10): a 分離禁止文字 followed by another one is a single mark set
- * over two ems and must not be split.
+ * Binding sequences (JLReq C.2 note 5) depend on the actual characters and are resolved separately
+ * by BoundaryRule.
  */
-function breakPenalty(left: JapaneseCharacterClass, right: JapaneseCharacterClass): number | null {
+function breakPenalty(left: JapaneseBoundaryClass, right: JapaneseBoundaryClass): number | null {
   if (left === "cl-01" || left === "cl-12") return null;
   if (
     right === "cl-02" ||
@@ -677,7 +685,6 @@ function breakPenalty(left: JapaneseCharacterClass, right: JapaneseCharacterClas
   ) {
     return null;
   }
-  if (left === "cl-08" && right === "cl-08") return null;
   return 0;
 }
 

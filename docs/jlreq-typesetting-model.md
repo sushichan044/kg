@@ -46,14 +46,30 @@ resolution, adjustment allocation, and paragraph evaluation.
 | `JapaneseTypesettingRules`              | Classification, box metrics, spacing capacities, break permission, and hanging eligibility   | Complete contextual spacing tables and additional reference coverage |
 | `BookStyle` and `ParagraphEvaluation`   | Selected bracket scheme; independent adjustment stages and visual costs; paragraph scoring   | Additional selectable styles                                         |
 | `CompositionRun` and `RubyAssociation`  | Oriented members, independent ruby indexes, and composer-owned combined render units         | Additional annotation placement rules                                |
-| `BoundaryRule`                          | Separate break constraints, spacing permission, and final expansion eligibility              | Complete ruby appendix B/C table coverage                            |
+| `BoundaryRule`                          | Separate break constraints, spacing permission, and final expansion eligibility              | Further contextual break notes and deferred semantic classes         |
 | `SourceSpace`                           | Authored range, purpose, natural width, and edge behavior                                    | New semantic space purposes only with corresponding input features   |
 | `JapaneseParagraph` and `CandidateLine` | Candidate-local ruby metrics, line edges, coupled adjustments, and numeric fitting           | Further reference-derived spacing schemes                            |
 | `measureSourceLine`                     | Intrinsic metrics and validated aggregate/clustered measurements; candidate-owned ruby width | Real font shaping and new semantic annotation inputs                 |
 | Viewer                                  | Explicit render units, exact/shared diagnostic positions, and core-positioned ruby/emphasis  | Agreement with a future shaped provider's fonts                      |
 
 Paragraph preparation classifies each base once and indexes ruby membership
-before candidate expansion. The DP and allocator receive numeric data and do not
+before candidate expansion. Boundary queries use cl-22 for mono/group bases and
+cl-23 for jukugo bases, while box metrics and render offsets keep the lexical
+class. Line-head/tail spacing and hanging eligibility also use the effective
+class; authored space widths retain the lexical class. Mono readings define
+separate per-base complexes even when one annotation
+contains several segments. Shared group and jukugo interiors exclude ordinary
+pair spacing and line expansion independently of their break permission.
+Fittable groups stay whole; oversized groups retain the kg continuation policy.
+
+Boundary preparation distinguishes identical cl-08 characters from unlike marks.
+The upper/lower kana-repeat pairs `〳〵` and `〴〵` also bind. Supported dash
+variants `―`, `—`, and `─` remain distinct source characters: identical
+repetitions bind, and mixed variants may break and expand. Only binding pairs
+receive a joining kern; unlike pairs receive glue with a quarter-em expansion
+capacity and the existing final-stage policy.
+
+The DP and allocator receive numeric data and do not
 inspect JLReq class identifiers or ruby kinds. Source-space edge widths and
 separator suppression are resolved per candidate. Ordinary ideographic spaces
 retain their existing glyph output.
@@ -66,8 +82,12 @@ slot set for final expansion remain separate.
 
 Mono and fittable-group readings are resolved for each candidate. Lexical classes
 remain available for base metrics, while ruby boundary queries distinguish cl-22
-and cl-23 context. JLReq 3.3.8 supplies neighbor-dependent overhang limits, including
-punctuation spacing after adjustment. Independent readings over intervening kana
+and cl-23 context for pair spacing, breaking, and overhang. JLReq 3.3.8 supplies
+neighbor-dependent overhang limits, including
+punctuation spacing after adjustment. Quarter-space overhang is capped at half a
+ruby em and the adjusted gap. Authored ideographic spaces, including paragraph
+indentation, permit one ruby em of overhang; suppressed separators do not.
+Independent readings over intervening kana
 retain one ruby-em clearance. Unresolved excess widens the bases before scoring.
 Jukugo segments use candidate-local one-ruby-em bounds and succeeding-base-first
 packing. Their interiors allow legal base breaks but exclude ordinary line
@@ -96,12 +116,12 @@ concept outside the current body-text design.
 | [3.1.1][punctuation-direction]                                | Select punctuation treatment for the writing direction                                    | Partial: vertical presentation and character lists; no direction-specific font realization                                                      | Classification and measurement / vertical punctuation variants                        |
 | [3.1.2][punctuation-position]                                 | Separate a punctuation box from its surrounding spaces                                    | Implemented for the profile's half-em classes and render offsets                                                                                | Box metrics and boundaries / parentheses, comma, period, middle dot                   |
 | [3.1.3][punctuation-exceptions]                               | Account for punctuation whose visual position differs from the usual font layout          | Partial: class-based render offsets, without a glyph-position query                                                                             | Measurement and render span / custom metrics and variant glyphs                       |
-| [3.1.4][punctuation-sequences], [B][spacing-table]            | Resolve pair spacing using both classes and the notes applicable to the pair              | Partial: table rules for the supported classes; ruby-context cells absent                                                                       | Boundary rules / consecutive opening and closing brackets, comma before middle dot    |
+| [3.1.4][punctuation-sequences], [B][spacing-table]            | Resolve pair spacing using both classes and the notes applicable to the pair              | Implemented for supported lexical and cl-22/cl-23 contexts; deferred semantic classes excluded                                                  | Boundary rules / consecutive opening and closing brackets, comma before middle dot    |
 | [3.1.5][opening-head]                                         | Choose one line-head bracket scheme and distinguish paragraph start from continuation     | Policy: scheme ③, half-em at paragraph start and flush at a turned-over head                                                                    | Paragraph context and book style / same bracket at both kinds of head                 |
 | [3.1.6][dividing-marks]                                       | Model the source space following question or exclamation marks with an edge disposition   | Partial: recognized source gap becomes fixed glue or is suppressed at wrapping                                                                  | Source space and line context / `？　次` inside and across a line                     |
-| [3.1.7][line-start], [3.1.8][line-end], [C][break-table]      | Resolve prohibited breaks independently from spacing                                      | Partial: precomputed class, run-interior, and group-ruby break constraints; no complete contextual appendix C model                             | Boundary / forbidden head and tail; group interior versus exterior                    |
+| [3.1.7][line-start], [3.1.8][line-end], [C][break-table]      | Resolve prohibited breaks independently from spacing                                      | Partial: lexical and ruby-context rules, run/group membership, and value-dependent cl-08 pairs; deferred semantic classes excluded              | Boundary / forbidden head and tail; group interior versus exterior                    |
 | [3.1.9][end-punctuation]                                      | Treat line-end choices as discrete; couple a middle dot's applicable surrounding spaces   | Implemented for current classes through granularity and absorption                                                                              | Line context and adjustment unit / whole versus partial removal                       |
-| [3.1.10][unbreakable]                                         | Express binding sequences as boundaries of a recognized unit                              | Partial: all adjacent cl-08 pairs and presentation groups bind; same-mark repetition is not distinguished from unlike cl-08 marks               | Run recognition and boundary / double dash, mixed marks, numerals and units           |
+| [3.1.10][unbreakable]                                         | Express binding sequences as boundaries of a recognized unit                              | Implemented for supported marks: identical repetitions and kana-repeat upper/lower pairs bind; different marks may break                        | Run recognition and boundary / double dash, mixed marks, numerals and units           |
 | [3.1.11][no-expansion]                                        | Decide expansion permission separately from break permission                              | Partial: independent boundary spacing and expansion records; current style excludes run and fittable-group interiors                            | Boundary / a forbidden break that still admits a specified spacing adjustment         |
 | [3.1.12][adjustment-examples], [3.8.1–3.8.2][line-adjustment] | Evaluate feasible fitting and hanging alternatives before selecting paragraph breaks      | Partial: paragraph DP and comma/period hanging; paragraph-end handling is a kg policy                                                           | Candidate resolver and optimizer / closing bracket after a potential hanging comma    |
 | [3.2.1][mixed], [3.2.3–3.2.4][vertical-mixed]                 | Recognize orientation before measurement; keep orientation separate from membership       | Policy: ASCII two-digit runs combine, single characters and recognized abbreviations stand upright, other ASCII alphanumeric runs turn sideways | Run recognition / `A`, `NASA`, `spring`, `12`, fullwidth letters                      |
@@ -113,12 +133,12 @@ concept outside the current body-text design.
 | [3.3.5][mono-ruby]                                            | Place each mono reading against its own base                                              | Implemented for logical mono placement: per-base anchors and contextual overhang                                                                | Ruby candidate layout / short and long mono readings                                  |
 | [3.3.6][group-ruby]                                           | Place a reading against its whole base group and account for internal spacing             | Partial: fittable-group protection and candidate-local overhang; oversized splitting is a kg extension                                          | Ruby association and candidate layout / short, equal, and long reading                |
 | [3.3.7][jukugo-ruby], [F.1–F.4][jukugo-appendix]              | Preserve per-base readings while jointly arranging the compound and its fragments         | Partial: joint one-ruby-em placement and split recomposition; full appendix F spacing distributions pending                                     | Ruby candidate layout / reading lengths 1 and 3; compound split between bases         |
-| [3.3.8][ruby-overhang], [B.2][spacing-notes]                  | Resolve permitted overhang from neighboring context and keep reading runs distinguishable | Partial: candidate-local overhang for all ruby kinds, punctuation limits, and independent-reading clearance                                     | Boundary annotation constraints and candidate placement / kana versus kanji neighbors |
+| [3.3.8][ruby-overhang], [B.2][spacing-notes]                  | Resolve permitted overhang from neighboring context and keep reading runs distinguishable | Partial: candidate-local overhang, adjusted half/quarter-space limits, authored ideographic spaces, and independent-reading clearance           | Boundary annotation constraints and candidate placement / kana versus kanji neighbors |
 | [3.3.9][emphasis]                                             | Position emphasis marks against their associated base text                                | Implemented for the logical profile: centered half-em marks, punctuation exclusions, and annotation clearance                                   | Positioned annotation / combining marks, combined units, ruby coexistence             |
 | [3.5.1–3.5.2][paragraphs]                                     | Keep paragraph-start indentation and continuation indentation explicit                    | Partial: source spaces and bracket scheme; every source newline starts a composition paragraph, with no semantic indent contract                | Paragraph context / authored indentation and continuation line                        |
 | [3.8.3][reduction], [D.1–D.2][reduction-table]                | Separate admissible reductions from the order selected by the book style                  | Partial + policy: explicit units with independent stages and costs; kg spends invisible line-end space before word spaces                       | Adjustment unit and policy / a line with both opportunities                           |
 | [3.8.4][expansion], [E.1–E.2][expansion-table]                | Distinguish bounded stages from the final expansion opportunities                         | Partial: finite stages and final-stage pair set for current classes                                                                             | Adjustment unit and policy / bounded word space and evenly distributed remainder      |
-| [3.9][classes], [A.1–A.30][class-list]                        | Derive contextual classes without erasing original character identity                     | Partial: lexical classes plus separate cl-22/cl-23 overhang context; complete appendix B ruby cells pending                                     | Classification and association / cl-22 and cl-23 at ruby boundaries                   |
+| [3.9][classes], [A.1–A.30][class-list]                        | Derive contextual classes without erasing original character identity                     | Partial: lexical metrics plus cl-22/cl-23 boundary and overhang context; deferred semantic classes excluded                                     | Classification and association / cl-22 and cl-23 at ruby boundaries                   |
 | [4.5.1–4.5.2][line-gap]                                       | Keep body pitch stable while allocating annotation space and paragraph separation         | Partial: fixed geometry, source blank lines, and explicit decoration coordinates; no semantic paragraph-separation contract                     | Geometry and paragraph style / adjacent annotated lines                               |
 
 ### Deferred requirements
@@ -264,8 +284,8 @@ does not introduce a public arbitrary rule plugin or a new settings UI.
 
 The mono and fittable-group resolver implements contextual placement before
 candidate scoring. Jukugo placement also uses candidate-local bounds and joint
-packing. The complete procedure below defines the remaining oversized-group
-and decoration work:
+packing. The procedure below includes the implemented oversized-group
+and decoration handling:
 
 1. Intersect the candidate base range with each ruby association. Keep mono and
    jukugo reading segments tied to their base graphemes. For oversized group
@@ -594,7 +614,12 @@ tests. Cases still labelled future are design checks, not passing tests.
 | Ruby and emphasis reach a page's first or last line                           | Preserve body pitch and emit explicit block extents; the selected annotation lane may extend beyond the body text area                                  | Core clearance tests and Chromium/WebKit page/stage-edge geometry tests                      |
 
 The current source tests protect ruby kind preservation, mono/group centering,
-and group reading conservation. Phase 4 tests cover contextual overhang, joint
+and group reading conservation. Ruby pair-table tests cover both directions against
+every supported lexical class, including natural widths, shrink/stretch capacities,
+final-stage policy, break permission, and ruby-complex line edges. Annotated
+bracket and full-stop cases preserve lexical box metrics without ordinary
+punctuation edge spacing. Binding tests cover identical and unlike
+marks and both kana-repeat upper/lower pairs. Phase 4 tests cover contextual overhang, joint
 jukugo bounds, and cluster-aligned group allocation. Full appendix F spacing
 distributions, real font shaping, and selectable sides remain incomplete. Phase 3
 tests cover synthetic cluster mappings and the existing decoration coordinates. New behavior tests

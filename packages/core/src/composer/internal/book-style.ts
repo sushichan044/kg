@@ -2,7 +2,7 @@ import { defaultAnnotationStyle } from "./annotation-style";
 import type { AnnotationStyle } from "./annotation-style";
 import type {
   AdjustmentCategory,
-  JapaneseCharacterClass,
+  JapaneseBoundaryClass,
   LineHeadKind,
 } from "./japanese-typesetting-rules";
 import type { PairSpacing } from "./spacing";
@@ -12,7 +12,7 @@ export type BookStyle = Readonly<{
     direction: "shrink" | "stretch",
     category: AdjustmentCategory,
   ) => Readonly<{ stage: number; costPerEm: number }>;
-  lineStartSpacing: (first: JapaneseCharacterClass, head: LineHeadKind) => PairSpacing | null;
+  lineStartSpacing: (first: JapaneseBoundaryClass, head: LineHeadKind) => PairSpacing | null;
   finalStretchCostPerEm: number;
   annotation: AnnotationStyle;
 }>;
