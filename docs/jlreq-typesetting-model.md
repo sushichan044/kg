@@ -1,8 +1,8 @@
 # Separate Japanese typesetting rules, policy, and layout data
 
 Status: Phases 1–3 implemented. Phase 4 contextual mono and fittable-group ruby
-and joint jukugo placement are implemented; oversized-group allocation and
-decoration clearance remain pending. Actual font shaping remains proposed.
+and joint jukugo placement are implemented. Group readings are assigned before
+scoring with a continuation cursor; decoration clearance remains pending. Actual font shaping remains proposed.
 
 The composer represents characters, text runs, ruby associations, boundaries,
 and candidate lines separately. This gives each Japanese typesetting rule an owner
@@ -41,16 +41,16 @@ The core separates parsing, composition, and proofreading. The composition
 pipeline now separates reference admissibility, selected book style, candidate
 resolution, adjustment allocation, and paragraph evaluation.
 
-| Concept                                 | Implemented responsibility                                                                    | Remaining work                                                     |
-| --------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `JapaneseTypesettingRules`              | Classification, box metrics, spacing capacities, break permission, and hanging eligibility    | Contextual ruby classes and additional reference coverage          |
-| `BookStyle` and `ParagraphEvaluation`   | Selected bracket scheme; independent adjustment stages and visual costs; paragraph scoring    | Additional selectable styles                                       |
-| `CompositionRun` and `RubyAssociation`  | Oriented members, independent ruby indexes, and composer-owned combined render units          | Additional annotation placement rules                              |
-| `BoundaryRule`                          | Separate break constraints, spacing permission, and final expansion eligibility               | Neighbor-dependent ruby constraints                                |
-| `SourceSpace`                           | Authored range, purpose, natural width, and edge behavior                                     | New semantic space purposes only with corresponding input features |
-| `JapaneseParagraph` and `CandidateLine` | Candidate-local line edges, explicit coupled adjustment units, and numeric fitting            | Candidate-local ruby overhang and joint jukugo placement           |
-| `measureSourceLine`                     | Intrinsic metrics, validated aggregate/clustered measurements, and conservative ruby widening | Real font shaping and contextual annotation requirements           |
-| Viewer                                  | Explicit render units, exact/shared diagnostic positions, and core-positioned ruby/emphasis   | Agreement with a future shaped provider's fonts                    |
+| Concept                                 | Implemented responsibility                                                                   | Remaining work                                                     |
+| --------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `JapaneseTypesettingRules`              | Classification, box metrics, spacing capacities, break permission, and hanging eligibility   | Contextual ruby classes and additional reference coverage          |
+| `BookStyle` and `ParagraphEvaluation`   | Selected bracket scheme; independent adjustment stages and visual costs; paragraph scoring   | Additional selectable styles                                       |
+| `CompositionRun` and `RubyAssociation`  | Oriented members, independent ruby indexes, and composer-owned combined render units         | Additional annotation placement rules                              |
+| `BoundaryRule`                          | Separate break constraints, spacing permission, and final expansion eligibility              | Neighbor-dependent ruby constraints                                |
+| `SourceSpace`                           | Authored range, purpose, natural width, and edge behavior                                    | New semantic space purposes only with corresponding input features |
+| `JapaneseParagraph` and `CandidateLine` | Candidate-local line edges, explicit coupled adjustment units, and numeric fitting           | Candidate-local ruby overhang and joint jukugo placement           |
+| `measureSourceLine`                     | Intrinsic metrics and validated aggregate/clustered measurements; candidate-owned ruby width | Real font shaping and contextual annotation requirements           |
+| Viewer                                  | Explicit render units, exact/shared diagnostic positions, and core-positioned ruby/emphasis  | Agreement with a future shaped provider's fonts                    |
 
 Paragraph preparation classifies each base once and indexes ruby membership
 before candidate expansion. The DP and allocator receive numeric data and do not
@@ -71,8 +71,10 @@ punctuation spacing after adjustment. Independent readings over intervening kana
 retain one ruby-em clearance. Unresolved excess widens the bases before scoring.
 Jukugo segments use candidate-local one-ruby-em bounds and succeeding-base-first
 packing. Their interiors allow legal base breaks but exclude ordinary line
-expansion. Oversized groups retain conservative widening and post-selection
-allocation until their own behavior change. The [phase 4 plan](plans/adr-0006-phase-4/overview.md)
+expansion. Oversized groups carry a reading-cluster cursor through the paragraph states.
+Their contiguous reading intervals are assigned in proportion to intrinsic base
+advances before fitting, with reading reserved for remaining fragments when
+possible. The terminal transition consumes the complete reading. The [phase 4 plan](plans/adr-0006-phase-4/overview.md)
 records that sequence and the deferred semantic-style boundary.
 
 ## Coverage and ownership
@@ -111,7 +113,7 @@ concept outside the current body-text design.
 | [3.3.5][mono-ruby]                                            | Place each mono reading against its own base                                              | Implemented for logical mono placement: per-base anchors and contextual overhang                                                                | Ruby candidate layout / short and long mono readings                                  |
 | [3.3.6][group-ruby]                                           | Place a reading against its whole base group and account for internal spacing             | Partial: fittable-group protection and candidate-local overhang; oversized splitting is a kg extension                                          | Ruby association and candidate layout / short, equal, and long reading                |
 | [3.3.7][jukugo-ruby], [F.1–F.4][jukugo-appendix]              | Preserve per-base readings while jointly arranging the compound and its fragments         | Partial: joint one-ruby-em placement and split recomposition; full appendix F spacing distributions pending                                     | Ruby candidate layout / reading lengths 1 and 3; compound split between bases         |
-| [3.3.8][ruby-overhang], [B.2][spacing-notes]                  | Resolve permitted overhang from neighboring context and keep reading runs distinguishable | Partial: mono/fittable-group/jukugo overhang, punctuation limits, and independent-reading clearance; oversized groups pending                   | Boundary annotation constraints and candidate placement / kana versus kanji neighbors |
+| [3.3.8][ruby-overhang], [B.2][spacing-notes]                  | Resolve permitted overhang from neighboring context and keep reading runs distinguishable | Partial: candidate-local overhang for all ruby kinds, punctuation limits, and independent-reading clearance                                     | Boundary annotation constraints and candidate placement / kana versus kanji neighbors |
 | [3.3.9][emphasis]                                             | Position emphasis marks against their associated base text                                | Partial: parser association and explicit core mark placements, including combined units                                                         | Positioned annotation / combining marks, combined units, ruby coexistence             |
 | [3.5.1–3.5.2][paragraphs]                                     | Keep paragraph-start indentation and continuation indentation explicit                    | Partial: source spaces and bracket scheme; every source newline starts a composition paragraph, with no semantic indent contract                | Paragraph context / authored indentation and continuation line                        |
 | [3.8.3][reduction], [D.1–D.2][reduction-table]                | Separate admissible reductions from the order selected by the book style                  | Partial + policy: explicit units with independent stages and costs; kg spends invisible line-end space before word spaces                       | Adjustment unit and policy / a line with both opportunities                           |
@@ -290,15 +292,15 @@ over adjacent kanji. Bracket and punctuation amounts come from the applicable
 notes, not one global overhang constant. The mono and fittable-group implementation enables this style. Changed breaks
 and reading positions are intentional phase 4 behavior changes.
 
-Group-ruby fragments must account for the reading already assigned to preceding
-fragments. The future implementation carries that reading cursor in DP state.
-Each transition assigns a contiguous reading interval and advances the cursor;
-terminal states must consume the complete reading. Candidate scoring uses that
-assigned interval, not an independent redistribution of the whole reading. The
-initial migration keeps existing post-selection proportional allocation and
-conservative base widening, so it does not claim candidate-local overhang support
-for oversized group ruby. Activating the cursor-based placement is a later
-behavior change with its own allocation acceptance cases.
+Group-ruby fragments account for the reading already assigned to preceding
+fragments. The DP continuation is a reading-cluster cursor; state identity includes
+source position, cursor, and fitness, and candidate-cache identity includes the
+cursor. Each transition assigns a contiguous reading interval before scoring.
+The kg proportional policy rounds the cumulative intrinsic base share to the
+nearest complete reading-cluster boundary. When enough clusters remain, reserve
+at least one per minimum remaining body line. Empty readings are allowed when
+there are fewer clusters than fragments. Terminal transitions consume every
+remaining cluster. Selected lines use these intervals without redistribution.
 
 Annotation placement also records side, inline extent, and block extent. The
 default vertical ruby side is right, and the body line pitch remains fixed.
@@ -575,18 +577,19 @@ tests. Cases still labelled future are design checks, not passing tests.
 | `？　次` wraps after the mark                                                 | Keep the authored gap as suppressed source text; inside a line keep its fixed source glue                                                               | Existing separator and line-range tests; preserve                                            |
 | A fittable group ruby is moved to the next line                               | Group association protects its interior breaks independently from spacing data                                                                          | Existing “moves a fittable group ruby as one unit”; preserve                                 |
 | A long group ruby spans several lines                                         | Concatenated readings equal the original, in order; preserve the current proportional allocation and one-reading-per-fragment reservation when possible | Existing oversized-group tests; preserve                                                     |
-| Mono reading `かんじ` annotates `漢`, followed by `あ` versus `字`            | Candidate boundary context permits the chosen kana overhang but forbids kanji overhang; only unresolved excess expands the base                         | Future overhang resolver                                                                     |
-| Two long readings overhang the same intervening kana                          | Resolve their ink separation jointly; independent base widening is insufficient                                                                         | Future reading-collision case                                                                |
-| Jukugo `温泉` has readings `おん` and `せん`, or `京都` has `きょう` and `と` | Preserve per-base association, jointly place readings, and recompute fragments if split between bases                                                   | Future appendix F cases; lengths and splits varied explicitly                                |
-| Group `今日` carries `きょう` at an actual line boundary                      | Keep a fittable group whole; distinguish the kg oversized split extension from the reference's ordinary group handling                                  | Existing association + future candidate edge checks                                          |
+| Mono reading `かんじ` annotates `漢`, followed by `あ` versus `字`            | Candidate boundary context permits the chosen kana overhang but forbids kanji overhang; only unresolved excess expands the base                         | Contextual ruby placement tests                                                              |
+| Two long readings overhang the same intervening kana                          | Resolve their ink separation jointly; independent base widening is insufficient                                                                         | One-ruby-em clearance test                                                                   |
+| Jukugo `温泉` has readings `おん` and `せん`, or `京都` has `きょう` and `と` | Preserve per-base association, jointly place readings, and recompute fragments if split between bases                                                   | Joint jukugo tests; lengths 1+3, 3+1, 3+2+1, and split compounds                             |
+| Group `今日` carries `きょう` at an actual line boundary                      | Keep a fittable group whole; distinguish the kg oversized split extension from the reference's ordinary group handling                                  | Fittable-group protection and candidate edge tests                                           |
 | `12` has a diagnostic or ruby on its first digit                              | Emit one combined unit, retain both member ranges, attach the diagnostic to its logical member and ruby to the physical unit                            | Public render-unit tests and viewer exact-digit, ruby, and emphasis browser cases            |
 | A provider returns one cluster for `ffi`                                      | Keep all three source graphemes, prohibit an interior break, and highlight the shared cluster without inventing three caret positions                   | Synthetic clustered-provider and viewer shared-ligature tests                                |
 | A provider returns overlapping text ranges, a split surrogate, or NaN         | Reject the result at the plugin boundary; never render a partial snapshot                                                                               | Measurement boundary cases and typed invalid-provider rejection tests                        |
 | Ruby and emphasis reach a page's first or last line                           | Preserve body pitch and emit explicit block extents; the selected annotation lane may extend beyond the body text area                                  | Explicit placement contracts and browser coordinate tests; future lane/collision geometry    |
 
 The current source tests protect ruby kind preservation, mono/group centering,
-and group reading conservation. They do not establish appendix F placement,
-neighbor overhang, real font shaping, or selectable annotation sides. Phase 3
+and group reading conservation. Phase 4 tests cover contextual overhang, joint
+jukugo bounds, and cluster-aligned group allocation. Full appendix F spacing
+distributions, real font shaping, and selectable sides remain incomplete. Phase 3
 tests cover synthetic cluster mappings and the existing decoration coordinates. New behavior tests
 must use specification-derived outcomes rather than copying the resolver's
 algorithm. Use arrange/act/assert separation, existing `test.extend` fixtures
@@ -609,9 +612,15 @@ and storage-version change, not an implicit addition to this refactor.
 Run `vp check` and the applicable `vp test --run` projects for implementation
 phases. Core work uses `core-unit`; phase 3 also runs viewer and frontend checks,
 package builds, and browser scenarios. Avoid dense candidate graphs and repeated
-classification in the inner optimizer loop. Ruby cursor state can enlarge the
-search; that future change must retain bounded expansion or document a measured
-replacement bound before enabling it.
+classification in the inner optimizer loop. Ruby continuation retains only the best state per source/cursor/fitness tuple.
+For N independent one-em bases, line length L, and at most M active reading
+clusters, there are at most 4(N+1)(M+1) states and N(M+1)(2L+1) candidate
+resolutions. The cache stores one start window, including refusals. The existing
+unannotated 2,000-base candidate-count bound is unchanged. An integrated fixture
+with 2,000 bases and 5,000 reading graphemes composes into 250 lines and verifies
+complete reading conservation within a five-second regression budget. These
+bounds describe logical positive-width fixtures, not arbitrary zero-width or
+unbreakable provider data.
 
 This design is complete when every relevant reference section has a coverage
 row, every proposed behavior has an owning concept, and the worked cases can be

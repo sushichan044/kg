@@ -137,11 +137,14 @@ export const RubyLineLayout = {
     start: number,
     end: number,
     resolve: (metrics?: CandidateMetrics) => CandidateLine,
+    assignedSegments: readonly RubyLineSegment[] = [],
   ): RubyLineLayout | undefined => {
     const selected: RubyLineSegment[] = [];
     for (let index = start; index < end; index += 1)
       for (const segment of segments.get(index) ?? [])
         if (segment.end <= end) selected.push(segment);
+    selected.push(...assignedSegments);
+    selected.sort((left, right) => left.start - right.start);
     const expansions = new Map<number, number>();
     const extraGaps = new Map<number, number>();
     const metrics = (): CandidateMetrics => {

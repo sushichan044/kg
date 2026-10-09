@@ -281,7 +281,7 @@ describe("public render units", () => {
     expect(result.error.kind).toBe("ComposerRejected");
   });
 
-  test("refuses a group reading fragment that would bisect a provider cluster", () => {
+  test("keeps an oversized indivisible group reading whole on a forced line", () => {
     const parsed = parseManuscript(`｜${"漢".repeat(11)}《よみ》`, { parser: kakuyomuParser });
     expect.assert(parsed.ok);
     const composer = createNovelComposer({
@@ -309,8 +309,24 @@ describe("public render units", () => {
       },
     });
 
-    expect.assert(!result.ok);
-    expect(result.error.kind).toBe("ComposerRejected");
+    expect.assert(result.ok);
+    const lines = result.value.layout.pages.flatMap((page) =>
+      page.stages.flatMap((stage) => stage.lines),
+    );
+    const readingLine = lines.find((line) =>
+      line.annotations.some(
+        (annotation) => annotation.kind === "ruby" && annotation.reading === "よみ",
+      ),
+    );
+    expect.assert(readingLine !== undefined);
+    const ruby = lines.flatMap((line) =>
+      line.annotations.filter((annotation) => annotation.kind === "ruby"),
+    );
+
+    expect(ruby.map((fragment) => fragment.reading).join("")).toBe("よみ");
+    expect(ruby.flatMap((fragment) => fragment.readingItems)).toHaveLength(1);
+    expect(readingLine.break.kind).toBe("forced");
+    expect(readingLine.inlineSizeEm).toBe(12);
   });
 
   test("rejects annotation source bounds outside their line and association", () => {

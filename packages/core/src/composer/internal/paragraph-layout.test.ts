@@ -35,7 +35,7 @@ function layoutParagraph(
   return optimizeParagraph(
     paragraph.elements,
     lineLengthEm,
-    paragraph.resolveCandidate,
+    (start, end) => paragraph.resolveCandidate(start, end),
     boundaryAllowed,
   );
 }
@@ -206,6 +206,45 @@ function spacingWidths(plan: { pairSpacings: ReadonlyArray<{ widthEm: number }> 
 }
 
 describe("layoutParagraph", () => {
+  test("keeps paths with different continuation positions until a complete path is selected", () => {
+    const paragraph = atoms("AAAA", flexiblePrefixProfile);
+    const prepared = prepareParagraph(paragraph, 2, flexiblePrefixProfile);
+    const calls = new Set<string>();
+    const transitions = new Map([
+      ["0:1:0", 1],
+      ["0:2:0", 2],
+      ["1:3:1", 5],
+      ["2:3:2", 6],
+      ["3:4:5", 0],
+    ]);
+
+    const plans = optimizeParagraph(
+      paragraph,
+      2,
+      (start, end, cursor) => {
+        const key = `${start}:${end}:${cursor}`;
+        expect(calls.has(key)).toBe(false);
+        calls.add(key);
+        const nextCursor = transitions.get(key);
+        return nextCursor === undefined
+          ? undefined
+          : {
+              ...prepared.resolveCandidate(start, end),
+              break: { kind: "natural" },
+              deformationCost: 0,
+              deformationRatio: 0,
+              nextCursor,
+            };
+      },
+      () => true,
+    );
+
+    expect(plans.map((line) => [line.start, line.end])).toEqual([
+      [0, 1],
+      [1, 3],
+      [3, 4],
+    ]);
+  });
   test("optimizes the whole paragraph instead of taking the greedy first break", () => {
     const plans = layoutParagraph(
       atoms("AAAABBBBBBB", flexiblePrefixProfile),

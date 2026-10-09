@@ -5,12 +5,15 @@ import { parseManuscript } from "../parser/parse-manuscript";
 import { ManuscriptRange } from "../range/manuscript-range";
 import { composeManuscript } from "./compose-manuscript";
 import { NovelCompositionSettings } from "./composition-settings";
-import { novelComposer } from "./novel-composer";
+import { MeasurementTextRange } from "./measurement-text-range";
+import { createNovelComposer, novelComposer } from "./novel-composer";
 import { PositionedInlineItem } from "./positioned-inline-item";
+import { logicalRunMeasurer } from "./run-measurer";
 
 function composeRuby(
   text: string,
   readings: ReadonlyArray<Readonly<{ start: number; length: number; reading: RubyReading }>>,
+  composer = novelComposer,
 ) {
   const parsed = parseManuscript(text);
   expect.assert(parsed.ok);
@@ -25,7 +28,7 @@ function composeRuby(
   const composed = composeManuscript(
     { ...parsed.value, annotations },
     {
-      composer: novelComposer,
+      composer,
       settings: {
         ...NovelCompositionSettings.defaults,
         flow: { ...NovelCompositionSettings.defaults.flow, lineLengthEm: 10 },
@@ -143,6 +146,90 @@ describe("contextual ruby placement", () => {
 
     expect(base.layoutSpan).toEqual({ offsetEm: 1, advanceEm: 1 });
     expect(reading.placement.inlineSpan.offsetEm).toBe(0.5);
+  });
+});
+
+describe("candidate-local group reading allocation", () => {
+  test(
+    "conserves a long group reading within a bounded composition time",
+    { timeout: 15000 },
+    () => {
+      const text = "漢".repeat(2000);
+      const reading = "あ".repeat(5000);
+      const started = Date.now();
+
+      const { lines, ruby } = composeRuby(text, [
+        { start: 0, length: text.length, reading: { kind: "group", text: reading } },
+      ]);
+
+      expect(ruby.map((fragment) => fragment.reading).join("")).toBe(reading);
+      expect(lines).toHaveLength(250);
+      expect(Date.now() - started).toBeLessThan(5000);
+    },
+  );
+  test("splits reading only between provider clusters while conserving its text", () => {
+    const composer = createNovelComposer({
+      measurer: (request) =>
+        request.kind === "ruby" && request.text === "abcdef"
+          ? {
+              kind: "clustered",
+              advanceEm: 3,
+              clusters: [
+                {
+                  textRange: MeasurementTextRange.of({ start: 0, end: 3 }),
+                  layoutSpan: { offsetEm: 0, advanceEm: 1.5 },
+                  renderSpan: { offsetEm: 0, advanceEm: 1.5 },
+                },
+                {
+                  textRange: MeasurementTextRange.of({ start: 3, end: 6 }),
+                  layoutSpan: { offsetEm: 1.5, advanceEm: 1.5 },
+                  renderSpan: { offsetEm: 1.5, advanceEm: 1.5 },
+                },
+              ],
+            }
+          : logicalRunMeasurer(request),
+    });
+
+    const { ruby } = composeRuby(
+      "漢".repeat(12),
+      [{ start: 0, length: 12, reading: { kind: "group", text: "abcdef" } }],
+      composer,
+    );
+
+    expect(ruby.map((fragment) => fragment.reading)).toEqual(["abc", "def"]);
+    expect(ruby.flatMap((fragment) => fragment.readingItems.map((item) => item.value))).toEqual([
+      "abc",
+      "def",
+    ]);
+  });
+
+  test("consumes an indivisible reading cluster once even when the base spans two lines", () => {
+    const composer = createNovelComposer({
+      measurer: (request) =>
+        request.kind === "ruby" && request.text === "abcdef"
+          ? {
+              kind: "clustered",
+              advanceEm: 3,
+              clusters: [
+                {
+                  textRange: MeasurementTextRange.of({ start: 0, end: 6 }),
+                  layoutSpan: { offsetEm: 0, advanceEm: 3 },
+                  renderSpan: { offsetEm: 0, advanceEm: 3 },
+                },
+              ],
+            }
+          : logicalRunMeasurer(request),
+    });
+
+    const { ruby } = composeRuby(
+      "漢".repeat(12),
+      [{ start: 0, length: 12, reading: { kind: "group", text: "abcdef" } }],
+      composer,
+    );
+
+    expect(ruby).toHaveLength(2);
+    expect(ruby.map((fragment) => fragment.reading).join("")).toBe("abcdef");
+    expect(ruby.flatMap((fragment) => fragment.readingItems)).toHaveLength(1);
   });
 });
 
