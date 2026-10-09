@@ -1,4 +1,4 @@
-import type { AdjustmentUnit } from "./adjustment-unit";
+import { AdjustmentUnit } from "./adjustment-unit";
 import type { SpacingCapacity } from "./spacing";
 import type { PairSpacing } from "./spacing";
 import type { SpacingOpportunity } from "./spacing-opportunity";
@@ -35,16 +35,12 @@ export function adjustmentUnits(
     if (availableEm + EPSILON >= straddle.absorbsPrecedingEm) {
       absorbedBoundary = precedingBoundary;
       absorbedEm = straddle.absorbsPrecedingEm;
-      units.push({
-        parts: [
+      units.push(
+        AdjustmentUnit.of(adjustment, straddleOwn, [
           { slot: { kind: "gap", boundary: precedingBoundary }, capacityEm: absorbedEm },
           { slot: straddleSlot, capacityEm: straddleOwn.amountEm },
-        ],
-        direction: adjustment,
-        kind: straddleOwn.granularity,
-        stage: straddleOwn.stage,
-        costPerEm: straddleOwn.costPerEm,
-      });
+        ]),
+      );
     }
   }
 
@@ -55,13 +51,7 @@ export function adjustmentUnits(
     const claimedEm = slot.kind === "gap" && slot.boundary === absorbedBoundary ? absorbedEm : 0;
     const amountEm = own.amountEm - claimedEm;
     if (amountEm <= EPSILON) continue;
-    units.push({
-      parts: [{ slot, capacityEm: amountEm }],
-      direction: adjustment,
-      kind: own.granularity,
-      stage: own.stage,
-      costPerEm: own.costPerEm,
-    });
+    units.push(AdjustmentUnit.of(adjustment, own, [{ slot, capacityEm: amountEm }]));
   }
 
   return units;
