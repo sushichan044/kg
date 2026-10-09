@@ -1,19 +1,23 @@
 import { graphemeSegmenter } from "../internal/segmenter";
 import { NamespacedId } from "../namespaced-id";
+import type { EmphasisAnnotation } from "../parser/annotation/emphasis-annotation";
 import type { ManuscriptAnnotation } from "../parser/annotation/manuscript-annotation";
 import type { ParsedGrapheme } from "../parser/parsed-grapheme";
 import type { ParsedManuscript } from "../parser/parsed-manuscript";
 import { ManuscriptRange } from "../range/manuscript-range";
 import { ManuscriptResult } from "../result/manuscript-result";
+import type { AnnotationPlacement } from "./annotation-placement";
 import type { CombinedGlyphUnit } from "./combined-glyph-unit";
 import type { ComposedAnnotationFragment } from "./composed-annotation-fragment";
 import type { SuppressedInlineItem } from "./composed-inline-item";
 import type { ComposedManuscript } from "./composed-manuscript";
 import { NovelCompositionSettings } from "./composition-settings";
 import type { InlineSpan } from "./inline-span";
+import { AnnotationClearance } from "./internal/annotation-clearance";
 import { BoundaryRule } from "./internal/boundary-rule";
 import type { BoxAdjustment } from "./internal/box-adjustment";
 import { CompositionRun } from "./internal/composition-run";
+import { EmphasisPlacement } from "./internal/emphasis-placement";
 import { GroupRubyAllocation } from "./internal/group-ruby-allocation";
 import { JapaneseParagraph } from "./internal/japanese-paragraph";
 import { defaultJapaneseTypesettingProfile } from "./internal/japanese-typesetting-profile";
@@ -72,6 +76,11 @@ type MeasuredSourceLine = Readonly<{
 type RenderUnit = SingleGlyphUnit | CombinedGlyphUnit;
 
 type SourceGlue = Extract<PositionedInlineItem, { kind: "glue"; origin: "source" }>;
+
+type PositionedEmphasis = Readonly<{
+  annotation: EmphasisAnnotation;
+  placement: AnnotationPlacement;
+}>;
 
 export type NovelComposedManuscript = ComposedManuscript<NovelCompositionSettings, NovelLayout>;
 
@@ -235,6 +244,7 @@ function annotationFragments(
   sourceGlues: readonly SourceGlue[],
   annotations: readonly ManuscriptAnnotation[],
   candidatePlacements: readonly RubyLinePlacement[],
+  emphasisForUnit: (unit: RenderUnit) => PositionedEmphasis | undefined,
 ): ComposedAnnotationFragment[] | undefined {
   const fragments: ComposedAnnotationFragment[] = [];
 
@@ -263,20 +273,10 @@ function annotationFragments(
         fragments.push({
           kind: "emphasis",
           mark: annotation.mark,
-          placements: covered
-            .filter(
-              (unit) =>
-                annotations.find(
-                  (other) =>
-                    other.kind === "emphasis" && ManuscriptRange.overlaps(unit.range, other.range),
-                ) === annotation,
-            )
-            .map((unit) => ({
-              side: "before",
-              inlineSpan: unit.renderSpan,
-              blockOffsetEm: -0.5,
-              blockSizeEm: 0.5,
-            })),
+          placements: covered.flatMap((unit) => {
+            const mark = emphasisForUnit(unit);
+            return mark?.annotation === annotation ? [mark.placement] : [];
+          }),
           ...common,
         });
         break;
@@ -561,8 +561,8 @@ function wrapSourceLine(
   sourceLine: MeasuredSourceLine,
   annotations: readonly ManuscriptAnnotation[],
   settings: NovelCompositionSettings,
-): NovelLine[] | undefined {
-  if (sourceLine.atoms.length === 0) return [NovelLineContract.empty()];
+): ManuscriptResult<NovelLine[], { reason: string }> {
+  if (sourceLine.atoms.length === 0) return ManuscriptResult.succeed([NovelLineContract.empty()]);
   const profile = TYPESETTING_PROFILE;
   const characters = sourceLine.atoms.map((atom, index) => ({
     boxAdvanceEm: atom.boxAdvanceEm,
@@ -644,11 +644,46 @@ function wrapSourceLine(
     ),
   );
   const resolvedRuby = new WeakMap<readonly BoxAdjustment[], readonly RubyLinePlacement[]>();
+  const emphasisBySource = new Map<
+    number,
+    Readonly<{ annotation: EmphasisAnnotation; order: number }>
+  >();
+  const globalStart = sourceLine.atoms[0]?.grapheme.range.graphemes.start ?? 0;
+  for (const [order, annotation] of annotations.entries()) {
+    if (annotation.kind !== "emphasis") continue;
+    const start = Math.max(annotation.range.graphemes.start, globalStart);
+    const end = Math.min(annotation.range.graphemes.end, globalStart + characters.length);
+    for (let index = start; index < end; index += 1)
+      if (!emphasisBySource.has(index)) emphasisBySource.set(index, { annotation, order });
+  }
+  const emphasisForUnit = (unit: RenderUnit): PositionedEmphasis | undefined => {
+    if (
+      !EmphasisPlacement.accepts(
+        sourceLine.atoms[unit.range.graphemes.start - globalStart]?.characterClass,
+      )
+    )
+      return undefined;
+    let selected: Readonly<{ annotation: EmphasisAnnotation; order: number }> | undefined;
+    for (let index = unit.range.graphemes.start; index < unit.range.graphemes.end; index += 1) {
+      const candidate = emphasisBySource.get(index);
+      if (candidate !== undefined && (selected === undefined || candidate.order < selected.order))
+        selected = candidate;
+    }
+    return selected === undefined
+      ? undefined
+      : { annotation: selected.annotation, placement: EmphasisPlacement.of(unit.renderSpan) };
+  };
+  let refusalReason =
+    "render units or reading clusters cannot be placed without splitting or collision";
   const plans = layoutParagraph(
     paragraph.elements,
     settings.flow.lineLengthEm,
     (start, end, cursor) => {
-      if (sourceLine.candidateReadings.length === 0 && sourceLine.groupReadings.length === 0)
+      if (
+        sourceLine.candidateReadings.length === 0 &&
+        sourceLine.groupReadings.length === 0 &&
+        emphasisBySource.size === 0
+      )
         return paragraph.resolveCandidate(start, end);
       const effectiveEnd = nextVisible[end] === characters.length ? characters.length : end;
       const groups = new Set<GroupRubyAllocation>();
@@ -695,6 +730,26 @@ function wrapSourceLine(
         assigned,
       );
       if (result === undefined) return undefined;
+      const areas: AnnotationPlacement[][] = result.placements.map((reading) =>
+        reading.items.map((item) => item.placement),
+      );
+      if (emphasisBySource.size > 0) {
+        const positioned = positionedLine(
+          sourceLine.atoms,
+          sourceLine.suppressedIndexes,
+          result.line,
+        );
+        if (positioned === undefined) return undefined;
+        for (const unit of positioned.items.filter(PositionedInlineItem.isRenderUnit)) {
+          const mark = emphasisForUnit(unit);
+          if (mark !== undefined && mark.annotation.mark !== "") areas.push([mark.placement]);
+        }
+      }
+      const clearance = AnnotationClearance.resolve(areas);
+      if (clearance.kind === "refused") {
+        refusalReason = clearance.reason;
+        return undefined;
+      }
       if (result.line.boxAdjustments !== undefined)
         resolvedRuby.set(result.line.boxAdjustments, result.placements);
       return { ...result.line, nextCursor };
@@ -702,10 +757,12 @@ function wrapSourceLine(
     (left, right) =>
       (right === left + 1 ? boundaries[right] : acrossGaps[left])?.break.kind !== "prohibited",
   );
+  if (plans.length === 0) return ManuscriptResult.fail({ reason: refusalReason });
   const lines: NovelLine[] = [];
   for (const plan of plans) {
     const line = positionedLine(sourceLine.atoms, sourceLine.suppressedIndexes, plan);
-    if (line === undefined) return undefined;
+    if (line === undefined)
+      return ManuscriptResult.fail({ reason: "render units cannot preserve their source members" });
     lines.push(line);
   }
 
@@ -720,11 +777,15 @@ function wrapSourceLine(
       ),
       annotations,
       plan?.boxAdjustments === undefined ? [] : (resolvedRuby.get(plan.boxAdjustments) ?? []),
+      emphasisForUnit,
     );
-    if (fragments === undefined) return undefined;
+    if (fragments === undefined)
+      return ManuscriptResult.fail({
+        reason: "annotation fragments cannot preserve their reading positions",
+      });
     annotated.push({ ...line, annotations: fragments });
   }
-  return annotated;
+  return ManuscriptResult.succeed(annotated);
 }
 
 function blankLines(count: number): NovelLine[] {
@@ -789,12 +850,8 @@ function createCompose(provider: RunMeasurer) {
     for (const line of measured) {
       if (line === undefined) continue;
       const wrapped = wrapSourceLine(line, manuscript.annotations, settings);
-      if (wrapped === undefined)
-        return ManuscriptResult.fail({
-          reason:
-            "render units or reading clusters cannot be placed without splitting or collision",
-        });
-      manuscriptLines.push(...wrapped);
+      if (!wrapped.ok) return ManuscriptResult.fail(wrapped.error);
+      manuscriptLines.push(...wrapped.value);
     }
     if (!NovelSourceContract.matches(manuscript, manuscriptLines)) {
       return ManuscriptResult.fail({

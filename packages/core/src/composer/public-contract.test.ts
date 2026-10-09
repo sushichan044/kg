@@ -384,7 +384,7 @@ describe("public render units", () => {
       placements: [
         {
           side: "before",
-          inlineSpan: { offsetEm: 0, advanceEm: 1 },
+          inlineSpan: { offsetEm: 0.25, advanceEm: 0.5 },
           blockOffsetEm: -0.5,
           blockSizeEm: 0.5,
         },

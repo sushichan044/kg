@@ -284,8 +284,79 @@ test("renders core-owned ruby and emphasis placements on a combined unit", async
     String(item.placement.blockOffsetEm),
   );
   expect(screen.container.querySelectorAll(".kgv-emphasis-mark")).toHaveLength(1);
-  expect(Number.parseFloat(mark.style.getPropertyValue("--kgv-item-advance"))).toBeCloseTo(1, 10);
+  expect(Number.parseFloat(mark.style.getPropertyValue("--kgv-item-advance"))).toBeCloseTo(0.5, 10);
 });
+
+test("draws contextual ruby overhang without widening its base cell", async ({ renderViewer }) => {
+  const { screen } = await renderViewer({
+    text: "あ｜漢《かんじよ》あ",
+    parser: kakuyomuParser,
+    flow,
+  });
+  const cells = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-cell"));
+  const readings = Array.from(
+    screen.container.querySelectorAll<HTMLElement>(".kgv-ruby-character"),
+  );
+  const neighbor = cells[0];
+  const baseCell = cells[1];
+  const first = readings[0];
+  const last = readings.at(-1);
+  expect.assert(
+    neighbor !== undefined && baseCell !== undefined && first !== undefined && last !== undefined,
+  );
+
+  const baseBounds = baseCell.getBoundingClientRect();
+  const cellSize = neighbor.getBoundingClientRect().height;
+  expect(baseBounds.height).toBeCloseTo(cellSize, 1);
+  expect(first.getBoundingClientRect().top).toBeCloseTo(baseBounds.top - cellSize / 2, 1);
+  expect(last.getBoundingClientRect().bottom).toBeCloseTo(baseBounds.bottom + cellSize / 2, 1);
+  expect(first.getBoundingClientRect().left).toBeCloseTo(baseBounds.right, 1);
+});
+
+test("centers a half-em emphasis box on a combined unit", async ({ renderViewer }) => {
+  const { screen } = await renderViewer({
+    text: "[[emphasismark:12>・]]",
+    parser: pixivParser,
+    flow,
+  });
+  const cell = screen.container.querySelector<HTMLElement>(".kgv-cell");
+  const mark = screen.container.querySelector<HTMLElement>(".kgv-emphasis-mark");
+  expect.assert(cell !== null && mark !== null);
+
+  const body = cell.getBoundingClientRect();
+  const bounds = mark.getBoundingClientRect();
+  expect(bounds.height).toBeCloseTo(body.height / 2, 1);
+  expect(bounds.top + bounds.height / 2).toBeCloseTo(body.top + body.height / 2, 1);
+  expect(bounds.left).toBeCloseTo(body.right, 1);
+});
+
+for (const [label, precedingLines] of [
+  ["first line", 0],
+  ["last line", 9],
+  ["next stage", 10],
+  ["next page", 20],
+] as const) {
+  test(`preserves ruby geometry at the ${label}`, async ({ renderViewer }) => {
+    const { screen } = await renderViewer({
+      text: [...Array.from({ length: precedingLines }, () => "あ"), "[[rb:漢>かん]]"].join("\n"),
+      parser: pixivParser,
+      flow: { ...flow, stagesPerPage: 2 },
+    });
+    const cells = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-cell"));
+    const readings = Array.from(
+      screen.container.querySelectorAll<HTMLElement>(".kgv-ruby-character"),
+    );
+    const cell = cells.at(-1);
+    const first = readings[0];
+    const last = readings.at(-1);
+    expect.assert(cell !== undefined && first !== undefined && last !== undefined);
+
+    const body = cell.getBoundingClientRect();
+    expect(first.getBoundingClientRect().top).toBeCloseTo(body.top, 1);
+    expect(last.getBoundingClientRect().bottom).toBeCloseTo(body.bottom, 1);
+    expect(first.getBoundingClientRect().left).toBeCloseTo(body.right, 1);
+  });
+}
 
 test("renders a hanging glyph from its render span", async ({ renderViewer }) => {
   const { composed, screen } = await renderViewer({ text: `${"あ".repeat(10)}。続き`, flow });

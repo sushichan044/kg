@@ -15,6 +15,14 @@ Each change includes behavior tests and the corresponding coverage-table update.
 Use `stacked-pr` to maintain dependent branches and `prepare-issue-pr` when
 publishing each draft PR. Run the applicable checks before advancing a layer.
 
+## Completion
+
+All four existing-annotation layers are implemented. Tests cover contextual
+neighbors, joint jukugo bounds, cluster-aligned reading conservation, continuation
+state identity, and annotation collisions. The coverage table continues to mark
+full appendix F spacing distributions and complete contextual pair tables as
+partial. Those are distinct from the selected behavior implemented here.
+
 ## Extension boundary
 
 Sidelines, selectable annotation sides, and mixed body sizes remain deferred.

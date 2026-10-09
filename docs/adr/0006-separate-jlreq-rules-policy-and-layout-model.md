@@ -1,6 +1,6 @@
 # ADR 0006: Separate JLReq rules, book style, and layout data
 
-- Status: Accepted; phases 1–3 implemented, phase 4 in progress
+- Status: Accepted; phases 1–3 and phase 4 existing-annotation additions implemented; semantic styles deferred
 - Date: 2026-10-08
 - Extends: ADR 0005
 - Detailed design: [Japanese typesetting model](../jlreq-typesetting-model.md)
@@ -139,6 +139,9 @@ placement and are recomposed when their bases split across lines. Full appendix 
 spacing distributions remain partial. Oversized groups now carry a cluster cursor
 through paragraph transitions and assign their readings before scoring, without
 post-selection redistribution. The [body-text plan](../plans/adr-0006-phase-4/overview.md)
-tracks the remaining dependent changes. Sidelines, selectable sides, and mixed
+records the implemented dependent changes and their acceptance cases. Ruby and
+emphasis clearance is checked before line scoring in the fixed right-side area;
+collisions are refused without changing body pitch. Half-em emphasis boxes retain
+their original centers and omit brackets, commas, and full stops. Sidelines, selectable sides, and mixed
 body sizes remain deferred; their future implementation will use semantic parser
 input and fixed-pitch composition without adding unused public contracts now.

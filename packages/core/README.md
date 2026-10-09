@@ -269,8 +269,17 @@ coordinates without computing ruby or emphasis placement.
 Annotations retain their original logical association even on part of a combined
 unit, whose whole physical span anchors the decoration. Incompatible readings on
 members of the same unit cause a composition refusal. Bold and italic retain
-source-range fragments. New overhang and jukugo placement rules are separate
-future behavior changes.
+source-range fragments. Ruby overhang depends on adjacent characters, resolved
+punctuation spacing, and the candidate's line edges. Mono readings anchor to their
+own bases; jukugo readings are arranged jointly. Oversized group readings are
+assigned as contiguous measurement-cluster intervals before line scoring.
+
+Emphasis placements have a half-em inline extent centered on their render unit.
+Brackets, commas, and full stops receive no marks. Ruby and nonempty emphasis
+must fit the fixed half-em right-side area without colliding. Core may choose
+another line break; an impossible combination returns `ComposerRejected` with
+a reason. Body pitch, source ranges, and persisted settings remain unchanged.
+Actual font shaping, selectable sides, sidelines, and mixed sizes remain deferred.
 
 Diagnostics include one-based source line and column positions, so renderers do
 not need to search or recalculate locations.

@@ -118,7 +118,9 @@ coordinates. The viewer draws the supplied reading items and mark placements;
 it does not choose their anchors, side, count, or offset. The current core style
 places half-size decorations on the right of the body while preserving line
 pitch. Marks are independent boxes rather than browser `text-emphasis`, so they
-do not move the body glyphs. Update this viewer with the matching core public
+do not move the body glyphs. Their half-em inline boxes retain the core-selected
+centers. Core handles contextual overhang, compound reading arrangement, and
+annotation conflicts before the snapshot reaches this viewer. Update this viewer with the matching core public
 contract; the old per-grapheme combination contract has no adapter.
 
 One diagnostic band covers the range that reaches a line. Identical ranges are

@@ -6,6 +6,7 @@ import { MeasurementTextRange } from "../measurement-text-range";
 import type { PresentationKind } from "../presentation-kind";
 import { RunMeasurement } from "../run-measurement";
 import type { RunMeasurer } from "../run-measurer";
+import { defaultBookStyle } from "./book-style";
 
 export type MeasurementPiece = MeasuredCluster & Readonly<{ value: string }>;
 
@@ -43,7 +44,7 @@ export const MeasurementSession = {
               presentation: "mixed",
               fontPreset: settings.appearance.fontPreset,
               fontSizePt: settings.appearance.fontSizePt,
-              scale: 0.5,
+              scale: defaultBookStyle.annotation.sizeEm,
               writingMode: "vertical-rl",
             };
       const key = JSON.stringify(request);

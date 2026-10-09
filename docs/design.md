@@ -58,7 +58,11 @@ and visual cost are separate. Public render units retain exact or shared source
 placements. The synchronous run measurement contract distinguishes aggregate
 advance from cluster mappings; the default provider remains logical and a real
 font-shaping provider remains later work. Ruby reading units and emphasis marks
-carry explicit inline and block placement.
+carry explicit inline and block placement. Candidate-local ruby placement and
+cluster-aligned group reading allocation feed paragraph scoring. Decoration
+clearance is checked in the fixed half-em right-side area; impossible combinations
+return a composition refusal. Emphasis boxes retain their centers at half size
+and omit the punctuation classes named in JLReq 3.3.9.
 
 Each concept is one module holding a type and a companion object of the same
 name, which owns that type's schema and operations. `index.ts` only re-exports.

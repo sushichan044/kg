@@ -1,5 +1,6 @@
 import type { AnnotationPlacement } from "../annotation-placement";
 import type { MeasurementTextRange } from "../measurement-text-range";
+import { defaultBookStyle } from "./book-style";
 import type { BoxAdjustment } from "./box-adjustment";
 import type { CandidateLine } from "./candidate-line";
 import type { CandidateMetrics } from "./japanese-paragraph";
@@ -9,6 +10,7 @@ import type { RubyAssociation } from "./ruby-association";
 import { RubyBoundary } from "./ruby-boundary";
 
 const EPSILON = 1e-9;
+const { sizeEm: rubySizeEm } = defaultBookStyle.annotation;
 
 export type RubyLineBase = RubyBoundary & Readonly<{ renderOffsetEm: number; sourceGap: boolean }>;
 export type RubyLineSegment = Readonly<{
@@ -61,19 +63,21 @@ function allowances(
   return {
     before:
       jukugo && segment.start > first && segment.start > line.contentStart
-        ? 0.5
+        ? rubySizeEm
         : RubyBoundary.overhang(
             segment.start > line.contentStart ? bases[segment.start - 1] : undefined,
             "before",
             gaps.get(segment.start) ?? 0,
+            rubySizeEm,
           ),
     after:
       jukugo && segment.end <= last && segment.end < line.end
-        ? 0.5
+        ? rubySizeEm
         : RubyBoundary.overhang(
             segment.end < line.end ? bases[segment.end] : undefined,
             "after",
             gaps.get(segment.end) ?? 0,
+            rubySizeEm,
           ),
   };
 }
@@ -108,8 +112,8 @@ function place(
           offsetEm: offsetEm + piece.renderSpan.offsetEm - piece.layoutSpan.offsetEm,
           advanceEm: piece.renderSpan.advanceEm,
         },
-        blockOffsetEm: -0.5,
-        blockSizeEm: 0.5,
+        blockOffsetEm: -rubySizeEm,
+        blockSizeEm: rubySizeEm,
       },
     };
     offsetEm += piece.layoutSpan.advanceEm;
@@ -262,7 +266,7 @@ export const RubyLineLayout = {
           rightItem === undefined
         )
           continue;
-        const clearance = right.segment.start > left.segment.end ? 0.5 : 0;
+        const clearance = right.segment.start > left.segment.end ? rubySizeEm : 0;
         const missing =
           leftItem.placement.inlineSpan.offsetEm +
           leftItem.placement.inlineSpan.advanceEm +
