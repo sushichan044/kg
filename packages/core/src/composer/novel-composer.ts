@@ -103,6 +103,9 @@ function displayedLines(graphemes: readonly ParsedGrapheme[]): ParsedGrapheme[][
   return lines;
 }
 
+/**
+ * Preserve shaped advances while keeping partial annotations on their own bases.
+ */
 function measureSourceLine(
   sourceLine: readonly ParsedGrapheme[],
   annotations: readonly ManuscriptAnnotation[],
@@ -127,10 +130,18 @@ function measureSourceLine(
           (annotation.range.graphemes.start > run.range.graphemes.start ||
             annotation.range.graphemes.end < run.range.graphemes.end),
       );
+    const partialRuby =
+      clusteredSideways &&
+      rubyAssociations.some(
+        ({ baseRange }) =>
+          ManuscriptRange.overlaps(baseRange, run.range) &&
+          (baseRange.graphemes.start > run.range.graphemes.start ||
+            baseRange.graphemes.end < run.range.graphemes.end),
+      );
     const combineRun =
       run.presentation === "tate-chu-yoko" ||
       pieces.length < run.members.length ||
-      (clusteredSideways && !partialStyle);
+      (clusteredSideways && !partialStyle && !partialRuby);
     let memberStart = 0;
     for (const piece of pieces) {
       const memberCount = [...graphemeSegmenter.segment(piece.value)].length;

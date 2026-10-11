@@ -8,6 +8,9 @@ import { createNovelComposer } from "./novel-composer";
 import type { RunMeasurer } from "./run-measurer";
 import { logicalRunMeasurer } from "./run-measurer";
 
+/**
+ * Nonuniform advances expose source-position errors when a measured run is split.
+ */
 function metricsProvider(advanceEm = 2.4, requests: string[] = []): RunMeasurer {
   const spans = [
     { offsetEm: 0, advanceEm: 0.7 },
@@ -37,13 +40,27 @@ function metricsProvider(advanceEm = 2.4, requests: string[] = []): RunMeasurer 
   };
 }
 
-function compose(text: string, measurer: RunMeasurer, partialBold = false) {
+/**
+ * Direct annotations isolate placement regressions from notation parsing.
+ */
+function compose(text: string, measurer: RunMeasurer, partialAnnotation?: "bold" | "ruby") {
   const parsed = parseManuscript(text);
   expect.assert(parsed.ok);
   const first = parsed.value.graphemes[0];
   expect.assert(first !== undefined);
-  const manuscript = partialBold
-    ? { ...parsed.value, annotations: [{ kind: "bold", range: first.range } as const] }
+  const manuscript = partialAnnotation
+    ? {
+        ...parsed.value,
+        annotations: [
+          partialAnnotation === "bold"
+            ? ({ kind: "bold", range: first.range } as const)
+            : ({
+                kind: "ruby",
+                range: first.range,
+                reading: { kind: "mono", segments: ["わ"] },
+              } as const),
+        ],
+      }
     : parsed.value;
 
   const result = composeManuscript(manuscript, {
@@ -100,11 +117,24 @@ describe("Western run metrics", () => {
   });
 
   test("retains separate glyphs where a partial style would change the combined run", () => {
-    const lines = compose("water", metricsProvider(), true);
+    const lines = compose("water", metricsProvider(), "bold");
 
     expect(
       lines.flatMap(({ items }) => items).filter((item) => item.kind === "glyph"),
     ).toHaveLength(5);
+  });
+
+  test("keeps a partial mono ruby anchored to its measured Western character", () => {
+    const lines = compose("water", metricsProvider(), "ruby");
+
+    const glyphs = lines.flatMap(({ items }) => items).filter((item) => item.kind === "glyph");
+    const ruby = lines
+      .flatMap(({ annotations }) => annotations)
+      .find((item) => item.kind === "ruby");
+    expect(glyphs).toHaveLength(5);
+    expect.assert(ruby?.kind === "ruby");
+    expect(ruby.fragmentRange.graphemes).toEqual({ start: 0, end: 1 });
+    expect(ruby.readingItems[0]?.placement.inlineSpan.offsetEm).toBeCloseTo(0.1);
   });
 
   test("retains per-grapheme rendering for aggregate logical measurements", () => {
