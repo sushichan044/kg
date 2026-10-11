@@ -136,3 +136,18 @@ On 2026-10-11, all 36 proof tests and 10 direct production viewer tests passed i
 Chromium and WebKit. Direct tests require no fixture CSS overrides. They also
 cover uncatalogued Western words, upright abbreviations, two-digit tate-chu-yoko,
 missing-character fallback, and shaping boundaries inside bold/italic words.
+
+## Embedded application verification
+
+The final application passed 537 normal tests, including font-loading delay and
+failure/retry cases, plus formatting, lint, type checking, and Go tests. The
+real-font proof passed 36 cases across Chromium and WebKit.
+
+A built Go binary served the generated application on localhost in a dedicated
+Chromium session restricted to localhost requests. The original TTF, WASM, and
+license assets loaded from the embedded filesystem. `office` rendered at
+2.6692708333 body em against the independent 2.6689453125 em advance, a 0.00390625
+CSS-pixel difference at 9pt. `water` rendered at 2.7356770833 em against
+2.7353515625 em. No external resource requests occurred. Switching to Gothic,
+returning to Mincho, and reloading retained the saved `mincho` setting and ready
+font profile. The application screenshot was visually inspected.

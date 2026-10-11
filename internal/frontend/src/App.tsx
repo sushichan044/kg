@@ -1,6 +1,9 @@
 import type { ManuscriptDiagnostic } from "@sushichan044/kg-core";
 import { DiagnosticList, NovelViewer } from "@sushichan044/kg-viewer";
 import type { NovelViewEvent, NovelViewHandle } from "@sushichan044/kg-viewer";
+import fontUrl from "@sushichan044/kg-viewer/fonts/GenEiKoburiMin6-R.ttf?url";
+import { loadGenEiKoburiTypography } from "@sushichan044/kg-viewer/typography";
+import type { ReadyTypography, TypographyLoadError } from "@sushichan044/kg-viewer/typography";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
 
@@ -97,7 +100,7 @@ function initialManuscriptState(): ManuscriptState {
   };
 }
 
-function Workspace() {
+function Workspace({ typography }: Readonly<{ typography: ReadyTypography }>) {
   const [manuscript, dispatch] = useReducer(manuscriptReducer, undefined, initialManuscriptState);
   const processed = useMemo(
     () =>
@@ -105,8 +108,14 @@ function Workspace() {
         manuscript.source,
         manuscript.preferences.composition,
         manuscript.preferences.notation,
+        typography.composer,
       ),
-    [manuscript.preferences.composition, manuscript.preferences.notation, manuscript.source],
+    [
+      manuscript.preferences.composition,
+      manuscript.preferences.notation,
+      manuscript.source,
+      typography.composer,
+    ],
   );
   const diagnostics = processed.ok ? processed.value.diagnostics : [];
   const activeDiagnosticId = diagnostics.some(({ id }) => id === manuscript.activeDiagnosticId)
@@ -389,6 +398,7 @@ function Workspace() {
               <NovelViewer
                 ref={viewRef}
                 composed={processed.value.composed}
+                typography={typography}
                 diagnostics={diagnostics}
                 activeDiagnosticId={activeDiagnosticId}
                 zoom={{ value: zoom, min: 50, max: 150, step: 25, onChange: setFitZoom }}
@@ -479,6 +489,55 @@ function Workspace() {
   );
 }
 
+type TypographyState =
+  | Readonly<{ kind: "loading" }>
+  | Readonly<{ kind: "ready"; typography: ReadyTypography }>
+  | Readonly<{ kind: "failure"; error: TypographyLoadError }>;
+
 export function App() {
-  return <Workspace />;
+  const [attempt, setAttempt] = useState(0);
+  const [state, setState] = useState<TypographyState>({ kind: "loading" });
+
+  useEffect(() => {
+    let cancelled = false;
+    let resource: ReadyTypography | undefined;
+    void loadGenEiKoburiTypography({ fontUrl }).then((result) => {
+      if (result.ok) {
+        if (cancelled) {
+          result.value.dispose();
+          return;
+        }
+        resource = result.value;
+        setState({ kind: "ready", typography: resource });
+      } else if (!cancelled) setState({ kind: "failure", error: result.error });
+    });
+    return () => {
+      cancelled = true;
+      resource?.dispose();
+    };
+  }, [attempt]);
+
+  if (state.kind === "ready") return <Workspace typography={state.typography} />;
+  if (state.kind === "loading")
+    return (
+      <p className="preview__loading" role="status">
+        書体を読み込んでいます…
+      </p>
+    );
+  const retry = () => {
+    // Failed ESM initialization is cached, so a WASM failure needs a fresh page.
+    if (state.error.kind === "shaper-load") window.location.reload();
+    else {
+      setState({ kind: "loading" });
+      setAttempt((previous) => previous + 1);
+    }
+  };
+  return (
+    <div className="preview__failure" role="alert">
+      <strong>書体を読み込めませんでした。</strong>
+      <button type="button" onClick={retry}>
+        再試行
+      </button>
+    </div>
+  );
 }

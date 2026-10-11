@@ -565,11 +565,13 @@ initial migration.
 whole-run rendering for clustered sideways measurements, including one-grapheme
 clusters. Font pair adjustments remain part of the provider's natural advance,
 independent of JLReq boundary spacing and line adjustment. Exact and shared source
-placements retain their measurement meaning. One-grapheme clusters with a partial
-bold or italic annotation retain separate rendering. The
+placements retain their measurement meaning.
+[ADR 0008](adr/0008-bundle-genei-koburi-browser-typography.md) shapes sideways
+runs separately at bold and italic boundaries and provides ready browser typography. The
 [real-font proof](plans/adr-0007-font-proof/report.md) verifies proportional widths,
 ligatures, pair kerning, Japanese fixed pitch, and renderer agreement with
-test-only providers; production font selection and loading remain deferred.
+an independent catalogue and the production GenEi provider. The application
+loads the bundled font before composition and uses the same ready resource in its viewer.
 
 ## Validation and API impact
 
@@ -658,7 +660,8 @@ where needed, and `expect.assert` for premises.
 
 Phase 3 validates the new `clustered` variant using synthetic provider fixtures.
 ADR 0007 additionally verifies that contract with original real fonts through an
-opt-in browser proof. A production font-shaping provider remains later work.
+opt-in browser proof. ADR 0008 adds production browser typography with the
+bundled GenEi font.
 No persistence migration is needed
 until new user settings are introduced. The latter require a separate settings
 and storage-version change, not an implicit addition to this refactor.

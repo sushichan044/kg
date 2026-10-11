@@ -1,3 +1,4 @@
+import fontUrl from "@sushichan044/kg-viewer/fonts/GenEiKoburiMin6-R.ttf?url";
 import { expect, test as base, vi } from "vite-plus/test";
 import { page } from "vite-plus/test/browser";
 import { render } from "vitest-browser-react";
@@ -50,6 +51,7 @@ class FakeEventSource {
 
 type Fixtures = {
   novelSource: { current: string };
+  fontRequest: { failure: boolean; gate: Promise<void> | null };
   browserEnvironment: undefined;
 };
 
@@ -57,17 +59,25 @@ const test = base.extend<Fixtures>({
   novelSource: async ({}, use) => {
     await use({ current: source });
   },
+  fontRequest: async ({}, use) => {
+    await use({ failure: false, gate: null });
+  },
   browserEnvironment: [
-    async ({ novelSource }, use) => {
+    async ({ novelSource, fontRequest }, use) => {
       window.history.replaceState(null, "", "/");
       localStorage.clear();
       sessionStorage.clear();
       FakeEventSource.latest = undefined;
       vi.stubGlobal("EventSource", FakeEventSource);
+      const originalFetch = window.fetch.bind(window);
       vi.stubGlobal(
         "fetch",
         vi.fn(async (input: RequestInfo | URL) => {
           const url = input instanceof Request ? input.url : input.toString();
+          if (url === fontUrl) {
+            if (fontRequest.gate !== null) await fontRequest.gate;
+            if (fontRequest.failure) return new Response("unavailable", { status: 503 });
+          }
           if (url.endsWith("/_/api/files")) {
             return new Response(JSON.stringify(files), {
               headers: { "content-type": "application/json" },
@@ -76,7 +86,7 @@ const test = base.extend<Fixtures>({
 
           if (url.includes("/_/api/files/"))
             return new Response(url.includes("/shared/") ? "共有本文" : novelSource.current);
-          return nativeFetch(input);
+          return originalFetch(input);
         }),
       );
 
@@ -386,5 +396,50 @@ test("switches the persisted notation parser without auto-detecting source", asy
   expect(JSON.parse(localStorage.getItem("kg.manuscript.preferences.v6") ?? "null")).toMatchObject({
     version: 6,
     notation: "kakuyomu",
+  });
+});
+
+test("waits for the bundled font and composes the latest source with its real metrics", async ({
+  fontRequest,
+  novelSource,
+}) => {
+  let release = () => {};
+  fontRequest.gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  const screen = await render(<App />);
+
+  await expect.element(screen.getByRole("status")).toHaveTextContent("書体を読み込んでいます…");
+  expect(screen.container.querySelector(".kgv-viewer")).toBeNull();
+  novelSource.current = "あofficeい";
+  release();
+  await vi.waitFor(() => {
+    const glyph = screen.container.querySelector<HTMLElement>(".kgv-glyph-sideways");
+    expect.assert(glyph !== null);
+    expect(glyph.textContent).toBe("office");
+    expect(getComputedStyle(glyph).fontFamily).toContain("KGGenEiKoburi61");
+    const fontPx = Number.parseFloat(getComputedStyle(glyph).fontSize);
+    expect(Math.abs(glyph.getBoundingClientRect().height / fontPx - 2733 / 1024)).toBeLessThan(
+      0.02,
+    );
+  });
+});
+
+test("retries font loading after a failed request without showing a mismatched preview", async ({
+  fontRequest,
+}) => {
+  fontRequest.failure = true;
+
+  const screen = await render(<App />);
+
+  await expect
+    .element(screen.getByRole("alert"))
+    .toHaveTextContent("書体を読み込めませんでした。再試行");
+  expect(screen.container.querySelector(".kgv-viewer")).toBeNull();
+  fontRequest.failure = false;
+  await screen.getByRole("button", { name: "再試行" }).click();
+  await vi.waitFor(() => {
+    expect(screen.container.querySelector('[data-typography="genei-koburi"]')).not.toBeNull();
   });
 });

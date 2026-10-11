@@ -310,7 +310,7 @@ export function SettingsPanel({
           >
             {FontPreset.all.map((font) => (
               <option key={font.id} value={font.id}>
-                {font.label}
+                {font.id === "mincho" ? "明朝（源暎こぶり明朝）" : font.label}
               </option>
             ))}
           </select>
