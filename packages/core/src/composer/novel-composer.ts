@@ -115,7 +115,22 @@ function measureSourceLine(
     const text = run.members.map(({ value }) => value).join("");
     const pieces = measurements.pieces(text, "base", run.presentation);
     if (pieces === undefined) return undefined;
-    const combineRun = run.presentation === "tate-chu-yoko" || pieces.length < run.members.length;
+    const clusteredSideways =
+      run.presentation === "sideways" &&
+      measurements.get(text, "base", run.presentation)?.kind === "clustered";
+    const partialStyle =
+      clusteredSideways &&
+      annotations.some(
+        (annotation) =>
+          (annotation.kind === "bold" || annotation.kind === "italic") &&
+          ManuscriptRange.overlaps(annotation.range, run.range) &&
+          (annotation.range.graphemes.start > run.range.graphemes.start ||
+            annotation.range.graphemes.end < run.range.graphemes.end),
+      );
+    const combineRun =
+      run.presentation === "tate-chu-yoko" ||
+      pieces.length < run.members.length ||
+      (clusteredSideways && !partialStyle);
     let memberStart = 0;
     for (const piece of pieces) {
       const memberCount = [...graphemeSegmenter.segment(piece.value)].length;
