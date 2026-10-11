@@ -142,13 +142,14 @@ export function processManuscript(
   source: string,
   composition: NovelCompositionSettings,
   notation: ManuscriptNotation,
+  composer: typeof novelComposer = novelComposer,
 ): ManuscriptResult<ProcessedManuscript, ProcessManuscriptError> {
   const parser = notation === "pixiv" ? pixivParser : kakuyomuParser;
   const parsed = parseManuscript(source, { parser });
   if (!parsed.ok) return ManuscriptResult.fail({ stage: "parse", error: parsed.error });
 
   const composed = composeManuscript(parsed.value, {
-    composer: novelComposer,
+    composer,
     settings: composition,
   });
   if (!composed.ok) return ManuscriptResult.fail({ stage: "compose", error: composed.error });
