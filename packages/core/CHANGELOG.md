@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.10.1](https://github.com/sushichan044/kg/compare/kg-core-v0.10.0...kg-core-v0.10.1) (2026-10-11)
+
+
+### Features
+
+* **core:** combine runs of two or three exclamation or question marks as tate-chu-yoko ([5fe082e](https://github.com/sushichan044/kg/commit/5fe082e3532db2c68836b6b352f1595de1ec4d7d))
+* **core:** combine runs of two or three exclamation or question marks as tate-chu-yoko ([31c56fc](https://github.com/sushichan044/kg/commit/31c56fcceca5ea25c80cdbf977f73915cd7f96d0))
+
+
+### Bug Fixes
+
+* **core:** keep combined exclamation runs out of the line head ([5c02f16](https://github.com/sushichan044/kg/commit/5c02f1653c301fb134836c21a755374e88123909))
+
 ## [0.10.0](https://github.com/sushichan044/kg/compare/kg-core-v0.9.5...kg-core-v0.10.0) (2026-10-09)
 
 
