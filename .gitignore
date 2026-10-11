@@ -39,4 +39,8 @@ node_modules/
 
 # Browser-mode test artifacts: failure screenshots and their attachments
 .vitest-attachments/
+.vitest/
 __screenshots__/
+
+# Original fonts and generated HarfBuzz data for the opt-in font proof.
+packages/viewer/font-proof/.cache/

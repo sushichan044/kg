@@ -56,8 +56,10 @@ implemented: oriented runs and ruby indexes feed independent boundary records,
 a candidate resolver, a numeric allocator, and paragraph DP. Adjustment order
 and visual cost are separate. Public render units retain exact or shared source
 placements. The synchronous run measurement contract distinguishes aggregate
-advance from cluster mappings; the default provider remains logical and a real
-font-shaping provider remains later work. Ruby reading units and emphasis marks
+advance from cluster mappings; the default provider remains logical.
+[ADR 0007](adr/0007-use-japanese-fixed-pitch-and-western-font-metrics.md) extends
+sideways rendering to whole clustered runs and verifies real font metrics through
+test-only providers. Production font management remains later work. Ruby reading units and emphasis marks
 carry explicit inline and block placement. Candidate-local ruby placement and
 cluster-aligned group reading allocation feed paragraph scoring. Decoration
 clearance is checked in the fixed half-em right-side area; impossible combinations
