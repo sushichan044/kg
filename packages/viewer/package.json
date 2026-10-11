@@ -80,6 +80,7 @@
     "react-dom": "catalog:prod",
     "typescript": "catalog:dev",
     "unplugin-unused": "catalog:dev",
+    "valibot": "catalog:prod",
     "vite-plus": "catalog:dev",
     "vitest-browser-react": "catalog:dev"
   },

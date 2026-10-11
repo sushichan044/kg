@@ -1,7 +1,10 @@
+import process from "node:process";
+
 import { defineConfig } from "vite-plus";
 
 import { frontendTestProjects } from "./internal/frontend/vite.config";
 import { coreTestProjects } from "./packages/core/vite.config";
+import { fontProofProject } from "./packages/viewer/font-proof/project";
 import { viewerTestProjects } from "./packages/viewer/vite.config";
 
 export default defineConfig({
@@ -73,13 +76,20 @@ export default defineConfig({
     },
     overrides: [
       {
-        files: ["internal/frontend/**", "packages/viewer/src/**"],
+        files: [
+          "internal/frontend/**",
+          "packages/viewer/src/**",
+          "packages/viewer/font-proof/**/*.tsx",
+        ],
         env: {
           browser: true,
         },
       },
       {
-        files: ["**/*.test.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
+        files: [
+          "**/*.test.{js,mjs,cjs,ts,mts,cts,jsx,tsx}",
+          "packages/viewer/font-proof/fixture.tsx",
+        ],
         rules: {
           // Vitest fixtures require an object-destructuring first parameter; allow `({}, use) => {}`.
           "no-empty-pattern": ["error", { allowObjectPatternsAsParameters: true }],
@@ -90,6 +100,7 @@ export default defineConfig({
           "internal/frontend/src/lib/storage.browser.test.ts",
           "internal/frontend/src/App.browser.test.tsx",
           "packages/viewer/src/NovelViewer.browser.test.tsx",
+          "packages/viewer/font-proof/**/*.tsx",
         ],
         rules: {
           // oxlint's vitest plugin (oxlint 1.75) does not trace bindings through
@@ -103,11 +114,24 @@ export default defineConfig({
   },
 
   test: {
-    projects: [...coreTestProjects, ...viewerTestProjects, ...frontendTestProjects],
+    projects: [
+      ...coreTestProjects,
+      ...viewerTestProjects,
+      ...frontendTestProjects,
+      ...(process.env.KG_FONT_PROOF === "1" ? [fontProofProject] : []),
+    ],
   },
 
   run: {
     tasks: {
+      "test:font-proof": {
+        command: [
+          "uv run scripts/font-proof.py",
+          "KG_FONT_PROOF=1 vp test --project font-proof-browser",
+        ],
+        dependsOn: ["build:packages"],
+        cache: false,
+      },
       build: {
         command: "go build -o bin/kg .",
         dependsOn: ["kg-frontend#build"],

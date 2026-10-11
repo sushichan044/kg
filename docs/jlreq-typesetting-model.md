@@ -561,6 +561,16 @@ make arbitrary browser fonts reproduce a provider's glyphs. Font fallback, glyph
 IDs, exact caret positions, and asynchronous font discovery are outside the
 initial migration.
 
+[ADR 0007](adr/0007-use-japanese-fixed-pitch-and-western-font-metrics.md) adds
+whole-run rendering for clustered sideways measurements, including one-grapheme
+clusters. Font pair adjustments remain part of the provider's natural advance,
+independent of JLReq boundary spacing and line adjustment. Exact and shared source
+placements retain their measurement meaning. One-grapheme clusters with a partial
+bold or italic annotation retain separate rendering. The
+[real-font proof](plans/adr-0007-font-proof/report.md) verifies proportional widths,
+ligatures, pair kerning, Japanese fixed pitch, and renderer agreement with
+test-only providers; production font selection and loading remain deferred.
+
 ## Validation and API impact
 
 Implement each domain concept as a readonly discriminated type with a companion
@@ -646,8 +656,10 @@ where needed, and `expect.assert` for premises.
 | 3. Public contract — implemented      | Introduce explicit combined units and source placements; migrate measurement types, viewer, frontend fixtures, exports, and package docs together | Equivalent logical and visual results with the default measurer; combined-unit diagnostics, annotation anchors, plugin failures, and viewer browser tests pass |
 | 4. Existing annotations — implemented | Enable contextual overhang, joint jukugo bounds, group reading cursors, and existing-decoration clearance; semantic styles deferred               | Each enabled coverage row gains independent acceptance tests; changed layouts are recorded with the selected style and reference                               |
 
-Phase 3 validates the new `clustered` variant using synthetic provider fixtures;
-an actual font-shaping provider is later work. No persistence migration is needed
+Phase 3 validates the new `clustered` variant using synthetic provider fixtures.
+ADR 0007 additionally verifies that contract with original real fonts through an
+opt-in browser proof. A production font-shaping provider remains later work.
+No persistence migration is needed
 until new user settings are introduced. The latter require a separate settings
 and storage-version change, not an implicit addition to this refactor.
 

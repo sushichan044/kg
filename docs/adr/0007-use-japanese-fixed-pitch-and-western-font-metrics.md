@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-10-10
 - Extends: ADR 0006
-- Verification: Real-font proof follows in the dependent verification PR.
+- Verification: [Real-font proof](../plans/adr-0007-font-proof/report.md)
 
 ## Context
 

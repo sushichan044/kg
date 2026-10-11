@@ -19,5 +19,5 @@
     "skipLibCheck": true,
     "types": ["vite-plus/client"]
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "font-proof", "vite.config.ts"]
 }
