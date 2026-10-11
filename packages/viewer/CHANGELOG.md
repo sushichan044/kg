@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.10.1](https://github.com/sushichan044/kg/compare/kg-viewer-v0.10.0...kg-viewer-v0.10.1) (2026-10-11)
+
+
+### Features
+
+* **core:** combine runs of two or three exclamation or question marks as tate-chu-yoko ([5fe082e](https://github.com/sushichan044/kg/commit/5fe082e3532db2c68836b6b352f1595de1ec4d7d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @sushichan044/kg-core bumped to 0.10.1
+
 ## [0.10.0](https://github.com/sushichan044/kg/compare/kg-viewer-v0.9.5...kg-viewer-v0.10.0) (2026-10-09)
 
 
