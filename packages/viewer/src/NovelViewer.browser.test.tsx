@@ -181,6 +181,22 @@ test("composes exclamation runs as one cell next to closing brackets", async ({ 
   expect(marks.height).toBeCloseTo(japanese.height, 1);
 });
 
+test("composes exclamation runs as one cell right after an opening bracket", async ({
+  renderViewer,
+}) => {
+  const { screen } = await renderViewer({ text: "「！？そんな」", flow });
+  const cells = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-cell"));
+
+  expect(cells.map(({ textContent }) => textContent)).toEqual([
+    "「",
+    "！？",
+    "そ",
+    "ん",
+    "な",
+    "」",
+  ]);
+});
+
 test("keeps an exclamation run in one cell when the line wraps right before it", async ({
   renderViewer,
 }) => {

@@ -427,12 +427,36 @@ describe("composeManuscript", () => {
       },
     );
 
+    test.each(["「", "（", "『"])(
+      "never splits a run that follows the opening bracket %s however the line is broken",
+      (opening) => {
+        for (let prefix = 0; prefix <= 25; prefix += 1) {
+          for (const lineLengthEm of [10, 11, 12]) {
+            const items = marks(`${"あ".repeat(prefix)}${opening}！？いう`, lineLengthEm);
+
+            const combined = items.filter(({ kind }) => kind === "combined-glyph");
+            const loose = items.filter(({ value }) => /^[!?！？]$/u.test(value));
+
+            expect(
+              combined.map(({ value }) => value),
+              `prefix=${prefix} len=${lineLengthEm}`,
+            ).toEqual(["！？"]);
+            expect(loose, `prefix=${prefix} len=${lineLengthEm}`).toEqual([]);
+          }
+        }
+      },
+    );
+
     test.each([
       ["「おおお！？」", "！？"],
       ["（えっ？！）", "？！"],
       ["『まさか！！』", "！！"],
       ["「ええ！？」と言った。", "！？"],
       ["「ええ！？　本当に？」", "！？"],
+      ["「！？」", "！？"],
+      ["「！？そんな」", "！？"],
+      ["（？！そんな）", "？！"],
+      ["『！！　そんな』", "！！"],
     ])("combines the run in %s next to brackets and spaces", (source, run) => {
       for (const lineLengthEm of [10, 11]) {
         const items = marks(source, lineLengthEm);
