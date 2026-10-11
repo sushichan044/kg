@@ -83,6 +83,7 @@ export async function loadGenEiKoburiTypography({
     textTransform: "none",
     textIndent: "0",
     fontSizeAdjust: "none",
+    textRendering: "geometricPrecision",
   });
   document.fonts.add(face);
   await document.fonts.ready;

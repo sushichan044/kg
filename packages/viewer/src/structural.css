@@ -291,6 +291,7 @@ button.kgv-diagnostic-band {
   font-kerning: none;
   font-synthesis: weight style;
   font-size-adjust: none;
+  text-rendering: geometricPrecision;
 }
 .kgv-viewer[data-typography="genei-koburi"] .kgv-glyph-sideways {
   font-kerning: normal;
