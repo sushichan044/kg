@@ -1,3 +1,4 @@
+import { assertNever } from "../../internal/assert-never";
 import { CLOSING_BRACKETS, OPENING_BRACKETS } from "../../internal/japanese-brackets";
 import { DIVIDING_PUNCTUATION, TATE_CHU_YOKO_MARKS } from "../../internal/japanese-punctuation";
 import type { PresentationKind } from "../presentation-kind";
@@ -173,32 +174,46 @@ const WESTERN = /^[\p{Script=Latin}\p{Script=Greek}\p{Script=Cyrillic}]$/u;
  * the same as a tate-chu-yoko run's 3.2.5.
  */
 function classify({ value, presentation }: JapaneseCharacter): JapaneseCharacterClass {
-  if (presentation === "tate-chu-yoko")
-    return COMBINED_DIVIDING_MARKS.has(value) ? "cl-04" : "cl-30";
-  if (presentation === "upright") return "cl-19";
-  if (presentation === "sideways" && /^[!-~]$/u.test(value) && !/^[A-Za-z0-9]$/u.test(value))
-    return "cl-27";
-  if (OPENING.has(value)) return "cl-01";
-  if (CLOSING.has(value)) return "cl-02";
-  if (HYPHENS.has(value)) return "cl-03";
-  if (DIVIDING_MARKS.has(value)) return "cl-04";
-  if (MIDDLE_DOTS.has(value)) return "cl-05";
-  if (value === "。" || value === "．") return "cl-06";
-  if (value === "、" || value === "，") return "cl-07";
-  if (INSEPARABLE.has(value)) return "cl-08";
-  if (ITERATION_MARKS.has(value)) return "cl-09";
-  if (value === "ー") return "cl-10";
-  if (SMALL_KANA.has(value)) return "cl-11";
-  if (PREFIXED_ABBREVIATIONS.has(value)) return "cl-12";
-  if (POSTFIXED_ABBREVIATIONS.has(value)) return "cl-13";
-  if (value === "　") return "cl-14";
-  if (HIRAGANA.test(value)) return "cl-15";
-  if (KATAKANA.test(value)) return "cl-16";
-  if (GROUPED_NUMERAL.test(value)) return "cl-24";
-  if (UNIT_SYMBOLS.has(value)) return "cl-25";
-  if (value === " ") return "cl-26";
-  if (WESTERN.test(value)) return "cl-27";
-  return "cl-19";
+  switch (presentation) {
+    case "tate-chu-yoko": {
+      return COMBINED_DIVIDING_MARKS.has(value) ? "cl-04" : "cl-30";
+    }
+
+    case "upright": {
+      return "cl-19";
+    }
+
+    case "sideways":
+    case "mixed": {
+      if (presentation === "sideways" && /^[!-~]$/u.test(value) && !/^[A-Za-z0-9]$/u.test(value))
+        return "cl-27";
+
+      if (OPENING.has(value)) return "cl-01";
+      if (CLOSING.has(value)) return "cl-02";
+      if (HYPHENS.has(value)) return "cl-03";
+      if (DIVIDING_MARKS.has(value)) return "cl-04";
+      if (MIDDLE_DOTS.has(value)) return "cl-05";
+      if (value === "。" || value === "．") return "cl-06";
+      if (value === "、" || value === "，") return "cl-07";
+      if (INSEPARABLE.has(value)) return "cl-08";
+      if (ITERATION_MARKS.has(value)) return "cl-09";
+      if (value === "ー") return "cl-10";
+      if (SMALL_KANA.has(value)) return "cl-11";
+      if (PREFIXED_ABBREVIATIONS.has(value)) return "cl-12";
+      if (POSTFIXED_ABBREVIATIONS.has(value)) return "cl-13";
+      if (value === "　") return "cl-14";
+      if (HIRAGANA.test(value)) return "cl-15";
+      if (KATAKANA.test(value)) return "cl-16";
+      if (GROUPED_NUMERAL.test(value)) return "cl-24";
+      if (UNIT_SYMBOLS.has(value)) return "cl-25";
+      if (value === " ") return "cl-26";
+      if (WESTERN.test(value)) return "cl-27";
+      return "cl-19";
+    }
+    default: {
+      return assertNever(presentation);
+    }
+  }
 }
 
 /**
