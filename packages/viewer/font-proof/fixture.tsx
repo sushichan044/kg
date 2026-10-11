@@ -144,6 +144,7 @@ async function renderProof(fonts: LoadedFonts, text: string, options: ProofOptio
           font-kerning: none;
           font-feature-settings: "palt" 0, "vpal" 0, "halt" 0, "vhal" 0, "vkrn" 0, "liga" ${options.liga === false ? 0 : 1};
           font-synthesis: none;
+          text-rendering: geometricPrecision;
         }
         .font-proof .kgv-glyph-sideways {
           font-family: ${western};
@@ -193,6 +194,7 @@ async function renderProof(fonts: LoadedFonts, text: string, options: ProofOptio
       wordSpacing: "normal",
       whiteSpace: "pre",
       fontSynthesis: "none",
+      textRendering: style.textRendering,
     });
     const container = screen.container.querySelector(".native-references");
     expect.assert(container !== null);
