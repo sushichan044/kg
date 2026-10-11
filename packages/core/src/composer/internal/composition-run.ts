@@ -5,6 +5,8 @@ import type { PresentationKind } from "../presentation-kind";
 const ASCII_ALPHANUMERIC = /^[A-Za-z0-9]$/u;
 const ASCII_TWO_DIGITS = /^[0-9]{2}$/u;
 const UPRIGHT_LATIN_ABBREVIATION = /^(?:[A-Z]+|[A-Z][a-z]{1,2})$/u;
+const EXCLAMATION_OR_QUESTION = /^[!?！？]$/u;
+const EXCLAMATION_RUN = /^[!?！？]{2,3}$/u;
 const FULLWIDTH_ALPHANUMERIC = /^[Ａ-Ｚａ-ｚ０-９]$/u;
 
 export type CompositionRun = Readonly<{
@@ -16,6 +18,7 @@ export type CompositionRun = Readonly<{
 function recognize(graphemes: readonly ParsedGrapheme[]): CompositionRun[] {
   const runs: CompositionRun[] = [];
   let cursor = 0;
+  let uncombinedUntil = 0;
   while (cursor < graphemes.length) {
     const first = graphemes[cursor];
     if (first === undefined) break;
@@ -25,17 +28,29 @@ function recognize(graphemes: readonly ParsedGrapheme[]): CompositionRun[] {
     if (ascii) {
       while (ASCII_ALPHANUMERIC.test(graphemes[cursor]?.value ?? "")) cursor += 1;
     }
+    const punctuation = EXCLAMATION_OR_QUESTION.test(first.value);
+    if (punctuation && start >= uncombinedUntil) {
+      let end = cursor;
+      while (EXCLAMATION_OR_QUESTION.test(graphemes[end]?.value ?? "")) end += 1;
+      // A longer stretch stays uncombined as a whole, so no 2-3 character tail is carved out of it.
+      if (end - start <= 3) cursor = end;
+      else uncombinedUntil = end;
+    }
     const members = graphemes.slice(start, cursor);
     const text = members.map(({ value }) => value).join("");
-    const presentation = ascii
-      ? ASCII_TWO_DIGITS.test(text)
+    const presentation = punctuation
+      ? EXCLAMATION_RUN.test(text)
         ? "tate-chu-yoko"
-        : text.length === 1 || UPRIGHT_LATIN_ABBREVIATION.test(text)
+        : "mixed"
+      : ascii
+        ? ASCII_TWO_DIGITS.test(text)
+          ? "tate-chu-yoko"
+          : text.length === 1 || UPRIGHT_LATIN_ABBREVIATION.test(text)
+            ? "upright"
+            : "sideways"
+        : FULLWIDTH_ALPHANUMERIC.test(first.value)
           ? "upright"
-          : "sideways"
-      : FULLWIDTH_ALPHANUMERIC.test(first.value)
-        ? "upright"
-        : "mixed";
+          : "mixed";
     const range = ManuscriptRange.merge(members.map((member) => member.range));
     if (range !== null) runs.push({ range, presentation, members });
   }

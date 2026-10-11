@@ -404,8 +404,8 @@ An actual shaped provider must later agree with the renderer's font realization;
 synthetic cluster coverage does not establish that agreement.
 
 Source placement offsets, layout spans, and render spans are line-relative.
-Tate-chu-yoko `12` occupies one logical em and retains the current half-em logical
-mapping for each digit; that mapping is not a claim about the digits' vertical
+A tate-chu-yoko run such as `12` or `！？！` occupies one logical em whatever its member
+count, and its members share that advance equally; that mapping is not a claim about the digits' vertical
 ink positions. A shaped `ffi` cluster can instead share one layout span across
 all three graphemes. Diagnostics covering any shared member highlight the cluster
 and retain the diagnostic's original range. Overlapping diagnostics remain

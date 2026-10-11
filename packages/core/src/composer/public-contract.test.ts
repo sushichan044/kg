@@ -69,6 +69,18 @@ describe("public render units", () => {
     );
   });
 
+  test("emits one tate-chu-yoko unit one em wide for a run of three exclamation marks", () => {
+    const lines = compose("あ！？！い");
+
+    const unit = lines.flatMap((line) => line.items).find((item) => item.kind === "combined-glyph");
+
+    expect.assert(unit !== undefined, "combined unit is missing");
+    expect(unit).toMatchObject({ value: "！？！", presentation: "tate-chu-yoko" });
+    expect(unit.layoutSpan.offsetEm).toBe(1);
+    expect(unit.layoutSpan.advanceEm).toBeCloseTo(1);
+    expect(unit.sources).toHaveLength(3);
+  });
+
   test("keeps a partial ruby association while anchoring it to the whole combined unit", () => {
     const lines = compose("｜1《い》2");
 
@@ -140,20 +152,18 @@ describe("public render units", () => {
     expect(requests).not.toContain("i");
   });
 
-  test("preserves per-digit custom widths instead of rescaling a combined unit to one em", () => {
+  test("shares the whole-run measurement equally among the members of a combined unit", () => {
     const lines = compose("12", (request) =>
-      request.kind === "base"
-        ? { kind: "advance", advanceEm: request.text === "1" ? 2 : 3 }
-        : logicalRunMeasurer(request),
+      request.kind === "base" ? { kind: "advance", advanceEm: 2 } : logicalRunMeasurer(request),
     );
 
     const unit = lines.flatMap((line) => line.items).find((item) => item.kind === "combined-glyph");
 
     expect(unit).toMatchObject({
-      layoutSpan: { offsetEm: 0, advanceEm: 5 },
+      layoutSpan: { offsetEm: 0, advanceEm: 2 },
       sources: [
-        expect.objectContaining({ layoutSpan: { offsetEm: 0, advanceEm: 2 } }),
-        expect.objectContaining({ layoutSpan: { offsetEm: 2, advanceEm: 3 } }),
+        expect.objectContaining({ layoutSpan: { offsetEm: 0, advanceEm: 1 } }),
+        expect.objectContaining({ layoutSpan: { offsetEm: 1, advanceEm: 1 } }),
       ],
     });
   });

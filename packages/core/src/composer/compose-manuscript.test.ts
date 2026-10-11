@@ -358,7 +358,7 @@ describe("composeManuscript", () => {
   });
 
   test("keeps a question-mark gap fixed while spreading the final-stage remainder elsewhere", () => {
-    const result = composeManuscript(parsed("あ！？　！？　いう……"), {
+    const result = composeManuscript(parsed("あ！　？　！　？う……"), {
       composer: novelComposer,
       settings: settings(),
     });
@@ -367,7 +367,7 @@ describe("composeManuscript", () => {
     const firstLine = contentLines(result.value)[0];
     expect.assert(firstLine !== undefined, "layout has no first content line");
 
-    expect(lineText(firstLine)).toBe("あ！？　！？　いう");
+    expect(lineText(firstLine)).toBe("あ！　？　！　？う");
     expect(firstLine.break).toEqual({ kind: "stretched" });
     expect(firstLine.inlineSizeEm).toBe(10);
     expect(
@@ -377,6 +377,7 @@ describe("composeManuscript", () => {
           : [],
       ),
     ).toEqual([
+      { value: "　", widthEm: 1, adjustment: "natural" },
       { value: "　", widthEm: 1, adjustment: "natural" },
       { value: "　", widthEm: 1, adjustment: "natural" },
     ]);

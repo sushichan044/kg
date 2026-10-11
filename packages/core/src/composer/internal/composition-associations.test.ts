@@ -37,6 +37,21 @@ describe("composition associations", () => {
     expect(association.baseRange).toEqual(annotation.range);
   });
 
+  test.each([
+    ["！？", ["tate-chu-yoko"]],
+    ["!?", ["tate-chu-yoko"]],
+    ["？？！", ["tate-chu-yoko"]],
+    ["！", ["mixed"]],
+    ["！？！？", ["mixed", "mixed", "mixed", "mixed"]],
+  ])("recognizes %s as %j", (source, expected) => {
+    const parsed = parseManuscript(source);
+    expect.assert(parsed.ok, "fixture did not parse");
+
+    const runs = CompositionRun.recognize(parsed.value.graphemes);
+
+    expect(runs.map(({ presentation }) => presentation)).toEqual(expected);
+  });
+
   test("keeps a ruby on the first digit of a combined run", () => {
     const parsed = parseManuscript("｜1《いち》2", { parser: kakuyomuParser });
     expect.assert(parsed.ok, "fixture did not parse");

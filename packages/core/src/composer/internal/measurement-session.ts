@@ -67,9 +67,18 @@ export const MeasurementSession = {
           }));
         }
         const pieces: MeasurementPiece[] = [];
+        const segments = [...graphemeSegmenter.segment(text)];
+        // A tate-chu-yoko run is one cell: its members share the whole run's advance equally.
+        const sharedAdvanceEm =
+          kind === "base" && presentation === "tate-chu-yoko"
+            ? full.advanceEm / segments.length
+            : undefined;
         let offsetEm = 0;
-        for (const { segment, index } of graphemeSegmenter.segment(text)) {
-          const measured = get(segment, kind, presentation);
+        for (const { segment, index } of segments) {
+          const measured =
+            sharedAdvanceEm === undefined
+              ? get(segment, kind, presentation)
+              : ({ kind: "advance", advanceEm: sharedAdvanceEm } as const);
           if (measured === undefined) return undefined;
           const cluster = measured.kind === "clustered" ? measured.clusters[0] : undefined;
           pieces.push({
