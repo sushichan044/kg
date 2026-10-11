@@ -30,7 +30,9 @@
     "src/*.css",
     "README.md",
     "LICENSE",
-    "styles.d.ts"
+    "styles.d.ts",
+    "assets",
+    "font-asset.d.ts"
   ],
   "type": "module",
   "sideEffects": [
@@ -53,7 +55,15 @@
       "types": "./styles.d.ts",
       "default": "./src/theme.css"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./typography": {
+      "types": "./dist/typography.d.mts",
+      "import": "./dist/typography.mjs"
+    },
+    "./fonts/GenEiKoburiMin6-R.ttf": {
+      "types": "./font-asset.d.ts",
+      "default": "./assets/GenEiKoburiMin6-R.ttf"
+    }
   },
   "publishConfig": {
     "access": "public",
@@ -65,6 +75,7 @@
   },
   "dependencies": {
     "@sushichan044/kg-core": "workspace:*",
+    "harfbuzzjs": "1.6.3",
     "react-compiler-runtime": "catalog:prod"
   },
   "devDependencies": {

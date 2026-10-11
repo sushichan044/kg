@@ -304,6 +304,9 @@ importers:
       '@sushichan044/kg-core':
         specifier: workspace:*
         version: link:../core
+      harfbuzzjs:
+        specifier: 1.6.3
+        version: 1.6.3
       react-compiler-runtime:
         specifier: catalog:prod
         version: 1.0.0(react@19.3.0)
@@ -1515,6 +1518,9 @@ packages:
     resolution: {integrity: sha512-XjH1AECxf0giL2V1aU8vKyRR2ppRUb5c0EvT7zuJTokQ74bNo52zOtghqdWIqrhUD79fo3x0WfKZdOqxF6LG1Q==}
     engines: {node: '>=18'}
 
+  harfbuzzjs@1.6.3:
+    resolution: {integrity: sha512-R5Mfo1UUvQmZJmtScP7fBLKYKnYu82ZdtFT7WbQYeGb3Ut5PR3xfFCJ5/FjbcW5SAfb9cqCSny/KNjp+NJBx0w==}
+
   js-tokens@10.0.0:
     resolution: {integrity: sha512-lM/UBzQmfJRo9ABXbPWemivdCW8V2G8FHaHdypQaIy523snUjog0W71ayWXTjiR+ixeMyVHN2XcpnTd/liPg/Q==}
 
@@ -2720,6 +2726,8 @@ snapshots:
     optional: true
 
   get-east-asian-width@1.7.0: {}
+
+  harfbuzzjs@1.6.3: {}
 
   js-tokens@10.0.0: {}
 

@@ -59,7 +59,9 @@ placements. The synchronous run measurement contract distinguishes aggregate
 advance from cluster mappings; the default provider remains logical.
 [ADR 0007](adr/0007-use-japanese-fixed-pitch-and-western-font-metrics.md) extends
 sideways rendering to whole clustered runs and verifies real font metrics through
-test-only providers. Production font management remains later work. Ruby reading units and emphasis marks
+independent reference providers.
+[ADR 0008](adr/0008-bundle-genei-koburi-browser-typography.md) adds optional browser
+typography with bundled GenEi Koburi Mincho. Ruby reading units and emphasis marks
 carry explicit inline and block placement. Candidate-local ruby placement and
 cluster-aligned group reading allocation feed paragraph scoring. Decoration
 clearance is checked in the fixed half-em right-side area; impossible combinations

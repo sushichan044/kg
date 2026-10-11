@@ -190,8 +190,9 @@ Every clustered sideways run is drawn as a combined unit, including a run with
 one cluster per grapheme. Its proportional advances and font kerning belong to
 the run's natural width before line selection. One-grapheme clusters retain exact
 source positions; a multi-grapheme cluster such as `ffi` retains shared positions.
-New combination is skipped for one-grapheme clusters when a bold or italic
-annotation covers only part of the run, preserving the existing style rendering.
+Sideways runs are shaped separately at bold and italic boundaries while their
+original word remains protected from line breaks. Optional request `style` records
+weight 400/700 and normal/italic slant; absent style means normal 400.
 Upright `QR` and `URL` are orientation
 choices; they do not by themselves imply a shared cluster. The combined-unit
 contract supports sideways text and tate-chu-yoko. A provider result that cannot
@@ -199,8 +200,8 @@ be represented by that contract is refused rather than split or approximated.
 The logical provider returns `advance` and remains the default. The
 [real-font proof](../../docs/plans/adr-0007-font-proof/report.md) verifies the
 clustered contract with GenEi Koburi Mincho and Source Serif in Chromium and
-WebKit. Its measurement provider and font loading are test-only; production font
-management remains later work.
+WebKit. GenEi also exercises the production typography entry point in `kg-viewer`;
+core itself retains the logical default and does not load fonts.
 
 Tate-chu-yoko retains the sum of member advances, including custom widths. The
 composer does not silently rescale a custom measurement to one em. Negative or

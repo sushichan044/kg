@@ -166,3 +166,36 @@ does not include polyfills.
 ## License
 
 MIT
+
+## GenEi Koburi Mincho typography
+
+Load the bundled original font before synchronous composition. Use the same
+ready resource in the composer and viewer; dispose it when finished.
+
+```tsx
+import { composeManuscript, NovelCompositionSettings } from "@sushichan044/kg-core";
+import fontUrl from "@sushichan044/kg-viewer/fonts/GenEiKoburiMin6-R.ttf?url";
+import { loadGenEiKoburiTypography } from "@sushichan044/kg-viewer/typography";
+
+const loaded = await loadGenEiKoburiTypography({ fontUrl });
+if (!loaded.ok) return;
+const result = composeManuscript(parsed, {
+  composer: loaded.value.composer,
+  settings: NovelCompositionSettings.defaults,
+});
+if (result.ok) {
+  return <NovelViewer composed={result.value} typography={loaded.value} />;
+}
+```
+
+The URL import above uses Vite's asset support. Other hosts can serve the exported
+TTF as a static asset and pass its URL. Vite hosts must exclude `harfbuzzjs` from
+`optimizeDeps`; its WASM stays an emitted asset in production. Import the viewer
+styles as usual. The typography entry point requires a browser and a secure
+context; the main component entry point does not initialize HarfBuzz.
+
+Mincho uses fixed-pitch Japanese and shaped sideways Western runs. Gothic retains
+logical metrics. Missing glyphs use measured system fallback fonts. Bold and
+italic use browser synthesis of the Regular face. No optical fitting or tracking
+controls are added. Font loading, integrity, and shaper failures have distinct
+error kinds. Calling the resource after `dispose()` fails.

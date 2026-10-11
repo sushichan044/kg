@@ -124,3 +124,15 @@ Production integration needs a prepared real measurer and renderer configuration
 that share font bytes and features, plus application-owned loading and
 recomposition. It can reuse the verified clustered contract. The default logical
 provider remains available without asynchronous work or downloaded fonts.
+
+## Production provider verification
+
+ADR 0008 adds the browser typography entry point. GenEi fixtures now use its
+HarfBuzz/native-browser measurer and ready viewer resource, while numerical
+references remain the separately generated Python HarfBuzz catalogue. Source
+Serif and feature-off fixtures keep the independent reference provider.
+
+On 2026-10-11, all 36 proof tests and 10 direct production viewer tests passed in
+Chromium and WebKit. Direct tests require no fixture CSS overrides. They also
+cover uncatalogued Western words, upright abbreviations, two-digit tate-chu-yoko,
+missing-character fallback, and shaping boundaries inside bold/italic words.

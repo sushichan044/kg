@@ -22,6 +22,7 @@ import {
 import type { CSSProperties, ForwardedRef, ReactNode } from "react";
 
 import { fitZoom } from "./fit-zoom";
+import type { ReadyTypography } from "./typography";
 
 const NO_DIAGNOSTICS: readonly ManuscriptDiagnostic[] = [];
 const DEFAULT_ZOOM = { value: 100, min: 1, max: Number.MAX_SAFE_INTEGER, step: 1 } satisfies Omit<
@@ -31,6 +32,7 @@ const DEFAULT_ZOOM = { value: 100, min: 1, max: Number.MAX_SAFE_INTEGER, step: 1
 
 export type NovelViewerProps = Readonly<{
   composed: NovelComposedManuscript;
+  typography?: ReadyTypography;
   diagnostics?: readonly ManuscriptDiagnostic[];
   activeDiagnosticId?: string | null;
   zoom?: NovelViewerZoom;
@@ -368,6 +370,7 @@ function renderRuby(annotation: Extract<ComposedAnnotationFragment, { kind: "rub
 function NovelViewerComponent(
   {
     composed,
+    typography,
     diagnostics = NO_DIAGNOSTICS,
     activeDiagnosticId = null,
     zoom,
@@ -391,6 +394,8 @@ function NovelViewerComponent(
   const value = zoom?.value ?? uncontrolledZoom;
   const onChange = zoom?.onChange ?? setUncontrolledZoom;
   const selectedFont = FontPreset.of(composed.settings.appearance.fontPreset);
+  const usesTypography = typography !== undefined && selectedFont.id === "mincho";
+  const fontFamily = usesTypography ? typography.fontFamily : selectedFont.family;
 
   const scrollToPage = useCallback(
     (index: number) => {
@@ -488,11 +493,11 @@ function NovelViewerComponent(
       "--kgv-cell-size": `${geometry.cellSizeMm * (value / 100)}mm`,
       "--kgv-line-gap": `${geometry.lineGapMm * (value / 100)}mm`,
       "--kgv-line-length": composed.settings.flow.lineLengthEm,
-      "--kgv-manuscript-font": selectedFont.family,
+      "--kgv-manuscript-font": fontFamily,
       "--kgv-page-height": `${geometry.paperHeightMm * (value / 100)}mm`,
       "--kgv-page-width": `${geometry.paperWidthMm * (value / 100)}mm`,
     }),
-    [composed.settings.flow.lineLengthEm, geometry, selectedFont.family, value],
+    [composed.settings.flow.lineLengthEm, geometry, fontFamily, value],
   );
   const renderedPages = useMemo(
     () =>
@@ -568,7 +573,12 @@ function NovelViewerComponent(
   };
 
   return (
-    <div className={joinClassNames("kgv-viewer", className)} aria-label={ariaLabel}>
+    <div
+      className={joinClassNames("kgv-viewer", className)}
+      aria-label={ariaLabel}
+      lang="ja"
+      data-typography={usesTypography ? "genei-koburi" : undefined}
+    >
       <div ref={viewportRef} className="kgv-viewport">
         <div className="kgv-stack" style={style}>
           {renderedPages.map(({ id, page, pageIndex, stages }) => (
@@ -624,6 +634,7 @@ function NovelViewerComponent(
                                   {wrapAnnotations(
                                     annotationsForRange(line, cell.range),
                                     <span
+                                      lang={cell.presentation === "sideways" ? "en" : "ja"}
                                       className={joinClassNames(
                                         "kgv-glyph",
                                         presentationClass(cell.presentation),

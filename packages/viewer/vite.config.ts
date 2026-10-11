@@ -5,6 +5,7 @@ import { playwright } from "vite-plus/test/browser-playwright";
 export const viewerTestProjects = [
   defineProject({
     root: import.meta.dirname,
+    optimizeDeps: { exclude: ["harfbuzzjs"] },
     test: {
       name: "viewer-unit",
       include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
@@ -13,6 +14,7 @@ export const viewerTestProjects = [
   }),
   defineProject({
     root: import.meta.dirname,
+    optimizeDeps: { exclude: ["harfbuzzjs"] },
     test: {
       name: "viewer-browser",
       include: ["src/**/*.browser.test.ts", "src/**/*.browser.test.tsx"],
@@ -29,6 +31,7 @@ export const viewerTestProjects = [
 ];
 
 export default defineConfig({
+  optimizeDeps: { exclude: ["harfbuzzjs"] },
   pack: [
     {
       attw: { level: "error", profile: "esm-only" },
@@ -39,7 +42,7 @@ export default defineConfig({
       // The stylesheets ship as plain assets straight from src (see package.json
       // exports): pack merges every CSS entry into one file, which cannot express
       // the structural/theme split, and these sheets need no transpiling.
-      entry: ["src/index.ts"],
+      entry: ["src/index.ts", "src/typography.ts"],
       fixedExtension: true,
       format: "esm",
       fromVite: true,
