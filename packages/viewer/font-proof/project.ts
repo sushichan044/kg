@@ -7,6 +7,7 @@ export const fontProofProject = defineProject({
   root: resolve(import.meta.dirname, ".."),
   optimizeDeps: {
     include: ["vite-plus/test/browser"],
+    exclude: ["harfbuzzjs"],
   },
   test: {
     name: "font-proof-browser",

@@ -8,6 +8,7 @@ import { fontProofProject } from "./packages/viewer/font-proof/project";
 import { viewerTestProjects } from "./packages/viewer/vite.config";
 
 export default defineConfig({
+  optimizeDeps: { exclude: ["harfbuzzjs"] },
   fmt: {
     ignorePatterns: [
       "pnpm-lock.yaml",
@@ -100,6 +101,8 @@ export default defineConfig({
           "internal/frontend/src/lib/storage.browser.test.ts",
           "internal/frontend/src/App.browser.test.tsx",
           "packages/viewer/src/NovelViewer.browser.test.tsx",
+          "packages/viewer/src/typography.browser.test.tsx",
+          "packages/viewer/src/automatic-typography.browser.test.tsx",
           "packages/viewer/font-proof/**/*.tsx",
         ],
         rules: {

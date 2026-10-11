@@ -7,6 +7,8 @@ import { App } from "./App";
 import "@sushichan044/kg-viewer/styles.css";
 import "./styles/index.css";
 
+const nativeFetch = window.fetch.bind(window);
+
 const source = [
   "　静かな机に、原稿用紙を広げた。",
   "「これでいいのかな？」",
@@ -72,7 +74,9 @@ const test = base.extend<Fixtures>({
             });
           }
 
-          return new Response(url.includes("/shared/") ? "共有本文" : novelSource.current);
+          if (url.includes("/_/api/files/"))
+            return new Response(url.includes("/shared/") ? "共有本文" : novelSource.current);
+          return nativeFetch(input);
         }),
       );
 
@@ -115,7 +119,9 @@ test("connects proofreading feedback to the drawer and manuscript cells", async 
   await drawer.getByRole("list").getByRole("button").nth(3).click();
 
   await vi.waitFor(() => {
-    expect(screen.container.querySelectorAll(".kgv-cell[data-diagnostic-active]")).toHaveLength(4);
+    const active = screen.container.querySelectorAll(".kgv-cell[data-diagnostic-active]");
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toBe("2026");
     expect(
       screen.container.querySelectorAll(".kgv-diagnostic-band[data-diagnostic-active]"),
     ).toHaveLength(1);
@@ -228,6 +234,7 @@ test("synchronizes the URL after a failed initial catalog load is refreshed", as
         });
       }
 
+      if (!url.includes("/_/api/")) return nativeFetch(input);
       return new Response("共有本文");
     }),
   );
@@ -270,6 +277,7 @@ test("keeps the newest catalog when an older request finishes last", async () =>
         );
       }
 
+      if (!url.includes("/_/api/")) return nativeFetch(input);
       return Promise.resolve(new Response("共有本文"));
     }),
   );
@@ -364,6 +372,7 @@ test("switches the persisted notation parser without auto-detecting source", asy
   const screen = await render(<App />);
 
   await vi.waitFor(() => {
+    expect(screen.container.querySelector(".kgv-viewer")).not.toBeNull();
     expect(screen.container.querySelectorAll("[data-annotation]")).toHaveLength(0);
   });
 

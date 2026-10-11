@@ -278,3 +278,21 @@ button.kgv-diagnostic-band {
     min-block-size: 2.75rem;
   }
 }
+
+/* Match the ready measurer's fixed-pitch font profile. */
+.kgv-viewer[data-typography="genei-koburi"] :is(.kgv-glyph, .kgv-ruby, .kgv-emphasis) {
+  font-feature-settings:
+    "palt" 0,
+    "vpal" 0,
+    "halt" 0,
+    "vhal" 0,
+    "vkrn" 0,
+    "liga" 1;
+  font-kerning: none;
+  font-synthesis: weight style;
+  font-size-adjust: none;
+  text-rendering: geometricPrecision;
+}
+.kgv-viewer[data-typography="genei-koburi"] .kgv-glyph-sideways {
+  font-kerning: normal;
+}

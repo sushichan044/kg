@@ -82,6 +82,7 @@ async function renderWithHostStyles(text: string, parser?: ManuscriptParser) {
       <DiagnosticList diagnostics={diagnostics} />
     </>,
   );
+  await expect.poll(() => screen.container.querySelector(".kgv-viewer") !== null).toBe(true);
   const query = <T extends HTMLElement>(selector: string) => {
     const element = screen.container.querySelector<T>(selector);
     expect.assert(element !== null, `missing ${selector}`);

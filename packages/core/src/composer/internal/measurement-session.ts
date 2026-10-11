@@ -15,23 +15,26 @@ export type MeasurementSession = Readonly<{
     text: string,
     kind: "base" | "ruby",
     presentation?: PresentationKind,
+    style?: MeasurementRequest["style"],
   ) => RunMeasurement | undefined;
   pieces: (
     text: string,
     kind: "base" | "ruby",
     presentation?: PresentationKind,
+    style?: MeasurementRequest["style"],
   ) => readonly MeasurementPiece[] | undefined;
 }>;
 
 export const MeasurementSession = {
   create: (provider: RunMeasurer, settings: NovelCompositionSettings): MeasurementSession => {
     const cache = new Map<string, RunMeasurement | undefined>();
-    const get: MeasurementSession["get"] = (text, kind, presentation = "mixed") => {
+    const get: MeasurementSession["get"] = (text, kind, presentation = "mixed", style) => {
       const request: MeasurementRequest =
         kind === "base"
           ? {
               text,
               kind,
+              ...(style === undefined ? {} : { style }),
               presentation,
               fontPreset: settings.appearance.fontPreset,
               fontSizePt: settings.appearance.fontSizePt,
@@ -41,6 +44,7 @@ export const MeasurementSession = {
           : {
               text,
               kind,
+              ...(style === undefined ? {} : { style }),
               presentation: "mixed",
               fontPreset: settings.appearance.fontPreset,
               fontSizePt: settings.appearance.fontSizePt,
@@ -55,8 +59,8 @@ export const MeasurementSession = {
     };
     return {
       get,
-      pieces: (text, kind, presentation) => {
-        const full = get(text, kind, presentation);
+      pieces: (text, kind, presentation, style) => {
+        const full = get(text, kind, presentation, style);
         if (full === undefined) return undefined;
         if (full.kind === "clustered") {
           return full.clusters.map((cluster) => ({
@@ -69,7 +73,7 @@ export const MeasurementSession = {
         const pieces: MeasurementPiece[] = [];
         let offsetEm = 0;
         for (const { segment, index } of graphemeSegmenter.segment(text)) {
-          const measured = get(segment, kind, presentation);
+          const measured = get(segment, kind, presentation, style);
           if (measured === undefined) return undefined;
           const cluster = measured.kind === "clustered" ? measured.clusters[0] : undefined;
           pieces.push({

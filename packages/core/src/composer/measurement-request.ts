@@ -7,6 +7,12 @@ import { PresentationKind } from "./presentation-kind";
 
 const context = {
   text: v.string(),
+  style: v.optional(
+    readonlyObject({
+      weight: v.picklist([400, 700]),
+      slant: v.picklist(["normal", "italic"]),
+    }),
+  ),
   fontPreset: FontPresetId.schema,
   fontSizePt: FontSizePt.schema,
   scale: v.pipe(v.number(), v.finite(), v.minValue(Number.MIN_VALUE)),

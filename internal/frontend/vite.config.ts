@@ -34,6 +34,7 @@ export const frontendTestProjects = [
 export default defineConfig({
   optimizeDeps: {
     include: ["react", "react-dom", "react-dom/client"],
+    exclude: ["harfbuzzjs"],
   },
   resolve: {
     dedupe: ["react", "react-dom"],

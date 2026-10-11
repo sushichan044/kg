@@ -166,3 +166,48 @@ does not include polyfills.
 ## License
 
 MIT
+
+## GenEi Koburi Mincho typography
+
+`NovelViewer` automatically loads the bundled original font when the existing
+`mincho` preset is selected. It recomposes `composed.parsed` with the supplied
+settings before rendering. No additional prop or settings choice is required:
+
+```tsx
+<NovelViewer composed={composed} diagnostics={diagnostics} />
+```
+
+The component shows loading and retry states and disposes its font resource on
+unmount. Gothic preserves the supplied composition. The ref becomes available
+when the viewer is ready.
+
+Callers that need measured layout or layout-dependent proofreading outside the
+component can prepare typography explicitly. Passing the same ready resource
+skips automatic loading and recomposition; dispose it when finished.
+
+```tsx
+import { composeManuscript, NovelCompositionSettings } from "@sushichan044/kg-core";
+import { loadGenEiKoburiTypography } from "@sushichan044/kg-viewer/typography";
+
+const loaded = await loadGenEiKoburiTypography();
+if (!loaded.ok) return;
+const result = composeManuscript(parsed, {
+  composer: loaded.value.composer,
+  settings: NovelCompositionSettings.defaults,
+});
+if (result.ok) {
+  return <NovelViewer composed={result.value} typography={loaded.value} />;
+}
+```
+
+The default URL resolves the packaged TTF relative to the module. Hosts can serve
+the exported TTF as a static asset and pass `fontUrl` to the loader. Vite hosts must exclude `harfbuzzjs` from
+`optimizeDeps`; its WASM stays an emitted asset in production. Import the viewer
+styles as usual. Mincho typography requires a browser and a secure context;
+importing the main component entry point does not initialize HarfBuzz.
+
+Mincho uses fixed-pitch Japanese and shaped sideways Western runs. Gothic retains
+logical metrics. Missing glyphs use measured system fallback fonts. Bold and
+italic use browser synthesis of the Regular face. No optical fitting or tracking
+controls are added. Font loading, integrity, and shaper failures have distinct
+error kinds. Calling the resource after `dispose()` fails.

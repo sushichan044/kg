@@ -12,7 +12,9 @@ import { expect, test as base } from "vite-plus/test";
 import { commands, page, server } from "vite-plus/test/browser";
 import { render } from "vitest-browser-react";
 
+import geneiFontUrl from "../assets/GenEiKoburiMin6-R.ttf?url";
 import { NovelViewer } from "../src/NovelViewer";
+import { loadGenEiKoburiTypography } from "../src/typography";
 
 import "../src/styles.css";
 
@@ -65,7 +67,9 @@ async function loadFonts() {
     }),
   );
   await document.fonts.ready;
-  return { fixture, faces };
+  const loaded = await loadGenEiKoburiTypography({ fontUrl: geneiFontUrl });
+  expect.assert(loaded.ok);
+  return { fixture, faces, typography: loaded.value };
 }
 
 type LoadedFonts = Awaited<ReturnType<typeof loadFonts>>;
@@ -85,6 +89,8 @@ function measurement(
 }
 
 function provider(fonts: LoadedFonts, options: ProofOptions): RunMeasurer {
+  if (options.font !== "source-serif" && options.kern !== false && options.liga !== false)
+    return fonts.typography.measurer;
   return (request) => {
     expect(request.presentation).not.toBe("tate-chu-yoko");
     const sideways = request.presentation === "sideways";
@@ -139,14 +145,14 @@ async function renderProof(fonts: LoadedFonts, text: string, options: ProofOptio
   const screen = await render(
     <section className="font-proof" lang="ja">
       <style>{`
-        .font-proof .kgv-glyph, .font-proof .kgv-ruby {
+        .font-proof .kgv-viewer :is(.kgv-glyph, .kgv-ruby) {
           font-family: KGProofGenei;
           font-kerning: none;
           font-feature-settings: "palt" 0, "vpal" 0, "halt" 0, "vhal" 0, "vkrn" 0, "liga" ${options.liga === false ? 0 : 1};
           font-synthesis: none;
           text-rendering: geometricPrecision;
         }
-        .font-proof .kgv-glyph-sideways {
+        .font-proof .kgv-viewer .kgv-glyph-sideways {
           font-family: ${western};
           font-kerning: ${options.kern === false ? "none" : "normal"};
         }
@@ -154,6 +160,15 @@ async function renderProof(fonts: LoadedFonts, text: string, options: ProofOptio
       `}</style>
       <div className="native-references" aria-label="Native font references" />
       <NovelViewer
+        typography={
+          options.font !== "source-serif" && options.kern !== false && options.liga !== false
+            ? fonts.typography
+            : {
+                ...fonts.typography,
+                composer: createNovelComposer({ measurer: provider(fonts, options) }),
+                measurer: provider(fonts, options),
+              }
+        }
         composed={composed.value}
         diagnostics={options.diagnostics}
         onDiagnosticSelect={options.onDiagnosticSelect}
@@ -281,6 +296,7 @@ export const test = base.extend<{
     try {
       await use(fonts);
     } finally {
+      fonts.typography.dispose();
       for (const face of fonts.faces) document.fonts.delete(face);
     }
   },

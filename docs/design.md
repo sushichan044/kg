@@ -59,7 +59,11 @@ placements. The synchronous run measurement contract distinguishes aggregate
 advance from cluster mappings; the default provider remains logical.
 [ADR 0007](adr/0007-use-japanese-fixed-pitch-and-western-font-metrics.md) extends
 sideways rendering to whole clustered runs and verifies real font metrics through
-test-only providers. Production font management remains later work. Ruby reading units and emphasis marks
+independent reference providers.
+[ADR 0008](adr/0008-bundle-genei-koburi-browser-typography.md) makes NovelViewer's
+Mincho preset load bundled GenEi Koburi typography and recompose with core before
+rendering. Callers can supply a ready resource to retain their measured composition.
+Ruby reading units and emphasis marks
 carry explicit inline and block placement. Candidate-local ruby placement and
 cluster-aligned group reading allocation feed paragraph scoring. Decoration
 clearance is checked in the fixed half-em right-side area; impossible combinations
@@ -116,8 +120,11 @@ presentation option through controlled props. `DiagnosticList` receives the
 same diagnostic selection state. The optional ruling is a decoration layer;
 turning it off does not recompose or reposition the text.
 
-The viewer does not parse source, compose pages, run rules, register plugins,
-manage settings, or persist preferences. DOM-only navigation remains available
+The viewer delegates Mincho recomposition to core after loading typography. It
+does not parse source, run rules, register plugins, manage settings, or persist
+preferences. Supplied diagnostics retain their source ranges; callers that need
+layout-dependent proofreading use the ready composer before passing its result.
+DOM-only navigation remains available
 through the viewer ref handle. Visible-page and effective-zoom changes are
 reported as events. The viewer draws combined units directly, maps diagnostic
 bands through exact/shared source placements, and consumes core's decoration

@@ -54,6 +54,7 @@ const TYPESETTING_PROFILE = defaultJapaneseTypesettingProfile;
 type Atom = Readonly<{
   grapheme: ParsedGrapheme;
   runIndex: number;
+  renderGroup: number;
   characterClass: JapaneseCharacterClass;
   intrinsicBoxAdvanceEm: number;
   boxAdvanceEm: number;
@@ -103,6 +104,33 @@ function displayedLines(graphemes: readonly ParsedGrapheme[]): ParsedGrapheme[][
   return lines;
 }
 
+function styleGroups(run: CompositionRun, annotations: readonly ManuscriptAnnotation[]) {
+  const groups: Array<{
+    members: ParsedGrapheme[];
+    style: { weight: 400 | 700; slant: "normal" | "italic" };
+  }> = [];
+  if (annotations.length === 0)
+    return [{ members: run.members, style: { weight: 400, slant: "normal" } as const }];
+  for (const member of run.members) {
+    const styles = annotations.filter(
+      (annotation) =>
+        (annotation.kind === "bold" || annotation.kind === "italic") &&
+        ManuscriptRange.overlaps(annotation.range, member.range),
+    );
+    const weight = styles.some(({ kind }) => kind === "bold") ? 700 : 400;
+    const slant = styles.some(({ kind }) => kind === "italic") ? "italic" : "normal";
+    const last = groups.at(-1);
+    if (
+      last !== undefined &&
+      (run.presentation !== "sideways" ||
+        (last.style.weight === weight && last.style.slant === slant))
+    )
+      last.members.push(member);
+    else groups.push({ members: [member], style: { weight, slant } });
+  }
+  return groups;
+}
+
 /**
  * Preserve shaped advances while keeping partial annotations on their own bases.
  */
@@ -113,66 +141,65 @@ function measureSourceLine(
 ): MeasuredSourceLine | undefined {
   const runs = CompositionRun.recognize(sourceLine);
   const rubyAssociations = RubyAssociation.collect(annotations, sourceLine);
+  const styles = annotations.filter(({ kind }) => kind === "bold" || kind === "italic");
   const atoms: Atom[] = [];
+  let renderGroup = 0;
   for (const [runIndex, run] of runs.entries()) {
-    const text = run.members.map(({ value }) => value).join("");
-    const pieces = measurements.pieces(text, "base", run.presentation);
-    if (pieces === undefined) return undefined;
-    const clusteredSideways =
-      run.presentation === "sideways" &&
-      measurements.get(text, "base", run.presentation)?.kind === "clustered";
-    const partialStyle =
-      clusteredSideways &&
-      annotations.some(
-        (annotation) =>
-          (annotation.kind === "bold" || annotation.kind === "italic") &&
-          ManuscriptRange.overlaps(annotation.range, run.range) &&
-          (annotation.range.graphemes.start > run.range.graphemes.start ||
-            annotation.range.graphemes.end < run.range.graphemes.end),
-      );
     const partialRuby =
-      clusteredSideways &&
+      run.presentation === "sideways" &&
       rubyAssociations.some(
         ({ baseRange }) =>
           ManuscriptRange.overlaps(baseRange, run.range) &&
           (baseRange.graphemes.start > run.range.graphemes.start ||
             baseRange.graphemes.end < run.range.graphemes.end),
       );
-    const combineRun =
-      run.presentation === "tate-chu-yoko" ||
-      pieces.length < run.members.length ||
-      (clusteredSideways && !partialStyle && !partialRuby);
-    let memberStart = 0;
-    for (const piece of pieces) {
-      const memberCount = [...graphemeSegmenter.segment(piece.value)].length;
-      const members = run.members.slice(memberStart, memberStart + memberCount);
-      const clusterRange =
-        memberCount > 1 ? ManuscriptRange.merge(members.map(({ range }) => range)) : null;
-      for (const [memberIndex, grapheme] of members.entries()) {
-        const first = memberIndex === 0;
-        const renderAdvanceEm = first ? piece.renderSpan.advanceEm : 0;
-        const measuredAdvanceEm = first ? piece.layoutSpan.advanceEm : 0;
-        const characterClass = TYPESETTING_PROFILE.classify({
-          value: grapheme.value,
-          presentation: run.presentation,
-        });
-        const metrics = TYPESETTING_PROFILE.boxMetrics(characterClass, measuredAdvanceEm);
-        atoms.push({
-          grapheme,
-          runIndex,
-          characterClass,
-          intrinsicBoxAdvanceEm: metrics.advanceEm,
-          boxAdvanceEm: metrics.advanceEm,
-          renderAdvanceEm,
-          renderOffsetEm:
-            metrics.renderOffsetEm +
-            (first ? piece.renderSpan.offsetEm - piece.layoutSpan.offsetEm : 0),
-          presentation: run.presentation,
-          clusterRange,
-          combineRun,
-        });
+    for (const group of styleGroups(run, styles)) {
+      renderGroup += 1;
+      const text = group.members.map(({ value }) => value).join("");
+      const style =
+        group.style.weight === 400 && group.style.slant === "normal" ? undefined : group.style;
+      const pieces = measurements.pieces(text, "base", run.presentation, style);
+      if (pieces === undefined) return undefined;
+      const clusteredSideways =
+        run.presentation === "sideways" &&
+        measurements.get(text, "base", run.presentation, style)?.kind === "clustered";
+      const combineRun =
+        run.presentation === "tate-chu-yoko" ||
+        pieces.length < group.members.length ||
+        (clusteredSideways && group.members.length > 1 && !partialRuby);
+      let memberStart = 0;
+      for (const piece of pieces) {
+        const memberCount = [...graphemeSegmenter.segment(piece.value)].length;
+        const members = group.members.slice(memberStart, memberStart + memberCount);
+        const clusterRange =
+          memberCount > 1 ? ManuscriptRange.merge(members.map(({ range }) => range)) : null;
+        for (const [memberIndex, grapheme] of members.entries()) {
+          const first = memberIndex === 0;
+          const renderAdvanceEm = first ? piece.renderSpan.advanceEm : 0;
+          const measuredAdvanceEm = first ? piece.layoutSpan.advanceEm : 0;
+          const characterClass = TYPESETTING_PROFILE.classify({
+            value: grapheme.value,
+            presentation: run.presentation,
+          });
+          const metrics = TYPESETTING_PROFILE.boxMetrics(characterClass, measuredAdvanceEm);
+          atoms.push({
+            grapheme,
+            runIndex,
+            renderGroup,
+            characterClass,
+            intrinsicBoxAdvanceEm: metrics.advanceEm,
+            boxAdvanceEm: metrics.advanceEm,
+            renderAdvanceEm,
+            renderOffsetEm:
+              metrics.renderOffsetEm +
+              (first ? piece.renderSpan.offsetEm - piece.layoutSpan.offsetEm : 0),
+            presentation: run.presentation,
+            clusterRange,
+            combineRun,
+          });
+        }
+        memberStart += memberCount;
       }
-      memberStart += memberCount;
     }
   }
 
@@ -182,12 +209,16 @@ function measureSourceLine(
   const physicalRange = (first: number, last: number) => {
     const left = atoms[first];
     const right = atoms[last];
-    while (first > 0 && left?.combineRun === true && atoms[first - 1]?.runIndex === left.runIndex)
+    while (
+      first > 0 &&
+      left?.combineRun === true &&
+      atoms[first - 1]?.renderGroup === left.renderGroup
+    )
       first -= 1;
     while (
       last + 1 < atoms.length &&
       right?.combineRun === true &&
-      atoms[last + 1]?.runIndex === right.runIndex
+      atoms[last + 1]?.renderGroup === right.renderGroup
     )
       last += 1;
     return { start: first, end: last + 1 };
@@ -394,7 +425,7 @@ function renderUnits(
     if (first.atom.combineRun) {
       while (index + 1 < raw.length) {
         const next = raw[index + 1];
-        if (next?.kind !== "member" || next.atom.runIndex !== first.atom.runIndex) break;
+        if (next?.kind !== "member" || next.atom.renderGroup !== first.atom.renderGroup) break;
         members.push(next);
         index += 1;
       }

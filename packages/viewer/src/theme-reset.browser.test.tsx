@@ -72,6 +72,7 @@ async function renderThemedViewerUnderReset() {
       <DiagnosticList diagnostics={diagnostics} />
     </>,
   );
+  await expect.poll(() => screen.container.querySelector(".kgv-viewer") !== null).toBe(true);
   const styleOf = (selector: string) => {
     const element = screen.container.querySelector<HTMLElement>(selector);
     expect.assert(element !== null, `missing ${selector}`);
