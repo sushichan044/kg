@@ -1,4 +1,4 @@
-import { FontPreset, ManuscriptRange } from "@sushichan044/kg-core";
+import { composeManuscript, FontPreset, ManuscriptRange } from "@sushichan044/kg-core";
 import type {
   SingleGlyphUnit,
   AnnotationPlacement,
@@ -22,7 +22,8 @@ import {
 import type { CSSProperties, ForwardedRef, ReactNode } from "react";
 
 import { fitZoom } from "./fit-zoom";
-import type { ReadyTypography } from "./typography";
+import { loadGenEiKoburiTypography } from "./typography";
+import type { ReadyTypography, TypographyLoadError } from "./typography";
 
 const NO_DIAGNOSTICS: readonly ManuscriptDiagnostic[] = [];
 const DEFAULT_ZOOM = { value: 100, min: 1, max: Number.MAX_SAFE_INTEGER, step: 1 } satisfies Omit<
@@ -685,4 +686,90 @@ function NovelViewerComponent(
   );
 }
 
-export const NovelViewer = forwardRef(NovelViewerComponent);
+const NovelViewerRenderer = forwardRef(NovelViewerComponent);
+
+type AutomaticTypographyState =
+  | Readonly<{ kind: "loading" }>
+  | Readonly<{ kind: "ready"; typography: ReadyTypography }>
+  | Readonly<{ kind: "failed"; error: TypographyLoadError }>;
+
+const AutomaticNovelViewer = forwardRef(function AutomaticNovelViewer(
+  props: NovelViewerProps,
+  ref: ForwardedRef<NovelViewHandle>,
+) {
+  const [state, setState] = useState<AutomaticTypographyState>({ kind: "loading" });
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    let owned: ReadyTypography | undefined;
+    void loadGenEiKoburiTypography().then((result) => {
+      if (cancelled) {
+        if (result.ok) result.value.dispose();
+        return;
+      }
+      if (result.ok) {
+        owned = result.value;
+        setState({ kind: "ready", typography: owned });
+      } else {
+        setState({ kind: "failed", error: result.error });
+      }
+    });
+    return () => {
+      cancelled = true;
+      owned?.dispose();
+    };
+  }, [attempt]);
+
+  const composed = useMemo(
+    () =>
+      state.kind === "ready"
+        ? composeManuscript(props.composed.parsed, {
+            composer: state.typography.composer,
+            settings: props.composed.settings,
+          })
+        : undefined,
+    [props.composed, state],
+  );
+
+  if (state.kind === "loading") return <p role="status">書体を読み込んでいます…</p>;
+  if (state.kind === "failed") {
+    return (
+      <div role="alert">
+        <p>書体を読み込めませんでした。</p>
+        <button
+          type="button"
+          onClick={() => {
+            if (state.error.kind === "shaper-load") {
+              window.location.reload();
+              return;
+            }
+            setState({ kind: "loading" });
+            setAttempt((value) => value + 1);
+          }}
+        >
+          再試行
+        </button>
+      </div>
+    );
+  }
+  if (composed === undefined || !composed.ok)
+    return <p role="alert">原稿を組版できませんでした。</p>;
+  return (
+    <NovelViewerRenderer
+      {...props}
+      ref={ref}
+      composed={composed.value}
+      typography={state.typography}
+    />
+  );
+});
+
+export const NovelViewer = forwardRef(function NovelViewer(
+  props: NovelViewerProps,
+  ref: ForwardedRef<NovelViewHandle>,
+) {
+  if (props.typography !== undefined || props.composed.settings.appearance.fontPreset !== "mincho")
+    return <NovelViewerRenderer {...props} ref={ref} />;
+  return <AutomaticNovelViewer {...props} ref={ref} />;
+});

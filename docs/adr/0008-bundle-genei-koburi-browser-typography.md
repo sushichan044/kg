@@ -11,12 +11,15 @@ Mincho 6.1a Regular font. Keep the `mincho` ID and existing storage schemas.
 Ship the checksum-pinned, unmodified TTF and its OFL license with the viewer and
 embedded application. Source Serif remains a test-only control.
 
-The optional viewer typography entry point loads and verifies the font, waits
-for HarfBuzz and the browser face, then returns a synchronous composer and the
-matching viewer resource. Core's default composer remains logical and DOM free.
-Use the same ready resource for composition and rendering. Loading failures are
-Result values; the application waits and offers retry instead of displaying real
-font glyphs with logical layout widths.
+NovelViewer automatically loads and verifies the bundled font for Mincho, waits
+for HarfBuzz and the browser face, and recomposes its supplied manuscript with
+the same settings before rendering. Gothic keeps its existing composition.
+Keep the existing props and settings IDs. The optional typography entry point
+returns a synchronous composer and matching viewer resource for callers that
+need the measured layout outside the component. A supplied ready resource skips
+automatic loading and recomposition. Core's default composer remains logical and
+DOM free. Loading failures are Result values; both component and application wait
+and offer retry before displaying text.
 
 HarfBuzz shapes complete sideways ASCII runs with standard kerning and ligatures.
 Browser-native vertical measurement handles Japanese, upright abbreviations,
@@ -33,8 +36,10 @@ and shared ligature positions after splitting.
 Missing characters use the same Mincho fallback list in browser measurement and
 rendering. Their appearance depends on installed fonts. Font resources own their
 probe, face registration, and bounded measurement cache; callers dispose them
-when the viewer is no longer used. Browser font loading and secure-context crypto
-are requirements of the optional entry point.
+when the viewer is no longer used. The automatic component owns and disposes its
+resource. Browser font loading and secure-context crypto are requirements of
+Mincho typography. Use geometric precision in measurement and drawing to preserve
+fractional advances on Linux Chromium.
 
 ## Verification
 

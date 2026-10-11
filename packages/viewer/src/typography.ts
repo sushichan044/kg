@@ -32,8 +32,8 @@ const segmenter = new Intl.Segmenter("ja", { granularity: "grapheme" });
  * Load the original Regular font before creating the synchronous composer.
  */
 export async function loadGenEiKoburiTypography({
-  fontUrl,
-}: Readonly<{ fontUrl: string | URL }>): Promise<
+  fontUrl = new URL("../assets/GenEiKoburiMin6-R.ttf", import.meta.url),
+}: Readonly<{ fontUrl?: string | URL }> = {}): Promise<
   ManuscriptResult<ReadyTypography, TypographyLoadError>
 > {
   let data: ArrayBuffer;

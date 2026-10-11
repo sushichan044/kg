@@ -145,14 +145,14 @@ async function renderProof(fonts: LoadedFonts, text: string, options: ProofOptio
   const screen = await render(
     <section className="font-proof" lang="ja">
       <style>{`
-        .font-proof .kgv-glyph, .font-proof .kgv-ruby {
+        .font-proof .kgv-viewer :is(.kgv-glyph, .kgv-ruby) {
           font-family: KGProofGenei;
           font-kerning: none;
           font-feature-settings: "palt" 0, "vpal" 0, "halt" 0, "vhal" 0, "vkrn" 0, "liga" ${options.liga === false ? 0 : 1};
           font-synthesis: none;
           text-rendering: geometricPrecision;
         }
-        .font-proof .kgv-glyph-sideways {
+        .font-proof .kgv-viewer .kgv-glyph-sideways {
           font-family: ${western};
           font-kerning: ${options.kern === false ? "none" : "normal"};
         }
@@ -163,7 +163,11 @@ async function renderProof(fonts: LoadedFonts, text: string, options: ProofOptio
         typography={
           options.font !== "source-serif" && options.kern !== false && options.liga !== false
             ? fonts.typography
-            : undefined
+            : {
+                ...fonts.typography,
+                composer: createNovelComposer({ measurer: provider(fonts, options) }),
+                measurer: provider(fonts, options),
+              }
         }
         composed={composed.value}
         diagnostics={options.diagnostics}

@@ -69,8 +69,23 @@ async function renderViewer(options: ViewerFixtureOptions, props: ViewerFixtureP
   const found = [...parsed.warnings, ...proofread.value];
   const diagnostics = options.reportedAs?.(found) ?? found;
   const screen = await render(
-    <NovelViewer composed={composed.value} diagnostics={diagnostics} {...props} />,
+    <NovelViewer
+      composed={composed.value}
+      diagnostics={diagnostics}
+      typography={
+        options.composer === undefined
+          ? undefined
+          : {
+              fontFamily: "serif",
+              composer: options.composer,
+              measurer: logicalRunMeasurer,
+              dispose: () => {},
+            }
+      }
+      {...props}
+    />,
   );
+  await expect.poll(() => screen.container.querySelector(".kgv-viewer") !== null).toBe(true);
 
   return { composed: composed.value, diagnostics, screen };
 }
@@ -411,6 +426,7 @@ test("shows a nominal grid without letting it change text coordinates", async ()
   }
 
   const screen = await render(<ToggleFixture />);
+  await expect.poll(() => screen.container.querySelector(".kgv-viewer") !== null).toBe(true);
   const glyph = screen.container.querySelector<HTMLElement>(".kgv-glyph");
   expect.assert(glyph !== null, "viewer has no glyph");
   const before = glyph.getBoundingClientRect();

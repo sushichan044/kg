@@ -102,6 +102,7 @@ export default defineConfig({
           "internal/frontend/src/App.browser.test.tsx",
           "packages/viewer/src/NovelViewer.browser.test.tsx",
           "packages/viewer/src/typography.browser.test.tsx",
+          "packages/viewer/src/automatic-typography.browser.test.tsx",
           "packages/viewer/font-proof/**/*.tsx",
         ],
         rules: {
