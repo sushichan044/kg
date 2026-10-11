@@ -176,6 +176,8 @@ function classify({ value, presentation }: JapaneseCharacter): JapaneseCharacter
   if (presentation === "tate-chu-yoko")
     return COMBINED_DIVIDING_MARKS.has(value) ? "cl-04" : "cl-30";
   if (presentation === "upright") return "cl-19";
+  if (presentation === "sideways" && /^[!-~]$/u.test(value) && !/^[A-Za-z0-9]$/u.test(value))
+    return "cl-27";
   if (OPENING.has(value)) return "cl-01";
   if (CLOSING.has(value)) return "cl-02";
   if (HYPHENS.has(value)) return "cl-03";

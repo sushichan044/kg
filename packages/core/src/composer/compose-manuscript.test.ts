@@ -143,6 +143,101 @@ describe("composeManuscript", () => {
     expect(globalThis.structuredClone(result.value)).toEqual(result.value);
   });
 
+  test("lays out a western sentence with sideways initials and word spaces", () => {
+    const result = composeManuscript(parsed("I love you"), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const line = contentLines(result.value)[0];
+    expect.assert(line !== undefined, "layout has no content line");
+    expect(lineGlyphs(line).every(({ presentation }) => presentation === "sideways")).toBe(true);
+    expect(line.inlineSizeEm).toBeCloseTo(4 + 2 / 3);
+    expect(lineText(line)).toBe("I love you");
+  });
+
+  test("wraps a western sentence between words while retaining source spaces", () => {
+    const source = "I  love you I love you I love you";
+    const result = composeManuscript(parsed(source), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const lines = contentLines(result.value);
+    expect(lines.length).toBeGreaterThan(1);
+    expect(lines.map(lineText).join("")).toBe(source);
+    for (const line of lines) {
+      expect(line.inlineSizeEm).toBeLessThanOrEqual(10);
+      expect(lineGlyphs(line).every(({ presentation }) => presentation === "sideways")).toBe(true);
+      expect(
+        lineText(line)
+          .trim()
+          .split(/ +/u)
+          .every((word) => ["I", "love", "you"].includes(word)),
+      ).toBe(true);
+    }
+    const firstLine = lines[0];
+    expect.assert(firstLine !== undefined, "layout has no first line");
+    const lastItem = firstLine.items.at(-1);
+    expect(lastItem).toMatchObject({ kind: "glue", origin: "source", value: " ", widthEm: 0 });
+  });
+
+  test.each([
+    { source: "「I ｜love《ラヴ》 you!」", parser: kakuyomuParser },
+    { source: "「I [[rb:love>ラヴ]] you!」", parser: pixivParser },
+  ])("keeps an annotated word sideways in $source", ({ source, parser }) => {
+    const manuscript = parseManuscript(source, { parser });
+    expect.assert(manuscript.ok, "fixture did not parse");
+
+    const result = composeManuscript(manuscript.value, {
+      composer: novelComposer,
+      settings: settings({ lineLengthEm: 40 }),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const lines = contentLines(result.value);
+    expect(lines.map(lineText).join("")).toBe(manuscript.value.displayText);
+    const glyphs = lines.flatMap(lineGlyphs);
+    expect(
+      glyphs
+        .filter(({ value }) => /^[!-~]+$/u.test(value))
+        .every(({ presentation }) => presentation === "sideways"),
+    ).toBe(true);
+    for (const glyph of glyphs) {
+      expect(
+        manuscript.value.displayText.slice(glyph.range.display.start, glyph.range.display.end),
+      ).toBe(glyph.value);
+    }
+    expect(
+      lines.flatMap(({ annotations }) => annotations).filter(({ kind }) => kind === "ruby"),
+    ).toHaveLength(1);
+  });
+
+  test.each(["I'm happy!", "STR 10", "I love 12!?", '"I love you!"'])(
+    "keeps ASCII punctuation and numbers in %s within sideways words",
+    (source) => {
+      const result = composeManuscript(parsed(source), {
+        composer: novelComposer,
+        settings: settings({ lineLengthEm: 40 }),
+      });
+
+      expect.assert(result.ok, "expected composition to succeed");
+      const lines = contentLines(result.value);
+      expect(lines.map(lineText).join("")).toBe(source);
+      expect(
+        lines.flatMap(lineGlyphs).every(({ presentation }) => presentation === "sideways"),
+      ).toBe(true);
+      expect(
+        lines
+          .flatMap(({ items }) => items)
+          .filter((item) => item.kind === "glue" && item.origin === "generated")
+          .every((item) => item.widthEm === 0),
+      ).toBe(true);
+    },
+  );
+
   test("models JLReq vertical presentations before positioning text", () => {
     const result = composeManuscript(parsed("あBGMいWebうeditorえ12おＷ"), {
       composer: novelComposer,

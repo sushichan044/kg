@@ -150,6 +150,20 @@ tate-chu-yoko unit. Each render unit carries its selected `presentation` as a
 string. A `CombinedGlyphUnit` renders the two digits together; the composer owns
 that decision, so renderers do not compare source group ranges.
 
+ASCII sentences are recognized before individual words are classified. A continuous
+stretch of ASCII letters, digits, punctuation, and spaces containing a letter and
+multiple alphanumeric groups separated by spaces or punctuation renders sideways.
+Japanese characters, fullwidth spaces, and newlines end that context. Thus `I love you`,
+`This is a Web novel`, `I'm happy!`, and `STR 10` keep their initials, abbreviations,
+numbers, and punctuation sideways. Standalone `I`, `BGM`, and `Web` retain their
+upright presentation, and standalone `12` still forms a tate-chu-yoko unit.
+
+Sentences can wrap between words. Words, including attached punctuation,
+apostrophes, and hyphens, stay together; ASCII spaces retain
+their source positions and supply line-break opportunities. Ruby and inline styling
+do not interrupt sentence recognition. Non-ASCII Western text keeps the existing
+presentation rules.
+
 An upright Western character sets solid against the kana or kanji beside it rather than
 taking the quarter em 3.2.6 puts around a sideways run, following JLReq 3.2.4: it classes
 with kanji, the same way 3.2.5 classes a tate-chu-yoko run. `QR` and `URL` set upright by
