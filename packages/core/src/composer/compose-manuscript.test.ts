@@ -407,6 +407,25 @@ describe("composeManuscript", () => {
       );
     };
 
+    test.each(
+      ["！？", "？？！", "!?", "！！"].flatMap((run) => [
+        `${"あ".repeat(10)}${run}いう`,
+        `「${"あ".repeat(9)}${run}」いう`,
+      ]),
+    )("never opens a line with the run in %s, like a single dividing mark", (source) => {
+      const result = composeManuscript(parsed(source), {
+        composer: novelComposer,
+        settings: settings(),
+      });
+      expect.assert(result.ok, "expected composition to succeed");
+
+      const lineHeads = contentLines(result.value).map((line) =>
+        line.items.find((item) => item.kind === "glyph" || item.kind === "combined-glyph"),
+      );
+
+      expect(lineHeads.map((item) => item?.kind)).not.toContain("combined-glyph");
+    });
+
     test.each(["！？", "？？！", "!?", "！！"])(
       "never splits %s however the line is broken around it",
       (run) => {
