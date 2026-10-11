@@ -358,7 +358,7 @@ describe("composeManuscript", () => {
   });
 
   test("keeps a question-mark gap fixed while spreading the final-stage remainder elsewhere", () => {
-    const result = composeManuscript(parsed("あ！？　！？　いう……"), {
+    const result = composeManuscript(parsed("あ！　？　！　？う……"), {
       composer: novelComposer,
       settings: settings(),
     });
@@ -367,7 +367,7 @@ describe("composeManuscript", () => {
     const firstLine = contentLines(result.value)[0];
     expect.assert(firstLine !== undefined, "layout has no first content line");
 
-    expect(lineText(firstLine)).toBe("あ！？　！？　いう");
+    expect(lineText(firstLine)).toBe("あ！　？　！　？う");
     expect(firstLine.break).toEqual({ kind: "stretched" });
     expect(firstLine.inlineSizeEm).toBe(10);
     expect(
@@ -379,6 +379,7 @@ describe("composeManuscript", () => {
     ).toEqual([
       { value: "　", widthEm: 1, adjustment: "natural" },
       { value: "　", widthEm: 1, adjustment: "natural" },
+      { value: "　", widthEm: 1, adjustment: "natural" },
     ]);
     expect(
       firstLine.items.flatMap((item) =>
@@ -387,6 +388,104 @@ describe("composeManuscript", () => {
           : [],
       ),
     ).toEqual([1]);
+  });
+
+  describe("tate-chu-yoko exclamation runs across line breaks", () => {
+    const marks = (source: string, lineLengthEm: number) => {
+      const result = composeManuscript(parsed(source), {
+        composer: novelComposer,
+        settings: settings({ lineLengthEm }),
+      });
+      expect.assert(
+        result.ok,
+        `expected composition to succeed: ${result.ok ? "" : JSON.stringify(result.error)} (${source}, ${lineLengthEm})`,
+      );
+      return contentLines(result.value).flatMap((line) =>
+        line.items.flatMap((item) =>
+          item.kind === "glyph" || item.kind === "combined-glyph" ? [item] : [],
+        ),
+      );
+    };
+
+    test.each(
+      ["！？", "？？！", "!?", "！！"].flatMap((run) => [
+        `${"あ".repeat(10)}${run}いう`,
+        `「${"あ".repeat(9)}${run}」いう`,
+      ]),
+    )("never opens a line with the run in %s, like a single dividing mark", (source) => {
+      const result = composeManuscript(parsed(source), {
+        composer: novelComposer,
+        settings: settings(),
+      });
+      expect.assert(result.ok, "expected composition to succeed");
+
+      const lineHeads = contentLines(result.value).map((line) =>
+        line.items.find((item) => item.kind === "glyph" || item.kind === "combined-glyph"),
+      );
+
+      expect(lineHeads.map((item) => item?.kind)).not.toContain("combined-glyph");
+    });
+
+    test.each(["！？", "？？！", "!?", "！！"])(
+      "never splits %s however the line is broken around it",
+      (run) => {
+        for (let prefix = 0; prefix <= 25; prefix += 1) {
+          for (const lineLengthEm of [10, 11, 12]) {
+            const items = marks(`${"あ".repeat(prefix)}${run}いう`, lineLengthEm);
+
+            const combined = items.filter(({ kind }) => kind === "combined-glyph");
+            const loose = items.filter(({ value }) => /^[!?！？]$/u.test(value));
+
+            expect(
+              combined.map(({ value }) => value),
+              `prefix=${prefix} len=${lineLengthEm}`,
+            ).toEqual([run]);
+            expect(loose, `prefix=${prefix} len=${lineLengthEm}`).toEqual([]);
+          }
+        }
+      },
+    );
+
+    test.each(["「", "（", "『"])(
+      "never splits a run that follows the opening bracket %s however the line is broken",
+      (opening) => {
+        for (let prefix = 0; prefix <= 25; prefix += 1) {
+          for (const lineLengthEm of [10, 11, 12]) {
+            const items = marks(`${"あ".repeat(prefix)}${opening}！？いう`, lineLengthEm);
+
+            const combined = items.filter(({ kind }) => kind === "combined-glyph");
+            const loose = items.filter(({ value }) => /^[!?！？]$/u.test(value));
+
+            expect(
+              combined.map(({ value }) => value),
+              `prefix=${prefix} len=${lineLengthEm}`,
+            ).toEqual(["！？"]);
+            expect(loose, `prefix=${prefix} len=${lineLengthEm}`).toEqual([]);
+          }
+        }
+      },
+    );
+
+    test.each([
+      ["「おおお！？」", "！？"],
+      ["（えっ？！）", "？！"],
+      ["『まさか！！』", "！！"],
+      ["「ええ！？」と言った。", "！？"],
+      ["「ええ！？　本当に？」", "！？"],
+      ["「！？」", "！？"],
+      ["「！？そんな」", "！？"],
+      ["（？！そんな）", "？！"],
+      ["『！！　そんな』", "！！"],
+    ])("combines the run in %s next to brackets and spaces", (source, run) => {
+      for (const lineLengthEm of [10, 11]) {
+        const items = marks(source, lineLengthEm);
+
+        expect(
+          items.filter(({ kind }) => kind === "combined-glyph").map(({ value }) => value),
+          `len=${lineLengthEm}`,
+        ).toEqual([run]);
+      }
+    });
   });
 
   test("keeps a trailing suppressed gap in the preceding line range", () => {

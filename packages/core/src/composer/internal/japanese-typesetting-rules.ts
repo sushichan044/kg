@@ -1,5 +1,5 @@
 import { CLOSING_BRACKETS, OPENING_BRACKETS } from "../../internal/japanese-brackets";
-import { DIVIDING_PUNCTUATION } from "../../internal/japanese-punctuation";
+import { DIVIDING_PUNCTUATION, TATE_CHU_YOKO_MARKS } from "../../internal/japanese-punctuation";
 import type { PresentationKind } from "../presentation-kind";
 
 /**
@@ -145,6 +145,7 @@ const OPENING = new Set(`${OPENING_BRACKETS}【〘〝｟«`);
 const CLOSING = new Set(`${CLOSING_BRACKETS}】〙〟｠»`);
 const HYPHENS = new Set("‐‑⁃–");
 const DIVIDING_MARKS = new Set(DIVIDING_PUNCTUATION);
+const COMBINED_DIVIDING_MARKS = new Set(TATE_CHU_YOKO_MARKS);
 const MIDDLE_DOTS = new Set("・：；");
 const SMALL_KANA = new Set("ァィゥェォッャュョヮヵヶぁぃぅぇぉっゃゅょゎゕゖ");
 const ITERATION_MARKS = new Set("ヽヾゝゞ々〻");
@@ -162,7 +163,8 @@ const WESTERN = /^[\p{Script=Latin}\p{Script=Greek}\p{Script=Cyrillic}]$/u;
 /**
  * Order matters: a character inside a tate-chu-yoko group is cl-30 (3.2.5) and an upright Latin
  * letter or Arabic numeral is cl-19 (3.2.4), whatever either would be on its own; anything left
- * unmatched is cl-19 too, the class JLReq reserves for kanji and the like.
+ * unmatched is cl-19 too, the class JLReq reserves for kanji and the like. A tate-chu-yoko `！？`
+ * stays cl-04, the class JLReq gives `⁉`, so it still may not open a line.
  *
  * The quarter em 3.2.6 sets between Japanese and a Western character or numeral applies only to a
  * character rotated 90 degrees in vertical writing mode or mixed into horizontal writing mode —
@@ -171,7 +173,8 @@ const WESTERN = /^[\p{Script=Latin}\p{Script=Greek}\p{Script=Cyrillic}]$/u;
  * the same as a tate-chu-yoko run's 3.2.5.
  */
 function classify({ value, presentation }: JapaneseCharacter): JapaneseCharacterClass {
-  if (presentation === "tate-chu-yoko") return "cl-30";
+  if (presentation === "tate-chu-yoko")
+    return COMBINED_DIVIDING_MARKS.has(value) ? "cl-04" : "cl-30";
   if (presentation === "upright") return "cl-19";
   if (OPENING.has(value)) return "cl-01";
   if (CLOSING.has(value)) return "cl-02";

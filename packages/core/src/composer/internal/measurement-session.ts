@@ -66,9 +66,23 @@ export const MeasurementSession = {
             value: text.slice(cluster.textRange.start, cluster.textRange.end),
           }));
         }
+        const segments = [...graphemeSegmenter.segment(text)];
+        if (kind === "base" && presentation === "tate-chu-yoko") {
+          // A tate-chu-yoko run is one cell: its members share the whole run's advance equally.
+          const advanceEm = full.advanceEm / segments.length;
+          return segments.map(({ segment, index }, position) => {
+            const span = { offsetEm: position * advanceEm, advanceEm };
+            return {
+              value: segment,
+              textRange: MeasurementTextRange.of({ start: index, end: index + segment.length }),
+              layoutSpan: span,
+              renderSpan: span,
+            };
+          });
+        }
         const pieces: MeasurementPiece[] = [];
         let offsetEm = 0;
-        for (const { segment, index } of graphemeSegmenter.segment(text)) {
+        for (const { segment, index } of segments) {
           const measured = get(segment, kind, presentation);
           if (measured === undefined) return undefined;
           const cluster = measured.kind === "clustered" ? measured.clusters[0] : undefined;

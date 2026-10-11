@@ -164,6 +164,49 @@ test("composes a two-digit number as one tate-chu-yoko cell", async ({ renderVie
   expect(digits.height).toBeCloseTo(japanese.height, 1);
 });
 
+test("composes exclamation runs as one cell next to closing brackets", async ({ renderViewer }) => {
+  const { screen } = await renderViewer({ text: "「おおお！？」", flow });
+  const cells = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-cell"));
+
+  expect(cells.map(({ textContent }) => textContent)).toEqual([
+    "「",
+    "お",
+    "お",
+    "お",
+    "！？",
+    "」",
+  ]);
+  const [, japanese, , , marks] = cells.map((cell) => cell.getBoundingClientRect());
+  expect.assert(japanese !== undefined && marks !== undefined);
+  expect(marks.height).toBeCloseTo(japanese.height, 1);
+});
+
+test("composes exclamation runs as one cell right after an opening bracket", async ({
+  renderViewer,
+}) => {
+  const { screen } = await renderViewer({ text: "「！？そんな」", flow });
+  const cells = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-cell"));
+
+  expect(cells.map(({ textContent }) => textContent)).toEqual([
+    "「",
+    "！？",
+    "そ",
+    "ん",
+    "な",
+    "」",
+  ]);
+});
+
+test("keeps an exclamation run in one cell when the line wraps right before it", async ({
+  renderViewer,
+}) => {
+  const { screen } = await renderViewer({ text: `${"あ".repeat(10)}！？いう`, flow });
+  const cells = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-cell"));
+
+  expect(cells.map(({ textContent }) => textContent)).toContain("！？");
+  expect(cells.map(({ textContent }) => textContent)).not.toContain("！");
+});
+
 test("keeps a diagnostic on one digit selectable through its exact source placement", async ({
   renderViewer,
 }) => {

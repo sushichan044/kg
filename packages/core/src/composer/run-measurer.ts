@@ -29,6 +29,8 @@ export const logicalRunMeasurer: RunMeasurer = (request) => {
   const advance =
     request.kind === "base" && request.presentation === "upright"
       ? segments.length
-      : segments.reduce((total, { segment }) => total + graphemeWidth(segment), 0);
+      : request.kind === "base" && request.presentation === "tate-chu-yoko"
+        ? 1
+        : segments.reduce((total, { segment }) => total + graphemeWidth(segment), 0);
   return { kind: "advance", advanceEm: advance * request.scale };
 };
