@@ -1,5 +1,5 @@
 import { CLOSING_BRACKETS, OPENING_BRACKETS } from "../../internal/japanese-brackets";
-import { DIVIDING_PUNCTUATION } from "../../internal/japanese-punctuation";
+import { DIVIDING_PUNCTUATION, TATE_CHU_YOKO_MARKS } from "../../internal/japanese-punctuation";
 import type { PresentationKind } from "../presentation-kind";
 
 /**
@@ -145,7 +145,7 @@ const OPENING = new Set(`${OPENING_BRACKETS}【〘〝｟«`);
 const CLOSING = new Set(`${CLOSING_BRACKETS}】〙〟｠»`);
 const HYPHENS = new Set("‐‑⁃–");
 const DIVIDING_MARKS = new Set(DIVIDING_PUNCTUATION);
-const COMBINED_DIVIDING_MARKS = new Set(`${DIVIDING_PUNCTUATION}!?`);
+const COMBINED_DIVIDING_MARKS = new Set(TATE_CHU_YOKO_MARKS);
 const MIDDLE_DOTS = new Set("・：；");
 const SMALL_KANA = new Set("ァィゥェォッャュョヮヵヶぁぃぅぇぉっゃゅょゎゕゖ");
 const ITERATION_MARKS = new Set("ヽヾゝゞ々〻");
