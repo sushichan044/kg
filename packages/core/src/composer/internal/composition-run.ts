@@ -33,6 +33,10 @@ function presentationOf(text: string): PresentationKind {
   return FULLWIDTH_ALPHANUMERIC.test(text) ? "upright" : "mixed";
 }
 
+/**
+ * Recognize sentence-wide presentation while keeping words as separate line-break units. Standalone
+ * dotted abbreviations retain the existing per-token presentation.
+ */
 function recognize(graphemes: readonly ParsedGrapheme[]): CompositionRun[] {
   const runs: CompositionRun[] = [];
   const push = (members: readonly ParsedGrapheme[], presentation: PresentationKind) => {
@@ -51,7 +55,11 @@ function recognize(graphemes: readonly ParsedGrapheme[]): CompositionRun[] {
         .slice(cursor, contextEnd)
         .map(({ value }) => value)
         .join("");
-      if (/[A-Za-z]/u.test(text) && WESTERN_CONTEXT.test(text)) {
+      const abbreviationParts = text.trim().replace(/\.$/u, "").split(".");
+      const standaloneDottedAbbreviation =
+        abbreviationParts.length > 1 &&
+        abbreviationParts.every((part) => UPRIGHT_LATIN_ABBREVIATION.test(part));
+      if (/[A-Za-z]/u.test(text) && WESTERN_CONTEXT.test(text) && !standaloneDottedAbbreviation) {
         // Presentation spans the sentence; only individual words prohibit line breaks.
         while (cursor < contextEnd) {
           const end = ASCII_WORD.test(graphemes[cursor]?.value ?? "")

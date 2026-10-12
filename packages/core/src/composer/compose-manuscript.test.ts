@@ -143,6 +143,24 @@ describe("composeManuscript", () => {
     expect(globalThis.structuredClone(result.value)).toEqual(result.value);
   });
 
+  test("keeps standalone dotted abbreviation letters upright while retaining periods", () => {
+    const result = composeManuscript(parsed("U.S."), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const line = contentLines(result.value)[0];
+    expect.assert(line !== undefined, "layout has no content line");
+    expect(lineGlyphs(line).map(({ value, presentation }) => ({ value, presentation }))).toEqual([
+      { value: "U", presentation: "upright" },
+      { value: ".", presentation: "mixed" },
+      { value: "S", presentation: "upright" },
+      { value: ".", presentation: "mixed" },
+    ]);
+    expect(lineText(line)).toBe("U.S.");
+  });
+
   test("lays out a western sentence with sideways initials and word spaces", () => {
     const result = composeManuscript(parsed("I love you"), {
       composer: novelComposer,
@@ -215,7 +233,7 @@ describe("composeManuscript", () => {
     ).toHaveLength(1);
   });
 
-  test.each(["I'm happy!", "STR 10", "I love 12!?", '"I love you!"'])(
+  test.each(["I'm happy!", "STR 10", "I love 12!?", '"I love you!"', "I live in the U.S."])(
     "keeps ASCII punctuation and numbers in %s within sideways words",
     (source) => {
       const result = composeManuscript(parsed(source), {

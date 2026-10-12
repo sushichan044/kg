@@ -157,6 +157,10 @@ Japanese characters, fullwidth spaces, and newlines end that context. Thus `I lo
 `This is a Web novel`, `I'm happy!`, and `STR 10` keep their initials, abbreviations,
 numbers, and punctuation sideways. Standalone `I`, `BGM`, and `Web` retain their
 upright presentation, and standalone `12` still forms a tate-chu-yoko unit.
+Standalone dotted abbreviations whose parts match the upright abbreviation rule,
+such as `U.S.` and `Ph.D.`, keep their letters upright and their periods in the
+existing mixed presentation. In a sentence such as `I live in the U.S.`, the
+abbreviation and its periods render sideways with the surrounding words.
 
 Sentences can wrap between words. Words, including attached punctuation,
 apostrophes, and hyphens, stay together; ASCII spaces retain
