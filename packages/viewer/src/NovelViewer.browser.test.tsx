@@ -81,6 +81,26 @@ const test = base.extend<{ renderViewer: typeof renderViewer }>({
   },
 });
 
+test("renders sentence initials and punctuation sideways with half-width advances", async ({
+  renderViewer,
+}) => {
+  const { screen } = await renderViewer({ text: "「I love you!」", flow });
+  const cells = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-cell"));
+  const latinCells = cells.filter(({ textContent }) => /^[!-~]+$/u.test(textContent));
+
+  expect(latinCells.map(({ textContent }) => textContent).join("")).toBe("Iloveyou!");
+  for (const cell of latinCells) {
+    const glyph = cell.querySelector<HTMLElement>(".kgv-glyph");
+    expect.assert(glyph !== null, "cell has no glyph");
+    expect(getComputedStyle(glyph).textOrientation).toBe("sideways");
+    expect(getComputedStyle(glyph).textCombineUpright).toBe("none");
+    expect(cell.getBoundingClientRect().height).toBeCloseTo(
+      Number.parseFloat(getComputedStyle(glyph).fontSize) / 2,
+      1,
+    );
+  }
+});
+
 test("gives upright Latin initials a full-width vertical advance", async ({ renderViewer }) => {
   const { screen } = await renderViewer({ text: "あBGMい", flow });
   const cells = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-cell"));

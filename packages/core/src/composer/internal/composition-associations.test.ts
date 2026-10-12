@@ -7,6 +7,56 @@ import { RubyAssociation } from "./ruby-association";
 import { SourceSpace } from "./source-space";
 
 describe("composition associations", () => {
+  test.each([
+    ["I love you", ["I", " ", "love", " ", "you"]],
+    ["I LOVE YOU", ["I", " ", "LOVE", " ", "YOU"]],
+    ["This is a Web novel", ["This", " ", "is", " ", "a", " ", "Web", " ", "novel"]],
+    ["I'm happy!", ["I'm", " ", "happy!"]],
+    ["STR 10", ["STR", " ", "10"]],
+    ["I  love 12!?", ["I", " ", " ", "love", " ", "12!?"]],
+    ["e-mail", ["e-mail"]],
+    ["I live in the U.S.", ["I", " ", "live", " ", "in", " ", "the", " ", "U.S."]],
+  ])("keeps the words in %s sideways without binding their spaces", (source, words) => {
+    const parsed = parseManuscript(source);
+    expect.assert(parsed.ok, "fixture did not parse");
+
+    const runs = CompositionRun.recognize(parsed.value.graphemes);
+
+    expect(runs.map(({ members }) => members.map(({ value }) => value).join(""))).toEqual(words);
+    expect(runs.every(({ presentation }) => presentation === "sideways")).toBe(true);
+    expect(runs.flatMap(({ members }) => members)).toEqual(parsed.value.graphemes);
+  });
+
+  test.each(["U.S.", "U.S", "U.S.A.", "Ph.D.", " U.S. "])(
+    "preserves upright letters in the standalone dotted abbreviation %s",
+    (source) => {
+      const parsed = parseManuscript(source);
+      expect.assert(parsed.ok, "fixture did not parse");
+
+      const runs = CompositionRun.recognize(parsed.value.graphemes);
+
+      expect(runs.flatMap(({ members }) => members)).toEqual(parsed.value.graphemes);
+      expect(
+        runs
+          .filter(({ members }) => /^[A-Za-z]+$/u.test(members.map(({ value }) => value).join("")))
+          .every(({ presentation }) => presentation === "upright"),
+      ).toBe(true);
+      expect(runs.some(({ presentation }) => presentation === "sideways")).toBe(false);
+    },
+  );
+
+  test.each(["I", "BGM", "Web", "12", "Ｗ", "！？", "A　B", "A、B", "A\nB"])(
+    "retains standalone presentation rules for %s",
+    (source) => {
+      const parsed = parseManuscript(source);
+      expect.assert(parsed.ok, "fixture did not parse");
+
+      const runs = CompositionRun.recognize(parsed.value.graphemes);
+
+      expect(runs.some(({ presentation }) => presentation === "sideways")).toBe(false);
+    },
+  );
+
   test("keeps a ruby association across independently recognized runs", () => {
     const parsed = parseManuscript("｜漢12字《かんじ》", { parser: kakuyomuParser });
     expect.assert(parsed.ok, "fixture did not parse");
