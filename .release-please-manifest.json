@@ -1,5 +1,5 @@
 {
-  ".": "0.8.1",
-  "packages/core": "0.10.1",
-  "packages/viewer": "0.10.1"
+  ".": "0.8.2",
+  "packages/core": "0.10.2",
+  "packages/viewer": "0.10.2"
 }

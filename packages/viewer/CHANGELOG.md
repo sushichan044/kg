@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.10.2](https://github.com/sushichan044/kg/compare/kg-viewer-v0.10.1...kg-viewer-v0.10.2) (2026-10-12)
+
+
+### Bug Fixes
+
+* **core:** keep ASCII sentences consistently sideways ([55f6f2d](https://github.com/sushichan044/kg/commit/55f6f2dbce86c36496aaa3b9d2d1574385d51276))
+* **core:** keep ASCII sentences consistently sideways ([a32700c](https://github.com/sushichan044/kg/commit/a32700ca3854d45a9f8591fc9ceeaaed5bbde8c4))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @sushichan044/kg-core bumped to 0.10.2
+
 ## [0.10.1](https://github.com/sushichan044/kg/compare/kg-viewer-v0.10.0...kg-viewer-v0.10.1) (2026-10-11)
 
 
