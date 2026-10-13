@@ -1,15 +1,16 @@
 import {
   FontPreset,
   FontPresetId,
-  FontSizePt,
+  FontSizeQ,
   NovelCompositionSettings,
   NovelFlowSettings,
-  ManuscriptGeometry,
+  ManuscriptPageSettings,
   PaperSize,
   PaperSizeId,
 } from "@sushichan044/kg-core";
 import type { NovelComposedManuscript } from "@sushichan044/kg-core";
 import { useState } from "react";
+import * as v from "valibot";
 
 import type { ManuscriptNotation, ManuscriptPreset } from "../lib/storage";
 
@@ -151,7 +152,7 @@ function numericValue(value: string): number | null {
 
 export function SettingsPanel({
   notation,
-  composition,
+  composition: savedComposition,
   composed,
   showGrid,
   presets,
@@ -165,17 +166,33 @@ export function SettingsPanel({
   onPresetDelete,
 }: SettingsPanelProps) {
   const [presetName, setPresetName] = useState("");
+  const [pending, setPending] = useState<Readonly<{
+    base: NovelCompositionSettings;
+    value: NovelCompositionSettings;
+  }> | null>(null);
+  const draft = pending?.base === savedComposition ? pending.value : null;
+  const composition = draft ?? savedComposition;
+  const fixed = composition.appearance.paperSize === "a5";
 
-  /**
-   * Half-edited values reach here constantly; only commit settings core would accept.
-   */
   const accept = (candidate: NovelCompositionSettings) => {
-    if (NovelCompositionSettings.is(candidate)) onCompositionChange(candidate);
+    const result = v.safeParse(NovelCompositionSettings.schema, candidate);
+    if (result.success) {
+      setPending(null);
+      onCompositionChange(result.output);
+    } else {
+      setPending({ base: savedComposition, value: candidate });
+    }
+  };
+  const recenter = (candidate: NovelCompositionSettings) => {
+    accept({
+      ...candidate,
+      page: ManuscriptPageSettings.centered(candidate.flow, candidate.appearance),
+    });
   };
   const changeFlow = (key: FlowKey, value: string) => {
     const parsed = numericValue(value);
     if (parsed === null) return;
-    accept({ ...composition, flow: { ...composition.flow, [key]: parsed } });
+    recenter({ ...composition, flow: { ...composition.flow, [key]: parsed } });
   };
   const changeOffset = (scope: OffsetScope, edge: OffsetEdge, value: string) => {
     const parsed = numericValue(value);
@@ -188,11 +205,6 @@ export function SettingsPanel({
       },
     });
   };
-  const maximumFontSize = ManuscriptGeometry.maxFontSizePt(
-    composition.flow,
-    composition.appearance.paperSize,
-  );
-
   return (
     <div className="settings-panel">
       <fieldset className="notation-controls">
@@ -231,30 +243,49 @@ export function SettingsPanel({
           マス目を表示
         </label>
       </fieldset>
-      <fieldset className="controls">
-        <legend>組版</legend>
-        {(
-          [
-            ["lineLengthEm", "一行の長さ（em）"],
-            ["linesPerStage", "一段の行数"],
-            ["stagesPerPage", "一頁の段数"],
-          ] as const
-        ).map(([key, label]) => (
-          <label key={key} className="control" htmlFor={`${idPrefix}${key}`}>
-            <span>{label}</span>
-            <input
-              id={`${idPrefix}${key}`}
-              type="number"
-              min={NovelFlowSettings.ranges[key].min}
-              max={NovelFlowSettings.ranges[key].max}
-              value={composition.flow[key]}
-              onChange={(event) => {
-                changeFlow(key, event.currentTarget.value);
-              }}
-            />
-          </label>
-        ))}
-      </fieldset>
+      {fixed ? (
+        <fieldset className="paper-controls fixed-format">
+          <legend>A5固定組版</legend>
+          <p>
+            {composition.flow.lineLengthEm}字×{composition.flow.linesPerStage}行×
+            {composition.flow.stagesPerPage}段、文字サイズ{composition.appearance.fontSizeQ}Q
+          </p>
+          <p>
+            行間{composition.page.lineGapMm}mm、行送り
+            {composition.appearance.fontSizeQ / 4 + composition.page.lineGapMm}mm、段間
+            {composition.page.stageGapMm}mm
+          </p>
+          <p>
+            天{composition.page.topMm}mm、地{composition.page.bottomMm}mm、ノド
+            {composition.page.innerMm}mm、小口{composition.page.outerMm}mm
+          </p>
+        </fieldset>
+      ) : (
+        <fieldset className="controls">
+          <legend>組版</legend>
+          {(
+            [
+              ["lineLengthEm", "一行の字数"],
+              ["linesPerStage", "一段の行数"],
+              ["stagesPerPage", "一頁の段数"],
+            ] as const
+          ).map(([key, label]) => (
+            <label key={key} className="control" htmlFor={`${idPrefix}${key}`}>
+              <span>{label}</span>
+              <input
+                id={`${idPrefix}${key}`}
+                type="number"
+                min={NovelFlowSettings.ranges[key].min}
+                max={NovelFlowSettings.ranges[key].max}
+                value={composition.flow[key]}
+                onChange={(event) => {
+                  changeFlow(key, event.currentTarget.value);
+                }}
+              />
+            </label>
+          ))}
+        </fieldset>
+      )}
 
       <fieldset className="paper-controls">
         <legend>用紙と書体</legend>
@@ -265,10 +296,7 @@ export function SettingsPanel({
             onChange={(event) => {
               const paperSize = event.currentTarget.value;
               if (!PaperSizeId.is(paperSize)) return;
-              accept({
-                ...composition,
-                appearance: { ...composition.appearance, paperSize },
-              });
+              accept(NovelCompositionSettings.forPaper(paperSize, composition));
             }}
           >
             {PaperSize.all.map((paper) => (
@@ -278,23 +306,26 @@ export function SettingsPanel({
             ))}
           </select>
         </label>
-        <label className="control">
-          <span>文字サイズ</span>
-          <input
-            type="number"
-            min={FontSizePt.range.min}
-            max={FontSizePt.range.max}
-            step={FontSizePt.range.step}
-            value={composition.appearance.fontSizePt}
-            onChange={(event) => {
-              const fontSizePt = numericValue(event.currentTarget.value);
-              if (fontSizePt !== null) {
-                accept({ ...composition, appearance: { ...composition.appearance, fontSizePt } });
-              }
-            }}
-          />
-          <small className="control-hint">pt（推奨上限 {maximumFontSize}）</small>
-        </label>
+        {!fixed && (
+          <label className="control">
+            <span>文字サイズ（Q）</span>
+            <input
+              type="number"
+              min={0.1}
+              step={0.1}
+              value={composition.appearance.fontSizeQ}
+              onChange={(event) => {
+                const fontSizeQ = numericValue(event.currentTarget.value);
+                if (fontSizeQ !== null && FontSizeQ.is(fontSizeQ)) {
+                  recenter({
+                    ...composition,
+                    appearance: { ...composition.appearance, fontSizeQ },
+                  });
+                }
+              }}
+            />
+          </label>
+        )}
         <label className="select-control">
           <span>書体</span>
           <select
@@ -315,8 +346,10 @@ export function SettingsPanel({
             ))}
           </select>
         </label>
-        {!composed.layout.geometry.fitsPaper && (
-          <p className="paper-warning">この設定では本文領域が用紙に収まりません。</p>
+        {draft !== null && (
+          <p className="paper-warning" role="alert">
+            組版設定が成立しません。字数、行数、段数、文字サイズ、空き行を確認してください。
+          </p>
         )}
       </fieldset>
 
@@ -360,7 +393,7 @@ export function SettingsPanel({
           />
           <button
             type="button"
-            disabled={presetName.trim() === ""}
+            disabled={presetName.trim() === "" || draft !== null}
             onClick={() => {
               const name = presetName.trim();
               if (name === "") return;
@@ -377,6 +410,7 @@ export function SettingsPanel({
               <button
                 type="button"
                 onClick={() => {
+                  setPending(null);
                   onPresetApply(preset);
                 }}
               >

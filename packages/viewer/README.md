@@ -59,6 +59,11 @@ Bold, italic, emphasis, and ruby fragments are rendered from the positions
 produced by core. The viewer does not infer annotation boundaries or split ruby
 readings. Annotation content is never inserted as HTML.
 
+Page sizes, margins, line gaps, and stage gaps use the millimetre geometry supplied
+by core. Body font sizes use Q (1Q = 0.25mm). Zoom scales all physical dimensions
+together. Right-bound pages alternate inner and outer margins, starting with the
+inner margin on the right of the first page.
+
 See [`@sushichan044/kg-core`](../core/README.md) for parsing, composition,
 source mapping, and schema validation, and `@sushichan044/kg-core/lint` for the
 proofreading APIs that produce the diagnostics these components render.
@@ -129,28 +134,29 @@ diagnostic begins is a button; continuation bands are inert spans.
 
 State is exposed through these attributes:
 
-| Attribute                   | On                                 | Values                         |
-| --------------------------- | ---------------------------------- | ------------------------------ |
-| `data-page-index`           | `.kgv-page`                        | zero-based page number         |
-| `data-grid`                 | `.kgv-page`                        | `visible`, `hidden`            |
-| `data-overflow`             | `.kgv-page`                        | present when content overflows |
-| `data-offscreen`            | `.kgv-page`                        | present on later pages         |
-| `data-disposition`          | `.kgv-cell`                        | `placed`, `hanging`            |
-| `data-side`                 | ruby characters and emphasis marks | `before`, `after`              |
-| `data-annotation`           | annotation elements                | annotation kind                |
-| `data-ruby-fit`             | `.kgv-ruby-fragment`               | `group`, `mono`, `jukugo`      |
-| `data-diagnostic-active`    | cells and diagnostic bands         | present when selected          |
-| `data-diagnostic-severity`  | cells, bands, and diagnostic items | `warning`, `error`             |
-| `data-diagnostic-id`        | `.kgv-diagnostic-band`             | diagnostic ID                  |
-| `data-diagnostic-continued` | continuation diagnostic bands      | present on continuations       |
+| Attribute                   | On                                 | Values                    |
+| --------------------------- | ---------------------------------- | ------------------------- |
+| `data-page-index`           | `.kgv-page`                        | zero-based page number    |
+| `data-grid`                 | `.kgv-page`                        | `visible`, `hidden`       |
+| `data-page-side`            | `.kgv-page`                        | `left`, `right`           |
+| `data-offscreen`            | `.kgv-page`                        | present on later pages    |
+| `data-disposition`          | `.kgv-cell`                        | `placed`, `hanging`       |
+| `data-side`                 | ruby characters and emphasis marks | `before`, `after`         |
+| `data-annotation`           | annotation elements                | annotation kind           |
+| `data-ruby-fit`             | `.kgv-ruby-fragment`               | `group`, `mono`, `jukugo` |
+| `data-diagnostic-active`    | cells and diagnostic bands         | present when selected     |
+| `data-diagnostic-severity`  | cells, bands, and diagnostic items | `warning`, `error`        |
+| `data-diagnostic-id`        | `.kgv-diagnostic-band`             | diagnostic ID             |
+| `data-diagnostic-continued` | continuation diagnostic bands      | present on continuations  |
 
 `DiagnosticList` renders `ol.kgv-diagnostics > li > button`, or
 `p.kgv-diagnostics-empty` when there are no diagnostics.
 
 ### Custom properties
 
-`NovelViewer` sets `--kgv-cell-size`, `--kgv-line-gap`,
-`--kgv-line-length`, `--kgv-page-width`, `--kgv-page-height`, and
+`NovelViewer` sets `--kgv-cell-size`, `--kgv-line-gap`, `--kgv-stage-gap`,
+`--kgv-line-length`, `--kgv-page-width`, `--kgv-page-height`, `--kgv-margin-top`,
+`--kgv-margin-bottom`, `--kgv-margin-inner`, `--kgv-margin-outer`, and
 `--kgv-manuscript-font` on `.kgv-stack`. Read them to align custom decorations;
 do not replace them because fit zoom and positioned text depend on them.
 

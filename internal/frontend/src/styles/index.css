@@ -284,10 +284,8 @@ select {
   padding: 0.35rem;
 }
 
-.control-hint {
-  grid-column: 2;
-  font-size: 0.75rem;
-  opacity: 0.75;
+.fixed-format p {
+  margin: 0;
 }
 
 .select-control {

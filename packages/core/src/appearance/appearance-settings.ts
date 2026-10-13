@@ -1,13 +1,14 @@
 import type * as v from "valibot";
 
 import { readonlyObject } from "../internal/schema";
+import { A5_PAGE_FORMAT } from "./a5-page-format";
 import { FontPresetId } from "./font-preset-id";
-import { FontSizePt } from "./font-size-pt";
+import { FontSizeQ } from "./font-size-q";
 import { PaperSizeId } from "./paper-size-id";
 
 const ManuscriptAppearanceSettingsSchema = readonlyObject({
   paperSize: PaperSizeId.schema,
-  fontSizePt: FontSizePt.schema,
+  fontSizeQ: FontSizeQ.schema,
   fontPreset: FontPresetId.schema,
 });
 
@@ -21,7 +22,7 @@ export const ManuscriptAppearanceSettings = {
 
   defaults: {
     paperSize: "a5",
-    fontSizePt: 9,
+    fontSizeQ: A5_PAGE_FORMAT.fontSizeQ,
     fontPreset: "mincho",
   } as const satisfies ManuscriptAppearanceSettings,
 } as const;

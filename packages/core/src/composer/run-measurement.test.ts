@@ -10,7 +10,7 @@ const request = (text: string): Request => ({
   kind: "base",
   presentation: "sideways",
   fontPreset: "mincho",
-  fontSizePt: 12,
+  fontSizeQ: 12,
   scale: 1,
   writingMode: "vertical-rl",
 });

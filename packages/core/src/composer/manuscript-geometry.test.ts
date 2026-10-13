@@ -1,148 +1,153 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import { ManuscriptAppearanceSettings } from "../appearance/appearance-settings";
-import { FontSizePt } from "../appearance/font-size-pt";
+import { FontSizeQ } from "../appearance/font-size-q";
 import { PaperSize } from "../appearance/paper-size";
-import { PaperSizeId } from "../appearance/paper-size-id";
-import { mmToPt, ptToMm } from "../internal/length";
+import { parseManuscript } from "../parser/parse-manuscript";
+import { composeManuscript } from "./compose-manuscript";
+import { NovelCompositionSettings } from "./composition-settings";
 import { ManuscriptGeometry } from "./manuscript-geometry";
-import type { NovelFlowSettings } from "./novel-flow-settings";
+import { novelComposer } from "./novel-composer";
 
-const settings = {
-  lineLengthEm: 20,
-  linesPerStage: 15,
-  stagesPerPage: 2,
-} as const satisfies NovelFlowSettings;
+const a5 = NovelCompositionSettings.defaults;
 
-function appearance(
-  fontSizePt: number,
-  paperSize: PaperSizeId = "a5",
-): ManuscriptAppearanceSettings {
-  return { ...ManuscriptAppearanceSettings.defaults, paperSize, fontSizePt };
+function rejection(settings: NovelCompositionSettings) {
+  const parsed = parseManuscript("本文");
+  expect.assert(parsed.ok);
+
+  const composed = composeManuscript(parsed.value, { composer: novelComposer, settings });
+
+  expect.assert(!composed.ok);
+  return composed.error.kind;
 }
 
-describe("ptToMm / mmToPt", () => {
-  test("round-trips using 72pt = 25.4mm", () => {
-    expect(ptToMm(72)).toBeCloseTo(25.4, 10);
-    expect(mmToPt(25.4)).toBeCloseTo(72, 10);
-    expect(mmToPt(ptToMm(10))).toBeCloseTo(10, 10);
-  });
-});
+describe("physical page dimensions", () => {
+  test("fills A5 with the fixed 12.7Q two-stage format and asymmetric margins", () => {
+    const geometry = ManuscriptGeometry.of(a5.flow, a5.appearance, a5.page);
 
-describe("ManuscriptGeometry.of", () => {
-  test("derives cell size in millimeters directly from the specified point size", () => {
-    const geometry = ManuscriptGeometry.of(settings, appearance(10));
-
-    expect(geometry.cellSizeMm).toBeCloseTo(ptToMm(10), 10);
-    expect(geometry.fontSizePt).toBe(10);
+    expect(NovelCompositionSettings.is(a5)).toBe(true);
+    expect(geometry.cellSizeMm).toBe(3.175);
+    expect(geometry.contentWidthMm).toBeCloseTo(113.175, 10);
+    expect(geometry.contentHeightMm).toBeCloseTo(181.45, 10);
+    expect(geometry.cellSizeMm + geometry.lineGapMm).toBe(5);
+    expect(geometry.stageGapMm).toBe(10);
+    expect(geometry.contentHeightMm + geometry.topMm + geometry.bottomMm).toBeCloseTo(210, 10);
+    expect(geometry.contentWidthMm + geometry.innerMm + geometry.outerMm).toBeCloseTo(148, 10);
   });
 
-  test("computes content dimensions and centers the text area within the paper", () => {
-    const geometry = ManuscriptGeometry.of(settings, appearance(9, "a5"));
-    const cellSizeMm = ptToMm(9);
-    const expectedLineGap = cellSizeMm * 0.5;
-    const expectedGridWidth =
-      settings.linesPerStage * cellSizeMm + (settings.linesPerStage - 1) * expectedLineGap;
-    const expectedGridHeight =
-      (settings.stagesPerPage * settings.lineLengthEm + 2 * (settings.stagesPerPage - 1)) *
-      cellSizeMm;
-    const paper = PaperSize.of("a5");
+  test.each(["topMm", "bottomMm", "innerMm", "outerMm", "lineGapMm", "stageGapMm"] as const)(
+    "rejects inconsistent %s even when the text would fit",
+    (key) => {
+      expect(rejection({ ...a5, page: { ...a5.page, [key]: a5.page[key] - 0.01 } })).toBe(
+        "InvalidSettings",
+      );
+    },
+  );
 
-    expect(geometry.contentWidthMm).toBeCloseTo(expectedGridWidth, 10);
-    expect(geometry.lineGapMm).toBeCloseTo(expectedLineGap, 10);
-    expect(geometry.contentHeightMm).toBeCloseTo(expectedGridHeight, 10);
-    expect(geometry.marginInlineMm).toBeCloseTo((paper.widthMm - expectedGridWidth) / 2, 10);
-    expect(geometry.marginBlockMm).toBeCloseTo((paper.heightMm - expectedGridHeight) / 2, 10);
-    expect(geometry.fitsPaper).toBe(true);
+  test.each(["lineLengthEm", "linesPerStage", "stagesPerPage"] as const)(
+    "rejects changes to the A5 %s",
+    (key) => {
+      expect(rejection({ ...a5, flow: { ...a5.flow, [key]: a5.flow[key] + 1 } })).toBe(
+        "InvalidSettings",
+      );
+    },
+  );
+
+  test("rejects another font size on A5", () => {
+    expect(rejection({ ...a5, appearance: { ...a5.appearance, fontSizeQ: 13 } })).toBe(
+      "InvalidSettings",
+    );
+  });
+
+  test("rejects a geometrically consistent alternative to the fixed A5 format", () => {
+    expect(rejection({ ...a5, page: { ...a5.page, topMm: 13, bottomMm: 15.55 } })).toBe(
+      "InvalidSettings",
+    );
+  });
+
+  test("centres a variable format on A4 and accepts roundoff", () => {
+    const settings = NovelCompositionSettings.forPaper("a4", a5);
+    const geometry = ManuscriptGeometry.of(settings.flow, settings.appearance, settings.page);
+
+    expect(NovelCompositionSettings.is(settings)).toBe(true);
+    expect(settings.page.topMm).toBe(settings.page.bottomMm);
+    expect(settings.page.innerMm).toBe(settings.page.outerMm);
+    expect(geometry.paperWidthMm).toBe(210);
+    expect(geometry.paperHeightMm).toBe(297);
+    expect(
+      NovelCompositionSettings.is({
+        ...settings,
+        page: { ...settings.page, topMm: settings.page.topMm + 1e-7 },
+      }),
+    ).toBe(true);
+    expect(
+      rejection({ ...settings, page: { ...settings.page, topMm: settings.page.topMm + 1e-5 } }),
+    ).toBe("InvalidSettings");
+  });
+
+  test("returns to the fixed A5 format without losing the typeface or reserved lines", () => {
+    const custom = NovelCompositionSettings.forPaper("a4", {
+      ...a5,
+      flow: { lineLengthEm: 10, linesPerStage: 10, stagesPerPage: 1 },
+      appearance: { ...a5.appearance, fontSizeQ: 16, fontPreset: "gothic" },
+      offsets: { ...a5.offsets, document: { leading: 1, trailing: 0 } },
+    });
+
+    const restored = NovelCompositionSettings.forPaper("a5", custom);
+
+    expect(restored.flow).toEqual(a5.flow);
+    expect(restored.page).toEqual(a5.page);
+    expect(restored.appearance.fontSizeQ).toBe(12.7);
+    expect(restored.appearance.fontPreset).toBe("gothic");
+    expect(restored.offsets.document.leading).toBe(1);
+    expect(NovelCompositionSettings.is(restored)).toBe(true);
+  });
+
+  test("accepts authored millimetre gaps and asymmetric margins on a custom page", () => {
+    const settings = NovelCompositionSettings.forPaper("a4", a5);
+    const page = {
+      ...settings.page,
+      lineGapMm: 2,
+      stageGapMm: 10,
+      topMm: 12,
+      bottomMm: 103.55,
+      innerMm: 30,
+      outerMm: 62.975,
+    };
+    const geometry = ManuscriptGeometry.of(settings.flow, settings.appearance, page);
+
+    expect(NovelCompositionSettings.is({ ...settings, page })).toBe(true);
+    expect(geometry.stageGapMm).toBe(10);
+    expect(geometry.lineGapMm).toBe(2);
+    expect(geometry.topMm).toBe(12);
+  });
+
+  test("rejects gaps too narrow for the existing half-size ruby area", () => {
+    const settings = NovelCompositionSettings.forPaper("a4", a5);
+    const page = {
+      ...settings.page,
+      lineGapMm: 1,
+      outerMm: settings.page.outerMm + (settings.page.lineGapMm - 1) * 22,
+    };
+
+    expect(rejection({ ...settings, page })).toBe("InvalidSettings");
+  });
+
+  test("rejects an oversized custom grid rather than clamping or shrinking it", () => {
+    expect(rejection(NovelCompositionSettings.forPaper("a6", a5))).toBe("InvalidSettings");
   });
 
   test.each([
     ["a6", "A6（文庫）", 105, 148],
     ["shinsho", "新書", 106, 173],
-  ] as const)("supports the %s book format", (id, label, widthMm, heightMm) => {
+  ] as const)("keeps the %s paper format", (id, label, widthMm, heightMm) => {
     expect(PaperSize.of(id)).toEqual({ id, label, widthMm, heightMm });
-    expect(PaperSizeId.is(id)).toBe(true);
-  });
-
-  test("reports fitsPaper: false and negative margins without clamping an oversized font", () => {
-    const oversized = {
-      lineLengthEm: 40,
-      linesPerStage: 40,
-      stagesPerPage: 3,
-    } as const satisfies NovelFlowSettings;
-    const geometry = ManuscriptGeometry.of(oversized, appearance(24, "jis-b6"));
-
-    expect(geometry.fitsPaper).toBe(false);
-    expect(geometry.marginInlineMm < 0 || geometry.marginBlockMm < 0).toBe(true);
-    // The requested point size is reported as-is; it is never silently shrunk to fit.
-    expect(geometry.fontSizePt).toBe(24);
-    expect(geometry.cellSizeMm).toBeCloseTo(ptToMm(24), 10);
   });
 });
 
-describe("ManuscriptGeometry.maxFontSizePt", () => {
-  test("returns the largest step-aligned point size that fits; one step above does not", () => {
-    const maxPt = ManuscriptGeometry.maxFontSizePt(settings, "a5");
-
-    const fits = ManuscriptGeometry.of(settings, appearance(maxPt, "a5"));
-    const oneStepAbove = ManuscriptGeometry.of(
-      settings,
-      appearance(maxPt + FontSizePt.range.step, "a5"),
-    );
-
-    expect(fits.fitsPaper).toBe(true);
-    expect(oneStepAbove.fitsPaper).toBe(false);
-  });
-
-  test("aligns the returned value to the configured step", () => {
-    const maxPt = ManuscriptGeometry.maxFontSizePt(settings, "a4");
-    const steps = maxPt / FontSizePt.range.step;
-
-    expect(steps).toBeCloseTo(Math.round(steps), 9);
-  });
-
-  test("clamps to the maximum when a sparse flow would otherwise fit an oversized font", () => {
-    const sparse = {
-      lineLengthEm: 10,
-      linesPerStage: 10,
-      stagesPerPage: 1,
-    } as const satisfies NovelFlowSettings;
-    const maxPt = ManuscriptGeometry.maxFontSizePt(sparse, "a4");
-
-    expect(maxPt).toBe(FontSizePt.range.max);
-    expect(FontSizePt.is(maxPt)).toBe(true);
-  });
-
-  test("clamps to the minimum when a dense flow would otherwise compute below it", () => {
-    const dense = {
-      lineLengthEm: 60,
-      linesPerStage: 60,
-      stagesPerPage: 3,
-    } as const satisfies NovelFlowSettings;
-    const maxPt = ManuscriptGeometry.maxFontSizePt(dense, "jis-b6");
-
-    expect(maxPt).toBe(FontSizePt.range.min);
-    expect(FontSizePt.is(maxPt)).toBe(true);
-  });
-});
-
-describe("FontSizePt.is", () => {
-  test("rejects a value within range but not aligned to the 0.5pt step", () => {
-    expect(FontSizePt.is(9.3)).toBe(false);
-  });
-
-  test("accepts a value aligned to the 0.5pt step", () => {
-    expect(FontSizePt.is(9.5)).toBe(true);
-  });
-
-  test("rejects values outside the min/max range", () => {
-    expect(FontSizePt.is(FontSizePt.range.min - FontSizePt.range.step)).toBe(false);
-    expect(FontSizePt.is(FontSizePt.range.max + FontSizePt.range.step)).toBe(false);
-  });
-
-  test("rejects non-numbers and non-finite values", () => {
-    expect(FontSizePt.is("10")).toBe(false);
-    expect(FontSizePt.is(Number.NaN)).toBe(false);
-    expect(FontSizePt.is(Number.POSITIVE_INFINITY)).toBe(false);
-  });
+test("accepts positive finite Q sizes and rejects invalid sizes", () => {
+  expect(FontSizeQ.is(12.7)).toBe(true);
+  expect(FontSizeQ.is(13)).toBe(true);
+  for (const value of [0, -1, Number.NaN, Number.POSITIVE_INFINITY, "12.7"]) {
+    expect(FontSizeQ.is(value)).toBe(false);
+  }
 });

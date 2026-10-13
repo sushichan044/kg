@@ -34,7 +34,7 @@ export const MeasurementSession = {
               kind,
               presentation,
               fontPreset: settings.appearance.fontPreset,
-              fontSizePt: settings.appearance.fontSizePt,
+              fontSizeQ: settings.appearance.fontSizeQ,
               scale: 1,
               writingMode: "vertical-rl",
             }
@@ -43,7 +43,7 @@ export const MeasurementSession = {
               kind,
               presentation: "mixed",
               fontPreset: settings.appearance.fontPreset,
-              fontSizePt: settings.appearance.fontSizePt,
+              fontSizeQ: settings.appearance.fontSizeQ,
               scale: defaultBookStyle.annotation.sizeEm,
               writingMode: "vertical-rl",
             };

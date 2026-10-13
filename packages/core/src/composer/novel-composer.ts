@@ -889,7 +889,7 @@ function createCompose(provider: RunMeasurer) {
 
     return ManuscriptResult.succeed({
       pages,
-      geometry: ManuscriptGeometry.of(settings.flow, settings.appearance),
+      geometry: ManuscriptGeometry.of(settings.flow, settings.appearance, settings.page),
       stats: {
         chars: sourceLines.reduce((total, line) => total + line.length, 0),
         sourceLines: sourceLines.length,

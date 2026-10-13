@@ -29,10 +29,10 @@ function composeRuby(
     { ...parsed.value, annotations },
     {
       composer,
-      settings: {
+      settings: NovelCompositionSettings.forPaper("a4", {
         ...NovelCompositionSettings.defaults,
         flow: { ...NovelCompositionSettings.defaults.flow, lineLengthEm: 10 },
-      },
+      }),
     },
   );
 

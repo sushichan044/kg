@@ -1,92 +1,47 @@
 import * as v from "valibot";
 
 import type { ManuscriptAppearanceSettings } from "../appearance/appearance-settings";
-import { FontSizePt } from "../appearance/font-size-pt";
+import { FontSizeQ } from "../appearance/font-size-q";
 import { PaperSize } from "../appearance/paper-size";
-import type { PaperSizeId } from "../appearance/paper-size-id";
-import { mmToPt, ptToMm } from "../internal/length";
 import { readonlyObject } from "../internal/schema";
 import type { NovelFlowSettings } from "./novel-flow-settings";
+import { ManuscriptPageSettings } from "./page-settings";
 
-const STAGE_GAP_CELLS = 2;
-const LINE_GAP_CELLS = 0.5;
-
-const nonNegativeLength = () => v.pipe(v.number(), v.finite(), v.minValue(0));
-
+const length = () => v.pipe(v.number(), v.finite(), v.minValue(0));
 const ManuscriptGeometrySchema = readonlyObject({
-  paperWidthMm: nonNegativeLength(),
-  paperHeightMm: nonNegativeLength(),
-  cellSizeMm: nonNegativeLength(),
-  lineGapMm: nonNegativeLength(),
-  fontSizePt: FontSizePt.schema,
-  contentWidthMm: nonNegativeLength(),
-  contentHeightMm: nonNegativeLength(),
-  marginInlineMm: v.pipe(v.number(), v.finite()),
-  marginBlockMm: v.pipe(v.number(), v.finite()),
-  fitsPaper: v.boolean(),
+  ...ManuscriptPageSettings.schema.entries,
+  paperWidthMm: length(),
+  paperHeightMm: length(),
+  cellSizeMm: length(),
+  fontSizeQ: FontSizeQ.schema,
+  contentWidthMm: length(),
+  contentHeightMm: length(),
 });
 
 /**
- * Physical millimetres for one page, derived from the text flow and appearance settings. The
- * content box is the 基本版面 — the text area a Japanese page format is designed around — and it is
- * centred on the paper, so the margins fall out of the paper size rather than being chosen.
- *
- * `fitsPaper` is false when the requested grid is larger than the paper. The geometry is still
- * returned in full so a caller can show what overflowed instead of being handed nothing.
+ * Physical page dimensions. The renderer mirrors inner and outer margins on alternate pages.
  */
 export type ManuscriptGeometry = v.InferOutput<typeof ManuscriptGeometrySchema>;
 
-/**
- * Every stage stacked vertically, plus the gap between adjacent stages.
- */
-function contentHeightInEm(flow: NovelFlowSettings): number {
-  return flow.stagesPerPage * flow.lineLengthEm + STAGE_GAP_CELLS * (flow.stagesPerPage - 1);
-}
-
-/**
- * Every vertical line side by side, plus the gap between adjacent lines.
- */
-function contentWidthInEm(flow: NovelFlowSettings): number {
-  return flow.linesPerStage + LINE_GAP_CELLS * (flow.linesPerStage - 1);
-}
-
 export const ManuscriptGeometry = {
   schema: ManuscriptGeometrySchema,
-
-  of: (flow: NovelFlowSettings, appearance: ManuscriptAppearanceSettings): ManuscriptGeometry => {
+  of: (
+    flow: NovelFlowSettings,
+    appearance: ManuscriptAppearanceSettings,
+    page: ManuscriptPageSettings,
+  ): ManuscriptGeometry => {
     const paper = PaperSize.of(appearance.paperSize);
-    const cellSizeMm = ptToMm(appearance.fontSizePt);
-    const contentWidthMm = contentWidthInEm(flow) * cellSizeMm;
-    const contentHeightMm = contentHeightInEm(flow) * cellSizeMm;
-    const marginInlineMm = (paper.widthMm - contentWidthMm) / 2;
-    const marginBlockMm = (paper.heightMm - contentHeightMm) / 2;
-
+    const cellSizeMm = appearance.fontSizeQ / 4;
     return {
+      ...page,
       paperWidthMm: paper.widthMm,
       paperHeightMm: paper.heightMm,
       cellSizeMm,
-      lineGapMm: LINE_GAP_CELLS * cellSizeMm,
-      fontSizePt: appearance.fontSizePt,
-      contentWidthMm,
-      contentHeightMm,
-      marginInlineMm,
-      marginBlockMm,
-      fitsPaper: marginInlineMm >= 0 && marginBlockMm >= 0,
+      fontSizeQ: appearance.fontSizeQ,
+      contentWidthMm: flow.linesPerStage * cellSizeMm + (flow.linesPerStage - 1) * page.lineGapMm,
+      contentHeightMm:
+        flow.stagesPerPage * flow.lineLengthEm * cellSizeMm +
+        (flow.stagesPerPage - 1) * page.stageGapMm,
     };
-  },
-
-  /**
-   * The largest step-aligned point size whose text area still fits the paper.
-   */
-  maxFontSizePt: (flow: NovelFlowSettings, paperSizeId: PaperSizeId): number => {
-    const paper = PaperSize.of(paperSizeId);
-    const maxCellSizeMm = Math.min(
-      paper.widthMm / contentWidthInEm(flow),
-      paper.heightMm / contentHeightInEm(flow),
-    );
-    const steps = Math.floor(mmToPt(maxCellSizeMm) / FontSizePt.range.step + 1e-9);
-    const aligned = Math.round(steps * FontSizePt.range.step * 1000) / 1000;
-
-    return Math.min(FontSizePt.range.max, Math.max(FontSizePt.range.min, aligned));
   },
 } as const;

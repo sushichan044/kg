@@ -9,7 +9,7 @@ test.each(["！", "？", "‼", "⁇", "⁈", "⁉"])(
       text,
       fontPreset: "mincho",
       writingMode: "vertical-rl",
-      fontSizePt: 12,
+      fontSizeQ: 12,
       scale: 1,
     } as const;
 
