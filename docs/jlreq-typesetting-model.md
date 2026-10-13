@@ -115,7 +115,7 @@ concept outside the current body-text design.
 | Reference                                                     | Rule or choice and kg policy                                                              | Current status and evidence                                                                                                                     | Model owner / verification                                                            |
 | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | [2.1.1–2.1.3][characters]                                     | Retain character identity and source association; use logical em by default               | Partial: parsed graphemes and East Asian Width measurements; no font shaping                                                                    | Source grapheme and measurement / combining and supplementary characters              |
-| [2.2.1–2.2.5][page-format], [2.4.1–2.4.2][hanmen]             | Derive the text area from line length, line count, columns, and character size            | Partial: `NovelFlowSettings` and `ManuscriptGeometry`; fixed line and stage gaps                                                                | Geometry / one and multiple stages; paper overflow                                    |
+| [2.2.1–2.2.5][page-format], [2.4.1–2.4.2][hanmen]             | Derive the text area from line length, line count, columns, and character size            | Partial: `NovelFlowSettings` and `ManuscriptGeometry`; millimetre line and stage gaps with validated margins                                    | Geometry / one and multiple stages; paper overflow                                    |
 | [2.3.1–2.3.2][direction]                                      | Keep inline and block coordinates distinct in vertical composition                        | Partial: vertical-rl only                                                                                                                       | Run orientation and geometry / upright, sideways, combined text                       |
 | [2.5.1–2.5.3][page-elements], [4.5.1][line-gap]               | Preserve the chosen line pitch when placing interlinear annotations                       | Partial: fixed pitch and logical right-side annotation clearance; no font-backed block ink metrics                                              | Annotation placement and geometry / annotation on first and last lines                |
 | [3.1.1][punctuation-direction]                                | Select punctuation treatment for the writing direction                                    | Partial: vertical presentation and character lists; no direction-specific font realization                                                      | Classification and measurement / vertical punctuation variants                        |
@@ -499,7 +499,7 @@ type MeasurementTextRange = Readonly<{ start: number; end: number }>;
 type MeasurementRequest = Readonly<{
   text: string;
   fontPreset: FontPresetId;
-  fontSizePt: number;
+  fontSizeQ: number;
   scale: number;
   writingMode: "vertical-rl";
 }> &
@@ -526,8 +526,7 @@ type RunMeasurer = (request: MeasurementRequest) => RunMeasurement;
 ```
 
 All measurements are in body em. `scale` is the target font size relative to body
-size, initially `1` for base and `0.5` for ruby; `fontSizePt` is the body's point
-size. The provider applies the scale once. Raw measured advances do not include
+size, initially `1` for base and `0.5` for ruby; `fontSizeQ` is the body's size in Q (1Q = 0.25mm). The provider applies the scale once. Raw measured advances do not include
 JLReq pair spacing, indentation, ruby expansion, or hanging. Punctuation box
 metrics and render offsets remain a separate rule-resolution step. Cluster spans
 are request-relative until the composer translates them onto a line.
@@ -587,13 +586,14 @@ the existing typed composition failures rather than throwing or clamping.
 | Core plugin entry       | Export the new measurement request, result, and cluster types; update the measurer accepted by `createNovelComposer`                          |
 | Parser and lint entries | Preserve current parse and proofread entrypoints; add semantic annotation variants only with their future input features                      |
 | Viewer                  | Consume combined units directly; use exact/shared mappings for diagnostic bands; consume annotation positions instead of resolving typography |
-| Frontend                | Update exhaustive item handling and test fixtures; keep persisted flow and appearance settings unchanged during structural migration          |
+| Frontend                | Update exhaustive item handling and test fixtures; use the current Q/mm preference schema without migrating previous settings                 |
 
 The output and measurement changes form one coordinated breaking revision with
 the updated viewer, package documentation, and custom-composer examples. The old
 per-grapheme combination contract has no adapter. Parser/proofreading entrypoints
-and persisted settings remain unchanged. Phase 3 publishes existing ruby and
-emphasis positions; phase 4 enables new placement behavior and annotation styles.
+remain unchanged. Previous persisted settings are ignored without migration.
+Phase 3 publishes existing ruby and emphasis positions; phase 4 enables new
+placement behavior and annotation styles.
 
 ## Worked verification scenarios
 
@@ -647,9 +647,8 @@ where needed, and `expect.assert` for premises.
 | 4. Existing annotations — implemented | Enable contextual overhang, joint jukugo bounds, group reading cursors, and existing-decoration clearance; semantic styles deferred               | Each enabled coverage row gains independent acceptance tests; changed layouts are recorded with the selected style and reference                               |
 
 Phase 3 validates the new `clustered` variant using synthetic provider fixtures;
-an actual font-shaping provider is later work. No persistence migration is needed
-until new user settings are introduced. The latter require a separate settings
-and storage-version change, not an implicit addition to this refactor.
+an actual font-shaping provider is later work. The Q/mm settings use a separate
+storage version and ignore previous persisted formats without migration.
 
 Run `vp check` and the applicable `vp test --run` projects for implementation
 phases. Core work uses `core-unit`; phase 3 also runs viewer and frontend checks,

@@ -349,8 +349,8 @@ test("toggles the decorative grid without changing composition settings", async 
   await vi.waitFor(() => {
     expect(screen.container.querySelectorAll(".kgv-rule-cell")).toHaveLength(0);
   });
-  expect(JSON.parse(localStorage.getItem("kg.manuscript.preferences.v6") ?? "null")).toMatchObject({
-    version: 6,
+  expect(JSON.parse(localStorage.getItem("kg.manuscript.preferences.v7") ?? "null")).toMatchObject({
+    version: 7,
     showGrid: false,
     composition: { flow: { lineLengthEm: 27 } },
   });
@@ -374,8 +374,62 @@ test("switches the persisted notation parser without auto-detecting source", asy
   await vi.waitFor(() => {
     expect(screen.container.querySelectorAll('[data-annotation="ruby"]')).toHaveLength(1);
   });
-  expect(JSON.parse(localStorage.getItem("kg.manuscript.preferences.v6") ?? "null")).toMatchObject({
-    version: 6,
+  expect(JSON.parse(localStorage.getItem("kg.manuscript.preferences.v7") ?? "null")).toMatchObject({
+    version: 7,
     notation: "kakuyomu",
+  });
+});
+
+test("shows fixed A5 dimensions and restores them after editing another paper format", async () => {
+  await page.viewport(1280, 900);
+  const screen = await render(<App />);
+  const settings = screen.getByRole("complementary");
+
+  await expect.element(settings.getByText("A5固定組版", { exact: true })).toBeVisible();
+  await expect
+    .element(settings.getByText("27字×23行×2段、文字サイズ12.7Q", { exact: true }))
+    .toBeVisible();
+  expect(screen.container.querySelector('input[id="lineLengthEm"]')).toBeNull();
+
+  await settings.getByRole("combobox", { name: "用紙" }).selectOptions("a4");
+  await settings.getByRole("spinbutton", { name: "一行の字数" }).fill("30");
+  await settings.getByRole("spinbutton", { name: "文字サイズ（Q）" }).fill("13");
+
+  await settings.getByRole("combobox", { name: "用紙" }).selectOptions("a5");
+
+  await expect
+    .element(settings.getByText("27字×23行×2段、文字サイズ12.7Q", { exact: true }))
+    .toBeVisible();
+  const saved = JSON.parse(localStorage.getItem("kg.manuscript.preferences.v7") ?? "null");
+  expect(saved).toMatchObject({
+    composition: {
+      flow: { lineLengthEm: 27, linesPerStage: 23, stagesPerPage: 2 },
+      appearance: { paperSize: "a5", fontSizeQ: 12.7 },
+      page: {
+        topMm: 12,
+        bottomMm: 16.55,
+        innerMm: 21.825,
+        outerMm: 13,
+        stageGapMm: 10,
+        lineGapMm: 1.825,
+      },
+    },
+  });
+});
+
+test("lets a user correct an oversized format without saving invalid settings", async () => {
+  await page.viewport(1280, 900);
+  const screen = await render(<App />);
+  await expect.element(screen.getByRole("combobox", { name: "用紙" })).toBeVisible();
+
+  await screen.getByRole("combobox", { name: "用紙" }).selectOptions("a6");
+
+  await expect.element(screen.getByRole("alert")).toBeVisible();
+  await screen.getByRole("spinbutton", { name: "一行の字数" }).fill("20");
+  await screen.getByRole("spinbutton", { name: "一段の行数" }).fill("20");
+
+  await expect.poll(() => screen.container.querySelector('[role="alert"]')).toBeNull();
+  expect(JSON.parse(localStorage.getItem("kg.manuscript.preferences.v7") ?? "null")).toMatchObject({
+    composition: { appearance: { paperSize: "a6" }, flow: { lineLengthEm: 20, linesPerStage: 20 } },
   });
 });

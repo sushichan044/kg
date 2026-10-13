@@ -53,7 +53,10 @@
 .kgv-page {
   box-sizing: border-box;
   display: grid;
-  place-items: center;
+  align-items: start;
+  justify-items: start;
+  padding: var(--kgv-margin-top) var(--kgv-margin-inner) var(--kgv-margin-bottom)
+    var(--kgv-margin-outer);
   inline-size: var(--kgv-page-width);
   block-size: var(--kgv-page-height);
   flex: none;
@@ -66,10 +69,14 @@
   }
 }
 
+.kgv-page[data-page-side="right"] {
+  padding-inline: var(--kgv-margin-inner) var(--kgv-margin-outer);
+}
+
 .kgv-page-grid {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--kgv-cell-size) * 2);
+  gap: var(--kgv-stage-gap);
 }
 
 .kgv-stage {

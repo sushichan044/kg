@@ -1,14 +1,14 @@
 import * as v from "valibot";
 
 import { FontPresetId } from "../appearance/font-preset-id";
-import { FontSizePt } from "../appearance/font-size-pt";
+import { FontSizeQ } from "../appearance/font-size-q";
 import { readonlyObject } from "../internal/schema";
 import { PresentationKind } from "./presentation-kind";
 
 const context = {
   text: v.string(),
   fontPreset: FontPresetId.schema,
-  fontSizePt: FontSizePt.schema,
+  fontSizeQ: FontSizeQ.schema,
   scale: v.pipe(v.number(), v.finite(), v.minValue(Number.MIN_VALUE)),
   writingMode: v.literal("vertical-rl"),
 };

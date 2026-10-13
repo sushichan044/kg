@@ -38,10 +38,10 @@ function composeDecorations(
     { ...parsed.value, annotations },
     {
       composer,
-      settings: {
+      settings: NovelCompositionSettings.forPaper("a4", {
         ...NovelCompositionSettings.defaults,
         flow: { lineLengthEm: 10, linesPerStage: 10, stagesPerPage: 1 },
-      },
+      }),
     },
   );
 }

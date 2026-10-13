@@ -62,6 +62,11 @@ type NovelStyle = CSSProperties & {
   "--kgv-cell-size": string;
   "--kgv-line-gap": string;
   "--kgv-line-length": number;
+  "--kgv-stage-gap": string;
+  "--kgv-margin-top": string;
+  "--kgv-margin-bottom": string;
+  "--kgv-margin-inner": string;
+  "--kgv-margin-outer": string;
   "--kgv-manuscript-font": string;
   "--kgv-page-height": string;
   "--kgv-page-width": string;
@@ -488,6 +493,11 @@ function NovelViewerComponent(
       "--kgv-cell-size": `${geometry.cellSizeMm * (value / 100)}mm`,
       "--kgv-line-gap": `${geometry.lineGapMm * (value / 100)}mm`,
       "--kgv-line-length": composed.settings.flow.lineLengthEm,
+      "--kgv-stage-gap": `${geometry.stageGapMm * (value / 100)}mm`,
+      "--kgv-margin-top": `${geometry.topMm * (value / 100)}mm`,
+      "--kgv-margin-bottom": `${geometry.bottomMm * (value / 100)}mm`,
+      "--kgv-margin-inner": `${geometry.innerMm * (value / 100)}mm`,
+      "--kgv-margin-outer": `${geometry.outerMm * (value / 100)}mm`,
       "--kgv-manuscript-font": selectedFont.family,
       "--kgv-page-height": `${geometry.paperHeightMm * (value / 100)}mm`,
       "--kgv-page-width": `${geometry.paperWidthMm * (value / 100)}mm`,
@@ -578,11 +588,11 @@ function NovelViewerComponent(
                 pageRefs.current[pageIndex] = element;
               }}
               data-page-index={pageIndex}
+              data-page-side={pageIndex % 2 === 0 ? "left" : "right"}
               data-grid={showGrid ? "visible" : "hidden"}
               className="kgv-page"
               aria-label={`${pageIndex + 1}ページ目、全${pages.length}ページ`}
               data-offscreen={pageIndex > 0 ? "" : undefined}
-              data-overflow={geometry.fitsPaper ? undefined : ""}
             >
               <p className="kgv-visually-hidden">{pageText(page)}</p>
               <div className="kgv-page-grid">

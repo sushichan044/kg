@@ -1,5 +1,6 @@
 import * as v from "valibot";
 
+import { A5_PAGE_FORMAT } from "../appearance/a5-page-format";
 import { readonlyObject } from "../internal/schema";
 
 const RANGES = {
@@ -31,9 +32,5 @@ export const NovelFlowSettings = {
   schema: NovelFlowSettingsSchema,
   ranges: RANGES,
 
-  defaults: {
-    lineLengthEm: 27,
-    linesPerStage: 23,
-    stagesPerPage: 2,
-  } as const satisfies NovelFlowSettings,
+  defaults: A5_PAGE_FORMAT.flow satisfies NovelFlowSettings,
 } as const;

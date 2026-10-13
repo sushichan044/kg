@@ -53,11 +53,12 @@ async function renderViewer(options: ViewerFixtureOptions, props: ViewerFixtureP
 
   const composed = composeManuscript(parsed.value, {
     composer: options.composer ?? novelComposer,
-    settings: {
+    settings: NovelCompositionSettings.forPaper(options.flow === undefined ? "a5" : "a4", {
+      page: NovelCompositionSettings.defaults.page,
       flow: options.flow ?? NovelCompositionSettings.defaults.flow,
       offsets: options.offsets ?? NovelCompositionSettings.defaults.offsets,
       appearance: options.appearance ?? NovelCompositionSettings.defaults.appearance,
-    },
+    }),
   });
   expect.assert(composed.ok, "fixture did not compose");
 
@@ -451,7 +452,10 @@ test("shows a nominal grid without letting it change text coordinates", async ()
   expect.assert(parsed.ok, "fixture did not parse");
   const composed = composeManuscript(parsed.value, {
     composer: novelComposer,
-    settings: { ...NovelCompositionSettings.defaults, flow },
+    settings: NovelCompositionSettings.forPaper("a4", {
+      ...NovelCompositionSettings.defaults,
+      flow,
+    }),
   });
   expect.assert(composed.ok, "fixture did not compose");
   const composedManuscript = composed.value;
@@ -795,3 +799,50 @@ test("renders reserved lines without introducing phantom graphemes", async ({ re
     Array.from(contentLine.querySelectorAll(".kgv-cell"), ({ textContent }) => textContent),
   ).toEqual(["あ", "い", "う"]);
 });
+
+for (const zoom of [50, 100, 150]) {
+  test(`renders fixed A5 dimensions and mirrored margins at ${zoom}%`, async ({ renderViewer }) => {
+    const { screen } = await renderViewer(
+      { text: "あ".repeat(27 * 23 * 2 + 1) },
+      { zoom: { value: zoom, min: 1, max: 200, step: 1, onChange: () => {} } },
+    );
+    const pages = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-page"));
+    const first = pages[0];
+    const second = pages[1];
+    expect.assert(first !== undefined && second !== undefined);
+    const grid = first.querySelector<HTMLElement>(".kgv-page-grid");
+    const stages = first.querySelectorAll<HTMLElement>(".kgv-stage");
+    const top = stages[0];
+    const bottom = stages[1];
+    expect.assert(grid !== null && top !== undefined && bottom !== undefined);
+    const lines = top.querySelectorAll<HTMLElement>(".kgv-line");
+    const right = lines[0];
+    const next = lines[1];
+    expect.assert(right !== undefined && next !== undefined);
+
+    const mm = (value: number) => value * (96 / 25.4) * (zoom / 100);
+    const bounds = first.getBoundingClientRect();
+    const textBounds = grid.getBoundingClientRect();
+    const rightBounds = right.getBoundingClientRect();
+
+    expect(pages).toHaveLength(2);
+    expect(lines).toHaveLength(23);
+    expect(bounds.width).toBeCloseTo(mm(148), 1);
+    expect(bounds.height).toBeCloseTo(mm(210), 1);
+    expect(textBounds.width).toBeCloseTo(mm(113.175), 0);
+    expect(textBounds.height).toBeCloseTo(mm(181.45), 1);
+    expect(textBounds.top - bounds.top).toBeCloseTo(mm(12), 1);
+    expect(bounds.bottom - textBounds.bottom).toBeCloseTo(mm(16.55), 1);
+    expect(textBounds.left - bounds.left).toBeCloseTo(mm(13), 1);
+    expect(bounds.right - textBounds.right).toBeCloseTo(mm(21.825), 0);
+    expect(bottom.getBoundingClientRect().top - top.getBoundingClientRect().bottom).toBeCloseTo(
+      mm(10),
+      1,
+    );
+    expect(rightBounds.width).toBeCloseTo(mm(3.175), 1);
+    expect(rightBounds.height).toBeCloseTo(mm(27 * 3.175), 1);
+    expect(rightBounds.left - next.getBoundingClientRect().left).toBeCloseTo(mm(5), 1);
+    expect(Number.parseFloat(getComputedStyle(second).paddingLeft)).toBeCloseTo(mm(21.825), 1);
+    expect(Number.parseFloat(getComputedStyle(second).paddingRight)).toBeCloseTo(mm(13), 1);
+  });
+}

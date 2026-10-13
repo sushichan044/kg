@@ -30,7 +30,7 @@ function parsed(source: string) {
 }
 
 function settings(patch: Partial<NovelCompositionSettings["flow"]> = {}): NovelCompositionSettings {
-  return {
+  return NovelCompositionSettings.forPaper("a4", {
     ...NovelCompositionSettings.defaults,
     flow: {
       lineLengthEm: 10,
@@ -38,7 +38,7 @@ function settings(patch: Partial<NovelCompositionSettings["flow"]> = {}): NovelC
       stagesPerPage: 1,
       ...patch,
     },
-  };
+  });
 }
 
 function lineText(line: NovelLine): string {

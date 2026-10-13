@@ -33,11 +33,6 @@
   box-shadow: 0 1px 4px rgb(0 0 0 / 15%);
 }
 
-.kgv-page[data-overflow] {
-  outline: 2px dashed var(--kgv-accent);
-  outline-offset: 3px;
-}
-
 /* The ruling of one line. Each box of the ruling layer draws its own head and sides, and the last
    one closes the foot, so every rule is painted once — never doubled by the neighbour, and never
    widening the line, since these boxes carry no text and are out of flow.

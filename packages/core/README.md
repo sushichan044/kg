@@ -186,7 +186,7 @@ const composer = createNovelComposer({ measurer: logicalRunMeasurer });
 ```
 
 `MeasurementRequest` includes `text`, `kind` (`base` or `ruby`), `presentation`,
-`fontPreset`, body `fontSizePt`, `writingMode`, and `scale`. A provider returns
+`fontPreset`, body `fontSizeQ`, `writingMode`, and `scale`. A provider returns
 measurements in body em and applies `scale` once: `1` for base text, `0.5` for ruby.
 Measured widths exclude punctuation box adjustments, pair spacing, hanging, and
 ruby expansion.
@@ -258,6 +258,41 @@ failure carries exactly one error from a discriminated union, so callers can
 as typed fields; `describe` renders one for display. Invalid settings and
 plugin output fail explicitly; values are never clamped or partially trusted.
 
+## Physical page settings
+
+`NovelCompositionSettings` combines `flow`, `appearance`, `page`, and `offsets`.
+`appearance.fontSizeQ` specifies the body size in Q (1Q = 0.25mm).
+`ManuscriptPageSettings` specifies `lineGapMm`, `stageGapMm`, `topMm`, `bottomMm`,
+`innerMm` (binding edge), and `outerMm` (fore edge). Line gap is the space between
+body cells; line pitch is `fontSizeQ / 4 + lineGapMm`.
+
+A5 is fixed at 12.7Q, 27 characters per line, 23 lines per stage, and two stages.
+Its line gap is 1.825mm, stage gap 10mm, top margin 12mm, bottom margin 16.55mm,
+inner margin 21.825mm, and outer margin 13mm. `NovelCompositionSettings.defaults`
+contains this format. Typeface and reserved lines remain configurable.
+
+`NovelCompositionSettings.forPaper(paperSize, settings)` selects the fixed A5
+format or centres the current grid on another paper size. For non-A5 formats,
+`ManuscriptPageSettings.centered(flow, appearance)` computes millimetre settings
+with half-cell line gaps and two-cell stage gaps. These helpers calculate values;
+validate the result before persisting or rendering an oversized grid.
+
+Custom non-A5 page settings can provide explicit millimetre gaps and margins.
+The settings schema checks that text dimensions plus margins equal the paper
+size within 0.000001mm. Gaps and margins must be nonnegative, and the line gap
+must accommodate the existing half-size annotation area. A mismatch returns
+`InvalidSettings` through `composeManuscript`, including unused space:
+
+```text
+height = stages × charactersPerLine × (fontSizeQ / 4) + (stages - 1) × stageGapMm
+width  = linesPerStage × (fontSizeQ / 4) + (linesPerStage - 1) × lineGapMm
+```
+
+The public settings and measurement contracts use Q and millimetres only for
+physical sizes. Body-relative `Em` coordinates and flow counts remain logical
+units. Point-based settings and previous persisted preference versions have no
+adapter or migration.
+
 ## Source mapping and render units
 
 Source and display ranges are zero-based, end-exclusive UTF-16 offsets.
@@ -300,7 +335,7 @@ Emphasis placements have a half-em inline extent centered on their render unit.
 Brackets, commas, and full stops receive no marks. Ruby and nonempty emphasis
 must fit the fixed half-em right-side area without colliding. Core may choose
 another line break; an impossible combination returns `ComposerRejected` with
-a reason. Body pitch, source ranges, and persisted settings remain unchanged.
+a reason. Annotation placement preserves body pitch and source ranges.
 Actual font shaping, selectable sides, sidelines, and mixed sizes remain deferred.
 
 Diagnostics include one-based source line and column positions, so renderers do
@@ -315,8 +350,9 @@ plugin entry replaces `InlineMeasureRequest`, `InlineMeasurement`,
 `InlineMeasurer`, and `logicalInlineMeasurer` with the run measurement contracts
 above. `createNovelComposer({ measurer })` keeps its option name but requires the
 new request and discriminated result. Ruby `readingGraphemes` becomes
-`readingItems`; decoration positions move into core output. Persisted settings
-and parser/proofreading entrypoints are unchanged.
+`readingItems`; decoration positions move into core output. Parser/proofreading
+entrypoints remain unchanged. Previous persisted settings are ignored without
+migration.
 
 ## Proofreading rules
 

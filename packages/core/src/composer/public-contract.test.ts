@@ -240,10 +240,10 @@ describe("public render units", () => {
 
     const result = composeManuscript(parsed.value, {
       composer,
-      settings: {
+      settings: NovelCompositionSettings.forPaper("a4", {
         ...NovelCompositionSettings.defaults,
         flow: { lineLengthEm: 10, linesPerStage: 10, stagesPerPage: 1 },
-      },
+      }),
     });
 
     expect.assert(result.ok);
@@ -313,10 +313,10 @@ describe("public render units", () => {
 
     const result = composeManuscript(parsed.value, {
       composer,
-      settings: {
+      settings: NovelCompositionSettings.forPaper("a4", {
         ...NovelCompositionSettings.defaults,
         flow: { lineLengthEm: 10, linesPerStage: 10, stagesPerPage: 1 },
-      },
+      }),
     });
 
     expect.assert(result.ok);
