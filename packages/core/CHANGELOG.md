@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.11.0](https://github.com/sushichan044/kg/compare/kg-core-v0.10.2...kg-core-v0.11.0) (2026-10-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **typesetting:** Replace fontSizePt with fontSizeQ in settings and measurement requests, require page dimensions in millimetres, and ignore previous saved preferences without migration.
+
+### Features
+
+* **typesetting:** use Q and mm with a fixed A5 format ([fab83d7](https://github.com/sushichan044/kg/commit/fab83d723ccc5d63cbf7305040b88ef7ac53a0d9))
+
 ## [0.10.2](https://github.com/sushichan044/kg/compare/kg-core-v0.10.1...kg-core-v0.10.2) (2026-10-12)
 
 
