@@ -335,7 +335,7 @@ Emphasis placements have a half-em inline extent centered on their render unit.
 Brackets, commas, and full stops receive no marks. Ruby and nonempty emphasis
 must fit the fixed half-em right-side area without colliding. Core may choose
 another line break; an impossible combination returns `ComposerRejected` with
-a reason. Body pitch, source ranges, and persisted settings remain unchanged.
+a reason. Annotation placement preserves body pitch and source ranges.
 Actual font shaping, selectable sides, sidelines, and mixed sizes remain deferred.
 
 Diagnostics include one-based source line and column positions, so renderers do
@@ -350,8 +350,9 @@ plugin entry replaces `InlineMeasureRequest`, `InlineMeasurement`,
 `InlineMeasurer`, and `logicalInlineMeasurer` with the run measurement contracts
 above. `createNovelComposer({ measurer })` keeps its option name but requires the
 new request and discriminated result. Ruby `readingGraphemes` becomes
-`readingItems`; decoration positions move into core output. Persisted settings
-and parser/proofreading entrypoints are unchanged.
+`readingItems`; decoration positions move into core output. Parser/proofreading
+entrypoints remain unchanged. Previous persisted settings are ignored without
+migration.
 
 ## Proofreading rules
 

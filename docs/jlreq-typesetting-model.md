@@ -591,8 +591,9 @@ the existing typed composition failures rather than throwing or clamping.
 The output and measurement changes form one coordinated breaking revision with
 the updated viewer, package documentation, and custom-composer examples. The old
 per-grapheme combination contract has no adapter. Parser/proofreading entrypoints
-and persisted settings remain unchanged. Phase 3 publishes existing ruby and
-emphasis positions; phase 4 enables new placement behavior and annotation styles.
+remain unchanged. Previous persisted settings are ignored without migration.
+Phase 3 publishes existing ruby and emphasis positions; phase 4 enables new
+placement behavior and annotation styles.
 
 ## Worked verification scenarios
 
@@ -646,9 +647,8 @@ where needed, and `expect.assert` for premises.
 | 4. Existing annotations — implemented | Enable contextual overhang, joint jukugo bounds, group reading cursors, and existing-decoration clearance; semantic styles deferred               | Each enabled coverage row gains independent acceptance tests; changed layouts are recorded with the selected style and reference                               |
 
 Phase 3 validates the new `clustered` variant using synthetic provider fixtures;
-an actual font-shaping provider is later work. No persistence migration is needed
-until new user settings are introduced. The latter require a separate settings
-and storage-version change, not an implicit addition to this refactor.
+an actual font-shaping provider is later work. The Q/mm settings use a separate
+storage version and ignore previous persisted formats without migration.
 
 Run `vp check` and the applicable `vp test --run` projects for implementation
 phases. Core work uses `core-unit`; phase 3 also runs viewer and frontend checks,
