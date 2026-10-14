@@ -12,10 +12,11 @@ export function DiagnosticList({
   diagnostics,
   activeDiagnosticId = null,
   onSelect,
-  emptyMessage = "診断はありません。",
+  emptyMessage = "",
   className,
 }: DiagnosticListProps) {
   if (diagnostics.length === 0) {
+    if (emptyMessage === "") return null;
     return (
       <p className={["kgv-diagnostics-empty", className].filter(Boolean).join(" ")}>
         {emptyMessage}

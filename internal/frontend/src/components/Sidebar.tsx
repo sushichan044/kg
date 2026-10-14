@@ -11,26 +11,22 @@ export type FilePanelProps = Readonly<{
 export function FilePanel({ files, selectedId, onSelect }: FilePanelProps) {
   return (
     <nav className="files" aria-label="ファイル">
-      {files.length === 0 ? (
-        <p className="files__empty">.txt ファイルがありません</p>
-      ) : (
-        <ul className="file-list">
-          {files.map((file) => (
-            <li key={file.id}>
-              <button
-                type="button"
-                className="file-list__item"
-                aria-current={file.id === selectedId ? "page" : undefined}
-                onClick={() => {
-                  onSelect(file.id);
-                }}
-              >
-                {file.path}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul className="file-list">
+        {files.map((file) => (
+          <li key={file.id}>
+            <button
+              type="button"
+              className="file-list__item"
+              aria-current={file.id === selectedId ? "page" : undefined}
+              onClick={() => {
+                onSelect(file.id);
+              }}
+            >
+              {file.path}
+            </button>
+          </li>
+        ))}
+      </ul>
     </nav>
   );
 }
@@ -46,13 +42,14 @@ export function Sidebar({ files, selectedId, onSelect, status, children }: Sideb
     <aside className="sidebar">
       <div className="brand">
         <span className="brand__name">kg</span>
-        <span className="brand__mode">縦書き小説</span>
       </div>
       <FilePanel files={files} selectedId={selectedId} onSelect={onSelect} />
       {children}
-      <p className="sidebar__status" role="status">
-        {status}
-      </p>
+      {children === null && status && (
+        <p className="status" role="status">
+          {status}
+        </p>
+      )}
     </aside>
   );
 }

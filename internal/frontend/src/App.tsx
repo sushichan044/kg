@@ -220,7 +220,6 @@ function Workspace() {
   useServerEvents({
     onCatalogChanged: () => {
       void refreshFiles();
-      setStatus("ファイル一覧を更新しました");
     },
     onFileChanged: (id) => {
       if (id === selectedId) void loadContent(id);
@@ -273,7 +272,6 @@ function Workspace() {
     <SettingsPanel
       notation={manuscript.preferences.notation}
       composition={manuscript.preferences.composition}
-      composed={processed.value.composed}
       showGrid={manuscript.preferences.showGrid}
       presets={manuscript.preferences.presets}
       status={status}
@@ -309,7 +307,6 @@ function Workspace() {
             idPrefix="desktop-"
             notation={manuscript.preferences.notation}
             composition={manuscript.preferences.composition}
-            composed={processed.value.composed}
             showGrid={manuscript.preferences.showGrid}
             presets={manuscript.preferences.presets}
             status={status}
@@ -336,9 +333,7 @@ function Workspace() {
       </Sidebar>
 
       <main id="preview" className="preview" tabIndex={-1} aria-label="プレビュー">
-        {selectedFile === null ? (
-          <p className="preview__empty">監視対象の .txt ファイルがありません。</p>
-        ) : (
+        {selectedFile === null ? null : (
           <>
             {processed.ok && (
               <ViewerToolbar
@@ -406,7 +401,7 @@ function Workspace() {
               />
             ) : (
               <div className="preview__failure" role="alert">
-                <strong>原稿を処理できませんでした。</strong>
+                <strong>原稿を処理できませんでした</strong>
                 <p>{ProcessManuscriptError.describe(processed.error)}</p>
               </div>
             )}
@@ -452,8 +447,13 @@ function Workspace() {
           setSettingsSheetOpen(false);
         }}
       >
+        {processed.ok && (
+          <p className="mobile-summary">
+            {processed.value.composed.layout.stats.chars}字・
+            {processed.value.composed.layout.stats.pages}ページ
+          </p>
+        )}
         <ZoomControls
-          verbose
           className="mobile-zoom"
           zoom={zoom}
           fit={manuscript.preferences.fit}

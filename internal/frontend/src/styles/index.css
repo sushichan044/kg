@@ -93,9 +93,10 @@ select {
   font-weight: 700;
 }
 
-.brand__mode {
-  font-size: 0.85rem;
-  opacity: 0.75;
+.sidebar .files {
+  max-block-size: 30dvb;
+  flex-shrink: 0;
+  overflow: auto;
 }
 
 .file-list {
@@ -127,11 +128,6 @@ select {
   border-inline-start-color: var(--accent);
   background: rgb(0 0 0 / 8%);
   font-weight: 700;
-}
-
-.files__empty,
-.preview__empty {
-  opacity: 0.7;
 }
 
 .preview {
@@ -286,7 +282,26 @@ select {
 }
 
 .fixed-format p {
-  margin: 0;
+  margin: 0.65rem 0 0;
+  font-size: 0.85rem;
+}
+
+:where(.fixed-format, .settings-details) summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.settings-details .offset-controls {
+  margin-block-start: 0.65rem;
+}
+
+.mobile-summary {
+  margin: 0 0 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.mobile-zoom {
+  margin-block-end: 1.25rem;
 }
 
 .select-control {
@@ -303,8 +318,7 @@ select {
 }
 
 .preset-save,
-.preset-list li,
-.stats div {
+.preset-list li {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -324,28 +338,10 @@ select {
   list-style: none;
 }
 
-.stats {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  margin: 0;
-}
-
-.stats dd {
-  margin: 0;
-  font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
-  font-variant-numeric: tabular-nums;
-}
-
 .status {
-  min-block-size: 1.25rem;
   margin: 0;
   font-size: 0.8rem;
   opacity: 0.75;
-}
-
-.zoom-controls--verbose {
-  margin-block-end: 1.25rem;
 }
 
 .preview__failure {
