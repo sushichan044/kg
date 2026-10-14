@@ -385,7 +385,7 @@ test("shows fixed A5 dimensions and restores them after editing another paper fo
   const screen = await render(<App />);
   const settings = screen.getByRole("complementary");
 
-  await expect.element(settings.getByText("A5固定組版", { exact: true })).toBeVisible();
+  await settings.getByText("A5固定組版", { exact: true }).click();
   await expect
     .element(settings.getByText("27字×23行×2段、文字サイズ12.7Q", { exact: true }))
     .toBeVisible();
@@ -396,6 +396,7 @@ test("shows fixed A5 dimensions and restores them after editing another paper fo
   await settings.getByRole("spinbutton", { name: "文字サイズ（Q）" }).fill("13");
 
   await settings.getByRole("combobox", { name: "用紙" }).selectOptions("a5");
+  await settings.getByText("A5固定組版", { exact: true }).click();
 
   await expect
     .element(settings.getByText("27字×23行×2段、文字サイズ12.7Q", { exact: true }))

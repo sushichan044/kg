@@ -17,7 +17,6 @@ import type { ManuscriptNotation, ManuscriptPreset } from "../lib/storage";
 type ZoomControlsProps = Readonly<{
   zoom: number;
   fit: boolean;
-  verbose?: boolean;
   className?: string;
   onZoomChange: (zoom: number) => void;
   onFitChange: (fit: boolean) => void;
@@ -32,7 +31,6 @@ function classNames(...values: Array<string | undefined>): string {
 export function ZoomControls({
   zoom,
   fit,
-  verbose = false,
   className,
   onZoomChange,
   onFitChange,
@@ -40,14 +38,7 @@ export function ZoomControls({
   const zoomOut = zoom > ZOOM.min ? Math.max(ZOOM.min, zoom - ZOOM.step) : null;
   const zoomIn = zoom < ZOOM.max ? Math.min(ZOOM.max, zoom + ZOOM.step) : null;
   return (
-    <div
-      className={classNames(
-        "zoom-controls",
-        verbose ? "zoom-controls--verbose" : undefined,
-        className,
-      )}
-      aria-label="ズーム"
-    >
+    <div className={classNames("zoom-controls", className)} aria-label="ズーム">
       <button
         type="button"
         aria-label="縮小"
@@ -76,7 +67,7 @@ export function ZoomControls({
           onFitChange(true);
         }}
       >
-        {verbose ? "ページに合わせる" : "全体"}
+        ページに合わせる
       </button>
     </div>
   );
@@ -127,7 +118,6 @@ export function ViewerToolbar({
 type SettingsPanelProps = Readonly<{
   notation: ManuscriptNotation;
   composition: NovelCompositionSettings;
-  composed: NovelComposedManuscript;
   showGrid: boolean;
   presets: readonly ManuscriptPreset[];
   status: string;
@@ -153,7 +143,6 @@ function numericValue(value: string): number | null {
 export function SettingsPanel({
   notation,
   composition: savedComposition,
-  composed,
   showGrid,
   presets,
   status,
@@ -240,12 +229,12 @@ export function SettingsPanel({
               onGridChange(event.currentTarget.checked);
             }}
           />
-          マス目を表示
+          マス目
         </label>
       </fieldset>
       {fixed ? (
-        <fieldset className="paper-controls fixed-format">
-          <legend>A5固定組版</legend>
+        <details className="fixed-format">
+          <summary>A5固定組版</summary>
           <p>
             {composition.flow.lineLengthEm}字×{composition.flow.linesPerStage}行×
             {composition.flow.stagesPerPage}段、文字サイズ{composition.appearance.fontSizeQ}Q
@@ -259,7 +248,7 @@ export function SettingsPanel({
             天{composition.page.topMm}mm、地{composition.page.bottomMm}mm、ノド
             {composition.page.innerMm}mm、小口{composition.page.outerMm}mm
           </p>
-        </fieldset>
+        </details>
       ) : (
         <fieldset className="controls">
           <legend>組版</legend>
@@ -348,44 +337,51 @@ export function SettingsPanel({
         </label>
         {draft !== null && (
           <p className="paper-warning" role="alert">
-            組版設定が成立しません。字数、行数、段数、文字サイズ、空き行を確認してください。
+            用紙に収まりません。字数・行数・段数・文字サイズ・空き行を調整してください。
           </p>
         )}
       </fieldset>
 
-      <fieldset className="offset-controls">
-        <legend>空き行</legend>
-        {(
-          [
-            ["document", "原稿"],
-            ["page", "ページ"],
-            ["stage", "段"],
-          ] as const
-        ).flatMap(([scope, scopeLabel]) =>
-          (["leading", "trailing"] as const).map((edge) => (
-            <label key={`${scope}-${edge}`} className="control">
-              <span>
-                {scopeLabel}
-                {edge === "leading" ? "先頭" : "末尾"}
-              </span>
-              <input
-                type="number"
-                min={0}
-                value={composition.offsets[scope][edge]}
-                onChange={(event) => {
-                  changeOffset(scope, edge, event.currentTarget.value);
-                }}
-              />
-            </label>
-          )),
-        )}
-      </fieldset>
+      <details className="settings-details">
+        <summary>空き行</summary>
+        <fieldset className="offset-controls">
+          <legend className="visually-hidden">空き行</legend>
+          {(
+            [
+              ["document", "原稿"],
+              ["page", "ページ"],
+              ["stage", "段"],
+            ] as const
+          ).flatMap(([scope, scopeLabel]) =>
+            (["leading", "trailing"] as const).map((edge) => (
+              <label key={`${scope}-${edge}`} className="control">
+                <span>
+                  {scopeLabel}
+                  {edge === "leading" ? "先頭" : "末尾"}
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  value={composition.offsets[scope][edge]}
+                  onChange={(event) => {
+                    changeOffset(scope, edge, event.currentTarget.value);
+                  }}
+                />
+              </label>
+            )),
+          )}
+        </fieldset>
+      </details>
 
       <section className="presets" aria-labelledby={`${idPrefix}presets-heading`}>
         <strong id={`${idPrefix}presets-heading`}>プリセット</strong>
         <div className="preset-save">
+          <label className="visually-hidden" htmlFor={`${idPrefix}preset-name`}>
+            プリセット名
+          </label>
           <input
-            aria-label="プリセット名"
+            id={`${idPrefix}preset-name`}
+            placeholder="プリセット名"
             value={presetName}
             onChange={(event) => {
               setPresetName(event.currentTarget.value);
@@ -430,19 +426,11 @@ export function SettingsPanel({
         </ul>
       </section>
 
-      <dl className="stats">
-        <div>
-          <dt>文字数</dt>
-          <dd>{composed.layout.stats.chars}</dd>
-        </div>
-        <div>
-          <dt>ページ数</dt>
-          <dd>{composed.layout.stats.pages}</dd>
-        </div>
-      </dl>
-      <p className="status" role="status">
-        {status}
-      </p>
+      {status && (
+        <p className="status" role="status">
+          {status}
+        </p>
+      )}
     </div>
   );
 }
