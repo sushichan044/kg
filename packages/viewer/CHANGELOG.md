@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.11.1](https://github.com/sushichan044/kg/compare/kg-viewer-v0.11.0...kg-viewer-v0.11.1) (2026-10-14)
+
+
+### Features
+
+* **viewer:** use white paper and black text with cyan ruling ([038455a](https://github.com/sushichan044/kg/commit/038455a0a4eb0327741f90af3b57d3fd2344186e))
+* **viewer:** use white paper and black text with cyan ruling ([5112ca2](https://github.com/sushichan044/kg/commit/5112ca2dda996e2c823d3386b1c66bdc41734722))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @sushichan044/kg-core bumped to 0.11.1
+
 ## [0.11.0](https://github.com/sushichan044/kg/compare/kg-viewer-v0.10.2...kg-viewer-v0.11.0) (2026-10-13)
 
 
