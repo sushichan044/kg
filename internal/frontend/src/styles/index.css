@@ -1,12 +1,13 @@
 :root {
-  --surface: #d8d0c2;
-  --sidebar: #eee8dc;
-  --paper: #f7efd8;
-  --text: #2f2a24;
-  --grid: #d8c7a6;
-  --accent: #9b3f32;
+  --surface: #fff;
+  --sidebar: #fff;
+  --paper: #fff;
+  --text: #000;
+  --grid: rgb(0 174 204 / 30%);
+  --accent: #000;
 
   color-scheme: light;
+  accent-color: var(--accent);
 }
 
 * {
@@ -124,7 +125,7 @@ select {
 
 .file-list__item[aria-current="page"] {
   border-inline-start-color: var(--accent);
-  background: rgb(155 63 50 / 8%);
+  background: rgb(0 0 0 / 8%);
   font-weight: 700;
 }
 
@@ -150,8 +151,8 @@ select {
   container: toolbar / inline-size;
   min-inline-size: 0;
   color: var(--text);
-  background: rgb(216 208 194 / 92%);
-  border-block-end: 1px solid rgb(47 42 36 / 14%);
+  background: var(--surface);
+  border-block-end: 1px solid rgb(0 0 0 / 14%);
 }
 
 .toolbar {
@@ -192,7 +193,7 @@ select {
 .toolbar button {
   min-block-size: 2rem;
   padding: 0.25rem 0.55rem;
-  border: 1px solid rgb(47 42 36 / 35%);
+  border: 1px solid rgb(0 0 0 / 35%);
   border-radius: 3px;
   background: var(--sidebar);
   color: inherit;
@@ -380,7 +381,7 @@ select {
   min-block-size: 0;
   padding: 1rem;
   overflow: auto;
-  border-inline-start: 1px solid rgb(47 42 36 / 18%);
+  border-inline-start: 1px solid rgb(0 0 0 / 18%);
   background: var(--sidebar);
 }
 
@@ -405,7 +406,7 @@ select {
   margin: auto 0 0;
   padding: 0;
   flex-direction: column;
-  border: 1px solid rgb(47 42 36 / 25%);
+  border: 1px solid rgb(0 0 0 / 25%);
   border-radius: 1rem 1rem 0 0;
   background: var(--sidebar);
   color: var(--text);
@@ -420,7 +421,7 @@ select {
 }
 
 .mobile-sheet::backdrop {
-  background: rgb(47 42 36 / 42%);
+  background: rgb(0 0 0 / 42%);
 }
 
 .mobile-sheet__header {
@@ -429,7 +430,7 @@ select {
   z-index: 1;
   margin: 0;
   padding: 0.75rem 1rem;
-  border-block-end: 1px solid rgb(47 42 36 / 14%);
+  border-block-end: 1px solid rgb(0 0 0 / 14%);
   background: var(--sidebar);
 }
 
@@ -461,8 +462,8 @@ select {
     gap: 0.35rem;
     padding: 0.35rem max(0.5rem, env(safe-area-inset-right)) 0.35rem
       max(0.5rem, env(safe-area-inset-left));
-    border-block-end: 1px solid rgb(47 42 36 / 14%);
-    background: rgb(216 208 194 / 94%);
+    border-block-end: 1px solid rgb(0 0 0 / 14%);
+    background: var(--surface);
   }
 
   .mobile-toolbar strong {
@@ -476,7 +477,7 @@ select {
   .mobile-toolbar button {
     min-block-size: 2.75rem;
     padding: 0.35rem 0.55rem;
-    border: 1px solid rgb(47 42 36 / 35%);
+    border: 1px solid rgb(0 0 0 / 35%);
     border-radius: 4px;
     background: var(--sidebar);
     color: inherit;

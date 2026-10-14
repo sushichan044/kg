@@ -12,18 +12,19 @@
    literal fallbacks. */
 
 .kgv-viewer {
-  --kgv-surface: #d8d0c2;
-  --kgv-paper: #f7efd8;
-  --kgv-text: #2f2a24;
+  --kgv-surface: #fff;
+  --kgv-paper: #fff;
+  --kgv-text: #000;
   /* Secondary text. Kept above 4.5:1 on both --kgv-surface and --kgv-controls-surface,
        which opacity-based dimming cannot guarantee. */
-  --kgv-text-muted: #57504a;
-  --kgv-grid: #d8c7a6;
-  --kgv-accent: #9b3f32;
-  --kgv-controls-surface: #eee8dc;
+  --kgv-text-muted: #000;
+  --kgv-grid: rgb(0 174 204 / 30%);
+  --kgv-accent: #000;
+  --kgv-controls-surface: #fff;
   --kgv-padding: 2rem;
   --kgv-rule-width: 1px;
 
+  color-scheme: light;
   color: var(--kgv-text);
   background: var(--kgv-surface);
 }
@@ -75,29 +76,29 @@ button.kgv-diagnostic-band:focus-visible {
 
 .kgv-diagnostics button {
   padding: 0.55rem;
-  border: 1px solid rgb(47 42 36 / 35%);
+  border: 1px solid rgb(0 0 0 / 35%);
   border-radius: 3px;
-  background: var(--kgv-controls-surface, #eee8dc);
+  background: var(--kgv-controls-surface, #fff);
 }
 
 .kgv-diagnostics button:focus-visible {
-  outline: 3px solid var(--kgv-accent, #9b3f32);
+  outline: 3px solid var(--kgv-accent, #000);
   outline-offset: 2px;
 }
 
 .kgv-diagnostics button[aria-current="true"] {
-  border-color: var(--kgv-accent, #9b3f32);
-  outline: 1px solid var(--kgv-accent, #9b3f32);
+  border-color: var(--kgv-accent, #000);
+  outline: 1px solid var(--kgv-accent, #000);
 }
 
 .kgv-diagnostic-location {
-  color: var(--kgv-text-muted, #57504a);
+  color: var(--kgv-text-muted, #000);
   font-size: 0.8rem;
   font-variant-numeric: tabular-nums;
 }
 
 .kgv-diagnostics-empty {
-  color: var(--kgv-text-muted, #57504a);
+  color: var(--kgv-text-muted, #000);
 }
 
 /* The diagnostic tint and the active-item accent above are drawn with author colors and
