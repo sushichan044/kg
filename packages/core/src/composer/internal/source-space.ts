@@ -10,9 +10,16 @@ export type SourceSpace = Readonly<{
 }>;
 
 export const SourceSpace = {
-  collect: (graphemes: readonly ParsedGrapheme[], advancesEm: readonly number[]): SourceSpace[] => {
+  collect: (
+    graphemes: readonly ParsedGrapheme[],
+    advancesEm: readonly number[],
+    additionalSentenceEndingMarks = "",
+  ): SourceSpace[] => {
     const gaps = new Set(
-      questionOrExclamationSpacings(graphemes.map(({ value }) => value).join(""))
+      questionOrExclamationSpacings(
+        graphemes.map(({ value }) => value).join(""),
+        additionalSentenceEndingMarks,
+      )
         .filter((spacing) => spacing.kind === "valid")
         .map(({ gap }) => gap.start),
     );

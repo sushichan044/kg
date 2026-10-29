@@ -107,6 +107,7 @@ function measureSourceLine(
   sourceLine: readonly ParsedGrapheme[],
   annotations: readonly ManuscriptAnnotation[],
   measurements: MeasurementSession,
+  additionalSentenceEndingMarks: string,
 ): MeasuredSourceLine | undefined {
   const runs = CompositionRun.recognize(sourceLine);
   const rubyAssociations = RubyAssociation.collect(annotations, sourceLine);
@@ -126,10 +127,12 @@ function measureSourceLine(
         const first = memberIndex === 0;
         const renderAdvanceEm = first ? piece.renderSpan.advanceEm : 0;
         const measuredAdvanceEm = first ? piece.layoutSpan.advanceEm : 0;
-        const characterClass = TYPESETTING_PROFILE.classify({
-          value: grapheme.value,
-          presentation: run.presentation,
-        });
+        const characterClass = additionalSentenceEndingMarks.includes(grapheme.value)
+          ? "cl-04"
+          : TYPESETTING_PROFILE.classify({
+              value: grapheme.value,
+              presentation: run.presentation,
+            });
         const metrics = TYPESETTING_PROFILE.boxMetrics(characterClass, measuredAdvanceEm);
         atoms.push({
           grapheme,
@@ -197,6 +200,7 @@ function measureSourceLine(
   const sourceSpaces = SourceSpace.collect(
     sourceLine,
     atoms.map(({ boxAdvanceEm }) => boxAdvanceEm),
+    additionalSentenceEndingMarks,
   );
   return {
     atoms,
@@ -858,7 +862,12 @@ function createCompose(provider: RunMeasurer) {
     const measurements = MeasurementSession.create(provider, settings);
     const sourceLines = displayedLines(manuscript.graphemes);
     const measured = sourceLines.map((line) =>
-      measureSourceLine(line, manuscript.annotations, measurements),
+      measureSourceLine(
+        line,
+        manuscript.annotations,
+        measurements,
+        settings.additionalSentenceEndingMarks ?? "",
+      ),
     );
     if (measured.some((line) => line === undefined)) {
       return ManuscriptResult.fail({

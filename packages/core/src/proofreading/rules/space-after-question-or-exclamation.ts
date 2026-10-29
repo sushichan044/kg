@@ -1,5 +1,11 @@
+import * as v from "valibot";
+
 import { assertNever } from "../../internal/assert-never";
+import { validAdditionalSentenceEndingMarks } from "../../internal/japanese-punctuation";
 import { questionOrExclamationSpacings } from "../../internal/question-or-exclamation-spacing";
+import { ManuscriptResult } from "../../result/manuscript-result";
+import { ValidationIssue } from "../../result/validation-issue";
+import type { InvalidRuleOptions } from "../invalid-rule-options";
 import type { ParsedProofreadingRule } from "../proofreading-rule";
 import { splitDisplayLines } from "./internal/display-line";
 import { displayRange } from "./internal/rule-range";
@@ -7,8 +13,8 @@ import { displayRange } from "./internal/rule-range";
 const RULE_ID = "kg/space-after-question-or-exclamation";
 
 const MESSAGES = {
-  default: "感嘆符または疑問符の直後には全角スペースか閉じ括弧が必要です",
-  "space-width": "感嘆符または疑問符の直後の空白は全角スペース1字にしてください",
+  default: "文末記号の直後には全角スペースか閉じ括弧が必要です",
+  "space-width": "文末記号の直後の空白は全角スペース1字にしてください",
   "before-closing-bracket": "閉じ括弧の直前に空白を置くことはできません",
 } as const;
 
@@ -18,7 +24,7 @@ const MESSAGES = {
  * carried. A run at the end of a line or right before a closing bracket is already separated from
  * what follows and needs no gap; anywhere else it takes exactly one ideographic space.
  */
-export const spaceAfterQuestionOrExclamationRule = (): ParsedProofreadingRule => ({
+const build = (additionalSentenceEndingMarks = ""): ParsedProofreadingRule => ({
   kind: "parsed",
   meta: { id: RULE_ID, messages: MESSAGES },
   check: (manuscript, context) => {
@@ -27,7 +33,10 @@ export const spaceAfterQuestionOrExclamationRule = (): ParsedProofreadingRule =>
     };
 
     for (const line of splitDisplayLines(manuscript.displayText)) {
-      for (const spacing of questionOrExclamationSpacings(line.text)) {
+      for (const spacing of questionOrExclamationSpacings(
+        line.text,
+        additionalSentenceEndingMarks,
+      )) {
         switch (spacing.kind) {
           case "valid": {
             break;
@@ -56,3 +65,24 @@ export const spaceAfterQuestionOrExclamationRule = (): ParsedProofreadingRule =>
     }
   },
 });
+
+export const spaceAfterQuestionOrExclamationRule = (): ParsedProofreadingRule => build();
+export type SpaceAfterQuestionOrExclamationOptions = Readonly<{
+  additionalSentenceEndingMarks?: string;
+}>;
+export function createSpaceAfterQuestionOrExclamationRule(
+  options: SpaceAfterQuestionOrExclamationOptions = {},
+): ManuscriptResult<ParsedProofreadingRule, InvalidRuleOptions> {
+  const result = v.safeParse(
+    v.pipe(v.string(), v.check(validAdditionalSentenceEndingMarks)),
+    options.additionalSentenceEndingMarks ?? "",
+  );
+  if (!result.success)
+    return ManuscriptResult.fail({
+      kind: "InvalidRuleOptions",
+      ruleId: RULE_ID,
+      option: "additionalSentenceEndingMarks",
+      issues: ValidationIssue.from(result.issues),
+    });
+  return ManuscriptResult.succeed(build(result.output));
+}

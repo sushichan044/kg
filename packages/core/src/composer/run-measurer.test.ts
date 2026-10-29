@@ -2,7 +2,7 @@ import { expect, test } from "vite-plus/test";
 
 import { logicalRunMeasurer } from "./run-measurer";
 
-test.each(["！", "？", "‼", "⁇", "⁈", "⁉"])(
+test.each(["！", "？", "‼", "⁇", "⁈", "⁉", "♡", "♪", "☆"])(
   "measures dividing punctuation %s on a full em in Japanese text",
   (text) => {
     const context = {

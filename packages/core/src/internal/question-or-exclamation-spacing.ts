@@ -1,5 +1,5 @@
 import { CLOSING_BRACKETS, characterClass } from "./japanese-brackets";
-import { DIVIDING_PUNCTUATION } from "./japanese-punctuation";
+import { SENTENCE_ENDING_MARKS } from "./japanese-punctuation";
 import { IDEOGRAPHIC_SPACE, leadingSpaces } from "./japanese-spaces";
 
 type TextRange = Readonly<{ start: number; end: number }>;
@@ -13,7 +13,6 @@ export type QuestionOrExclamationSpacing =
 /**
  * Runs, not single marks: `！？` is one mark and takes one gap, so the gap belongs after the run.
  */
-const MARKS = new RegExp(`[${characterClass(DIVIDING_PUNCTUATION)}]+`, "gu");
 
 function analyzeMatch(
   line: string,
@@ -46,8 +45,18 @@ function analyzeMatch(
  * line. Runs at the end of the line or immediately before a closing bracket need no gap and are
  * omitted from the result.
  */
-export function questionOrExclamationSpacings(line: string): QuestionOrExclamationSpacing[] {
-  return [...line.matchAll(MARKS)]
+export function questionOrExclamationSpacings(
+  line: string,
+  additionalSentenceEndingMarks = "",
+): QuestionOrExclamationSpacing[] {
+  return [
+    ...line.matchAll(
+      new RegExp(
+        `[${characterClass(SENTENCE_ENDING_MARKS + additionalSentenceEndingMarks)}]+`,
+        "gu",
+      ),
+    ),
+  ]
     .map((marks) => analyzeMatch(line, marks))
     .filter((spacing) => spacing !== undefined);
 }

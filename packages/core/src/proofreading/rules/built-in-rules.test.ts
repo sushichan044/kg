@@ -170,7 +170,7 @@ describe("spaceAfterQuestionOrExclamationRule", () => {
       const halfwidth = diagnose(`　えっ${mark} そんな`, rule);
 
       expect(only(missing)).toMatchObject({
-        message: "感嘆符または疑問符の直後には全角スペースか閉じ括弧が必要です",
+        message: "文末記号の直後には全角スペースか閉じ括弧が必要です",
         range: { display: { start: 3, end: 4 } },
       });
       expect(only(beforeClosing)).toMatchObject({
@@ -178,7 +178,7 @@ describe("spaceAfterQuestionOrExclamationRule", () => {
         range: { display: { start: 4, end: 5 } },
       });
       expect(only(halfwidth)).toMatchObject({
-        message: "感嘆符または疑問符の直後の空白は全角スペース1字にしてください",
+        message: "文末記号の直後の空白は全角スペース1字にしてください",
         range: { display: { start: 4, end: 5 } },
       });
       expect(diagnose(`　えっ${mark}　そんな`, rule)).toEqual([]);
@@ -197,7 +197,7 @@ describe("spaceAfterQuestionOrExclamationRule", () => {
     const diagnostics = diagnose("　えっ！？そんな", spaceAfterQuestionOrExclamationRule());
 
     expect(only(diagnostics)).toMatchObject({
-      message: "感嘆符または疑問符の直後には全角スペースか閉じ括弧が必要です",
+      message: "文末記号の直後には全角スペースか閉じ括弧が必要です",
       range: { display: { start: 3, end: 5 } },
     });
   });
@@ -212,7 +212,7 @@ describe("spaceAfterQuestionOrExclamationRule", () => {
     const diagnostics = diagnose("　えっ！　　そんな", spaceAfterQuestionOrExclamationRule());
 
     expect(only(diagnostics)).toMatchObject({
-      message: "感嘆符または疑問符の直後の空白は全角スペース1字にしてください",
+      message: "文末記号の直後の空白は全角スペース1字にしてください",
       range: { display: { start: 4, end: 6 } },
     });
   });
@@ -220,9 +220,7 @@ describe("spaceAfterQuestionOrExclamationRule", () => {
   test("reports a halfwidth space", () => {
     const diagnostics = diagnose("　えっ！ そんな", spaceAfterQuestionOrExclamationRule());
 
-    expect(only(diagnostics).message).toBe(
-      "感嘆符または疑問符の直後の空白は全角スペース1字にしてください",
-    );
+    expect(only(diagnostics).message).toBe("文末記号の直後の空白は全角スペース1字にしてください");
   });
 
   test("accepts a closing bracket right after the marks", () => {
