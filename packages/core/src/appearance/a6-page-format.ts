@@ -8,7 +8,7 @@ export const A6_PAGE_FORMAT = {
     stageGapMm: 0,
     topMm: 12.5,
     bottomMm: 12.5,
-    innerMm: 13,
-    outerMm: 13,
+    innerMm: 16,
+    outerMm: 10,
   },
 } as const;
