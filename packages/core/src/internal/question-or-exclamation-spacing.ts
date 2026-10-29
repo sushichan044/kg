@@ -1,6 +1,7 @@
-import { CLOSING_BRACKETS, characterClass } from "./japanese-brackets";
-import { SENTENCE_ENDING_MARKS } from "./japanese-punctuation";
+import { CLOSING_BRACKETS } from "./japanese-brackets";
+import { isSentenceEndingMark } from "./japanese-punctuation";
 import { IDEOGRAPHIC_SPACE, leadingSpaces } from "./japanese-spaces";
+import { graphemeSegmenter } from "./segmenter";
 
 type TextRange = Readonly<{ start: number; end: number }>;
 
@@ -16,12 +17,8 @@ export type QuestionOrExclamationSpacing =
 
 function analyzeMatch(
   line: string,
-  marks: RegExpMatchArray,
+  marksRange: TextRange,
 ): QuestionOrExclamationSpacing | undefined {
-  const start = marks.index;
-  if (start === undefined) return undefined;
-
-  const marksRange = { start, end: start + marks[0].length };
   const next = line[marksRange.end];
   if (next === undefined || CLOSING_BRACKETS.includes(next)) return undefined;
 
@@ -49,14 +46,21 @@ export function questionOrExclamationSpacings(
   line: string,
   additionalSentenceEndingMarks = "",
 ): QuestionOrExclamationSpacing[] {
-  return [
-    ...line.matchAll(
-      new RegExp(
-        `[${characterClass(SENTENCE_ENDING_MARKS + additionalSentenceEndingMarks)}]+`,
-        "gu",
-      ),
-    ),
-  ]
-    .map((marks) => analyzeMatch(line, marks))
-    .filter((spacing) => spacing !== undefined);
+  const result: QuestionOrExclamationSpacing[] = [];
+  let marks: TextRange | undefined;
+  const flush = () => {
+    if (marks === undefined) return;
+    const spacing = analyzeMatch(line, marks);
+    if (spacing !== undefined) result.push(spacing);
+    marks = undefined;
+  };
+  for (const { segment, index } of graphemeSegmenter.segment(line)) {
+    if (isSentenceEndingMark(segment, additionalSentenceEndingMarks)) {
+      marks = { start: marks?.start ?? index, end: index + segment.length };
+    } else {
+      flush();
+    }
+  }
+  flush();
+  return result;
 }

@@ -1,3 +1,4 @@
+import { isSentenceEndingMark } from "../internal/japanese-punctuation";
 import { graphemeSegmenter } from "../internal/segmenter";
 import { NamespacedId } from "../namespaced-id";
 import type { EmphasisAnnotation } from "../parser/annotation/emphasis-annotation";
@@ -109,7 +110,7 @@ function measureSourceLine(
   measurements: MeasurementSession,
   additionalSentenceEndingMarks: string,
 ): MeasuredSourceLine | undefined {
-  const runs = CompositionRun.recognize(sourceLine);
+  const runs = CompositionRun.recognize(sourceLine, additionalSentenceEndingMarks);
   const rubyAssociations = RubyAssociation.collect(annotations, sourceLine);
   const atoms: Atom[] = [];
   for (const [runIndex, run] of runs.entries()) {
@@ -127,13 +128,20 @@ function measureSourceLine(
         const first = memberIndex === 0;
         const renderAdvanceEm = first ? piece.renderSpan.advanceEm : 0;
         const measuredAdvanceEm = first ? piece.layoutSpan.advanceEm : 0;
-        const characterClass = additionalSentenceEndingMarks.includes(grapheme.value)
+        const sentenceEndingMark = isSentenceEndingMark(
+          grapheme.value,
+          additionalSentenceEndingMarks,
+        );
+        const characterClass = sentenceEndingMark
           ? "cl-04"
           : TYPESETTING_PROFILE.classify({
               value: grapheme.value,
               presentation: run.presentation,
             });
-        const metrics = TYPESETTING_PROFILE.boxMetrics(characterClass, measuredAdvanceEm);
+        const metrics = TYPESETTING_PROFILE.boxMetrics(
+          characterClass,
+          sentenceEndingMark && !combineRun ? 1 : measuredAdvanceEm,
+        );
         atoms.push({
           grapheme,
           runIndex,

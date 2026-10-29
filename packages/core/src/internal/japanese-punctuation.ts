@@ -12,3 +12,11 @@ export const TATE_CHU_YOKO_MARKS = "!?！？";
 export const SENTENCE_ENDING_MARKS = `${DIVIDING_PUNCTUATION}♡♪☆`;
 export const validAdditionalSentenceEndingMarks = (value: string): boolean =>
   /^[\p{S}]*$/u.test(value);
+
+/**
+ * Match one symbol grapheme, allowing its text or emoji variation selector.
+ */
+export function isSentenceEndingMark(grapheme: string, additionalMarks = ""): boolean {
+  const symbol = grapheme.replace(/\p{Variation_Selector}/gu, "");
+  return /^.$/u.test(symbol) && (SENTENCE_ENDING_MARKS + additionalMarks).includes(symbol);
+}

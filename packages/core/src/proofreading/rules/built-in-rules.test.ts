@@ -15,7 +15,10 @@ import { createDefaultProofreadingRules } from "./default-rules";
 import { ellipsisCharacterRule } from "./ellipsis-character";
 import { fullwidthJapanesePunctuationRule } from "./fullwidth-japanese-punctuation";
 import { createParagraphOpeningRule, paragraphOpeningRule } from "./paragraph-opening";
-import { spaceAfterQuestionOrExclamationRule } from "./space-after-question-or-exclamation";
+import {
+  createSpaceAfterQuestionOrExclamationRule,
+  spaceAfterQuestionOrExclamationRule,
+} from "./space-after-question-or-exclamation";
 
 function diagnose(source: string, rule: ParsedProofreadingRule): readonly ManuscriptDiagnostic[] {
   const parsed = parseManuscript(source);
@@ -503,4 +506,24 @@ describe("createConsistentKanjiOpeningRule", () => {
 
     expect(only(diagnostics).range.display).toEqual({ start: 3, end: 4 });
   });
+});
+
+test("rejects an explicit null custom sentence-ending mark option", () => {
+  const options = JSON.parse('{"additionalSentenceEndingMarks":null}');
+
+  const result = createSpaceAfterQuestionOrExclamationRule(options);
+
+  expect.assert(!result.ok);
+  expect(result.error).toMatchObject({
+    kind: "InvalidRuleOptions",
+    option: "additionalSentenceEndingMarks",
+  });
+});
+
+test("proofreads a configured mark with its variation selector as one grapheme", () => {
+  const rule = createSpaceAfterQuestionOrExclamationRule({ additionalSentenceEndingMarks: "❤" });
+  expect.assert(rule.ok);
+
+  expect(diagnose("❤️　次", rule.value)).toEqual([]);
+  expect(diagnose("❤️次", rule.value)).toHaveLength(1);
 });

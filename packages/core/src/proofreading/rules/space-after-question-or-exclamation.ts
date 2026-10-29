@@ -75,7 +75,9 @@ export function createSpaceAfterQuestionOrExclamationRule(
 ): ManuscriptResult<ParsedProofreadingRule, InvalidRuleOptions> {
   const result = v.safeParse(
     v.pipe(v.string(), v.check(validAdditionalSentenceEndingMarks)),
-    options.additionalSentenceEndingMarks ?? "",
+    options.additionalSentenceEndingMarks === undefined
+      ? ""
+      : options.additionalSentenceEndingMarks,
   );
   if (!result.success)
     return ManuscriptResult.fail({
