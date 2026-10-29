@@ -161,7 +161,8 @@ export function SettingsPanel({
   }> | null>(null);
   const draft = pending?.base === savedComposition ? pending.value : null;
   const composition = draft ?? savedComposition;
-  const fixed = composition.appearance.paperSize === "a5";
+  const fixed =
+    composition.appearance.paperSize === "a5" || composition.appearance.paperSize === "a6";
 
   const accept = (candidate: NovelCompositionSettings) => {
     const result = v.safeParse(NovelCompositionSettings.schema, candidate);
@@ -234,7 +235,7 @@ export function SettingsPanel({
       </fieldset>
       {fixed ? (
         <details className="fixed-format">
-          <summary>A5固定組版</summary>
+          <summary>{composition.appearance.paperSize.toUpperCase()}固定組版</summary>
           <p>
             {composition.flow.lineLengthEm}字×{composition.flow.linesPerStage}行×
             {composition.flow.stagesPerPage}段、文字サイズ{composition.appearance.fontSizeQ}Q
