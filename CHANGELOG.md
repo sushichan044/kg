@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.9.2](https://github.com/sushichan044/kg/compare/v0.9.1...v0.9.2) (2026-10-29)
+
+
+### Features
+
+* **composition:** add fixed A6 41-character format ([a88ad23](https://github.com/sushichan044/kg/commit/a88ad2344ea5867ca73dfe64628bd6bec63c77c6))
+* **composition:** add fixed A6 41-character format ([1f4ef58](https://github.com/sushichan044/kg/commit/1f4ef586b068da6c45cb25452f78e12e29e94507))
+* **core:** support configurable sentence-ending symbols ([52b358b](https://github.com/sushichan044/kg/commit/52b358b3ab4a65fe453aed0a84fafb0c4d38c71c))
+* **core:** support configurable sentence-ending symbols ([f92a796](https://github.com/sushichan044/kg/commit/f92a796c4dcf805f2449bc077f8290c25086d772))
+
+
+### Bug Fixes
+
+* **composition:** set A6 line gaps to 7H ([f79eaf0](https://github.com/sushichan044/kg/commit/f79eaf0eb6b1c2aa6e0c6fc5a024fc47bb904183))
+* **composition:** use 16mm inner and 10mm outer A6 margins ([fc6f033](https://github.com/sushichan044/kg/commit/fc6f033ed79e78aebfcfebbb960e9bd4ab952a6e))
+* **core:** handle configured sentence-ending graphemes consistently ([749a104](https://github.com/sushichan044/kg/commit/749a1044de99db974a05c35535094e65b0a6c936))
+
 ## [0.9.1](https://github.com/sushichan044/kg/compare/v0.9.0...v0.9.1) (2026-10-14)
 
 
