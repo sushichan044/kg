@@ -449,12 +449,22 @@ test("selects the fixed A6 composition from the paper control", async () => {
   await expect
     .element(settings.getByText("41字×17行×1段、文字サイズ12Q", { exact: true }))
     .toBeVisible();
+  await expect
+    .element(settings.getByText("行間7H、行送り19H、段間0mm", { exact: true }))
+    .toBeVisible();
   expect(screen.container.querySelector('input[id="lineLengthEm"]')).toBeNull();
   expect(JSON.parse(localStorage.getItem("kg.manuscript.preferences.v7") ?? "null")).toMatchObject({
     composition: {
       flow: { lineLengthEm: 41, linesPerStage: 17, stagesPerPage: 1 },
       appearance: { paperSize: "a6", fontSizeQ: 12 },
-      page: { lineGapMm: 2, stageGapMm: 0, topMm: 12.5, bottomMm: 12.5, innerMm: 11, outerMm: 11 },
+      page: {
+        lineGapMm: 1.75,
+        stageGapMm: 0,
+        topMm: 12.5,
+        bottomMm: 12.5,
+        innerMm: 13,
+        outerMm: 13,
+      },
     },
   });
 });

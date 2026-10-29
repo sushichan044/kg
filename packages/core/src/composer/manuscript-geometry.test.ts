@@ -41,7 +41,11 @@ describe("physical page dimensions", () => {
     expect(settings.appearance.fontSizeQ).toBe(12);
     expect(NovelCompositionSettings.is(settings)).toBe(true);
     expect(geometry.contentHeightMm).toBe(123);
-    expect(geometry.contentWidthMm).toBe(83);
+    expect(geometry.lineGapMm).toBe(1.75);
+    expect(geometry.cellSizeMm + geometry.lineGapMm).toBe(4.75);
+    expect(geometry.contentWidthMm).toBe(79);
+    expect(geometry.innerMm).toBe(13);
+    expect(geometry.outerMm).toBe(13);
     const parsed = parseManuscript("あ".repeat(698));
     expect.assert(parsed.ok);
     const composed = composeManuscript(parsed.value, { composer: novelComposer, settings });

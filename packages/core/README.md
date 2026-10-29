@@ -272,7 +272,8 @@ inner margin 21.825mm, and outer margin 13mm. `NovelCompositionSettings.defaults
 contains this format. Typeface and reserved lines remain configurable.
 
 A6 is fixed at 12Q, 41 characters per line, 17 lines, and one stage. Its line
-gap is 2mm, with 12.5mm top/bottom margins and 11mm inner/outer margins.
+gap is 7H (1.75mm), giving a 19H (4.75mm) line pitch, with 12.5mm
+top/bottom margins and 13mm inner/outer margins.
 
 `NovelCompositionSettings.forPaper(paperSize, settings)` selects the fixed A5 or A6
 format or centres the current grid on another paper size. For other formats,

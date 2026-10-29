@@ -241,8 +241,8 @@ export function SettingsPanel({
             {composition.flow.stagesPerPage}段、文字サイズ{composition.appearance.fontSizeQ}Q
           </p>
           <p>
-            行間{composition.page.lineGapMm}mm、行送り
-            {composition.appearance.fontSizeQ / 4 + composition.page.lineGapMm}mm、段間
+            行間{composition.page.lineGapMm * 4}H、行送り
+            {composition.appearance.fontSizeQ + composition.page.lineGapMm * 4}H、段間
             {composition.page.stageGapMm}mm
           </p>
           <p>
