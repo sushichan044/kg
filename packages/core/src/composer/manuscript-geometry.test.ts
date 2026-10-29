@@ -34,6 +34,28 @@ describe("physical page dimensions", () => {
     expect(geometry.contentWidthMm + geometry.innerMm + geometry.outerMm).toBeCloseTo(148, 10);
   });
 
+  test("selects the fixed A6 format and composes 697 characters per page", () => {
+    const settings = NovelCompositionSettings.forPaper("a6", a5);
+    const geometry = ManuscriptGeometry.of(settings.flow, settings.appearance, settings.page);
+    expect(settings.flow).toEqual({ lineLengthEm: 41, linesPerStage: 17, stagesPerPage: 1 });
+    expect(settings.appearance.fontSizeQ).toBe(12);
+    expect(NovelCompositionSettings.is(settings)).toBe(true);
+    expect(geometry.contentHeightMm).toBe(123);
+    expect(geometry.lineGapMm).toBe(1.75);
+    expect(geometry.cellSizeMm + geometry.lineGapMm).toBe(4.75);
+    expect(geometry.contentWidthMm).toBe(79);
+    expect(geometry.innerMm).toBe(16);
+    expect(geometry.outerMm).toBe(10);
+    const parsed = parseManuscript("あ".repeat(698));
+    expect.assert(parsed.ok);
+    const composed = composeManuscript(parsed.value, { composer: novelComposer, settings });
+    expect.assert(composed.ok);
+    expect(composed.value.layout.stats.pages).toBe(2);
+    expect(rejection({ ...settings, appearance: { ...settings.appearance, fontSizeQ: 13 } })).toBe(
+      "InvalidSettings",
+    );
+  });
+
   test.each(["topMm", "bottomMm", "innerMm", "outerMm", "lineGapMm", "stageGapMm"] as const)(
     "rejects inconsistent %s even when the text would fit",
     (key) => {
@@ -133,7 +155,7 @@ describe("physical page dimensions", () => {
   });
 
   test("rejects an oversized custom grid rather than clamping or shrinking it", () => {
-    expect(rejection(NovelCompositionSettings.forPaper("a6", a5))).toBe("InvalidSettings");
+    expect(rejection(NovelCompositionSettings.forPaper("shinsho", a5))).toBe("InvalidSettings");
   });
 
   test.each([

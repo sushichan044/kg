@@ -271,13 +271,17 @@ Its line gap is 1.825mm, stage gap 10mm, top margin 12mm, bottom margin 16.55mm,
 inner margin 21.825mm, and outer margin 13mm. `NovelCompositionSettings.defaults`
 contains this format. Typeface and reserved lines remain configurable.
 
-`NovelCompositionSettings.forPaper(paperSize, settings)` selects the fixed A5
-format or centres the current grid on another paper size. For non-A5 formats,
+A6 is fixed at 12Q, 41 characters per line, 17 lines, and one stage. Its line
+gap is 7H (1.75mm), giving a 19H (4.75mm) line pitch, with 12.5mm
+top/bottom margins, a 16mm inner margin, and a 10mm outer margin.
+
+`NovelCompositionSettings.forPaper(paperSize, settings)` selects the fixed A5 or A6
+format or centres the current grid on another paper size. For other formats,
 `ManuscriptPageSettings.centered(flow, appearance)` computes millimetre settings
 with half-cell line gaps and two-cell stage gaps. These helpers calculate values;
 validate the result before persisting or rendering an oversized grid.
 
-Custom non-A5 page settings can provide explicit millimetre gaps and margins.
+Custom page settings on other paper sizes can provide explicit millimetre gaps and margins.
 The settings schema checks that text dimensions plus margins equal the paper
 size within 0.000001mm. Gaps and margins must be nonnegative, and the line gap
 must accommodate the existing half-size annotation area. A mismatch returns

@@ -1,6 +1,7 @@
 import * as v from "valibot";
 
 import { A5_PAGE_FORMAT } from "../appearance/a5-page-format";
+import { A6_PAGE_FORMAT } from "../appearance/a6-page-format";
 import { ManuscriptAppearanceSettings } from "../appearance/appearance-settings";
 import type { PaperSizeId } from "../appearance/paper-size-id";
 import { validAdditionalSentenceEndingMarks } from "../internal/japanese-punctuation";
@@ -40,21 +41,27 @@ const NovelCompositionSettingsSchema = v.pipe(
     ({ appearance, page }) => page.lineGapMm + 1e-6 >= appearance.fontSizeQ / 8,
     "line gap must leave room for half-size annotations",
   ),
-  v.check(
-    ({ flow, appearance, page }) =>
-      appearance.paperSize !== "a5" ||
-      (appearance.fontSizeQ === A5_PAGE_FORMAT.fontSizeQ &&
-        flow.lineLengthEm === A5_PAGE_FORMAT.flow.lineLengthEm &&
-        flow.linesPerStage === A5_PAGE_FORMAT.flow.linesPerStage &&
-        flow.stagesPerPage === A5_PAGE_FORMAT.flow.stagesPerPage &&
-        page.lineGapMm === A5_PAGE_FORMAT.page.lineGapMm &&
-        page.stageGapMm === A5_PAGE_FORMAT.page.stageGapMm &&
-        page.topMm === A5_PAGE_FORMAT.page.topMm &&
-        page.bottomMm === A5_PAGE_FORMAT.page.bottomMm &&
-        page.innerMm === A5_PAGE_FORMAT.page.innerMm &&
-        page.outerMm === A5_PAGE_FORMAT.page.outerMm),
-    "A5 uses the fixed 12.7Q, 27-character, 23-line, two-stage format",
-  ),
+  v.check(({ flow, appearance, page }) => {
+    const format =
+      appearance.paperSize === "a5"
+        ? A5_PAGE_FORMAT
+        : appearance.paperSize === "a6"
+          ? A6_PAGE_FORMAT
+          : null;
+    return (
+      format === null ||
+      (appearance.fontSizeQ === format.fontSizeQ &&
+        flow.lineLengthEm === format.flow.lineLengthEm &&
+        flow.linesPerStage === format.flow.linesPerStage &&
+        flow.stagesPerPage === format.flow.stagesPerPage &&
+        page.lineGapMm === format.page.lineGapMm &&
+        page.stageGapMm === format.page.stageGapMm &&
+        page.topMm === format.page.topMm &&
+        page.bottomMm === format.page.bottomMm &&
+        page.innerMm === format.page.innerMm &&
+        page.outerMm === format.page.outerMm)
+    );
+  }, "A5 and A6 use their fixed page formats"),
 );
 
 /**
@@ -73,19 +80,20 @@ export const NovelCompositionSettings = {
   } as const satisfies NovelCompositionSettings,
 
   /**
-   * Select the fixed A5 format, or centre the current grid on another paper size.
+   * Select the fixed A5 or A6 format, or centre the current grid on another paper size.
    */
   forPaper: (
     paperSize: PaperSizeId,
     settings: NovelCompositionSettings,
   ): NovelCompositionSettings => {
     const appearance = { ...settings.appearance, paperSize };
-    if (paperSize === "a5")
+    const format = paperSize === "a5" ? A5_PAGE_FORMAT : paperSize === "a6" ? A6_PAGE_FORMAT : null;
+    if (format !== null)
       return {
         ...settings,
-        flow: A5_PAGE_FORMAT.flow,
-        appearance: { ...appearance, fontSizeQ: A5_PAGE_FORMAT.fontSizeQ },
-        page: A5_PAGE_FORMAT.page,
+        flow: format.flow,
+        appearance: { ...appearance, fontSizeQ: format.fontSizeQ },
+        page: format.page,
       };
     return {
       ...settings,

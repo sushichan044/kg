@@ -423,7 +423,7 @@ test("lets a user correct an oversized format without saving invalid settings", 
   const screen = await render(<App />);
   await expect.element(screen.getByRole("combobox", { name: "用紙" })).toBeVisible();
 
-  await screen.getByRole("combobox", { name: "用紙" }).selectOptions("a6");
+  await screen.getByRole("combobox", { name: "用紙" }).selectOptions("shinsho");
 
   await expect.element(screen.getByRole("alert")).toBeVisible();
   await screen.getByRole("spinbutton", { name: "一行の字数" }).fill("20");
@@ -431,6 +431,40 @@ test("lets a user correct an oversized format without saving invalid settings", 
 
   await expect.poll(() => screen.container.querySelector('[role="alert"]')).toBeNull();
   expect(JSON.parse(localStorage.getItem("kg.manuscript.preferences.v7") ?? "null")).toMatchObject({
-    composition: { appearance: { paperSize: "a6" }, flow: { lineLengthEm: 20, linesPerStage: 20 } },
+    composition: {
+      appearance: { paperSize: "shinsho" },
+      flow: { lineLengthEm: 20, linesPerStage: 20 },
+    },
+  });
+});
+
+test("selects the fixed A6 composition from the paper control", async () => {
+  await page.viewport(1280, 900);
+  const screen = await render(<App />);
+  const settings = screen.getByRole("complementary");
+
+  await settings.getByRole("combobox", { name: "用紙" }).selectOptions("a6");
+  await settings.getByText("A6固定組版", { exact: true }).click();
+
+  await expect
+    .element(settings.getByText("41字×17行×1段、文字サイズ12Q", { exact: true }))
+    .toBeVisible();
+  await expect
+    .element(settings.getByText("行間7H、行送り19H、段間0mm", { exact: true }))
+    .toBeVisible();
+  expect(screen.container.querySelector('input[id="lineLengthEm"]')).toBeNull();
+  expect(JSON.parse(localStorage.getItem("kg.manuscript.preferences.v7") ?? "null")).toMatchObject({
+    composition: {
+      flow: { lineLengthEm: 41, linesPerStage: 17, stagesPerPage: 1 },
+      appearance: { paperSize: "a6", fontSizeQ: 12 },
+      page: {
+        lineGapMm: 1.75,
+        stageGapMm: 0,
+        topMm: 12.5,
+        bottomMm: 12.5,
+        innerMm: 16,
+        outerMm: 10,
+      },
+    },
   });
 });
