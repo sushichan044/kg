@@ -1,5 +1,5 @@
 import { characterClass } from "../../internal/japanese-brackets";
-import { TATE_CHU_YOKO_MARKS } from "../../internal/japanese-punctuation";
+import { isSentenceEndingMark, TATE_CHU_YOKO_MARKS } from "../../internal/japanese-punctuation";
 import type { ParsedGrapheme } from "../../parser/parsed-grapheme";
 import { ManuscriptRange } from "../../range/manuscript-range";
 import type { PresentationKind } from "../presentation-kind";
@@ -37,7 +37,7 @@ function presentationOf(text: string): PresentationKind {
  * Recognize sentence-wide presentation while keeping words as separate line-break units. Standalone
  * dotted abbreviations retain the existing per-token presentation.
  */
-function recognize(graphemes: readonly ParsedGrapheme[]): CompositionRun[] {
+function recognizeText(graphemes: readonly ParsedGrapheme[]): CompositionRun[] {
   const runs: CompositionRun[] = [];
   const push = (members: readonly ParsedGrapheme[], presentation: PresentationKind) => {
     const range = ManuscriptRange.merge(members.map((member) => member.range));
@@ -87,6 +87,29 @@ function recognize(graphemes: readonly ParsedGrapheme[]): CompositionRun[] {
     push(members, presentationOf(members.map(({ value }) => value).join("")));
     cursor = end;
   }
+  return runs;
+}
+
+/**
+ * Split configured symbols before recognizing western words and presentation runs.
+ */
+function recognize(
+  graphemes: readonly ParsedGrapheme[],
+  additionalSentenceEndingMarks = "",
+): CompositionRun[] {
+  const runs: CompositionRun[] = [];
+  let start = 0;
+  for (const [index, grapheme] of graphemes.entries()) {
+    if (
+      !isSentenceEndingMark(grapheme.value, additionalSentenceEndingMarks) ||
+      isSentenceEndingMark(grapheme.value)
+    )
+      continue;
+    runs.push(...recognizeText(graphemes.slice(start, index)));
+    runs.push({ range: grapheme.range, members: [grapheme], presentation: "mixed" });
+    start = index + 1;
+  }
+  runs.push(...recognizeText(graphemes.slice(start)));
   return runs;
 }
 

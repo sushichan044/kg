@@ -3,6 +3,7 @@ import * as v from "valibot";
 import { A5_PAGE_FORMAT } from "../appearance/a5-page-format";
 import { ManuscriptAppearanceSettings } from "../appearance/appearance-settings";
 import type { PaperSizeId } from "../appearance/paper-size-id";
+import { validAdditionalSentenceEndingMarks } from "../internal/japanese-punctuation";
 import { readonlyObject } from "../internal/schema";
 import { LineOffset } from "./line-offset";
 import { ManuscriptGeometry } from "./manuscript-geometry";
@@ -12,6 +13,9 @@ import { ManuscriptPageSettings } from "./page-settings";
 
 const NovelCompositionSettingsSchema = v.pipe(
   readonlyObject({
+    additionalSentenceEndingMarks: v.optional(
+      v.pipe(v.string(), v.check(validAdditionalSentenceEndingMarks)),
+    ),
     flow: NovelFlowSettings.schema,
     offsets: ManuscriptOffsets.schema,
     appearance: ManuscriptAppearanceSettings.schema,

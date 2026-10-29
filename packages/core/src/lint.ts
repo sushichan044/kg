@@ -44,3 +44,8 @@ export type { ParagraphOpeningOptions } from "./proofreading/rules/paragraph-ope
 export { punctuationBeforeClosingQuoteRule } from "./proofreading/rules/punctuation-before-closing-quote";
 export { spaceAfterQuestionOrExclamationRule } from "./proofreading/rules/space-after-question-or-exclamation";
 export { variantCharacterRule } from "./proofreading/rules/variant-character";
+
+export {
+  createSpaceAfterQuestionOrExclamationRule,
+  type SpaceAfterQuestionOrExclamationOptions,
+} from "./proofreading/rules/space-after-question-or-exclamation";

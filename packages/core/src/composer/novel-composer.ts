@@ -1,3 +1,4 @@
+import { isSentenceEndingMark } from "../internal/japanese-punctuation";
 import { graphemeSegmenter } from "../internal/segmenter";
 import { NamespacedId } from "../namespaced-id";
 import type { EmphasisAnnotation } from "../parser/annotation/emphasis-annotation";
@@ -107,8 +108,9 @@ function measureSourceLine(
   sourceLine: readonly ParsedGrapheme[],
   annotations: readonly ManuscriptAnnotation[],
   measurements: MeasurementSession,
+  additionalSentenceEndingMarks: string,
 ): MeasuredSourceLine | undefined {
-  const runs = CompositionRun.recognize(sourceLine);
+  const runs = CompositionRun.recognize(sourceLine, additionalSentenceEndingMarks);
   const rubyAssociations = RubyAssociation.collect(annotations, sourceLine);
   const atoms: Atom[] = [];
   for (const [runIndex, run] of runs.entries()) {
@@ -126,11 +128,20 @@ function measureSourceLine(
         const first = memberIndex === 0;
         const renderAdvanceEm = first ? piece.renderSpan.advanceEm : 0;
         const measuredAdvanceEm = first ? piece.layoutSpan.advanceEm : 0;
-        const characterClass = TYPESETTING_PROFILE.classify({
-          value: grapheme.value,
-          presentation: run.presentation,
-        });
-        const metrics = TYPESETTING_PROFILE.boxMetrics(characterClass, measuredAdvanceEm);
+        const sentenceEndingMark = isSentenceEndingMark(
+          grapheme.value,
+          additionalSentenceEndingMarks,
+        );
+        const characterClass = sentenceEndingMark
+          ? "cl-04"
+          : TYPESETTING_PROFILE.classify({
+              value: grapheme.value,
+              presentation: run.presentation,
+            });
+        const metrics = TYPESETTING_PROFILE.boxMetrics(
+          characterClass,
+          sentenceEndingMark && !combineRun ? 1 : measuredAdvanceEm,
+        );
         atoms.push({
           grapheme,
           runIndex,
@@ -197,6 +208,7 @@ function measureSourceLine(
   const sourceSpaces = SourceSpace.collect(
     sourceLine,
     atoms.map(({ boxAdvanceEm }) => boxAdvanceEm),
+    additionalSentenceEndingMarks,
   );
   return {
     atoms,
@@ -858,7 +870,12 @@ function createCompose(provider: RunMeasurer) {
     const measurements = MeasurementSession.create(provider, settings);
     const sourceLines = displayedLines(manuscript.graphemes);
     const measured = sourceLines.map((line) =>
-      measureSourceLine(line, manuscript.annotations, measurements),
+      measureSourceLine(
+        line,
+        manuscript.annotations,
+        measurements,
+        settings.additionalSentenceEndingMarks ?? "",
+      ),
     );
     if (measured.some((line) => line === undefined)) {
       return ManuscriptResult.fail({

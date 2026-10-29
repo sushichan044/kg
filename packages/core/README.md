@@ -406,3 +406,23 @@ does not include polyfills.
 ## License
 
 MIT
+
+## Sentence-ending symbols
+
+`♡`, `♪`, and `☆` follow the same line-breaking and separator-space rules as
+Japanese question and exclamation marks. Each symbol remains a separate cell.
+Set `additionalSentenceEndingMarks` on composition settings to add Unicode symbols:
+
+```ts
+const settings = {
+  ...NovelCompositionSettings.defaults,
+  additionalSentenceEndingMarks: "★",
+};
+```
+
+For proofreading, import `createSpaceAfterQuestionOrExclamationRule` from
+`@sushichan044/kg-core/lint` and pass the same option. The factory returns a
+`ManuscriptResult`. Replace the default rule with ID
+`kg/space-after-question-or-exclamation` with the successful result's value.
+An empty string adds nothing; built-in marks remain enabled. Each Unicode code
+point is a separate symbol. Non-symbol characters are rejected.

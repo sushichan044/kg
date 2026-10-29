@@ -1,6 +1,6 @@
 import { eastAsianWidth } from "get-east-asian-width";
 
-import { DIVIDING_PUNCTUATION } from "../internal/japanese-punctuation";
+import { SENTENCE_ENDING_MARKS } from "../internal/japanese-punctuation";
 import { graphemeSegmenter } from "../internal/segmenter";
 import type { MeasurementRequest } from "./measurement-request";
 import type { RunMeasurement } from "./run-measurement";
@@ -12,7 +12,7 @@ function graphemeWidth(grapheme: string): number {
   for (const character of grapheme) {
     const codePoint = character.codePointAt(0);
     if (codePoint !== undefined) {
-      const characterWidth = DIVIDING_PUNCTUATION.includes(character)
+      const characterWidth = SENTENCE_ENDING_MARKS.includes(character)
         ? 2
         : eastAsianWidth(codePoint, { ambiguousAsWide: true });
       width = Math.max(width, characterWidth);
