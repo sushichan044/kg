@@ -37,6 +37,8 @@ test("stores frontend-owned notation, composition, grid visibility, zoom, and pr
       flow: { ...DEFAULT_MANUSCRIPT_PREFERENCES.composition.flow, lineLengthEm: 30 },
     }),
     showGrid: false,
+    spread: true,
+    startPageSide: "left" as const,
     zoom: 125,
     fit: true,
     notation: "kakuyomu" as const,
@@ -48,6 +50,8 @@ test("stores frontend-owned notation, composition, grid visibility, zoom, and pr
   expect(loadAppState().selectedPath).toBe("draft.txt");
   expect(loadManuscriptPreferences().composition.flow.lineLengthEm).toBe(30);
   expect(loadManuscriptPreferences().showGrid).toBe(false);
+  expect(loadManuscriptPreferences().spread).toBe(true);
+  expect(loadManuscriptPreferences().startPageSide).toBe("left");
   expect(loadManuscriptPreferences().zoom).toBe(125);
   expect(loadManuscriptPreferences().fit).toBe(true);
   expect(loadManuscriptPreferences().notation).toBe("kakuyomu");
@@ -103,3 +107,44 @@ test("keeps the stored page when asked to save an invalid page index", () => {
 
   expect(loadPage("draft.txt")).toBe(3);
 });
+
+test("restores existing preferences with defaults for missing spread settings", () => {
+  localStorage.setItem(
+    "kg.manuscript.preferences.v7",
+    JSON.stringify({
+      version: 7,
+      notation: "kakuyomu",
+      composition: DEFAULT_MANUSCRIPT_PREFERENCES.composition,
+      showGrid: false,
+      zoom: 125,
+      fit: true,
+      presets: [],
+    }),
+  );
+
+  expect(loadManuscriptPreferences()).toEqual({
+    ...DEFAULT_MANUSCRIPT_PREFERENCES,
+    notation: "kakuyomu",
+    showGrid: false,
+    zoom: 125,
+    fit: true,
+    spread: false,
+    startPageSide: "right",
+  });
+});
+
+for (const invalid of [{ spread: "true" }, { startPageSide: "center" }]) {
+  test(`rejects invalid spread preferences ${JSON.stringify(invalid)}`, () => {
+    localStorage.setItem(
+      "kg.manuscript.preferences.v7",
+      JSON.stringify({
+        ...DEFAULT_MANUSCRIPT_PREFERENCES,
+        spread: true,
+        startPageSide: "left",
+        ...invalid,
+      }),
+    );
+
+    expect(loadManuscriptPreferences()).toEqual(DEFAULT_MANUSCRIPT_PREFERENCES);
+  });
+}

@@ -608,9 +608,20 @@ test("switches spread layout and chooses the starting page side", async ({ novel
   await vi.waitFor(() => {
     expect(screen.container.querySelector(".kgv-page")).toHaveAttribute("data-page-side", "left");
   });
-  await toggle.click();
+  await screen.unmount();
+  const restored = await render(<App />);
+
+  await expect.element(restored.getByRole("checkbox", { name: "見開き表示" })).toBeChecked();
+  await expect
+    .element(restored.getByRole("combobox", { name: "開始ページの位置" }))
+    .toHaveValue("left");
+  await vi.waitFor(() => {
+    expect(restored.container.querySelector(".kgv-stack")).toHaveAttribute("data-spread");
+    expect(restored.container.querySelector(".kgv-page")).toHaveAttribute("data-page-side", "left");
+  });
+  await restored.getByRole("checkbox", { name: "見開き表示" }).click();
 
   await vi.waitFor(() => {
-    expect(screen.container.querySelector(".kgv-stack")).not.toHaveAttribute("data-spread");
+    expect(restored.container.querySelector(".kgv-stack")).not.toHaveAttribute("data-spread");
   });
 });

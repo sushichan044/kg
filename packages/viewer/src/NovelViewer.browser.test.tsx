@@ -25,6 +25,7 @@ import { useState } from "react";
 import { expect, test as base } from "vite-plus/test";
 import { render } from "vitest-browser-react";
 
+import { fitZoom } from "./fit-zoom";
 import { NovelViewer } from "./NovelViewer";
 import type { NovelViewerProps } from "./NovelViewer";
 
@@ -924,7 +925,30 @@ test("fits the full spread when switching from single pages", async ({ renderVie
       },
     },
   );
-  await expect.poll(() => singleZoom).toBeGreaterThan(0);
+  singleZoom = 0;
+  screen.container.style.width = "400px";
+  screen.container.style.height = "1000px";
+  const viewport = screen.container.querySelector<HTMLElement>(".kgv-viewport");
+  expect.assert(viewport !== null);
+  const expectedZoom = (paperWidthMm: number) => {
+    const viewportStyle = getComputedStyle(viewport);
+    return fitZoom({
+      viewportWidthPx:
+        viewport.clientWidth -
+        Number.parseFloat(viewportStyle.paddingInlineStart) -
+        Number.parseFloat(viewportStyle.paddingInlineEnd),
+      viewportHeightPx:
+        viewport.clientHeight -
+        Number.parseFloat(viewportStyle.paddingBlockStart) -
+        Number.parseFloat(viewportStyle.paddingBlockEnd),
+      paperWidthMm,
+      paperHeightMm: composed.layout.geometry.paperHeightMm,
+      min: 1,
+      max: 200,
+      step: 1,
+    });
+  };
+  await expect.poll(() => singleZoom).toBe(expectedZoom(composed.layout.geometry.paperWidthMm));
 
   await screen.rerender(
     <NovelViewer
@@ -944,6 +968,6 @@ test("fits the full spread when switching from single pages", async ({ renderVie
     />,
   );
 
-  await expect.poll(() => spreadZoom).toBeGreaterThan(0);
-  expect(spreadZoom).toBeLessThanOrEqual(singleZoom);
+  await expect.poll(() => spreadZoom).toBe(expectedZoom(composed.layout.geometry.paperWidthMm * 2));
+  expect(spreadZoom).toBeLessThan(singleZoom);
 });

@@ -127,8 +127,6 @@ export function App() {
   const activeDiagnosticId = diagnostics.some(({ id }) => id === manuscript.activeDiagnosticId)
     ? manuscript.activeDiagnosticId
     : null;
-  const [spread, setSpread] = useState(false);
-  const [startPageSide, setStartPageSide] = useState<"left" | "right">("right");
   const [zoom, setZoom] = useState(manuscript.preferences.zoom);
   const [appState, setAppState] = useState(loadInitialAppState);
   const [files, setFiles] = useState<readonly FileEntry[]>([]);
@@ -287,12 +285,16 @@ export function App() {
 
   const settings = (
     <SettingsPanel
-      onSpreadChange={setSpread}
-      onStartPageSideChange={setStartPageSide}
+      onSpreadChange={(spread) => {
+        commitPreferenceAction({ kind: "spread.replace", spread });
+      }}
+      onStartPageSideChange={(startPageSide) => {
+        commitPreferenceAction({ kind: "start-page-side.replace", startPageSide });
+      }}
       notation={manuscript.preferences.notation}
       composition={manuscript.preferences.composition}
-      spread={spread}
-      startPageSide={startPageSide}
+      spread={manuscript.preferences.spread}
+      startPageSide={manuscript.preferences.startPageSide}
       showGrid={manuscript.preferences.showGrid}
       presets={manuscript.preferences.presets}
       status={status}
@@ -324,13 +326,17 @@ export function App() {
       </a>
       <Sidebar files={files} selectedId={selectedId} onSelect={onSelect} status={status}>
         <SettingsPanel
-          onSpreadChange={setSpread}
-          onStartPageSideChange={setStartPageSide}
+          onSpreadChange={(spread) => {
+            commitPreferenceAction({ kind: "spread.replace", spread });
+          }}
+          onStartPageSideChange={(startPageSide) => {
+            commitPreferenceAction({ kind: "start-page-side.replace", startPageSide });
+          }}
           idPrefix="desktop-"
           notation={manuscript.preferences.notation}
           composition={manuscript.preferences.composition}
-          spread={spread}
-          startPageSide={startPageSide}
+          spread={manuscript.preferences.spread}
+          startPageSide={manuscript.preferences.startPageSide}
           showGrid={manuscript.preferences.showGrid}
           presets={manuscript.preferences.presets}
           status={status}
@@ -414,8 +420,8 @@ export function App() {
                 activeDiagnosticId={activeDiagnosticId}
                 zoom={{ value: zoom, min: 50, max: 150, step: 25, onChange: setFitZoom }}
                 fit={manuscript.preferences.fit}
-                spread={spread}
-                startPageSide={startPageSide}
+                spread={manuscript.preferences.spread}
+                startPageSide={manuscript.preferences.startPageSide}
                 showGrid={manuscript.preferences.showGrid}
                 onViewEvent={onViewEvent}
                 onDiagnosticSelect={(diagnostic) => {
