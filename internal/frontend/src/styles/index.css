@@ -63,13 +63,9 @@ select {
 
 .app {
   display: grid;
-  grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr);
+  grid-template-columns: 17rem minmax(0, 1fr);
   min-block-size: 100dvb;
   block-size: 100dvb;
-}
-
-.app--diagnostics {
-  grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr) minmax(17rem, 22rem);
 }
 
 .sidebar {
@@ -206,7 +202,7 @@ select {
   outline: 1px solid var(--accent);
 }
 
-.zoom-controls output {
+.zoom-value {
   min-inline-size: 3.5rem;
   text-align: center;
   font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
@@ -262,7 +258,7 @@ select {
   gap: 0.35rem;
 }
 
-:where(.paper-controls, .offset-controls, .presets) {
+:where(.paper-controls, .offset-controls) {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
@@ -276,7 +272,7 @@ select {
 }
 
 .control input,
-:where(.select-control select, .preset-save input) {
+.select-control select {
   inline-size: 100%;
   padding: 0.35rem;
 }
@@ -317,27 +313,6 @@ select {
   color: var(--accent);
 }
 
-.preset-save,
-.preset-list li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.preset-save input {
-  flex: 1;
-}
-
-.preset-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
 .status {
   margin: 0;
   font-size: 0.8rem;
@@ -352,7 +327,7 @@ select {
 }
 
 @container toolbar (inline-size < 36rem) {
-  .toolbar-summary,
+  .file-search-trigger kbd,
   .zoom-controls {
     display: none;
   }
@@ -439,8 +414,7 @@ select {
 }
 
 @media (max-width: 52rem) {
-  .app,
-  .app--diagnostics {
+  .app {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -502,4 +476,213 @@ select {
   .mobile-toolbar {
     border-color: Highlight;
   }
+}
+
+/* Keep the manuscript canvas distinct from the controls without tinting the paper. */
+.preview > .kgv-viewer {
+  --kgv-surface: #f2f3f4;
+  --kgv-padding: 1.5rem;
+}
+
+.app[data-diagnostics="open"] {
+  grid-template-columns: 17rem minmax(0, 1fr) 21rem;
+}
+
+.app[data-sidebar="closed"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.app[data-sidebar="closed"][data-diagnostics="open"] {
+  grid-template-columns: minmax(0, 1fr) 21rem;
+}
+
+.app[data-sidebar="closed"] .sidebar {
+  display: none;
+}
+
+.sidebar {
+  gap: 1rem;
+  border-inline-end: 1px solid rgb(0 0 0 / 14%);
+  font-size: 0.875rem;
+}
+
+.sidebar-files > summary,
+.settings-section > summary {
+  cursor: pointer;
+  padding-block: 0.75rem;
+  font-weight: 600;
+}
+
+.sidebar-files > summary span {
+  margin-inline-start: 0.5rem;
+  color: #595959;
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-panel {
+  gap: 0;
+}
+
+.settings-section {
+  border-block-start: 1px solid rgb(0 0 0 / 14%);
+}
+
+.settings-section[open] {
+  padding-block-end: 1rem;
+}
+
+.settings-section > :not(summary) + :not(summary) {
+  margin-block-start: 1rem;
+}
+
+.file-list__item {
+  overflow-wrap: anywhere;
+  padding-block: 0.55rem;
+}
+
+.toolbar {
+  gap: 0.5rem;
+}
+
+.toolbar-document {
+  flex-basis: 12rem;
+}
+
+.toolbar-label {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  font-size: 0.9rem;
+}
+
+.toolbar-summary {
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.file-search-trigger kbd {
+  margin-inline-start: 0.75rem;
+  font: inherit;
+  font-size: 0.75rem;
+  color: #595959;
+}
+
+.file-switcher::backdrop {
+  background: rgb(0 0 0 / 35%);
+}
+
+.file-switcher {
+  position: fixed;
+  z-index: 21;
+  inset-block-start: min(18dvb, 8rem);
+  inset-inline: 1rem;
+  inline-size: calc(100% - 2rem);
+  max-inline-size: 36rem;
+  max-block-size: 75dvb;
+  margin-block: 0;
+  margin-inline: auto;
+  padding: 0;
+  border: 1px solid rgb(0 0 0 / 25%);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 20%);
+}
+
+[cmdk-input] {
+  box-sizing: border-box;
+  inline-size: 100%;
+  padding: 1rem;
+  border: 0;
+  border-block-end: 1px solid rgb(0 0 0 / 14%);
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: inherit;
+}
+
+[cmdk-list] {
+  max-block-size: 50dvb;
+  overflow: auto;
+  padding: 0.5rem;
+  scroll-padding-block: 0.5rem;
+}
+
+[cmdk-item] {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem;
+  border-radius: 3px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+[cmdk-item][data-selected="true"] {
+  background: rgb(0 0 0 / 8%);
+  outline: 1px solid currentColor;
+  outline-offset: -1px;
+}
+
+[cmdk-empty] {
+  padding: 1.5rem 0.75rem;
+}
+
+.file-current,
+.command-footer {
+  color: #595959;
+  font-size: 0.8rem;
+}
+
+.file-current {
+  flex-shrink: 0;
+}
+
+.command-footer {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  border-block-start: 1px solid rgb(0 0 0 / 14%);
+}
+
+.command-footer button {
+  margin-inline-start: auto;
+}
+
+@media (max-width: 52rem) {
+  .app,
+  .app[data-sidebar],
+  .app[data-diagnostics] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.file-name,
+.file-directory {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-directory {
+  margin-block-start: 0.2rem;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #595959;
+}
+
+.mobile-document {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.mobile-document strong {
+  display: block;
+}
+
+.mobile-document small {
+  display: block;
+  margin-block-start: 0.2rem;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
 }

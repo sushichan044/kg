@@ -82,8 +82,10 @@
     "prepublishOnly": "vp run build"
   },
   "dependencies": {
+    "@oddbird/popover-polyfill": "0.7.3",
     "@sushichan044/kg-core": "workspace:*",
     "harfbuzzjs": "1.6.3",
+    "interestfor": "1.0.12",
     "react-compiler-runtime": "catalog:prod"
   },
   "devDependencies": {

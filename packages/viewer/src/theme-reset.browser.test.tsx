@@ -69,7 +69,7 @@ async function renderThemedViewerUnderReset() {
     <>
       <style>{commonReset}</style>
       <NovelViewer composed={composed.value} diagnostics={diagnostics} />
-      <DiagnosticList diagnostics={diagnostics} />
+      <DiagnosticList onSelect={() => {}} diagnostics={diagnostics} />
     </>,
   );
   await expect

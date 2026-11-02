@@ -50,10 +50,7 @@
   border-block-end: var(--kgv-rule-width) solid var(--kgv-grid);
 }
 
-/* A tint over the run plus a mark down the side the ruby does not use. The band is painted above
-   the characters so its whole area can answer to a click, so the tint stays translucent and the
-   mark stays out of the cells. Its thickness comes from the cell rather than from an em, since the
-   band inherits the line's font size rather than the glyph's. */
+/* The tint marks the diagnosed run without intercepting text selection. */
 .kgv-diagnostic-band {
   background: color-mix(in oklab, var(--kgv-accent) 16%, transparent);
   box-shadow: inset calc(var(--kgv-cell-size) * 0.13) 0 0 var(--kgv-accent);
@@ -65,7 +62,7 @@
   outline-offset: -2px;
 }
 
-button.kgv-diagnostic-band:focus-visible {
+.kgv-diagnostic-trigger:focus-visible {
   outline: 3px solid var(--kgv-accent);
   outline-offset: 2px;
 }
@@ -122,5 +119,33 @@ button.kgv-diagnostic-band:focus-visible {
   .kgv-diagnostics button[aria-current="true"] {
     border-color: Highlight;
     outline-color: Highlight;
+  }
+}
+
+.kgv-diagnostic-trigger {
+  background: var(--kgv-accent, #000);
+  border-radius: 2px;
+}
+
+.kgv-diagnostic-popover {
+  border: 1px solid rgb(0 0 0 / 35%);
+  border-radius: 4px;
+  background: var(--kgv-controls-surface, #fff);
+  color: var(--kgv-text, #000);
+  box-shadow: 0 4px 20px rgb(0 0 0 / 18%);
+}
+
+.kgv-diagnostics > li {
+  padding: 0.75rem;
+  border-block-end: 1px solid rgb(0 0 0 / 15%);
+}
+
+.kgv-diagnostic-jump {
+  margin-block-start: 0.5rem;
+}
+
+@media (forced-colors: active) {
+  .kgv-diagnostic-trigger {
+    background: Highlight;
   }
 }

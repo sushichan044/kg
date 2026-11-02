@@ -30,10 +30,30 @@ test("renders controlled diagnostics and reports selection", async () => {
       }}
     />,
   );
-  const button = screen.getByRole("list").getByRole("button").first();
+  const button = screen.getByRole("button", { name: /行.*列の本文へ移動/ }).first();
   await expect.element(button).toHaveAttribute("aria-current", "true");
 
   await button.click();
 
   expect(selected).toBe(firstItem.id);
+});
+
+test("renders diagnostic text outside the navigation button for native selection", async () => {
+  const items = diagnostics();
+  const first = items[0];
+  expect.assert(first !== undefined);
+  const screen = await render(<DiagnosticList diagnostics={items} />);
+  const description = screen.container.querySelector(".kgv-diagnostic-description");
+  expect.assert(description !== null);
+  const selection = window.getSelection();
+  expect.assert(selection !== null);
+  const range = document.createRange();
+  range.selectNodeContents(description);
+
+  selection.removeAllRanges();
+  selection.addRange(range);
+
+  expect(selection.toString()).toBe(first.message);
+  expect(description.closest("button")).toBeNull();
+  selection.removeAllRanges();
 });

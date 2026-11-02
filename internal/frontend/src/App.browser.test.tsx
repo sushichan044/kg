@@ -1,5 +1,5 @@
 import { expect, test as base, vi } from "vite-plus/test";
-import { page } from "vite-plus/test/browser";
+import { page, userEvent } from "vite-plus/test/browser";
 import { render } from "vitest-browser-react";
 
 import { App } from "./App";
@@ -127,7 +127,10 @@ test("connects proofreading feedback to the drawer and manuscript cells", async 
   const drawer = screen.getByRole("complementary", { name: "診断" });
   await expect.element(drawer).toBeVisible();
 
-  await drawer.getByRole("list").getByRole("button").nth(3).click();
+  await drawer
+    .getByRole("button", { name: /行.*列の本文へ移動/ })
+    .nth(3)
+    .click();
 
   await waitFor(() => {
     const active = screen.container.querySelectorAll(".kgv-cell[data-diagnostic-active]");
@@ -149,7 +152,7 @@ test("opens compact file, settings, and diagnostics sheets", async () => {
   await waitFor(() => {
     const label = screen.container.querySelector(".mobile-toolbar strong");
     expect.assert(label !== null, "mobile toolbar label did not render");
-    expect(label.textContent).toBe("testdata/novel.txt");
+    expect(label.textContent).toBe("novel.txt");
   });
 
   await waitFor(() => {
@@ -360,6 +363,11 @@ test("toggles the decorative grid without changing composition settings", async 
   novelSource.current = "あいう";
   await page.viewport(1280, 800);
   const screen = await render(<App />);
+  await screen
+    .getByRole("complementary", { name: "ワークスペース" })
+    .getByText("表示", { exact: true })
+    .first()
+    .click();
 
   await waitFor(() => {
     expect(screen.container.querySelectorAll(".kgv-rule-cell").length).toBeGreaterThan(0);
@@ -384,6 +392,11 @@ test("switches the persisted notation parser without auto-detecting source", asy
   novelSource.current = kakuyomuSource;
   await page.viewport(1280, 800);
   const screen = await render(<App />);
+  await screen
+    .getByRole("complementary", { name: "ワークスペース" })
+    .getByText("記法", { exact: true })
+    .first()
+    .click();
 
   await waitFor(() => {
     expect(screen.container.querySelector(".kgv-viewer")).not.toBeNull();
@@ -406,6 +419,11 @@ test("switches the persisted notation parser without auto-detecting source", asy
 test("shows fixed A5 dimensions and restores them after editing another paper format", async () => {
   await page.viewport(1280, 900);
   const screen = await render(<App />);
+  await screen
+    .getByRole("complementary", { name: "ワークスペース" })
+    .getByText("用紙・組版・書体", { exact: true })
+    .first()
+    .click();
   const settings = screen.getByRole("complementary");
 
   await settings.getByText("A5固定組版", { exact: true }).click();
@@ -444,6 +462,11 @@ test("shows fixed A5 dimensions and restores them after editing another paper fo
 test("lets a user correct an oversized format without saving invalid settings", async () => {
   await page.viewport(1280, 900);
   const screen = await render(<App />);
+  await screen
+    .getByRole("complementary", { name: "ワークスペース" })
+    .getByText("用紙・組版・書体", { exact: true })
+    .first()
+    .click();
   await expect.element(screen.getByRole("combobox", { name: "用紙" })).toBeVisible();
 
   await screen.getByRole("combobox", { name: "用紙" }).selectOptions("shinsho");
@@ -464,6 +487,11 @@ test("lets a user correct an oversized format without saving invalid settings", 
 test("selects the fixed A6 composition from the paper control", async () => {
   await page.viewport(1280, 900);
   const screen = await render(<App />);
+  await screen
+    .getByRole("complementary", { name: "ワークスペース" })
+    .getByText("用紙・組版・書体", { exact: true })
+    .first()
+    .click();
   const settings = screen.getByRole("complementary");
 
   await settings.getByRole("combobox", { name: "用紙" }).selectOptions("a6");
@@ -542,6 +570,11 @@ test("retries font loading after a failed request without showing a mismatched p
 test("switches typography profiles without changing manuscript source", async ({ novelSource }) => {
   novelSource.current = "あ゛ん゛";
   const screen = await render(<App />);
+  await screen
+    .getByRole("complementary", { name: "ワークスペース" })
+    .getByText("用紙・組版・書体", { exact: true })
+    .first()
+    .click();
   await expect.element(screen.getByRole("combobox", { name: "書体" })).toBeVisible();
   await waitFor(() => {
     expect(screen.container.querySelector('[data-typography="mincho"]')).not.toBeNull();
@@ -573,6 +606,11 @@ test("keeps settings available after font loading fails and recovers with Gothic
 }) => {
   fontRequest.failure = true;
   const screen = await render(<App />);
+  await screen
+    .getByRole("complementary", { name: "ワークスペース" })
+    .getByText("用紙・組版・書体", { exact: true })
+    .first()
+    .click();
   await expect.element(screen.getByRole("alert")).toBeVisible();
   await expect.element(screen.getByRole("combobox", { name: "書体" })).toBeVisible();
 
@@ -589,6 +627,11 @@ test("switches spread layout and chooses the starting page side", async ({ novel
   novelSource.current = "あ".repeat(27 * 23 * 2 + 1);
   await page.viewport(1280, 800);
   const screen = await render(<App />);
+  await screen
+    .getByRole("complementary", { name: "ワークスペース" })
+    .getByText("表示", { exact: true })
+    .first()
+    .click();
   const toggle = screen.getByRole("checkbox", { name: "見開き表示" });
   const side = screen.getByRole("combobox", { name: "開始ページの位置" });
   await expect.element(toggle).not.toBeChecked();
@@ -610,6 +653,11 @@ test("switches spread layout and chooses the starting page side", async ({ novel
   });
   await screen.unmount();
   const restored = await render(<App />);
+  await restored
+    .getByRole("complementary", { name: "ワークスペース" })
+    .getByText("表示", { exact: true })
+    .first()
+    .click();
 
   await expect.element(restored.getByRole("checkbox", { name: "見開き表示" })).toBeChecked();
   await expect
@@ -624,4 +672,85 @@ test("switches spread layout and chooses the starting page side", async ({ novel
   await vi.waitFor(() => {
     expect(restored.container.querySelector(".kgv-stack")).not.toHaveAttribute("data-spread");
   });
+});
+
+test("keeps settings folded and restores the sidebar after hiding it", async () => {
+  await page.viewport(1440, 900);
+  const screen = await render(<App />);
+  await expect
+    .element(screen.getByRole("button", { name: "サイドバー", exact: true }))
+    .toBeVisible();
+  expect(screen.container.querySelector(".sidebar .settings-section[open]")).toBeNull();
+  expect(screen.container.querySelector('[placeholder="プリセット名"]')).toBeNull();
+  const preview = screen.container.querySelector<HTMLElement>(".preview");
+  expect.assert(preview !== null);
+  const initialWidth = preview.clientWidth;
+
+  await screen.getByRole("button", { name: "サイドバー", exact: true }).click();
+
+  await expect
+    .element(screen.getByRole("button", { name: "サイドバー", exact: true }))
+    .toHaveAttribute("aria-expanded", "false");
+  expect(preview.clientWidth).toBeGreaterThan(initialWidth);
+  await screen.getByRole("button", { name: "サイドバー", exact: true }).click();
+  await screen
+    .getByRole("complementary", { name: "ワークスペース" })
+    .getByText("用紙・組版・書体", { exact: true })
+    .first()
+    .click();
+  await expect.element(screen.getByRole("combobox", { name: "用紙" })).toBeVisible();
+});
+
+test("switches files with Command K and Ctrl K and restores focus on Escape", async () => {
+  await page.viewport(1440, 900);
+  const screen = await render(<App />);
+  const search = screen.getByRole("button", { name: /ファイルを検索.*Ctrl K/ });
+  await search.click();
+  const input = page.getByRole("combobox", { name: "ファイル名を検索" });
+  await input.fill("共有");
+  await expect
+    .element(page.getByRole("listbox", { name: "ファイルの候補" }).getByRole("option"))
+    .toHaveTextContent("共有 原稿.txt");
+  await userEvent.keyboard("{Enter}");
+  await expect
+    .element(screen.getByRole("button", { name: "共有 原稿.txt", exact: true }))
+    .toBeVisible();
+  await expect
+    .poll(() => new URL(window.location.href).searchParams.get("file"))
+    .toBe("共有 原稿.txt");
+
+  await userEvent.keyboard("{Meta>}k{/Meta}");
+  await input.fill("missing");
+  await expect.element(page.getByText("一致するファイルがありません")).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  await expect.element(search).toHaveFocus();
+  await userEvent.keyboard("{Control>}k{/Control}");
+  await input.fill("novel");
+  await userEvent.keyboard("{Enter}");
+  await expect
+    .poll(() => new URL(window.location.href).searchParams.get("file"))
+    .toBe("testdata/novel.txt");
+});
+
+test("allows zoom from 25 to 400 percent and persists manual zoom", async () => {
+  await page.viewport(1600, 900);
+  const screen = await render(<App />);
+  const zoom = screen.getByRole("main").getByLabelText("現在のズーム");
+  await expect.element(zoom).toHaveTextContent("100%");
+
+  await screen.getByRole("button", { name: "縮小", exact: true }).click({ clickCount: 3 });
+
+  await expect.element(zoom).toHaveTextContent("25%");
+  await expect.element(screen.getByRole("button", { name: "縮小", exact: true })).toBeDisabled();
+  await screen.getByRole("button", { name: "拡大", exact: true }).click({ clickCount: 15 });
+  await expect.element(zoom).toHaveTextContent("400%");
+  await expect.element(screen.getByRole("button", { name: "拡大", exact: true })).toBeDisabled();
+  expect(JSON.parse(localStorage.getItem("kg.manuscript.preferences.v7") ?? "null")).toMatchObject({
+    zoom: 400,
+    fit: false,
+  });
+  await screen.getByRole("button", { name: "ページに合わせる", exact: true }).click();
+  await expect
+    .element(screen.getByRole("button", { name: "ページに合わせる", exact: true }))
+    .toHaveAttribute("aria-pressed", "true");
 });

@@ -21,7 +21,7 @@ import {
 } from "@sushichan044/kg-core/lint";
 
 import { assertNever } from "./lib/assert-never";
-import type { ManuscriptNotation, ManuscriptPreferences, ManuscriptPreset } from "./lib/storage";
+import type { ManuscriptNotation, ManuscriptPreferences } from "./lib/storage";
 
 export type ManuscriptState = Readonly<{
   source: string;
@@ -40,9 +40,6 @@ export type ManuscriptAction =
     }>
   | Readonly<{ kind: "notation.replace"; notation: ManuscriptNotation }>
   | Readonly<{ kind: "zoom.replace"; zoom: number; fit: boolean }>
-  | Readonly<{ kind: "preset.apply"; preset: ManuscriptPreset }>
-  | Readonly<{ kind: "preset.save"; preset: ManuscriptPreset }>
-  | Readonly<{ kind: "preset.delete"; name: string }>
   | Readonly<{ kind: "diagnostic.select"; id: string | null }>;
 
 export function manuscriptReducer(
@@ -86,29 +83,6 @@ export function manuscriptReducer(
       return {
         ...state,
         preferences: { ...state.preferences, zoom: action.zoom, fit: action.fit },
-      };
-    }
-    case "preset.apply": {
-      return {
-        ...state,
-        preferences: { ...state.preferences, composition: action.preset.composition },
-        activeDiagnosticId: null,
-      };
-    }
-    case "preset.save": {
-      const kept = state.preferences.presets.filter(({ name }) => name !== action.preset.name);
-      return {
-        ...state,
-        preferences: { ...state.preferences, presets: [...kept, action.preset] },
-      };
-    }
-    case "preset.delete": {
-      return {
-        ...state,
-        preferences: {
-          ...state.preferences,
-          presets: state.preferences.presets.filter(({ name }) => name !== action.name),
-        },
       };
     }
     case "diagnostic.select": {

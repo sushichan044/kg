@@ -135,8 +135,11 @@ annotation conflicts before the snapshot reaches this viewer. Update this viewer
 contract; the old per-grapheme combination contract has no adapter.
 
 One diagnostic band covers the range that reaches a line. Identical ranges are
-split into lanes so each remains visible and clickable. The band where a
-diagnostic begins is a button; continuation bands are inert spans.
+split into lanes so each remains visible. Bands are inert decorations. A separate
+`button.kgv-diagnostic-trigger` beside the start of each diagnostic opens
+`.kgv-diagnostic-popover` on hover, keyboard focus, or tap. The popover contains
+selectable text and supports Escape dismissal. The body glyphs use inline boxes
+so native selection does not insert a line break between every character.
 
 State is exposed through these attributes:
 
@@ -155,8 +158,10 @@ State is exposed through these attributes:
 | `data-diagnostic-id`        | `.kgv-diagnostic-band`             | diagnostic ID             |
 | `data-diagnostic-continued` | continuation diagnostic bands      | present on continuations  |
 
-`DiagnosticList` renders `ol.kgv-diagnostics > li > button`, or
-`p.kgv-diagnostics-empty` when there are no diagnostics.
+`DiagnosticList` renders `ol.kgv-diagnostics > li` with selectable paragraphs
+inside `.kgv-diagnostic-message`. When `onSelect` is supplied, a separate
+`button.kgv-diagnostic-jump` navigates to the manuscript. An empty list renders
+`p.kgv-diagnostics-empty` only when `emptyMessage` is supplied.
 
 ### Custom properties
 
@@ -172,8 +177,10 @@ The optional theme exposes `--kgv-surface`, `--kgv-paper`, `--kgv-text`,
 
 ## Browser support
 
-The package targets browser features that are Baseline Widely Available. It
-does not include polyfills.
+The layout targets browser features that are Baseline Widely Available.
+Diagnostic popovers conditionally load the `interestfor` and Popover polyfills
+when the browser lacks native support. CSS anchor positioning places each card
+beside its marker; browsers without it show the card at the bottom of the viewport.
 
 ## License
 

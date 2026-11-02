@@ -146,8 +146,9 @@
   /* The optional ruling is drawn by the layer above, but a host reset or an application may still
      put a border on a cell; border-box keeps it inside the box instead of growing the text pitch. */
   box-sizing: border-box;
-  display: grid;
-  place-items: center;
+  display: block;
+  text-align: center;
+  line-height: 0;
   inline-size: var(--kgv-cell-size);
   block-size: calc(var(--kgv-item-advance) * var(--kgv-cell-size));
 }
@@ -193,10 +194,7 @@
   font-size: calc(var(--kgv-decoration-block-size) * var(--kgv-cell-size));
 }
 
-/* bold, italic and emphasis reach the glyph by inheritance alone, so they need no box of their own.
-   Given one they become the item the cell places, and .kgv-glyph turns into an inline box a line box
-   aligns on its baseline instead of the item the cell centres — which drops the character down its
-   cell. */
+/* Annotation wrappers only carry inherited styles; the glyph owns placement. */
 .kgv-line-text [data-annotation] {
   display: contents;
 }
@@ -210,6 +208,11 @@
 }
 
 .kgv-glyph {
+  display: inline-block;
+  position: relative;
+  top: 50%;
+  transform: translateY(-50%);
+  vertical-align: top;
   writing-mode: vertical-rl;
   text-orientation: mixed;
   font-family: var(--kgv-manuscript-font);
@@ -262,11 +265,61 @@
   font: inherit;
 }
 
-/* The band a diagnostic starts in is its control, so the whole run answers to a click while the
-   layer around it lets pointer events through to the manuscript. */
-button.kgv-diagnostic-band {
+/* Keep marker controls inside the line gap so they do not intercept glyph selection at low zoom. */
+.kgv-diagnostic-trigger {
+  position: absolute;
+  box-sizing: border-box;
+  inset-inline-end: calc(100% + var(--kgv-line-gap) * var(--kgv-band-lane) / var(--kgv-band-lanes));
+  inset-block-start: calc(var(--kgv-band-offset) * var(--kgv-cell-size));
+  inline-size: calc(var(--kgv-line-gap) / var(--kgv-band-lanes) * 0.75);
+  block-size: calc(var(--kgv-band-length) * var(--kgv-cell-size));
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  background: transparent;
+  z-index: 1;
   pointer-events: auto;
-  cursor: pointer;
+  cursor: help;
+  --interest-delay-start: 0.25s;
+  interest-delay-start: var(--interest-delay-start);
+  --interest-delay-end: 0.4s;
+  interest-delay-end: var(--interest-delay-end);
+}
+
+.kgv-cell {
+  pointer-events: auto;
+  user-select: text;
+}
+
+.kgv-visually-hidden,
+.kgv-line-ruby,
+.kgv-line-emphasis {
+  user-select: none;
+}
+
+.kgv-diagnostic-popover {
+  position: fixed;
+  inset: auto 1rem 1rem;
+  box-sizing: border-box;
+  inline-size: min(22rem, calc(100vw - 2rem));
+  max-block-size: min(24rem, calc(100dvb - 2rem));
+  margin: 0 auto;
+  padding: 1rem;
+  overflow: auto;
+  pointer-events: auto;
+  font:
+    0.875rem/1.6 system-ui,
+    sans-serif;
+  writing-mode: horizontal-tb;
+  white-space: normal;
+  user-select: text;
+}
+
+.kgv-diagnostic-message p {
+  margin: 0 0 0.5rem;
+  overflow-wrap: anywhere;
+  user-select: text;
 }
 
 .kgv-diagnostics {
@@ -311,4 +364,13 @@ button.kgv-diagnostic-band {
 }
 .kgv-viewer[data-typography] .kgv-glyph-sideways {
   font-kerning: var(--kgv-western-kerning);
+}
+
+@supports (position-area: bottom span-right) {
+  .kgv-diagnostic-popover {
+    inset: auto;
+    position-area: bottom span-right;
+    position-try-fallbacks: flip-block, flip-inline;
+    margin: 0.25rem;
+  }
 }

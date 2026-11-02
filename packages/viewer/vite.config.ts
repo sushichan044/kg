@@ -14,7 +14,7 @@ export const viewerTestProjects = [
   }),
   defineProject({
     root: import.meta.dirname,
-    optimizeDeps: { exclude: ["harfbuzzjs"] },
+    optimizeDeps: { exclude: ["harfbuzzjs"], include: ["vite-plus/test/browser"] },
     test: {
       name: "viewer-browser",
       include: ["src/**/*.browser.test.ts", "src/**/*.browser.test.tsx"],
