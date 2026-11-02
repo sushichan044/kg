@@ -1,3 +1,4 @@
+import { ManuscriptResult } from "@sushichan044/kg-core";
 import type { FontPresetId } from "@sushichan044/kg-core";
 import { useEffect, useState } from "react";
 
@@ -26,20 +27,22 @@ export function useTypography(
   useEffect(() => {
     let cancelled = false;
     let owned: ReadyTypography | undefined;
-    void loadTypography({ fontPreset }).then((result) => {
-      if (cancelled) {
-        if (result.ok) result.value.dispose();
-        return;
-      }
-      if (result.ok) owned = result.value;
-      setLoaded({
-        fontPreset,
-        attempt,
-        state: result.ok
-          ? { kind: "ready", typography: result.value }
-          : { kind: "failed", error: result.error },
+    void loadTypography({ fontPreset })
+      .catch(() => ManuscriptResult.fail({ kind: "font-load" as const }))
+      .then((result) => {
+        if (cancelled) {
+          if (result.ok) result.value.dispose();
+          return;
+        }
+        if (result.ok) owned = result.value;
+        setLoaded({
+          fontPreset,
+          attempt,
+          state: result.ok
+            ? { kind: "ready", typography: result.value }
+            : { kind: "failed", error: result.error },
+        });
       });
-    });
     return () => {
       cancelled = true;
       owned?.dispose();

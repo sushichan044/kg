@@ -13,11 +13,21 @@ import type { NovelViewHandle } from "./NovelViewer";
 
 import "./styles.css";
 
-type FontRequest = { failed: boolean; calls: number; gate: Promise<void> | undefined };
+type FontRequest = {
+  failed: boolean;
+  setupFailed: boolean;
+  calls: number;
+  gate: Promise<void> | undefined;
+};
 const test = base.extend<{ fontRequest: FontRequest }>({
   fontRequest: async ({}, use) => {
     const nativeFetch = globalThis.fetch;
-    const request: FontRequest = { failed: false, calls: 0, gate: undefined };
+    const request: FontRequest = { failed: false, setupFailed: false, calls: 0, gate: undefined };
+    const nativeAdd = document.fonts.add.bind(document.fonts);
+    const add = vi.spyOn(document.fonts, "add").mockImplementation((face) => {
+      if (request.setupFailed) throw new Error("Font registration failed");
+      return nativeAdd(face);
+    });
     vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = input instanceof Request ? input.url : String(input);
       if (url.includes("RinMincho-Regular")) {
@@ -30,6 +40,7 @@ const test = base.extend<{ fontRequest: FontRequest }>({
     try {
       await use(request);
     } finally {
+      add.mockRestore();
       vi.unstubAllGlobals();
     }
   },
@@ -119,4 +130,22 @@ test("preserves Gothic composition without loading Mincho", async ({ fontRequest
   expect(fontRequest.calls).toBe(0);
   expect(screen.container.querySelector("[data-typography]")).toBeNull();
   expect(screen.container.querySelectorAll(".kgv-cell")).toHaveLength(6);
+});
+
+test("offers retry when font setup rejects and recovers after retry", async ({ fontRequest }) => {
+  fontRequest.setupFailed = true;
+  const before = document.fonts.size;
+  const screen = await render(<NovelViewer composed={composed("office")} />);
+
+  await expect.element(screen.getByRole("alert")).toBeVisible();
+  expect(screen.container.querySelector(".kgv-page")).toBeNull();
+  expect(document.fonts.size).toBe(before);
+
+  fontRequest.setupFailed = false;
+  await screen.getByRole("button", { name: "再試行" }).click();
+
+  await expect.element(screen.getByLabelText("小説プレビュー")).toBeVisible();
+  expect(fontRequest.calls).toBe(2);
+  await screen.unmount();
+  expect(document.fonts.size).toBe(before);
 });
