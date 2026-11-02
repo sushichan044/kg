@@ -1,84 +1,30 @@
-import type { ManuscriptDiagnostic } from "@sushichan044/kg-core";
-import {
-  DiagnosticList,
-  NovelViewer,
-  useTypography,
-  TypographyStatus,
-} from "@sushichan044/kg-viewer";
-import type { NovelViewEvent, NovelViewHandle } from "@sushichan044/kg-viewer";
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import type { MouseEvent, ReactNode } from "react";
+import { useEffect, useReducer, useState } from "react";
 
+import { DocumentRegion } from "./components/DocumentRegion";
+import type { DocumentRegionProps } from "./components/DocumentRegion";
+import { DocumentSession } from "./components/DocumentSession";
+import { Sheet } from "./components/Sheet";
+import type { MobileSheet } from "./components/Sheet";
 import { FilePanel, Sidebar } from "./components/Sidebar";
-import { SettingsPanel, ViewerToolbar, ZoomControls } from "./components/ViewerControls";
+import { SettingsPanel, ZoomControls } from "./components/ViewerControls";
+import { useFileCatalog } from "./hooks/useDocuments";
 import { useServerEvents } from "./hooks/useServerEvents";
-import { fetchContent, fetchFiles } from "./lib/api";
 import type { FileEntry } from "./lib/api";
 import {
   loadAppState,
   loadManuscriptPreferences,
-  loadPage,
   saveAppState,
   saveManuscriptPreferences,
-  savePage,
 } from "./lib/storage";
-import type { AppState } from "./lib/storage";
-import { manuscriptReducer, ProcessManuscriptError, processManuscript } from "./manuscript";
-import type { ManuscriptAction, ManuscriptState } from "./manuscript";
-
-type SheetProps = Readonly<{
-  open: boolean;
-  title: string;
-  children: ReactNode;
-  onClose: () => void;
-}>;
-
-function Sheet({ open, title, children, onClose }: SheetProps) {
-  const ref = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    const dialog = ref.current;
-    if (dialog === null) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
-
-  const dismissBackdrop = (event: MouseEvent<HTMLDialogElement>) => {
-    if (event.target !== event.currentTarget) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const inside =
-      event.clientX >= rect.left &&
-      event.clientX <= rect.right &&
-      event.clientY >= rect.top &&
-      event.clientY <= rect.bottom;
-    if (!inside) event.currentTarget.close();
-  };
-
-  return (
-    <dialog
-      ref={ref}
-      className="mobile-sheet"
-      aria-label={title}
-      onClose={onClose}
-      onClick={dismissBackdrop}
-    >
-      <header className="mobile-sheet__header">
-        <h2>{title}</h2>
-        <button type="button" aria-label={`${title}を閉じる`} onClick={() => ref.current?.close()}>
-          閉じる
-        </button>
-      </header>
-      <div className="mobile-sheet__body">{children}</div>
-    </dialog>
-  );
-}
+import type { ManuscriptPreferences } from "./lib/storage";
+import { preferencesReducer } from "./manuscript";
 
 const FILE_QUERY_PARAM = "file";
 
-function loadInitialAppState(): AppState {
+function loadInitialSelectedPath(): string | null {
   const stored = loadAppState();
   const selectedPath = new URL(window.location.href).searchParams.get(FILE_QUERY_PARAM);
-  return selectedPath === null || selectedPath === "" ? stored : { version: 1, selectedPath };
+  return selectedPath === null || selectedPath === "" ? stored.selectedPath : selectedPath;
 }
 
 function replaceSelectedPathInURL(path: string | null): void {
@@ -88,228 +34,138 @@ function replaceSelectedPathInURL(path: string | null): void {
   window.history.replaceState(window.history.state, "", url);
 }
 
-function resolveAppState(files: readonly FileEntry[], current: AppState): AppState {
-  const selectedPath =
-    files.find((file) => file.path === current.selectedPath)?.path ?? files[0]?.path ?? null;
-  return selectedPath === current.selectedPath ? current : { version: 1, selectedPath };
-}
-
-function initialManuscriptState(): ManuscriptState {
-  return {
-    source: "",
-    preferences: loadManuscriptPreferences(),
-    activeDiagnosticId: null,
-  };
-}
+type WorkspaceProps = Omit<DocumentRegionProps, "preview" | "refreshContent"> &
+  Readonly<{
+    files: readonly FileEntry[];
+    status: string;
+    catalogFailed: boolean;
+    onSelect: (id: string) => void;
+    refreshFiles: () => void;
+    revision: number;
+    summaryTarget: HTMLDivElement | null;
+    setSummaryTarget: (target: HTMLDivElement | null) => void;
+  }>;
 
 export function App() {
-  const [manuscript, dispatch] = useReducer(manuscriptReducer, undefined, initialManuscriptState);
-  const typographyState = useTypography(manuscript.preferences.composition.appearance.fontPreset);
-  const typography = typographyState.kind === "ready" ? typographyState.typography : undefined;
-  const processed = useMemo(
-    () =>
-      typography === undefined
-        ? null
-        : processManuscript(
-            manuscript.source,
-            manuscript.preferences.composition,
-            manuscript.preferences.notation,
-            typography.composer,
-          ),
-    [
-      manuscript.preferences.composition,
-      manuscript.preferences.notation,
-      manuscript.source,
-      typography,
-    ],
+  const [preferences, dispatch] = useReducer(
+    preferencesReducer,
+    undefined,
+    loadManuscriptPreferences,
   );
-  const diagnostics = processed?.ok ? processed.value.diagnostics : [];
-  const activeDiagnosticId = diagnostics.some(({ id }) => id === manuscript.activeDiagnosticId)
-    ? manuscript.activeDiagnosticId
-    : null;
-  const [zoom, setZoom] = useState(manuscript.preferences.zoom);
-  const [appState, setAppState] = useState(loadInitialAppState);
-  const [files, setFiles] = useState<readonly FileEntry[]>([]);
-  const [catalogLoaded, setCatalogLoaded] = useState(false);
-  const [loadedDocument, setLoadedDocument] = useState<{ id: string } | null>(null);
-  const [status, setStatus] = useState("");
+  const [storageStatus, setStorageStatus] = useState("");
+  const [sheet, setSheet] = useState<MobileSheet>(null);
   const [diagnosticDrawerOpen, setDiagnosticDrawerOpen] = useState(false);
-  const [filesSheetOpen, setFilesSheetOpen] = useState(false);
-  const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
-  const [diagnosticsSheetOpen, setDiagnosticsSheetOpen] = useState(false);
-  const viewRef = useRef<NovelViewHandle>(null);
-  const appStateRef = useRef(appState);
-  const manuscriptRef = useRef(manuscript);
-  const catalogRequestRef = useRef(0);
-  const contentRequestRef = useRef(0);
-
-  useEffect(() => {
-    manuscriptRef.current = manuscript;
-  }, [manuscript]);
-
-  const selectedFile =
-    files.find((file) => file.path === appState.selectedPath) ?? files[0] ?? null;
+  const [fitZoom, setFitZoom] = useState(preferences.zoom);
+  const [revision, setRevision] = useState(0);
+  const [summaryTarget, setSummaryTarget] = useState<HTMLDivElement | null>(null);
+  const { catalog, refresh: refreshFiles, select } = useFileCatalog(loadInitialSelectedPath);
+  const files = catalog.kind === "ready" ? catalog.files : [];
+  const selectedFile = files.find((file) => file.path === catalog.selectedPath) ?? files[0] ?? null;
   const selectedId = selectedFile?.id ?? null;
   const selectedPath = selectedFile?.path ?? null;
+  const catalogFailed =
+    catalog.kind === "failed" || (catalog.kind === "ready" && catalog.refreshFailed);
 
-  const commitAppState = useCallback((next: AppState) => {
-    appStateRef.current = next;
-    setAppState(next);
-    if (!saveAppState(next)) setStatus("選択状態を保存できませんでした");
-  }, []);
-
-  const commitPreferenceAction = useCallback((action: ManuscriptAction) => {
-    const next = manuscriptReducer(manuscriptRef.current, action);
-    manuscriptRef.current = next;
-    dispatch(action);
-    if (!saveManuscriptPreferences(next.preferences)) setStatus("設定を保存できませんでした");
-  }, []);
-
-  const acceptCatalogResponse = useCallback(
-    (request: number, nextFiles: readonly FileEntry[]) => {
-      if (request !== catalogRequestRef.current) return;
-      setFiles(nextFiles);
-      commitAppState(resolveAppState(nextFiles, appStateRef.current));
-      setCatalogLoaded(true);
-    },
-    [commitAppState],
-  );
-
-  const refreshFiles = useCallback(async () => {
-    const request = ++catalogRequestRef.current;
-    try {
-      acceptCatalogResponse(request, await fetchFiles());
-    } catch {
-      if (request === catalogRequestRef.current) setStatus("ファイル一覧の取得に失敗しました");
-    }
-  }, [acceptCatalogResponse]);
-
-  const loadContent = useCallback((id: string) => {
-    const request = ++contentRequestRef.current;
-    return fetchContent(id).then(
-      (text) => {
-        if (request !== contentRequestRef.current) return;
-        dispatch({ kind: "document.replace", text });
-        setLoadedDocument({ id });
-      },
-      () => {
-        if (request === contentRequestRef.current) setStatus("本文の取得に失敗しました");
-      },
-    );
-  }, []);
+  /* oxlint-disable react/set-state-in-effect -- Report failed external writes while the reducer owns preferences. */
+  useEffect(() => {
+    if (!saveManuscriptPreferences(preferences)) setStorageStatus("設定を保存できませんでした");
+  }, [preferences]);
 
   useEffect(() => {
-    const request = ++catalogRequestRef.current;
-    void fetchFiles().then(
-      (nextFiles) => {
-        acceptCatalogResponse(request, nextFiles);
-      },
-      () => {
-        if (request === catalogRequestRef.current) setStatus("ファイル一覧の取得に失敗しました");
-      },
-    );
-    return () => {
-      catalogRequestRef.current += 1;
-    };
-  }, [acceptCatalogResponse]);
-
-  useEffect(() => {
-    if (catalogLoaded) replaceSelectedPathInURL(selectedPath);
-  }, [catalogLoaded, selectedPath]);
-
-  useEffect(() => {
-    if (selectedId === null) {
-      contentRequestRef.current += 1;
-      dispatch({ kind: "document.replace", text: "" });
-      return;
-    }
-    void loadContent(selectedId);
-  }, [loadContent, selectedId]);
-
-  useEffect(() => {
-    if (loadedDocument === null || loadedDocument.id !== selectedId || selectedPath === null)
-      return;
-    viewRef.current?.scrollToPage(loadPage(selectedPath));
-  }, [loadedDocument, selectedId, selectedPath]);
+    if (catalog.kind !== "ready") return;
+    replaceSelectedPathInURL(selectedPath);
+    if (!saveAppState({ version: 1, selectedPath }))
+      setStorageStatus("選択状態を保存できませんでした");
+  }, [catalog.kind, selectedPath]);
+  /* oxlint-enable react/set-state-in-effect */
 
   useServerEvents({
     onCatalogChanged: () => {
       void refreshFiles();
     },
     onFileChanged: (id) => {
-      if (id === selectedId) void loadContent(id);
+      if (id === selectedId) setRevision((value) => value + 1);
     },
   });
 
-  const onSelect = useCallback(
-    (id: string) => {
-      const found = files.find((file) => file.id === id);
-      if (found !== undefined) commitAppState({ version: 1, selectedPath: found.path });
-      setFilesSheetOpen(false);
+  const props: WorkspaceProps = {
+    files,
+    selectedFile,
+    preferences,
+    dispatch,
+    catalogFailed,
+    status: catalogFailed ? "ファイル一覧の取得に失敗しました" : storageStatus,
+    onSelect: (id) => {
+      const file = files.find((entry) => entry.id === id);
+      if (file !== undefined) select(file.path);
+      setSheet(null);
     },
-    [commitAppState, files],
-  );
-
-  const onViewEvent = useCallback(
-    (event: NovelViewEvent) => {
-      if (selectedPath !== null) savePage(selectedPath, event.page);
+    sheet,
+    setSheet,
+    diagnosticDrawerOpen,
+    setDiagnosticDrawerOpen,
+    fitZoom,
+    setFitZoom,
+    revision,
+    summaryTarget,
+    setSummaryTarget,
+    refreshFiles: () => {
+      void refreshFiles();
     },
-    [selectedPath],
-  );
+  };
 
-  const setFitZoom = useCallback((value: number) => {
-    setZoom(value);
-  }, []);
+  return <Workspace {...props} />;
+}
 
-  const changeZoom = useCallback(
-    (value: number) => {
-      setZoom(value);
-      commitPreferenceAction({ kind: "zoom.replace", zoom: value, fit: false });
+function Workspace(props: WorkspaceProps) {
+  const {
+    files,
+    selectedFile,
+    preferences,
+    dispatch,
+    status,
+    onSelect,
+    sheet,
+    setSheet,
+    diagnosticDrawerOpen,
+    fitZoom,
+    refreshFiles,
+    catalogFailed,
+    setSummaryTarget,
+  } = props;
+  const selectedId = selectedFile?.id ?? null;
+  const zoom = preferences.fit ? fitZoom : preferences.zoom;
+  const changeZoom = (value: number) => {
+    dispatch({ kind: "zoom.replace", zoom: value, fit: false });
+  };
+  const enableFit = () => {
+    dispatch({ kind: "zoom.replace", zoom: preferences.zoom, fit: true });
+  };
+  const settingsProps = {
+    notation: preferences.notation,
+    composition: preferences.composition,
+    showGrid: preferences.showGrid,
+    presets: preferences.presets,
+    status,
+    onNotationChange: (notation: ManuscriptPreferences["notation"]) => {
+      dispatch({ kind: "notation.replace", notation });
     },
-    [commitPreferenceAction],
-  );
-
-  const enableFit = useCallback(() => {
-    commitPreferenceAction({
-      kind: "zoom.replace",
-      zoom: manuscriptRef.current.preferences.zoom,
-      fit: true,
-    });
-  }, [commitPreferenceAction]);
-
-  const selectDiagnostic = useCallback((diagnostic: ManuscriptDiagnostic) => {
-    dispatch({ kind: "diagnostic.select", id: diagnostic.id });
-    viewRef.current?.scrollToDiagnostic(diagnostic.id);
-    setDiagnosticsSheetOpen(false);
-  }, []);
-
-  const settings = (
-    <SettingsPanel
-      notation={manuscript.preferences.notation}
-      composition={manuscript.preferences.composition}
-      showGrid={manuscript.preferences.showGrid}
-      presets={manuscript.preferences.presets}
-      status={status}
-      onNotationChange={(notation) => {
-        commitPreferenceAction({ kind: "notation.replace", notation });
-      }}
-      onCompositionChange={(composition) => {
-        commitPreferenceAction({ kind: "composition.replace", composition });
-      }}
-      onGridChange={(showGrid) => {
-        commitPreferenceAction({ kind: "grid-visibility.replace", showGrid });
-      }}
-      onPresetApply={(preset) => {
-        commitPreferenceAction({ kind: "preset.apply", preset });
-      }}
-      onPresetSave={(preset) => {
-        commitPreferenceAction({ kind: "preset.save", preset });
-      }}
-      onPresetDelete={(name) => {
-        commitPreferenceAction({ kind: "preset.delete", name });
-      }}
-    />
-  );
+    onCompositionChange: (composition: ManuscriptPreferences["composition"]) => {
+      dispatch({ kind: "composition.replace", composition });
+    },
+    onGridChange: (showGrid: boolean) => {
+      dispatch({ kind: "grid-visibility.replace", showGrid });
+    },
+    onPresetApply: (preset: ManuscriptPreferences["presets"][number]) => {
+      dispatch({ kind: "preset.apply", preset });
+    },
+    onPresetSave: (preset: ManuscriptPreferences["presets"][number]) => {
+      dispatch({ kind: "preset.save", preset });
+    },
+    onPresetDelete: (name: string) => {
+      dispatch({ kind: "preset.delete", name });
+    },
+  };
 
   return (
     <div className={diagnosticDrawerOpen ? "app app--diagnostics" : "app"}>
@@ -317,183 +173,44 @@ export function App() {
         プレビューへスキップ
       </a>
       <Sidebar files={files} selectedId={selectedId} onSelect={onSelect} status={status}>
-        <SettingsPanel
-          idPrefix="desktop-"
-          notation={manuscript.preferences.notation}
-          composition={manuscript.preferences.composition}
-          showGrid={manuscript.preferences.showGrid}
-          presets={manuscript.preferences.presets}
-          status={status}
-          onNotationChange={(notation) => {
-            commitPreferenceAction({ kind: "notation.replace", notation });
-          }}
-          onCompositionChange={(composition) => {
-            commitPreferenceAction({ kind: "composition.replace", composition });
-          }}
-          onGridChange={(showGrid) => {
-            commitPreferenceAction({ kind: "grid-visibility.replace", showGrid });
-          }}
-          onPresetApply={(preset) => {
-            commitPreferenceAction({ kind: "preset.apply", preset });
-          }}
-          onPresetSave={(preset) => {
-            commitPreferenceAction({ kind: "preset.save", preset });
-          }}
-          onPresetDelete={(name) => {
-            commitPreferenceAction({ kind: "preset.delete", name });
-          }}
-        />
+        <SettingsPanel {...settingsProps} idPrefix="desktop-" />
+        {catalogFailed && (
+          <button type="button" onClick={refreshFiles}>
+            ファイル一覧を再取得
+          </button>
+        )}
       </Sidebar>
 
-      <main id="preview" className="preview" tabIndex={-1} aria-label="プレビュー">
-        {selectedFile === null ? null : (
-          <>
-            {processed?.ok && (
-              <ViewerToolbar
-                className="desktop-viewer-toolbar"
-                documentLabel={selectedFile.path}
-                composed={processed.value.composed}
-                diagnosticCount={diagnostics.length}
-                zoom={zoom}
-                fit={manuscript.preferences.fit}
-                onZoomChange={changeZoom}
-                onFitChange={enableFit}
-                onDiagnosticsOpen={() => {
-                  setDiagnosticDrawerOpen((open) => !open);
-                }}
-              />
-            )}
-            <header className="mobile-toolbar">
-              <button
-                type="button"
-                onClick={() => {
-                  setFilesSheetOpen(true);
-                }}
-              >
-                ファイル
-              </button>
-              <strong title={selectedFile.path}>{selectedFile.path}</strong>
-              <button
-                type="button"
-                aria-label={`診断 ${diagnostics.length}件`}
-                onClick={() => {
-                  setDiagnosticsSheetOpen(true);
-                }}
-              >
-                診断 <span>{diagnostics.length}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsSheetOpen(true);
-                }}
-              >
-                設定
-              </button>
-            </header>
-            {loadedDocument?.id !== selectedId ? (
-              <p className="preview__loading">読み込み中…</p>
-            ) : typographyState.kind !== "ready" ? (
-              <TypographyStatus state={typographyState} />
-            ) : processed?.ok ? (
-              <NovelViewer
-                ref={viewRef}
-                composed={processed.value.composed}
-                typography={typography}
-                diagnostics={diagnostics}
-                activeDiagnosticId={activeDiagnosticId}
-                zoom={{ value: zoom, min: 50, max: 150, step: 25, onChange: setFitZoom }}
-                fit={manuscript.preferences.fit}
-                showGrid={manuscript.preferences.showGrid}
-                onViewEvent={onViewEvent}
-                onDiagnosticSelect={(diagnostic) => {
-                  dispatch({ kind: "diagnostic.select", id: diagnostic.id });
-                  if (window.matchMedia("(max-width: 52rem)").matches) {
-                    setDiagnosticsSheetOpen(true);
-                  } else {
-                    setDiagnosticDrawerOpen(true);
-                  }
-                }}
-              />
-            ) : (
-              <div className="preview__failure" role="alert">
-                <strong>原稿を処理できませんでした</strong>
-                <p>
-                  {processed === null
-                    ? "原稿を処理できませんでした。"
-                    : ProcessManuscriptError.describe(processed.error)}
-                </p>
-              </div>
-            )}
-          </>
-        )}
-      </main>
-
-      {diagnosticDrawerOpen && (
-        <aside className="diagnostic-drawer" aria-label="診断">
-          <header>
-            <h2>診断</h2>
-            <button
-              type="button"
-              aria-label="診断を閉じる"
-              onClick={() => {
-                setDiagnosticDrawerOpen(false);
-              }}
-            >
-              閉じる
-            </button>
-          </header>
-          <DiagnosticList
-            diagnostics={diagnostics}
-            activeDiagnosticId={activeDiagnosticId}
-            onSelect={selectDiagnostic}
-          />
-        </aside>
+      {selectedFile === null ? (
+        <DocumentRegion {...props} refreshContent={() => {}} preview={{ kind: "loading" }} />
+      ) : (
+        <DocumentSession key={selectedFile.id} {...props} selectedFile={selectedFile} />
       )}
-
       <Sheet
-        open={filesSheetOpen}
+        open={sheet === "files"}
         title="ファイル"
         onClose={() => {
-          setFilesSheetOpen(false);
+          setSheet(null);
         }}
       >
         <FilePanel files={files} selectedId={selectedId} onSelect={onSelect} />
       </Sheet>
       <Sheet
-        open={settingsSheetOpen}
+        open={sheet === "settings"}
         title="表示設定"
         onClose={() => {
-          setSettingsSheetOpen(false);
+          setSheet(null);
         }}
       >
-        {processed?.ok && (
-          <p className="mobile-summary">
-            {processed.value.composed.layout.stats.chars}字・
-            {processed.value.composed.layout.stats.pages}ページ
-          </p>
-        )}
+        <div ref={setSummaryTarget} />
         <ZoomControls
           className="mobile-zoom"
           zoom={zoom}
-          fit={manuscript.preferences.fit}
+          fit={preferences.fit}
           onZoomChange={changeZoom}
           onFitChange={enableFit}
         />
-        {settings}
-      </Sheet>
-      <Sheet
-        open={diagnosticsSheetOpen}
-        title="診断"
-        onClose={() => {
-          setDiagnosticsSheetOpen(false);
-        }}
-      >
-        <DiagnosticList
-          diagnostics={diagnostics}
-          activeDiagnosticId={activeDiagnosticId}
-          onSelect={selectDiagnostic}
-        />
+        <SettingsPanel {...settingsProps} />
       </Sheet>
     </div>
   );

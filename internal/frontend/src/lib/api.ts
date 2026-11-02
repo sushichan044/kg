@@ -21,8 +21,8 @@ export async function fetchFiles(): Promise<readonly FileEntry[]> {
   return entries.output;
 }
 
-export async function fetchContent(id: string): Promise<string> {
-  const res = await fetch(`/_/api/files/${encodeURIComponent(id)}/content`);
+export async function fetchContent(id: string, signal?: AbortSignal): Promise<string> {
+  const res = await fetch(`/_/api/files/${encodeURIComponent(id)}/content`, { signal });
   if (!res.ok) {
     throw new Error(`failed to read file: ${res.status}`);
   }

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useEffectEvent } from "react";
 import * as v from "valibot";
 
 export type ServerEventHandlers = Readonly<{
@@ -30,10 +30,11 @@ function parseEvent<TSchema extends v.GenericSchema>(
 // when the server process is replaced (a new PID in the `started` event), so a
 // rebuilt binary refreshes the browser automatically.
 export function useServerEvents(handlers: ServerEventHandlers): void {
-  const ref = useRef(handlers);
-
-  useEffect(() => {
-    ref.current = handlers;
+  const onCatalogChanged = useEffectEvent(() => {
+    handlers.onCatalogChanged();
+  });
+  const onFileChanged = useEffectEvent((id: string) => {
+    handlers.onFileChanged(id);
   });
 
   useEffect(() => {
@@ -53,12 +54,12 @@ export function useServerEvents(handlers: ServerEventHandlers): void {
     });
 
     source.addEventListener("update", () => {
-      ref.current.onCatalogChanged();
+      onCatalogChanged();
     });
 
     source.addEventListener("file-changed", (e) => {
       const changed = parseEvent(FileChangedEventSchema, e.data);
-      if (changed !== undefined) ref.current.onFileChanged(changed.id);
+      if (changed !== undefined) onFileChanged(changed.id);
     });
 
     return () => {

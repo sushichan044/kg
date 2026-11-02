@@ -200,6 +200,9 @@ const composed = composeManuscript(prepared.parsed, {
 // Pass the same typography to NovelViewer; dispose it when the owner unmounts.
 ```
 
+React consumers require React 19.3 or later. `NovelViewer` accepts `ref` as a prop
+and exposes the same scrolling and visible-page handle.
+
 `useTypography(fontPreset)` owns loading, retry and disposal for React consumers.
 `TypographyStatus` renders the corresponding loading or retry control. Switching
 fonts releases the previous resource and waits for a matching resource before drawing.

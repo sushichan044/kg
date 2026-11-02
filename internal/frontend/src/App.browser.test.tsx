@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { expect, test as base, vi } from "vite-plus/test";
 import { page } from "vite-plus/test/browser";
 import { render } from "vitest-browser-react";
@@ -583,4 +584,196 @@ test("keeps settings available after font loading fails and recovers with Gothic
   });
   expect(screen.container.querySelector('[role="alert"]')).toBeNull();
   expect(screen.container.querySelectorAll(".kgv-glyph").length).toBeGreaterThan(0);
+});
+
+function deferred<T>() {
+  let resolve = (_value: T) => {};
+  const promise = new Promise<T>((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
+}
+
+function manuscriptText(container: HTMLElement): string {
+  return Array.from(container.querySelectorAll(".kgv-visually-hidden"), (node) => node.textContent)
+    .join("")
+    .replaceAll("\n", "");
+}
+
+test("keeps the current manuscript visible while refreshing and commits the newest response", async () => {
+  const screen = await render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+  await expect.poll(() => manuscriptText(screen.container)).toContain("静かな机");
+  const first = deferred<Response>();
+  const latest = deferred<Response>();
+  let calls = 0;
+  const fetchBefore = window.fetch.bind(window);
+  vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+    if ((input instanceof Request ? input.url : input.toString()).endsWith("/novel/content")) {
+      calls += 1;
+      return calls === 1 ? first.promise : latest.promise;
+    }
+    return fetchBefore(input, init);
+  });
+  expect.assert(FakeEventSource.latest !== undefined);
+
+  FakeEventSource.latest.emit("file-changed", JSON.stringify({ id: "novel" }));
+  await expect.poll(() => calls).toBe(1);
+
+  await expect.element(screen.getByLabelText("小説プレビュー", { exact: true })).toBeVisible();
+  expect(manuscriptText(screen.container)).toContain("静かな机");
+  expect(screen.container.querySelector(".preview__loading")).toBeNull();
+  FakeEventSource.latest.emit("file-changed", JSON.stringify({ id: "novel" }));
+  await expect.poll(() => calls).toBe(2);
+  latest.resolve(new Response("最新の原稿"));
+  await expect.poll(() => manuscriptText(screen.container)).toBe("最新の原稿");
+  first.resolve(new Response("古い原稿"));
+  await first.promise;
+  await new Promise<void>((resolve) =>
+    requestAnimationFrame(() => {
+      resolve();
+    }),
+  );
+
+  expect(manuscriptText(screen.container)).toBe("最新の原稿");
+});
+
+test("shows loading for another file and never associates its path with the previous manuscript", async () => {
+  const screen = await render(<App />);
+  await expect.poll(() => manuscriptText(screen.container)).toContain("静かな机");
+  const shared = deferred<Response>();
+  const fetchBefore = window.fetch.bind(window);
+  vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+    (input instanceof Request ? input.url : input.toString()).endsWith("/shared/content")
+      ? shared.promise
+      : fetchBefore(input, init),
+  );
+
+  await screen.getByRole("button", { name: "共有 原稿.txt", exact: true }).click();
+
+  await expect.element(screen.getByText("読み込み中…", { exact: true })).toBeVisible();
+  expect(screen.container.querySelector(".kgv-viewer")).toBeNull();
+  expect(new URL(window.location.href).searchParams.get("file")).toBe("共有 原稿.txt");
+  shared.resolve(new Response("共有の新しい本文"));
+  await expect.poll(() => manuscriptText(screen.container)).toBe("共有の新しい本文");
+});
+
+test("retries an initial content failure and retains the manuscript after a failed refresh", async () => {
+  let failed = true;
+  const fetchBefore = window.fetch.bind(window);
+  vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+    failed && (input instanceof Request ? input.url : input.toString()).endsWith("/novel/content")
+      ? Promise.resolve(new Response(null, { status: 503 }))
+      : fetchBefore(input, init),
+  );
+  const screen = await render(<App />);
+  await expect
+    .element(screen.getByRole("alert"))
+    .toHaveTextContent("本文の取得に失敗しました再試行");
+  expect(screen.container.querySelector(".preview__loading")).toBeNull();
+
+  failed = false;
+  await screen.getByRole("button", { name: "再試行", exact: true }).click();
+  await expect.poll(() => manuscriptText(screen.container)).toContain("静かな机");
+  failed = true;
+  expect.assert(FakeEventSource.latest !== undefined);
+  FakeEventSource.latest.emit("file-changed", JSON.stringify({ id: "novel" }));
+
+  await expect
+    .element(screen.getByRole("alert"))
+    .toHaveTextContent("本文の取得に失敗しました再試行");
+  expect(manuscriptText(screen.container)).toContain("静かな机");
+  failed = false;
+  await screen.getByRole("button", { name: "再試行", exact: true }).click();
+  await expect.poll(() => screen.container.querySelector('[role="alert"]')).toBeNull();
+});
+
+test("preserves settings drafts and focus while font and document loading complete", async ({
+  fontRequest,
+}) => {
+  await page.viewport(1280, 900);
+  const font = deferred<void>();
+  fontRequest.gate = font.promise;
+  const screen = await render(<App />);
+  const field = screen.getByRole("textbox", { name: "プリセット名" });
+  await field.fill("編集中の設定");
+
+  font.resolve(undefined);
+
+  await expect.poll(() => manuscriptText(screen.container)).toContain("静かな机");
+  await expect.element(field).toHaveValue("編集中の設定");
+  await expect.element(field).toHaveFocus();
+});
+
+test("restores each file's saved page without saving the previous file's page under its new path", async ({
+  novelSource,
+}) => {
+  await page.viewport(1280, 900);
+  novelSource.current = "　原稿を読む。".repeat(400);
+  sessionStorage.setItem("kg.app.page.v1:testdata/novel.txt", "1");
+  const screen = await render(<App />);
+  await expect
+    .poll(() => screen.container.querySelectorAll(".kgv-page").length, { timeout: 10000 })
+    .toBeGreaterThan(1);
+  const viewport = screen.container.querySelector<HTMLElement>(".kgv-viewport");
+  const restoredPage = screen.container.querySelector<HTMLElement>('[data-page-index="1"]');
+  expect.assert(viewport !== null && restoredPage !== null);
+
+  await expect
+    .poll(() =>
+      Math.abs(restoredPage.getBoundingClientRect().top - viewport.getBoundingClientRect().top),
+    )
+    .toBeLessThan(2);
+  await expect.poll(() => sessionStorage.getItem("kg.app.page.v1:testdata/novel.txt")).toBe("1");
+  await screen.getByRole("button", { name: "共有 原稿.txt", exact: true }).click();
+  await expect.poll(() => manuscriptText(screen.container)).toBe("共有本文");
+
+  await expect.poll(() => sessionStorage.getItem("kg.app.page.v1:共有 原稿.txt")).toBe("0");
+  expect(sessionStorage.getItem("kg.app.page.v1:testdata/novel.txt")).toBe("1");
+});
+
+test("disposes the previous file session while preserving settings drafts", async () => {
+  await page.viewport(1280, 900);
+  const screen = await render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+  await expect.poll(() => manuscriptText(screen.container)).toContain("静かな机");
+  const field = screen.getByRole("textbox", { name: "プリセット名" });
+  await field.fill("保存前の設定");
+  const pending = deferred<Response>();
+  const originalFetch = window.fetch.bind(window);
+  let requestSignal: AbortSignal | null | undefined;
+  vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+    if ((input instanceof Request ? input.url : input.toString()).endsWith("/novel/content")) {
+      requestSignal = init?.signal;
+      return pending.promise;
+    }
+    return originalFetch(input, init);
+  });
+  expect.assert(FakeEventSource.latest !== undefined);
+
+  FakeEventSource.latest.emit("file-changed", JSON.stringify({ id: "novel" }));
+  await expect.poll(() => requestSignal !== undefined).toBe(true);
+  await screen.getByRole("button", { name: "共有 原稿.txt", exact: true }).click();
+  await expect.poll(() => manuscriptText(screen.container)).toBe("共有本文");
+  expect.assert(requestSignal !== null && requestSignal !== undefined);
+  expect(requestSignal.aborted).toBe(true);
+  pending.resolve(new Response("破棄された原稿"));
+  await pending.promise;
+  await new Promise<void>((resolve) =>
+    requestAnimationFrame(() => {
+      resolve();
+    }),
+  );
+
+  expect(manuscriptText(screen.container)).toBe("共有本文");
+  await expect.element(field).toHaveValue("保存前の設定");
+  await expect
+    .poll(() => screen.container.querySelector(".mobile-summary")?.textContent)
+    .toBe("4字・1ページ");
 });

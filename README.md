@@ -28,6 +28,11 @@ go run . --foreground --no-open
 vp run --filter kg-frontend dev
 ```
 
+The frontend requires React 19.3 or later. Manuscript requests use Suspense;
+updates to the current file keep its preview visible until the new text and
+diagnostics are ready. Selecting another file shows a loading state. File and
+font loading failures provide retry controls while settings remain available.
+
 ## Packages
 
 Reusable packages are maintained in this repository:
