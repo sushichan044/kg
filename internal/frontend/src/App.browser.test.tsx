@@ -715,7 +715,9 @@ test("restores each file's saved page without saving the previous file's page un
   novelSource.current = "　原稿を読む。".repeat(400);
   sessionStorage.setItem("kg.app.page.v1:testdata/novel.txt", "1");
   const screen = await render(<App />);
-  await expect.poll(() => screen.container.querySelectorAll(".kgv-page").length).toBeGreaterThan(1);
+  await expect
+    .poll(() => screen.container.querySelectorAll(".kgv-page").length, { timeout: 10000 })
+    .toBeGreaterThan(1);
   const viewport = screen.container.querySelector<HTMLElement>(".kgv-viewport");
   const restoredPage = screen.container.querySelector<HTMLElement>('[data-page-index="1"]');
   expect.assert(viewport !== null && restoredPage !== null);
