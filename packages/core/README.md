@@ -430,3 +430,22 @@ For proofreading, import `createSpaceAfterQuestionOrExclamationRule` from
 `kg/space-after-question-or-exclamation` with the successful result's value.
 An empty string adds nothing; built-in marks remain enabled. Each Unicode code
 point is a separate symbol. Non-symbol characters are rejected.
+
+## Font preparation
+
+Parsing preserves the source independently of the selected font. Before composition,
+call `prepareManuscriptForFont(parsed, fontPreset)`. Its `parsed` value contains the
+prepared display text and annotations; `mapRange` maps existing parser diagnostics
+into its grapheme coordinates while preserving source and display UTF-16 offsets.
+Always prepare from the original parse when changing fonts.
+
+`prepareTextForFont(text, fontPreset)` applies the same rules to standalone titles
+and author names. `mincho` selects Rin Mincho and combines spacing kana voicing
+marks; `genei-koburi` and `gothic` preserve them. Existing combining marks stay intact.
+Preparation preserves notation, style and per-character ruby boundaries. The current
+built-in transforms preserve UTF-16 length and do not normalize the whole source.
+
+Font profiles declare ordered text transforms, measurement policy and OpenType
+features. Add a profile and its browser assets to support another built-in font;
+parsers remain independent of font selection. Browser shaping is provided by
+`@sushichan044/kg-viewer/typography`; core remains synchronous and DOM independent.

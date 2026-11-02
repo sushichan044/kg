@@ -7,6 +7,10 @@ import { App } from "./App";
 import "@sushichan044/kg-viewer/styles.css";
 import "./styles/index.css";
 
+const nativeFetch = window.fetch.bind(window);
+
+const waitFor = (assertion: () => void) => vi.waitFor(assertion, { timeout: 10000 });
+
 const source = [
   "　静かな机に、原稿用紙を広げた。",
   "「これでいいのかな？」",
@@ -48,6 +52,7 @@ class FakeEventSource {
 
 type Fixtures = {
   novelSource: { current: string };
+  fontRequest: { failure: boolean; gate: Promise<void> | null };
   browserEnvironment: undefined;
 };
 
@@ -55,24 +60,34 @@ const test = base.extend<Fixtures>({
   novelSource: async ({}, use) => {
     await use({ current: source });
   },
+  fontRequest: async ({}, use) => {
+    await use({ failure: false, gate: null });
+  },
   browserEnvironment: [
-    async ({ novelSource }, use) => {
+    async ({ novelSource, fontRequest }, use) => {
       window.history.replaceState(null, "", "/");
       localStorage.clear();
       sessionStorage.clear();
       FakeEventSource.latest = undefined;
       vi.stubGlobal("EventSource", FakeEventSource);
+      const originalFetch = window.fetch.bind(window);
       vi.stubGlobal(
         "fetch",
         vi.fn(async (input: RequestInfo | URL) => {
           const url = input instanceof Request ? input.url : input.toString();
+          if (url.includes("RinMincho-Regular")) {
+            if (fontRequest.gate !== null) await fontRequest.gate;
+            if (fontRequest.failure) return new Response("unavailable", { status: 503 });
+          }
           if (url.endsWith("/_/api/files")) {
             return new Response(JSON.stringify(files), {
               headers: { "content-type": "application/json" },
             });
           }
 
-          return new Response(url.includes("/shared/") ? "共有本文" : novelSource.current);
+          if (url.includes("/_/api/files/"))
+            return new Response(url.includes("/shared/") ? "共有本文" : novelSource.current);
+          return originalFetch(input);
         }),
       );
 
@@ -91,7 +106,7 @@ test("renders composer-owned combined units without duplicating the accessible m
 
   const screen = await render(<App />);
 
-  await vi.waitFor(() => {
+  await waitFor(() => {
     const cells = Array.from(screen.container.querySelectorAll(".kgv-cell"));
     expect(cells.map((cell) => cell.textContent)).toEqual(["あ", "12", "い"]);
     const text = screen.container.querySelector(".kgv-visually-hidden");
@@ -114,8 +129,10 @@ test("connects proofreading feedback to the drawer and manuscript cells", async 
 
   await drawer.getByRole("list").getByRole("button").nth(3).click();
 
-  await vi.waitFor(() => {
-    expect(screen.container.querySelectorAll(".kgv-cell[data-diagnostic-active]")).toHaveLength(4);
+  await waitFor(() => {
+    const active = screen.container.querySelectorAll(".kgv-cell[data-diagnostic-active]");
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toBe("2026");
     expect(
       screen.container.querySelectorAll(".kgv-diagnostic-band[data-diagnostic-active]"),
     ).toHaveLength(1);
@@ -129,12 +146,15 @@ test("opens compact file, settings, and diagnostics sheets", async () => {
   await page.viewport(600, 900);
   const screen = await render(<App />);
 
-  await vi.waitFor(() => {
+  await waitFor(() => {
     const label = screen.container.querySelector(".mobile-toolbar strong");
     expect.assert(label !== null, "mobile toolbar label did not render");
     expect(label.textContent).toBe("testdata/novel.txt");
   });
 
+  await waitFor(() => {
+    expect(screen.container.querySelector(".mobile-toolbar")?.textContent).toContain("診断 4");
+  });
   const buttons = Array.from(
     screen.container.querySelectorAll<HTMLButtonElement>(".mobile-toolbar button"),
   );
@@ -163,7 +183,7 @@ test("opens the file selected by the URL and preserves unrelated URL state", asy
 
   const screen = await render(<App />);
 
-  await vi.waitFor(() => {
+  await waitFor(() => {
     const label = screen.container.querySelector(".toolbar-label");
     expect.assert(label !== null, "toolbar label did not render");
     expect(label.textContent).toBe("共有 原稿.txt");
@@ -181,7 +201,7 @@ test("updates the shared URL when another file is selected", async () => {
   );
   const screen = await render(<App />);
 
-  await vi.waitFor(() => {
+  await waitFor(() => {
     const label = screen.container.querySelector(".toolbar-label");
     expect.assert(label !== null, "toolbar label did not render");
     expect(label.textContent).toBe("共有 原稿.txt");
@@ -194,7 +214,7 @@ test("updates the shared URL when another file is selected", async () => {
 
   fileListItem.click();
 
-  await vi.waitFor(() => {
+  await waitFor(() => {
     expect(new URL(window.location.href).searchParams.get("file")).toBe("testdata/novel.txt");
   });
   expect(new URL(window.location.href).searchParams.get("mode")).toBe("preview");
@@ -206,7 +226,7 @@ test("normalizes an unknown URL file to the first available file", async () => {
 
   const screen = await render(<App />);
 
-  await vi.waitFor(() => {
+  await waitFor(() => {
     const label = screen.container.querySelector(".toolbar-label");
     expect.assert(label !== null, "toolbar label did not render");
     expect(label.textContent).toBe("testdata/novel.txt");
@@ -228,20 +248,21 @@ test("synchronizes the URL after a failed initial catalog load is refreshed", as
         });
       }
 
+      if (!url.includes("/_/api/")) return nativeFetch(input);
       return new Response("共有本文");
     }),
   );
 
   const screen = await render(<App />);
 
-  await vi.waitFor(() => {
+  await waitFor(() => {
     expect(FakeEventSource.latest).toBeDefined();
   });
   expect.assert(FakeEventSource.latest !== undefined, "event source did not initialize");
 
   FakeEventSource.latest.emit("update", "{}");
 
-  await vi.waitFor(() => {
+  await waitFor(() => {
     const label = screen.container.querySelector(".toolbar-label");
     expect.assert(label !== null, "toolbar label did not render");
     expect(label.textContent).toBe("共有 原稿.txt");
@@ -270,20 +291,21 @@ test("keeps the newest catalog when an older request finishes last", async () =>
         );
       }
 
+      if (!url.includes("/_/api/")) return nativeFetch(input);
       return Promise.resolve(new Response("共有本文"));
     }),
   );
 
   const screen = await render(<App />);
 
-  await vi.waitFor(() => {
+  await waitFor(() => {
     expect(FakeEventSource.latest).toBeDefined();
   });
   expect.assert(FakeEventSource.latest !== undefined, "event source did not initialize");
 
   FakeEventSource.latest.emit("update", "{}");
 
-  await vi.waitFor(() => {
+  await waitFor(() => {
     const label = screen.container.querySelector(".toolbar-label");
     expect.assert(label !== null, "toolbar label did not render");
     expect(label.textContent).toBe("共有 原稿.txt");
@@ -307,7 +329,7 @@ test("renders pixiv notation after the initial load and a file reload", async ({
 
   const screen = await render(<App />);
 
-  await vi.waitFor(() => {
+  await waitFor(() => {
     for (const kind of ["ruby", "bold", "italic", "emphasis"]) {
       expect(screen.container.querySelector(`[data-annotation="${kind}"]`)).not.toBeNull();
     }
@@ -323,7 +345,7 @@ test("renders pixiv notation after the initial load and a file reload", async ({
 
   FakeEventSource.latest.emit("file-changed", JSON.stringify({ id: "novel" }));
 
-  await vi.waitFor(() => {
+  await waitFor(() => {
     expect(screen.container.querySelectorAll('[data-annotation="bold"]')).toHaveLength(3);
     const hiddenText = screen.container.querySelector(".kgv-visually-hidden");
     expect.assert(hiddenText !== null, "accessible viewer text did not render after reload");
@@ -339,14 +361,14 @@ test("toggles the decorative grid without changing composition settings", async 
   await page.viewport(1280, 800);
   const screen = await render(<App />);
 
-  await vi.waitFor(() => {
+  await waitFor(() => {
     expect(screen.container.querySelectorAll(".kgv-rule-cell").length).toBeGreaterThan(0);
   });
   const toggle = screen.container.querySelector<HTMLInputElement>("#desktop-show-grid");
   expect.assert(toggle !== null, "grid visibility setting did not render");
   toggle.click();
 
-  await vi.waitFor(() => {
+  await waitFor(() => {
     expect(screen.container.querySelectorAll(".kgv-rule-cell")).toHaveLength(0);
   });
   expect(JSON.parse(localStorage.getItem("kg.manuscript.preferences.v7") ?? "null")).toMatchObject({
@@ -363,7 +385,8 @@ test("switches the persisted notation parser without auto-detecting source", asy
   await page.viewport(1280, 800);
   const screen = await render(<App />);
 
-  await vi.waitFor(() => {
+  await waitFor(() => {
+    expect(screen.container.querySelector(".kgv-viewer")).not.toBeNull();
     expect(screen.container.querySelectorAll("[data-annotation]")).toHaveLength(0);
   });
 
@@ -371,7 +394,7 @@ test("switches the persisted notation parser without auto-detecting source", asy
   expect.assert(kakuyomu !== null, "Kakuyomu notation choice did not render");
   kakuyomu.click();
 
-  await vi.waitFor(() => {
+  await waitFor(() => {
     expect(screen.container.querySelectorAll('[data-annotation="ruby"]')).toHaveLength(1);
   });
   expect(JSON.parse(localStorage.getItem("kg.manuscript.preferences.v7") ?? "null")).toMatchObject({
@@ -467,4 +490,97 @@ test("selects the fixed A6 composition from the paper control", async () => {
       },
     },
   });
+});
+
+test("waits for the bundled font and composes the latest source with its real metrics", async ({
+  fontRequest,
+  novelSource,
+}) => {
+  let release = () => {};
+  fontRequest.gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  const screen = await render(<App />);
+
+  await expect.element(screen.getByRole("status")).toHaveTextContent("書体を読み込んでいます…");
+  expect(screen.container.querySelector(".kgv-viewer")).toBeNull();
+  novelSource.current = "あofficeい";
+  expect.assert(FakeEventSource.latest !== undefined);
+  FakeEventSource.latest.emit("file-changed", JSON.stringify({ id: "novel" }));
+  release();
+  await waitFor(() => {
+    const glyph = screen.container.querySelector<HTMLElement>(".kgv-glyph-sideways");
+    expect.assert(glyph !== null);
+    expect(glyph.textContent).toBe("office");
+    expect(getComputedStyle(glyph).fontFamily).toContain("KGRinMincho100");
+    const fontPx = Number.parseFloat(getComputedStyle(glyph).fontSize);
+    expect(Math.abs(glyph.getBoundingClientRect().height / fontPx - 2482 / 1024)).toBeLessThan(
+      0.02,
+    );
+  });
+});
+
+test("retries font loading after a failed request without showing a mismatched preview", async ({
+  fontRequest,
+}) => {
+  fontRequest.failure = true;
+
+  const screen = await render(<App />);
+
+  await expect
+    .element(screen.getByRole("alert"))
+    .toHaveTextContent("書体を読み込めませんでした。再試行");
+  expect(screen.container.querySelector(".kgv-viewer")).toBeNull();
+  fontRequest.failure = false;
+  await screen.getByRole("button", { name: "再試行" }).click();
+  await waitFor(() => {
+    expect(screen.container.querySelector('[data-typography="mincho"]')).not.toBeNull();
+  });
+});
+
+test("switches typography profiles without changing manuscript source", async ({ novelSource }) => {
+  novelSource.current = "あ゛ん゛";
+  const screen = await render(<App />);
+  await expect.element(screen.getByRole("combobox", { name: "書体" })).toBeVisible();
+  await waitFor(() => {
+    expect(screen.container.querySelector('[data-typography="mincho"]')).not.toBeNull();
+  });
+  expect(
+    [...screen.container.querySelectorAll(".kgv-glyph")].map((glyph) => glyph.textContent),
+  ).toEqual(["あ゙", "ん゙"]);
+
+  await screen.getByRole("combobox", { name: "書体" }).selectOptions("genei-koburi");
+
+  await waitFor(() => {
+    expect(screen.container.querySelector('[data-typography="genei-koburi"]')).not.toBeNull();
+  });
+  expect(
+    [...screen.container.querySelectorAll(".kgv-glyph")].map((glyph) => glyph.textContent),
+  ).toEqual(["あ", "゛", "ん", "゛"]);
+  expect(novelSource.current).toBe("あ゛ん゛");
+  await screen.getByRole("combobox", { name: "書体" }).selectOptions("mincho");
+  await waitFor(() => {
+    expect(screen.container.querySelector('[data-typography="mincho"]')).not.toBeNull();
+  });
+  expect(
+    [...screen.container.querySelectorAll(".kgv-glyph")].map((glyph) => glyph.textContent),
+  ).toEqual(["あ゙", "ん゙"]);
+});
+
+test("keeps settings available after font loading fails and recovers with Gothic", async ({
+  fontRequest,
+}) => {
+  fontRequest.failure = true;
+  const screen = await render(<App />);
+  await expect.element(screen.getByRole("alert")).toBeVisible();
+  await expect.element(screen.getByRole("combobox", { name: "書体" })).toBeVisible();
+
+  await screen.getByRole("combobox", { name: "書体" }).selectOptions("gothic");
+
+  await waitFor(() => {
+    expect(screen.container.querySelector(".kgv-viewer")).not.toBeNull();
+  });
+  expect(screen.container.querySelector('[role="alert"]')).toBeNull();
+  expect(screen.container.querySelectorAll(".kgv-glyph").length).toBeGreaterThan(0);
 });

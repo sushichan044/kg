@@ -1,4 +1,4 @@
-import { FontPreset, ManuscriptRange } from "@sushichan044/kg-core";
+import { composeManuscript, FontPreset, ManuscriptRange } from "@sushichan044/kg-core";
 import type {
   SingleGlyphUnit,
   AnnotationPlacement,
@@ -22,6 +22,10 @@ import {
 import type { CSSProperties, ForwardedRef, ReactNode } from "react";
 
 import { fitZoom } from "./fit-zoom";
+import type { ReadyTypography } from "./typography";
+import { cssFontFeatures } from "./typography-profile";
+import { TypographyStatus } from "./TypographyStatus";
+import { useTypography } from "./use-typography";
 
 const NO_DIAGNOSTICS: readonly ManuscriptDiagnostic[] = [];
 const DEFAULT_ZOOM = { value: 100, min: 1, max: Number.MAX_SAFE_INTEGER, step: 1 } satisfies Omit<
@@ -31,6 +35,7 @@ const DEFAULT_ZOOM = { value: 100, min: 1, max: Number.MAX_SAFE_INTEGER, step: 1
 
 export type NovelViewerProps = Readonly<{
   composed: NovelComposedManuscript;
+  typography?: ReadyTypography;
   diagnostics?: readonly ManuscriptDiagnostic[];
   activeDiagnosticId?: string | null;
   zoom?: NovelViewerZoom;
@@ -68,6 +73,9 @@ type NovelStyle = CSSProperties & {
   "--kgv-margin-inner": string;
   "--kgv-margin-outer": string;
   "--kgv-manuscript-font": string;
+  "--kgv-font-features": string;
+  "--kgv-western-kerning": string;
+  "--kgv-font-synthesis": string;
   "--kgv-page-height": string;
   "--kgv-page-width": string;
 };
@@ -373,6 +381,7 @@ function renderRuby(annotation: Extract<ComposedAnnotationFragment, { kind: "rub
 function NovelViewerComponent(
   {
     composed,
+    typography,
     diagnostics = NO_DIAGNOSTICS,
     activeDiagnosticId = null,
     zoom,
@@ -396,6 +405,8 @@ function NovelViewerComponent(
   const value = zoom?.value ?? uncontrolledZoom;
   const onChange = zoom?.onChange ?? setUncontrolledZoom;
   const selectedFont = FontPreset.of(composed.settings.appearance.fontPreset);
+  const usesTypography = typography !== undefined;
+  const fontFamily = usesTypography ? typography.fontFamily : selectedFont.family;
 
   const scrollToPage = useCallback(
     (index: number) => {
@@ -498,11 +509,14 @@ function NovelViewerComponent(
       "--kgv-margin-bottom": `${geometry.bottomMm * (value / 100)}mm`,
       "--kgv-margin-inner": `${geometry.innerMm * (value / 100)}mm`,
       "--kgv-margin-outer": `${geometry.outerMm * (value / 100)}mm`,
-      "--kgv-manuscript-font": selectedFont.family,
+      "--kgv-manuscript-font": fontFamily,
+      "--kgv-font-features": cssFontFeatures(selectedFont),
+      "--kgv-western-kerning": selectedFont.rendering.westernKerning,
+      "--kgv-font-synthesis": selectedFont.rendering.synthesis,
       "--kgv-page-height": `${geometry.paperHeightMm * (value / 100)}mm`,
       "--kgv-page-width": `${geometry.paperWidthMm * (value / 100)}mm`,
     }),
-    [composed.settings.flow.lineLengthEm, geometry, selectedFont.family, value],
+    [composed.settings.flow.lineLengthEm, geometry, fontFamily, selectedFont, value],
   );
   const renderedPages = useMemo(
     () =>
@@ -578,7 +592,12 @@ function NovelViewerComponent(
   };
 
   return (
-    <div className={joinClassNames("kgv-viewer", className)} aria-label={ariaLabel}>
+    <div
+      className={joinClassNames("kgv-viewer", className)}
+      aria-label={ariaLabel}
+      lang="ja"
+      data-typography={usesTypography ? selectedFont.id : undefined}
+    >
       <div ref={viewportRef} className="kgv-viewport">
         <div className="kgv-stack" style={style}>
           {renderedPages.map(({ id, page, pageIndex, stages }) => (
@@ -634,6 +653,7 @@ function NovelViewerComponent(
                                   {wrapAnnotations(
                                     annotationsForRange(line, cell.range),
                                     <span
+                                      lang={cell.presentation === "sideways" ? "en" : "ja"}
                                       className={joinClassNames(
                                         "kgv-glyph",
                                         presentationClass(cell.presentation),
@@ -684,4 +704,60 @@ function NovelViewerComponent(
   );
 }
 
-export const NovelViewer = forwardRef(NovelViewerComponent);
+const NovelViewerRenderer = forwardRef(NovelViewerComponent);
+
+const AutomaticNovelViewer = forwardRef(function AutomaticNovelViewer(
+  props: NovelViewerProps,
+  ref: ForwardedRef<NovelViewHandle>,
+) {
+  const state = useTypography(props.composed.settings.appearance.fontPreset);
+  const typography = state.kind === "ready" ? state.typography : undefined;
+  const prepared = useMemo(
+    () => typography?.prepare(props.composed.parsed),
+    [props.composed.parsed, typography],
+  );
+  const composed = useMemo(
+    () =>
+      typography !== undefined && prepared !== undefined
+        ? composeManuscript(prepared.parsed, {
+            composer: typography.composer,
+            settings: props.composed.settings,
+          })
+        : undefined,
+    [prepared, props.composed.settings, typography],
+  );
+  const diagnostics = useMemo(
+    () =>
+      prepared === undefined
+        ? props.diagnostics
+        : props.diagnostics?.map((diagnostic) => ({
+            ...diagnostic,
+            range: prepared.mapRange(diagnostic.range),
+          })),
+    [prepared, props.diagnostics],
+  );
+  if (state.kind !== "ready") return <TypographyStatus state={state} />;
+  if (composed === undefined || !composed.ok || prepared === undefined)
+    return <p role="alert">原稿を組版できませんでした。</p>;
+  return (
+    <NovelViewerRenderer
+      {...props}
+      ref={ref}
+      composed={composed.value}
+      typography={state.typography}
+      diagnostics={diagnostics}
+    />
+  );
+});
+
+export const NovelViewer = forwardRef(function NovelViewer(
+  props: NovelViewerProps,
+  ref: ForwardedRef<NovelViewHandle>,
+) {
+  const fontPreset = props.composed.settings.appearance.fontPreset;
+  if (props.typography !== undefined && props.typography.fontPreset !== fontPreset)
+    return <p role="alert">書体と組版設定が一致しません。</p>;
+  if (props.typography !== undefined || FontPreset.of(fontPreset).measurement === "logical")
+    return <NovelViewerRenderer {...props} ref={ref} />;
+  return <AutomaticNovelViewer key={fontPreset} {...props} ref={ref} />;
+});

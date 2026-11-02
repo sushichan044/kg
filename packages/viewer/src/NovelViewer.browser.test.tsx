@@ -1,5 +1,6 @@
 import {
   NovelCompositionSettings,
+  FontPreset,
   ManuscriptDiagnostic,
   composeManuscript,
   kakuyomuParser,
@@ -70,8 +71,24 @@ async function renderViewer(options: ViewerFixtureOptions, props: ViewerFixtureP
   const found = [...parsed.warnings, ...proofread.value];
   const diagnostics = options.reportedAs?.(found) ?? found;
   const screen = await render(
-    <NovelViewer composed={composed.value} diagnostics={diagnostics} {...props} />,
+    <NovelViewer
+      composed={composed.value}
+      diagnostics={diagnostics}
+      typography={{
+        fontFaces: [],
+        fontPreset: composed.value.settings.appearance.fontPreset,
+        prepare: (parsed) => ({ parsed, mapRange: (range) => range }),
+        fontFamily: FontPreset.of(composed.value.settings.appearance.fontPreset).family,
+        composer: options.composer ?? novelComposer,
+        measurer: logicalRunMeasurer,
+        dispose: () => {},
+      }}
+      {...props}
+    />,
   );
+  await expect
+    .poll(() => screen.container.querySelector(".kgv-viewer") !== null, { timeout: 10000 })
+    .toBe(true);
 
   return { composed: composed.value, diagnostics, screen };
 }
@@ -478,6 +495,9 @@ test("shows a nominal grid without letting it change text coordinates", async ()
   }
 
   const screen = await render(<ToggleFixture />);
+  await expect
+    .poll(() => screen.container.querySelector(".kgv-viewer") !== null, { timeout: 10000 })
+    .toBe(true);
   const glyph = screen.container.querySelector<HTMLElement>(".kgv-glyph");
   expect.assert(glyph !== null, "viewer has no glyph");
   const before = glyph.getBoundingClientRect();

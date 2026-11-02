@@ -148,7 +148,9 @@ const HYPHENS = new Set("‐‑⁃–");
 const DIVIDING_MARKS = new Set(SENTENCE_ENDING_MARKS);
 const COMBINED_DIVIDING_MARKS = new Set(TATE_CHU_YOKO_MARKS);
 const MIDDLE_DOTS = new Set("・：；");
-const SMALL_KANA = new Set("ァィゥェォッャュョヮヵヶぁぃぅぇぉっゃゅょゎゕゖ");
+const SMALL_KANA = new Set(
+  "ァィゥェォッャュョヮヵヶㇰㇱㇲㇳㇴㇵㇶㇷㇸㇹㇺㇻㇼㇽㇾㇿぁぃぅぇぉっゃゅょゎゕゖ",
+);
 const ITERATION_MARKS = new Set("ヽヾゝゞ々〻");
 const INSEPARABLE = new Set("—―…‥─〳〴〵");
 const PREFIXED_ABBREVIATIONS = new Set("￥＄£#＃");
@@ -174,6 +176,7 @@ const WESTERN = /^[\p{Script=Latin}\p{Script=Greek}\p{Script=Cyrillic}]$/u;
  * the same as a tate-chu-yoko run's 3.2.5.
  */
 function classify({ value, presentation }: JapaneseCharacter): JapaneseCharacterClass {
+  value = value.replace(/[\u3099\u309A]/gu, "");
   switch (presentation) {
     case "tate-chu-yoko": {
       return COMBINED_DIVIDING_MARKS.has(value) ? "cl-04" : "cl-30";

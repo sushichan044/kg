@@ -40,3 +40,6 @@ node_modules/
 # Browser-mode test artifacts: failure screenshots and their attachments
 .vitest-attachments/
 __screenshots__/
+
+.vitest/
+packages/viewer/font-proof/.cache/

@@ -13,7 +13,7 @@ const ManuscriptAppearanceSettingsSchema = readonlyObject({
 });
 
 /**
- * Everything that changes the physical dimensions of a page, but not how text fills the grid.
+ * Page dimensions and the typography profile used to prepare and measure text.
  */
 export type ManuscriptAppearanceSettings = v.InferOutput<typeof ManuscriptAppearanceSettingsSchema>;
 

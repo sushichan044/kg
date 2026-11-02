@@ -172,3 +172,57 @@ does not include polyfills.
 ## License
 
 MIT
+
+## Font resources and measured composition
+
+The `mincho` preset selects bundled Rin Mincho Regular and Bold. `genei-koburi`
+selects GenEi Koburi Mincho Regular; `gothic` uses logical system-font metrics.
+Existing `mincho` preferences keep their ID. Font files are unmodified and ship
+with their OFL notices in `assets`.
+
+`NovelViewer` prepares the selected browser font automatically when no `typography`
+resource is supplied. Applications displaying page counts or proofreading outside
+the viewer should load a resource first and share its prepared composition:
+
+```tsx
+import { composeManuscript, NovelCompositionSettings } from "@sushichan044/kg-core";
+import { loadTypography } from "@sushichan044/kg-viewer/typography";
+
+const loaded = await loadTypography({ fontPreset: "mincho" });
+if (!loaded.ok) return;
+const typography = loaded.value;
+const prepared = typography.prepare(parsed);
+const composed = composeManuscript(prepared.parsed, {
+  composer: typography.composer,
+  settings: NovelCompositionSettings.defaults,
+});
+// Run proofreading on composed.value and map parser warnings with prepared.mapRange.
+// Pass the same typography to NovelViewer; dispose it when the owner unmounts.
+```
+
+`useTypography(fontPreset)` owns loading, retry and disposal for React consumers.
+`TypographyStatus` renders the corresponding loading or retry control. Switching
+fonts releases the previous resource and waits for a matching resource before drawing.
+A supplied resource whose ID differs from the composition settings is rejected.
+
+The loader shares OpenType features and actual face weights between HarfBuzz
+Western shaping, native vertical measurement and drawing. Measurements use Q
+(1Q = 0.25mm). Font files are checksum verified; loading, integrity and shaper
+failures have separate Result error kinds. `fontUrls` can override the URLs by
+weight without changing the expected bytes. Vite consumers exclude `@sushichan044/kg-viewer` and `harfbuzzjs`
+from dependency prebundling so font and WASM URLs resolve to deployable assets.
+
+`ReadyTypography.fontFaces` exposes blob URLs for the verified font bytes, with
+family, weight and style. Pass these to a capture library's explicit font input
+(for example SnapDOM's `localFonts`) to embed the same faces in exported images.
+These URLs are valid until `dispose()`; do not retain them after disposal.
+
+Callers migrating from the GenEi draft API use
+`loadTypography({ fontPreset: "genei-koburi", fontUrls: { 400: fontUrl } })`,
+prepare the parsed manuscript, and retain the existing composer/measurer/dispose
+workflow. Settings must select the same `genei-koburi` ID.
+
+The independent font proof runs with `vp run test:font-proof`. It compares browser
+geometry with Python HarfBuzz metrics for GenEi and both Rin faces, including
+ligatures, weight changes, combined kana, ruby and source coordinates in Chromium
+and WebKit. Generated evidence stays in the ignored `font-proof/.cache` directory.

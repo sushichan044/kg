@@ -285,3 +285,15 @@ button.kgv-diagnostic-band {
     min-block-size: 2.75rem;
   }
 }
+
+/* Match the ready measurer's fixed-pitch font profile. */
+.kgv-viewer[data-typography] :is(.kgv-glyph, .kgv-ruby, .kgv-emphasis) {
+  font-feature-settings: var(--kgv-font-features);
+  font-kerning: none;
+  font-synthesis: var(--kgv-font-synthesis);
+  font-size-adjust: none;
+  text-rendering: geometricPrecision;
+}
+.kgv-viewer[data-typography] .kgv-glyph-sideways {
+  font-kerning: var(--kgv-western-kerning);
+}
