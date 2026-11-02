@@ -215,6 +215,37 @@ function spacingWidths(plan: { pairSpacings: ReadonlyArray<{ widthEm: number }> 
 }
 
 describe("layoutParagraph", () => {
+  test("distributes unavoidable final expansion instead of concentrating it in one line", () => {
+    const paragraph = atoms("AAAA", flexiblePrefixProfile);
+    const prepared = prepareParagraph(paragraph, 2, flexiblePrefixProfile);
+    const ratios = new Map([
+      ["0:1", 4],
+      ["1:4", 0],
+      ["0:2", 1.2],
+      ["2:3", 1.2],
+      ["3:4", 0],
+    ]);
+
+    const plans = optimizeParagraph(
+      paragraph,
+      2,
+      (start, end) => {
+        const ratio = ratios.get(`${start}:${end}`);
+        return ratio === undefined
+          ? undefined
+          : {
+              ...prepared.resolveCandidate(start, end),
+              inlineSizeEm: 2,
+              break: { kind: ratio === 0 ? "paragraph-end" : "stretched" },
+              deformationRatio: ratio,
+              deformationCost: ratio,
+            };
+      },
+      () => true,
+    );
+
+    expect(plans.map(({ end }) => end)).toEqual([2, 3, 4]);
+  });
   test("keeps paths with different continuation positions until a complete path is selected", () => {
     const paragraph = atoms("AAAA", flexiblePrefixProfile);
     const prepared = prepareParagraph(paragraph, 2, flexiblePrefixProfile);

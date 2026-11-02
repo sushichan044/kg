@@ -102,7 +102,7 @@ export function layoutParagraph(
         [
           stateKey(0, 0),
           {
-            score: [0, 0, 0, 0, 0, 0, 0],
+            score: [0, 0, 0, 0, 0, 0, 0, 0],
             fitness: 0,
             cursor: 0,
             previous: null,
