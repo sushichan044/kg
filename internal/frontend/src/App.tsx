@@ -127,6 +127,8 @@ export function App() {
   const activeDiagnosticId = diagnostics.some(({ id }) => id === manuscript.activeDiagnosticId)
     ? manuscript.activeDiagnosticId
     : null;
+  const [spread, setSpread] = useState(false);
+  const [startPageSide, setStartPageSide] = useState<"left" | "right">("right");
   const [zoom, setZoom] = useState(manuscript.preferences.zoom);
   const [appState, setAppState] = useState(loadInitialAppState);
   const [files, setFiles] = useState<readonly FileEntry[]>([]);
@@ -285,8 +287,12 @@ export function App() {
 
   const settings = (
     <SettingsPanel
+      onSpreadChange={setSpread}
+      onStartPageSideChange={setStartPageSide}
       notation={manuscript.preferences.notation}
       composition={manuscript.preferences.composition}
+      spread={spread}
+      startPageSide={startPageSide}
       showGrid={manuscript.preferences.showGrid}
       presets={manuscript.preferences.presets}
       status={status}
@@ -318,9 +324,13 @@ export function App() {
       </a>
       <Sidebar files={files} selectedId={selectedId} onSelect={onSelect} status={status}>
         <SettingsPanel
+          onSpreadChange={setSpread}
+          onStartPageSideChange={setStartPageSide}
           idPrefix="desktop-"
           notation={manuscript.preferences.notation}
           composition={manuscript.preferences.composition}
+          spread={spread}
+          startPageSide={startPageSide}
           showGrid={manuscript.preferences.showGrid}
           presets={manuscript.preferences.presets}
           status={status}
@@ -404,6 +414,8 @@ export function App() {
                 activeDiagnosticId={activeDiagnosticId}
                 zoom={{ value: zoom, min: 50, max: 150, step: 25, onChange: setFitZoom }}
                 fit={manuscript.preferences.fit}
+                spread={spread}
+                startPageSide={startPageSide}
                 showGrid={manuscript.preferences.showGrid}
                 onViewEvent={onViewEvent}
                 onDiagnosticSelect={(diagnostic) => {
