@@ -304,6 +304,9 @@ importers:
       '@sushichan044/kg-core':
         specifier: workspace:*
         version: link:../core
+      harfbuzzjs:
+        specifier: 1.6.3
+        version: 1.6.3
       react-compiler-runtime:
         specifier: catalog:prod
         version: 1.0.0(react@19.3.0)
@@ -344,6 +347,9 @@ importers:
       unplugin-unused:
         specifier: catalog:dev
         version: 0.6.0(@arethetypeswrong/core@0.18.5)(@types/node@26.1.2)(publint@0.3.25)(rolldown@1.2.1)(typescript@7.0.2)
+      valibot:
+        specifier: catalog:prod
+        version: 1.5.0(typescript@7.0.2)
       vite-plus:
         specifier: catalog:dev
         version: 1.1.0(@arethetypeswrong/core@0.18.5)(@types/node@26.1.2)(@vitest/browser-playwright@5.0.3)(@vitest/ui@5.0.3)(playwright@1.64.0)(publint@0.3.25)(typescript@7.0.2)(unplugin-unused@0.6.0(@arethetypeswrong/core@0.18.5)(@types/node@26.1.2)(publint@0.3.25)(rolldown@1.2.1)(typescript@7.0.2))
@@ -1511,6 +1517,9 @@ packages:
   get-east-asian-width@1.7.0:
     resolution: {integrity: sha512-XjH1AECxf0giL2V1aU8vKyRR2ppRUb5c0EvT7zuJTokQ74bNo52zOtghqdWIqrhUD79fo3x0WfKZdOqxF6LG1Q==}
     engines: {node: '>=18'}
+
+  harfbuzzjs@1.6.3:
+    resolution: {integrity: sha512-R5Mfo1UUvQmZJmtScP7fBLKYKnYu82ZdtFT7WbQYeGb3Ut5PR3xfFCJ5/FjbcW5SAfb9cqCSny/KNjp+NJBx0w==}
 
   js-tokens@10.0.0:
     resolution: {integrity: sha512-lM/UBzQmfJRo9ABXbPWemivdCW8V2G8FHaHdypQaIy523snUjog0W71ayWXTjiR+ixeMyVHN2XcpnTd/liPg/Q==}
@@ -2717,6 +2726,8 @@ snapshots:
     optional: true
 
   get-east-asian-width@1.7.0: {}
+
+  harfbuzzjs@1.6.3: {}
 
   js-tokens@10.0.0: {}
 

@@ -5,6 +5,7 @@ import {
   ManuscriptResult,
   ParseError,
   parseManuscript,
+  prepareManuscriptForFont,
   kakuyomuParser,
   pixivParser,
 } from "@sushichan044/kg-core";
@@ -142,13 +143,15 @@ export function processManuscript(
   source: string,
   composition: NovelCompositionSettings,
   notation: ManuscriptNotation,
+  composer: typeof novelComposer = novelComposer,
 ): ManuscriptResult<ProcessedManuscript, ProcessManuscriptError> {
   const parser = notation === "pixiv" ? pixivParser : kakuyomuParser;
   const parsed = parseManuscript(source, { parser });
   if (!parsed.ok) return ManuscriptResult.fail({ stage: "parse", error: parsed.error });
 
-  const composed = composeManuscript(parsed.value, {
-    composer: novelComposer,
+  const prepared = prepareManuscriptForFont(parsed.value, composition.appearance.fontPreset);
+  const composed = composeManuscript(prepared.parsed, {
+    composer,
     settings: composition,
   });
   if (!composed.ok) return ManuscriptResult.fail({ stage: "compose", error: composed.error });
@@ -161,7 +164,9 @@ export function processManuscript(
   return ManuscriptResult.succeed({
     composed: composed.value,
     diagnostics: [
-      ...parsed.warnings,
+      ...parsed.warnings.map((warning) =>
+        Object.assign({}, warning, { range: prepared.mapRange(warning.range) }),
+      ),
       ...composed.warnings,
       ...proofread.warnings,
       ...proofread.value,

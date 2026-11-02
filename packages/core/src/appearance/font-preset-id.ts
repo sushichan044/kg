@@ -1,10 +1,9 @@
 import * as v from "valibot";
 
-const FontPresetIdSchema = v.picklist(["mincho", "gothic"]);
+const FontPresetIdSchema = v.picklist(["mincho", "gothic", "genei-koburi"]);
 
 /**
- * The two typeface families Japanese body text is set in: 明朝体, the serifed face a novel is normally
- * set in, and ゴシック体, its sans-serif counterpart.
+ * Built-in typography profiles. The persisted mincho ID selects Rin Mincho.
  */
 export type FontPresetId = v.InferOutput<typeof FontPresetIdSchema>;
 

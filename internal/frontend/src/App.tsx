@@ -1,5 +1,10 @@
 import type { ManuscriptDiagnostic } from "@sushichan044/kg-core";
-import { DiagnosticList, NovelViewer } from "@sushichan044/kg-viewer";
+import {
+  DiagnosticList,
+  NovelViewer,
+  useTypography,
+  TypographyStatus,
+} from "@sushichan044/kg-viewer";
 import type { NovelViewEvent, NovelViewHandle } from "@sushichan044/kg-viewer";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
@@ -97,18 +102,28 @@ function initialManuscriptState(): ManuscriptState {
   };
 }
 
-function Workspace() {
+export function App() {
   const [manuscript, dispatch] = useReducer(manuscriptReducer, undefined, initialManuscriptState);
+  const typographyState = useTypography(manuscript.preferences.composition.appearance.fontPreset);
+  const typography = typographyState.kind === "ready" ? typographyState.typography : undefined;
   const processed = useMemo(
     () =>
-      processManuscript(
-        manuscript.source,
-        manuscript.preferences.composition,
-        manuscript.preferences.notation,
-      ),
-    [manuscript.preferences.composition, manuscript.preferences.notation, manuscript.source],
+      typography === undefined
+        ? null
+        : processManuscript(
+            manuscript.source,
+            manuscript.preferences.composition,
+            manuscript.preferences.notation,
+            typography.composer,
+          ),
+    [
+      manuscript.preferences.composition,
+      manuscript.preferences.notation,
+      manuscript.source,
+      typography,
+    ],
   );
-  const diagnostics = processed.ok ? processed.value.diagnostics : [];
+  const diagnostics = processed?.ok ? processed.value.diagnostics : [];
   const activeDiagnosticId = diagnostics.some(({ id }) => id === manuscript.activeDiagnosticId)
     ? manuscript.activeDiagnosticId
     : null;
@@ -268,7 +283,7 @@ function Workspace() {
     setDiagnosticsSheetOpen(false);
   }, []);
 
-  const settings = processed.ok ? (
+  const settings = (
     <SettingsPanel
       notation={manuscript.preferences.notation}
       composition={manuscript.preferences.composition}
@@ -294,7 +309,7 @@ function Workspace() {
         commitPreferenceAction({ kind: "preset.delete", name });
       }}
     />
-  ) : null;
+  );
 
   return (
     <div className={diagnosticDrawerOpen ? "app app--diagnostics" : "app"}>
@@ -302,40 +317,38 @@ function Workspace() {
         プレビューへスキップ
       </a>
       <Sidebar files={files} selectedId={selectedId} onSelect={onSelect} status={status}>
-        {processed.ok ? (
-          <SettingsPanel
-            idPrefix="desktop-"
-            notation={manuscript.preferences.notation}
-            composition={manuscript.preferences.composition}
-            showGrid={manuscript.preferences.showGrid}
-            presets={manuscript.preferences.presets}
-            status={status}
-            onNotationChange={(notation) => {
-              commitPreferenceAction({ kind: "notation.replace", notation });
-            }}
-            onCompositionChange={(composition) => {
-              commitPreferenceAction({ kind: "composition.replace", composition });
-            }}
-            onGridChange={(showGrid) => {
-              commitPreferenceAction({ kind: "grid-visibility.replace", showGrid });
-            }}
-            onPresetApply={(preset) => {
-              commitPreferenceAction({ kind: "preset.apply", preset });
-            }}
-            onPresetSave={(preset) => {
-              commitPreferenceAction({ kind: "preset.save", preset });
-            }}
-            onPresetDelete={(name) => {
-              commitPreferenceAction({ kind: "preset.delete", name });
-            }}
-          />
-        ) : null}
+        <SettingsPanel
+          idPrefix="desktop-"
+          notation={manuscript.preferences.notation}
+          composition={manuscript.preferences.composition}
+          showGrid={manuscript.preferences.showGrid}
+          presets={manuscript.preferences.presets}
+          status={status}
+          onNotationChange={(notation) => {
+            commitPreferenceAction({ kind: "notation.replace", notation });
+          }}
+          onCompositionChange={(composition) => {
+            commitPreferenceAction({ kind: "composition.replace", composition });
+          }}
+          onGridChange={(showGrid) => {
+            commitPreferenceAction({ kind: "grid-visibility.replace", showGrid });
+          }}
+          onPresetApply={(preset) => {
+            commitPreferenceAction({ kind: "preset.apply", preset });
+          }}
+          onPresetSave={(preset) => {
+            commitPreferenceAction({ kind: "preset.save", preset });
+          }}
+          onPresetDelete={(name) => {
+            commitPreferenceAction({ kind: "preset.delete", name });
+          }}
+        />
       </Sidebar>
 
       <main id="preview" className="preview" tabIndex={-1} aria-label="プレビュー">
         {selectedFile === null ? null : (
           <>
-            {processed.ok && (
+            {processed?.ok && (
               <ViewerToolbar
                 className="desktop-viewer-toolbar"
                 documentLabel={selectedFile.path}
@@ -380,10 +393,13 @@ function Workspace() {
             </header>
             {loadedDocument?.id !== selectedId ? (
               <p className="preview__loading">読み込み中…</p>
-            ) : processed.ok ? (
+            ) : typographyState.kind !== "ready" ? (
+              <TypographyStatus state={typographyState} />
+            ) : processed?.ok ? (
               <NovelViewer
                 ref={viewRef}
                 composed={processed.value.composed}
+                typography={typography}
                 diagnostics={diagnostics}
                 activeDiagnosticId={activeDiagnosticId}
                 zoom={{ value: zoom, min: 50, max: 150, step: 25, onChange: setFitZoom }}
@@ -402,7 +418,11 @@ function Workspace() {
             ) : (
               <div className="preview__failure" role="alert">
                 <strong>原稿を処理できませんでした</strong>
-                <p>{ProcessManuscriptError.describe(processed.error)}</p>
+                <p>
+                  {processed === null
+                    ? "原稿を処理できませんでした。"
+                    : ProcessManuscriptError.describe(processed.error)}
+                </p>
               </div>
             )}
           </>
@@ -447,7 +467,7 @@ function Workspace() {
           setSettingsSheetOpen(false);
         }}
       >
-        {processed.ok && (
+        {processed?.ok && (
           <p className="mobile-summary">
             {processed.value.composed.layout.stats.chars}字・
             {processed.value.composed.layout.stats.pages}ページ
@@ -477,8 +497,4 @@ function Workspace() {
       </Sheet>
     </div>
   );
-}
-
-export function App() {
-  return <Workspace />;
 }

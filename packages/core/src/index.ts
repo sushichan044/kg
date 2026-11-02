@@ -32,6 +32,8 @@ export { ManuscriptAppearanceSettings } from "./appearance/appearance-settings";
 export { ManuscriptPageSettings } from "./composer/page-settings";
 export { ManuscriptGeometry } from "./composer/manuscript-geometry";
 export { FontPreset } from "./appearance/font-preset";
+export { prepareTextForFont, prepareManuscriptForFont } from "./appearance/font-preparation";
+export type { PreparedFontManuscript } from "./appearance/font-preparation";
 export { FontPresetId } from "./appearance/font-preset-id";
 export { FontSizeQ } from "./appearance/font-size-q";
 export { PaperSize } from "./appearance/paper-size";
