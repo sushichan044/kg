@@ -4,23 +4,42 @@ import { fetchContent, fetchFiles } from "../lib/api";
 import type { FileEntry } from "../lib/api";
 
 type CatalogState =
-  | Readonly<{ kind: "loading" }>
-  | Readonly<{ kind: "failed" }>
-  | Readonly<{ kind: "ready"; files: readonly FileEntry[]; refreshFailed: boolean }>;
+  | Readonly<{ kind: "loading"; selectedPath: string | null }>
+  | Readonly<{ kind: "failed"; selectedPath: string | null }>
+  | Readonly<{
+      kind: "ready";
+      files: readonly FileEntry[];
+      selectedPath: string | null;
+      refreshFailed: boolean;
+    }>;
 
-export function useFileCatalog() {
-  const [catalog, setCatalog] = useState<CatalogState>({ kind: "loading" });
+export function useFileCatalog(initialSelectedPath: () => string | null) {
+  const [catalog, setCatalog] = useState<CatalogState>(() => ({
+    kind: "loading",
+    selectedPath: initialSelectedPath(),
+  }));
   const request = useRef(0);
   const refresh = useCallback(() => {
     const current = ++request.current;
     return fetchFiles().then(
       (files) => {
-        if (current === request.current) setCatalog({ kind: "ready", files, refreshFailed: false });
+        if (current !== request.current) return;
+        setCatalog((previous) => ({
+          kind: "ready",
+          files,
+          refreshFailed: false,
+          selectedPath:
+            files.find((file) => file.path === previous.selectedPath)?.path ??
+            files[0]?.path ??
+            null,
+        }));
       },
       () => {
         if (current !== request.current) return;
         setCatalog((previous) =>
-          previous.kind === "ready" ? { ...previous, refreshFailed: true } : { kind: "failed" },
+          previous.kind === "ready"
+            ? { ...previous, refreshFailed: true }
+            : { kind: "failed", selectedPath: previous.selectedPath },
         );
       },
     );
@@ -33,7 +52,10 @@ export function useFileCatalog() {
     };
   }, [refresh]);
 
-  return { catalog, refresh };
+  const select = useCallback((selectedPath: string) => {
+    setCatalog((previous) => ({ ...previous, selectedPath }));
+  }, []);
+  return { catalog, refresh, select };
 }
 
 export type DocumentContent =
@@ -41,48 +63,39 @@ export type DocumentContent =
   | Readonly<{ kind: "failed"; previousText: string | null }>;
 
 export type DocumentRequest = Readonly<{
-  id: string;
   promise: Promise<DocumentContent>;
+  version: string;
 }>;
 
 /**
- * Keep requests outside the tree that suspends, including its initial mount.
+ * Own one file's requests; the file session is keyed by its ID.
  */
-export function useDocumentRequest(id: string | null) {
+export function useDocumentRequest(id: string, revision: number) {
   const [request, setRequest] = useState<DocumentRequest | null>(null);
-  const active = useRef<AbortController | null>(null);
-  const lastContent = useRef<Readonly<{ id: string; text: string }> | null>(null);
-
-  const load = useCallback((fileId: string) => {
-    active.current?.abort();
-    const controller = new AbortController();
-    active.current = controller;
-    const promise = fetchContent(fileId, controller.signal).then<DocumentContent, DocumentContent>(
-      (text) => {
-        if (!controller.signal.aborted) lastContent.current = { id: fileId, text };
-        return { kind: "ready", text };
-      },
-      () => ({
-        kind: "failed",
-        previousText: lastContent.current?.id === fileId ? lastContent.current.text : null,
-      }),
-    );
-    setRequest({ id: fileId, promise });
-  }, []);
+  const [attempt, setAttempt] = useState(0);
+  const lastText = useRef<string | null>(null);
 
   useEffect(() => {
-    if (id !== null) load(id);
+    const controller = new AbortController();
+    const promise = fetchContent(id, controller.signal).then<DocumentContent, DocumentContent>(
+      (text) => {
+        if (!controller.signal.aborted) lastText.current = text;
+        return { kind: "ready", text };
+      },
+      () => ({ kind: "failed", previousText: lastText.current }),
+    );
+    startTransition(() => {
+      setRequest({ promise, version: `${revision}:${attempt}` });
+    });
     return () => {
-      active.current?.abort();
+      controller.abort();
     };
-  }, [id, load]);
+  }, [id, revision, attempt]);
 
-  const refresh = useCallback(() => {
-    if (id !== null)
-      startTransition(() => {
-        load(id);
-      });
-  }, [id, load]);
-
-  return { request: request?.id === id ? request : null, refresh };
+  return {
+    request,
+    refresh: () => {
+      setAttempt((value) => value + 1);
+    },
+  };
 }

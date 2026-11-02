@@ -16,19 +16,25 @@ export const frontendTestProjects = [
       exclude: ["src/**/*.browser.test.ts", "src/**/*.browser.test.tsx"],
     },
   }),
-  defineProject({
-    root: import.meta.dirname,
-    test: {
-      name: "frontend-browser",
-      include: ["src/**/*.browser.test.ts", "src/**/*.browser.test.tsx"],
-      browser: {
-        enabled: true,
-        provider: playwright(),
-        headless: true,
-        instances: [{ browser: "chromium" }],
+  {
+    extends: false,
+    ...defineProject({
+      root: import.meta.dirname,
+      plugins: [react({ compiler: true })],
+      optimizeDeps: { exclude: ["harfbuzzjs"] },
+      resolve: { dedupe: ["react", "react-dom"] },
+      test: {
+        name: "frontend-browser",
+        include: ["src/**/*.browser.test.ts", "src/**/*.browser.test.tsx"],
+        browser: {
+          enabled: true,
+          provider: playwright(),
+          headless: true,
+          instances: [{ browser: "chromium" }],
+        },
       },
-    },
-  }),
+    }),
+  },
 ];
 
 export default defineConfig({

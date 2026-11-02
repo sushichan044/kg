@@ -1,22 +1,40 @@
 import type { ManuscriptDiagnostic } from "@sushichan044/kg-core";
 import { DiagnosticList, NovelViewer, TypographyStatus } from "@sushichan044/kg-viewer";
-import type { NovelViewEvent, NovelViewHandle } from "@sushichan044/kg-viewer";
-import { use, useLayoutEffect, useRef, useState } from "react";
+import type {
+  NovelViewEvent,
+  NovelViewHandle,
+  ReadyTypography,
+  TypographyState,
+} from "@sushichan044/kg-viewer";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { Dispatch, ReactNode, RefObject } from "react";
 
-import type { PreviewResource, PreviewState } from "../hooks/useManuscriptPreview";
 import type { FileEntry } from "../lib/api";
 import { loadPage, savePage } from "../lib/storage";
 import type { ManuscriptPreferences } from "../lib/storage";
-import type { ManuscriptAction, ProcessedManuscript } from "../manuscript";
+import type { PreferenceAction, ProcessedManuscript } from "../manuscript";
 import { Sheet } from "./Sheet";
 import type { MobileSheet } from "./Sheet";
 import { ViewerToolbar } from "./ViewerControls";
 
+export type PreviewState =
+  | Readonly<{ kind: "loading" }>
+  | Readonly<{
+      kind: "typography";
+      state: Exclude<TypographyState, { kind: "ready" }> & { retry: () => void };
+    }>
+  | Readonly<{ kind: "failed"; message: string; retry: boolean }>
+  | Readonly<{
+      kind: "ready";
+      processed: ProcessedManuscript;
+      typography: ReadyTypography;
+      refreshFailed: boolean;
+    }>;
+
 export type DocumentRegionProps = Readonly<{
   selectedFile: FileEntry | null;
   preferences: ManuscriptPreferences;
-  dispatch: Dispatch<ManuscriptAction>;
+  dispatch: Dispatch<PreferenceAction>;
   sheet: MobileSheet;
   setSheet: (sheet: MobileSheet) => void;
   diagnosticDrawerOpen: boolean;
@@ -26,25 +44,6 @@ export type DocumentRegionProps = Readonly<{
   refreshContent: () => void;
   preview: PreviewState;
 }>;
-
-export function DocumentSummary({ resource }: { resource: PreviewResource }) {
-  const preview = resource.compose(use(resource.promise));
-  if (preview.kind !== "ready") return null;
-  const { chars, pages } = preview.processed.composed.layout.stats;
-  return (
-    <p className="mobile-summary">
-      {chars}字・{pages}ページ
-    </p>
-  );
-}
-
-export function LoadedDocumentRegion({
-  resource,
-  ...props
-}: DocumentRegionProps & { resource: PreviewResource }) {
-  const preview = resource.compose(use(resource.promise));
-  return <DocumentRegion {...props} preview={preview} />;
-}
 
 function ReadyPreview({
   path,
@@ -72,12 +71,8 @@ export function DocumentRegion({
 }: DocumentRegionProps) {
   const viewRef = useRef<NovelViewHandle>(null);
   const processed = preview.kind === "ready" ? preview.processed : null;
-  const [selection, setSelection] = useState<Readonly<{
-    processed: ProcessedManuscript;
-    id: string;
-  }> | null>(null);
+  const [activeDiagnosticId, setActiveDiagnosticId] = useState<string | null>(null);
   const diagnostics = processed?.diagnostics ?? [];
-  const activeDiagnosticId = selection?.processed === processed ? selection.id : null;
   const zoom = preferences.fit ? fitZoom : preferences.zoom;
   const changeZoom = (value: number) => {
     dispatch({ kind: "zoom.replace", zoom: value, fit: false });
@@ -86,7 +81,7 @@ export function DocumentRegion({
     dispatch({ kind: "zoom.replace", zoom: preferences.zoom, fit: true });
   };
   const selectDiagnostic = (diagnostic: ManuscriptDiagnostic) => {
-    if (processed !== null) setSelection({ processed, id: diagnostic.id });
+    setActiveDiagnosticId(diagnostic.id);
     viewRef.current?.scrollToDiagnostic(diagnostic.id);
     setSheet(null);
   };
@@ -180,7 +175,7 @@ export function DocumentRegion({
                   showGrid={preferences.showGrid}
                   onViewEvent={onViewEvent}
                   onDiagnosticSelect={(diagnostic) => {
-                    setSelection({ processed: preview.processed, id: diagnostic.id });
+                    setActiveDiagnosticId(diagnostic.id);
                     if (window.matchMedia("(max-width: 52rem)").matches) setSheet("diagnostics");
                     else setDiagnosticDrawerOpen(true);
                   }}

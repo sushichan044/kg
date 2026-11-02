@@ -1,15 +1,13 @@
-import { useTypography } from "@sushichan044/kg-viewer";
-import { Suspense, useEffect, useReducer, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
 
-import { DocumentRegion, DocumentSummary, LoadedDocumentRegion } from "./components/DocumentRegion";
+import { DocumentRegion } from "./components/DocumentRegion";
 import type { DocumentRegionProps } from "./components/DocumentRegion";
+import { DocumentSession } from "./components/DocumentSession";
 import { Sheet } from "./components/Sheet";
 import type { MobileSheet } from "./components/Sheet";
 import { FilePanel, Sidebar } from "./components/Sidebar";
 import { SettingsPanel, ZoomControls } from "./components/ViewerControls";
-import { useDocumentRequest, useFileCatalog } from "./hooks/useDocuments";
-import { useManuscriptPreview } from "./hooks/useManuscriptPreview";
-import type { PreviewResource } from "./hooks/useManuscriptPreview";
+import { useFileCatalog } from "./hooks/useDocuments";
 import { useServerEvents } from "./hooks/useServerEvents";
 import type { FileEntry } from "./lib/api";
 import {
@@ -18,15 +16,15 @@ import {
   saveAppState,
   saveManuscriptPreferences,
 } from "./lib/storage";
-import type { AppState, ManuscriptPreferences } from "./lib/storage";
-import { manuscriptReducer } from "./manuscript";
+import type { ManuscriptPreferences } from "./lib/storage";
+import { preferencesReducer } from "./manuscript";
 
 const FILE_QUERY_PARAM = "file";
 
-function loadInitialAppState(): AppState {
+function loadInitialSelectedPath(): string | null {
   const stored = loadAppState();
   const selectedPath = new URL(window.location.href).searchParams.get(FILE_QUERY_PARAM);
-  return selectedPath === null || selectedPath === "" ? stored : { version: 1, selectedPath };
+  return selectedPath === null || selectedPath === "" ? stored.selectedPath : selectedPath;
 }
 
 function replaceSelectedPathInURL(path: string | null): void {
@@ -36,43 +34,42 @@ function replaceSelectedPathInURL(path: string | null): void {
   window.history.replaceState(window.history.state, "", url);
 }
 
-type WorkspaceProps = DocumentRegionProps &
+type WorkspaceProps = Omit<DocumentRegionProps, "preview" | "refreshContent"> &
   Readonly<{
     files: readonly FileEntry[];
     status: string;
     catalogFailed: boolean;
     onSelect: (id: string) => void;
     refreshFiles: () => void;
-    previewResource: PreviewResource | null;
+    revision: number;
+    summaryTarget: HTMLDivElement | null;
+    setSummaryTarget: (target: HTMLDivElement | null) => void;
   }>;
 
 export function App() {
-  const [manuscript, dispatch] = useReducer(manuscriptReducer, undefined, () => ({
-    preferences: loadManuscriptPreferences(),
-  }));
-  const [appState, setAppState] = useState(loadInitialAppState);
+  const [preferences, dispatch] = useReducer(
+    preferencesReducer,
+    undefined,
+    loadManuscriptPreferences,
+  );
   const [storageStatus, setStorageStatus] = useState("");
   const [sheet, setSheet] = useState<MobileSheet>(null);
   const [diagnosticDrawerOpen, setDiagnosticDrawerOpen] = useState(false);
-  const [fitZoom, setFitZoom] = useState(manuscript.preferences.zoom);
-  const { catalog, refresh: refreshFiles } = useFileCatalog();
+  const [fitZoom, setFitZoom] = useState(preferences.zoom);
+  const [revision, setRevision] = useState(0);
+  const [summaryTarget, setSummaryTarget] = useState<HTMLDivElement | null>(null);
+  const { catalog, refresh: refreshFiles, select } = useFileCatalog(loadInitialSelectedPath);
   const files = catalog.kind === "ready" ? catalog.files : [];
-  const selectedFile =
-    files.find((file) => file.path === appState.selectedPath) ?? files[0] ?? null;
+  const selectedFile = files.find((file) => file.path === catalog.selectedPath) ?? files[0] ?? null;
   const selectedId = selectedFile?.id ?? null;
   const selectedPath = selectedFile?.path ?? null;
-  const { request, refresh: refreshContent } = useDocumentRequest(selectedId);
   const catalogFailed =
     catalog.kind === "failed" || (catalog.kind === "ready" && catalog.refreshFailed);
 
-  if (catalog.kind === "ready" && appState.selectedPath !== selectedPath)
-    setAppState({ version: 1, selectedPath });
-
   /* oxlint-disable react/set-state-in-effect -- Report failed external writes while the reducer owns preferences. */
   useEffect(() => {
-    if (!saveManuscriptPreferences(manuscript.preferences))
-      setStorageStatus("設定を保存できませんでした");
-  }, [manuscript.preferences]);
+    if (!saveManuscriptPreferences(preferences)) setStorageStatus("設定を保存できませんでした");
+  }, [preferences]);
 
   useEffect(() => {
     if (catalog.kind !== "ready") return;
@@ -87,27 +84,20 @@ export function App() {
       void refreshFiles();
     },
     onFileChanged: (id) => {
-      if (id === selectedId) refreshContent();
+      if (id === selectedId) setRevision((value) => value + 1);
     },
   });
-
-  const typographyState = useTypography(manuscript.preferences.composition.appearance.fontPreset);
-  const { previewResource, preview } = useManuscriptPreview(
-    request,
-    manuscript.preferences,
-    typographyState,
-  );
 
   const props: WorkspaceProps = {
     files,
     selectedFile,
-    preferences: manuscript.preferences,
+    preferences,
     dispatch,
     catalogFailed,
     status: catalogFailed ? "ファイル一覧の取得に失敗しました" : storageStatus,
     onSelect: (id) => {
       const file = files.find((entry) => entry.id === id);
-      if (file !== undefined) setAppState({ version: 1, selectedPath: file.path });
+      if (file !== undefined) select(file.path);
       setSheet(null);
     },
     sheet,
@@ -116,9 +106,9 @@ export function App() {
     setDiagnosticDrawerOpen,
     fitZoom,
     setFitZoom,
-    refreshContent,
-    preview,
-    previewResource,
+    revision,
+    summaryTarget,
+    setSummaryTarget,
     refreshFiles: () => {
       void refreshFiles();
     },
@@ -141,7 +131,7 @@ function Workspace(props: WorkspaceProps) {
     fitZoom,
     refreshFiles,
     catalogFailed,
-    previewResource,
+    setSummaryTarget,
   } = props;
   const selectedId = selectedFile?.id ?? null;
   const zoom = preferences.fit ? fitZoom : preferences.zoom;
@@ -191,15 +181,10 @@ function Workspace(props: WorkspaceProps) {
         )}
       </Sidebar>
 
-      {previewResource === null ? (
-        <DocumentRegion {...props} />
+      {selectedFile === null ? (
+        <DocumentRegion {...props} refreshContent={() => {}} preview={{ kind: "loading" }} />
       ) : (
-        <Suspense
-          key={selectedId}
-          fallback={<DocumentRegion {...props} preview={{ kind: "loading" }} />}
-        >
-          <LoadedDocumentRegion {...props} resource={previewResource} />
-        </Suspense>
+        <DocumentSession key={selectedFile.id} {...props} selectedFile={selectedFile} />
       )}
       <Sheet
         open={sheet === "files"}
@@ -217,11 +202,7 @@ function Workspace(props: WorkspaceProps) {
           setSheet(null);
         }}
       >
-        {previewResource !== null && (
-          <Suspense fallback={null}>
-            <DocumentSummary resource={previewResource} />
-          </Suspense>
-        )}
+        <div ref={setSummaryTarget} />
         <ZoomControls
           className="mobile-zoom"
           zoom={zoom}

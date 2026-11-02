@@ -23,11 +23,7 @@ import {
 import { assertNever } from "./lib/assert-never";
 import type { ManuscriptNotation, ManuscriptPreferences, ManuscriptPreset } from "./lib/storage";
 
-export type ManuscriptState = Readonly<{
-  preferences: ManuscriptPreferences;
-}>;
-
-export type ManuscriptAction =
+export type PreferenceAction =
   | Readonly<{ kind: "composition.replace"; composition: NovelCompositionSettings }>
   | Readonly<{ kind: "grid-visibility.replace"; showGrid: boolean }>
   | Readonly<{ kind: "notation.replace"; notation: ManuscriptNotation }>
@@ -36,55 +32,34 @@ export type ManuscriptAction =
   | Readonly<{ kind: "preset.save"; preset: ManuscriptPreset }>
   | Readonly<{ kind: "preset.delete"; name: string }>;
 
-export function manuscriptReducer(
-  state: ManuscriptState,
-  action: ManuscriptAction,
-): ManuscriptState {
+export function preferencesReducer(
+  preferences: ManuscriptPreferences,
+  action: PreferenceAction,
+): ManuscriptPreferences {
   switch (action.kind) {
     case "composition.replace": {
-      return {
-        ...state,
-        preferences: { ...state.preferences, composition: action.composition },
-      };
+      return { ...preferences, composition: action.composition };
     }
     case "notation.replace": {
-      return {
-        ...state,
-        preferences: { ...state.preferences, notation: action.notation },
-      };
+      return { ...preferences, notation: action.notation };
     }
     case "grid-visibility.replace": {
-      return {
-        ...state,
-        preferences: { ...state.preferences, showGrid: action.showGrid },
-      };
+      return { ...preferences, showGrid: action.showGrid };
     }
     case "zoom.replace": {
-      return {
-        ...state,
-        preferences: { ...state.preferences, zoom: action.zoom, fit: action.fit },
-      };
+      return { ...preferences, zoom: action.zoom, fit: action.fit };
     }
     case "preset.apply": {
-      return {
-        ...state,
-        preferences: { ...state.preferences, composition: action.preset.composition },
-      };
+      return { ...preferences, composition: action.preset.composition };
     }
     case "preset.save": {
-      const kept = state.preferences.presets.filter(({ name }) => name !== action.preset.name);
-      return {
-        ...state,
-        preferences: { ...state.preferences, presets: [...kept, action.preset] },
-      };
+      const kept = preferences.presets.filter(({ name }) => name !== action.preset.name);
+      return { ...preferences, presets: [...kept, action.preset] };
     }
     case "preset.delete": {
       return {
-        ...state,
-        preferences: {
-          ...state.preferences,
-          presets: state.preferences.presets.filter(({ name }) => name !== action.name),
-        },
+        ...preferences,
+        presets: preferences.presets.filter(({ name }) => name !== action.name),
       };
     }
     default: {

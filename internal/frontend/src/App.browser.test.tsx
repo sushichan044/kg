@@ -732,3 +732,46 @@ test("restores each file's saved page without saving the previous file's page un
   await expect.poll(() => sessionStorage.getItem("kg.app.page.v1:共有 原稿.txt")).toBe("0");
   expect(sessionStorage.getItem("kg.app.page.v1:testdata/novel.txt")).toBe("1");
 });
+
+test("disposes the previous file session while preserving settings drafts", async () => {
+  await page.viewport(1280, 900);
+  const screen = await render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+  await expect.poll(() => manuscriptText(screen.container)).toContain("静かな机");
+  const field = screen.getByRole("textbox", { name: "プリセット名" });
+  await field.fill("保存前の設定");
+  const pending = deferred<Response>();
+  const originalFetch = window.fetch.bind(window);
+  let requestSignal: AbortSignal | null | undefined;
+  vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+    if ((input instanceof Request ? input.url : input.toString()).endsWith("/novel/content")) {
+      requestSignal = init?.signal;
+      return pending.promise;
+    }
+    return originalFetch(input, init);
+  });
+  expect.assert(FakeEventSource.latest !== undefined);
+
+  FakeEventSource.latest.emit("file-changed", JSON.stringify({ id: "novel" }));
+  await expect.poll(() => requestSignal !== undefined).toBe(true);
+  await screen.getByRole("button", { name: "共有 原稿.txt", exact: true }).click();
+  await expect.poll(() => manuscriptText(screen.container)).toBe("共有本文");
+  expect.assert(requestSignal !== null && requestSignal !== undefined);
+  expect(requestSignal.aborted).toBe(true);
+  pending.resolve(new Response("破棄された原稿"));
+  await pending.promise;
+  await new Promise<void>((resolve) =>
+    requestAnimationFrame(() => {
+      resolve();
+    }),
+  );
+
+  expect(manuscriptText(screen.container)).toBe("共有本文");
+  await expect.element(field).toHaveValue("保存前の設定");
+  await expect
+    .poll(() => screen.container.querySelector(".mobile-summary")?.textContent)
+    .toBe("4字・1ページ");
+});
