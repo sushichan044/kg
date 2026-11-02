@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.9.3](https://github.com/sushichan044/kg/compare/v0.9.2...v0.9.3) (2026-11-02)
+
+
+### Features
+
+* **typography:** share font preparation and add Rin Mincho ([2013524](https://github.com/sushichan044/kg/commit/20135242245e0390afc388c376e637e50eb8dfbf))
+* **typography:** share font preparation and measured composition ([e7c1f7d](https://github.com/sushichan044/kg/commit/e7c1f7def156eff4f85d84279b427d1fe1cc495c))
+* **viewer:** add optional spreads with configurable starting side ([15415e8](https://github.com/sushichan044/kg/commit/15415e86f000ac6599239434f4df270681cf0b88))
+* **viewer:** add optional spreads with configurable starting side ([72f3dac](https://github.com/sushichan044/kg/commit/72f3dac7373bf680d7151c6db6c3b3b77610a642))
+
+
+### Bug Fixes
+
+* **viewer:** persist spread preferences and strengthen fit coverage ([99ed671](https://github.com/sushichan044/kg/commit/99ed6713baecb5fc8cf0a5e4135b474ba013bc26))
+* **viewer:** recover from rejected typography setup ([b53828f](https://github.com/sushichan044/kg/commit/b53828f380312ef2c2ab884ec26d99ae3c1b6ff9))
+
 ## [0.9.2](https://github.com/sushichan044/kg/compare/v0.9.1...v0.9.2) (2026-10-29)
 
 

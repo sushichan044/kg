@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.3](https://github.com/sushichan044/kg/compare/kg-core-v0.11.2...kg-core-v0.11.3) (2026-11-02)
+
+
+### Features
+
+* **typography:** share font preparation and add Rin Mincho ([2013524](https://github.com/sushichan044/kg/commit/20135242245e0390afc388c376e637e50eb8dfbf))
+* **typography:** share font preparation and measured composition ([e7c1f7d](https://github.com/sushichan044/kg/commit/e7c1f7def156eff4f85d84279b427d1fe1cc495c))
+
 ## [0.11.2](https://github.com/sushichan044/kg/compare/kg-core-v0.11.1...kg-core-v0.11.2) (2026-10-29)
 
 
