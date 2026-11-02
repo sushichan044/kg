@@ -119,6 +119,10 @@ type SettingsPanelProps = Readonly<{
   notation: ManuscriptNotation;
   composition: NovelCompositionSettings;
   showGrid: boolean;
+  spread: boolean;
+  startPageSide: "left" | "right";
+  onSpreadChange: (spread: boolean) => void;
+  onStartPageSideChange: (side: "left" | "right") => void;
   presets: readonly ManuscriptPreset[];
   status: string;
   idPrefix?: string;
@@ -144,6 +148,10 @@ export function SettingsPanel({
   notation,
   composition: savedComposition,
   showGrid,
+  spread,
+  startPageSide,
+  onSpreadChange,
+  onStartPageSideChange,
   presets,
   status,
   idPrefix = "",
@@ -231,6 +239,30 @@ export function SettingsPanel({
             }}
           />
           マス目
+        </label>
+        <label htmlFor={`${idPrefix}spread`}>
+          <input
+            id={`${idPrefix}spread`}
+            type="checkbox"
+            checked={spread}
+            onChange={(event) => {
+              onSpreadChange(event.currentTarget.checked);
+            }}
+          />
+          見開き表示
+        </label>
+        <label htmlFor={`${idPrefix}start-page-side`}>
+          開始ページの位置
+          <select
+            id={`${idPrefix}start-page-side`}
+            value={startPageSide}
+            onChange={(event) => {
+              onStartPageSideChange(event.currentTarget.value === "left" ? "left" : "right");
+            }}
+          >
+            <option value="right">右</option>
+            <option value="left">左</option>
+          </select>
         </label>
       </fieldset>
       {fixed ? (

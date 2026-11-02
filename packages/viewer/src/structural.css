@@ -50,6 +50,21 @@
   gap: 2rem;
 }
 
+.kgv-stack[data-spread] {
+  display: grid;
+  grid-template-columns: repeat(2, var(--kgv-page-width));
+  justify-content: center;
+  column-gap: 0;
+}
+
+.kgv-stack[data-spread] > [data-page-side="left"] {
+  grid-column: 1;
+}
+
+.kgv-stack[data-spread] > [data-page-side="right"] {
+  grid-column: 2;
+}
+
 .kgv-page {
   box-sizing: border-box;
   display: grid;

@@ -50,6 +50,12 @@ manuscript snapshot.
 changing it does not recompose the manuscript, change page geometry, or move
 text and ruby.
 
+`spread` defaults to `false`. Set it to `true` to show facing pages.
+`startPageSide` accepts `"right"` (the default) or `"left"` and determines
+the first page’s position and the mirrored margins. Right starts pair pages
+1–2, 3–4; left starts show page 1 alone, followed by pages 2–3, 4–5.
+With `fit`, the full spread fits the viewport.
+
 Zoom is controlled by one numeric object. Set `fit` when a whole page should
 stay visible. On mount and viewport resize, the viewer calculates the largest
 value within `min` and `max`, rounded down from `min` to `step`, then passes it
@@ -61,8 +67,8 @@ readings. Annotation content is never inserted as HTML.
 
 Page sizes, margins, line gaps, and stage gaps use the millimetre geometry supplied
 by core. Body font sizes use Q (1Q = 0.25mm). Zoom scales all physical dimensions
-together. Right-bound pages alternate inner and outer margins, starting with the
-inner margin on the right of the first page.
+together. Pages alternate inner and outer margins according to `startPageSide`.
+The inner margin faces the center of each spread.
 
 See [`@sushichan044/kg-core`](../core/README.md) for parsing, composition,
 source mapping, and schema validation, and `@sushichan044/kg-core/lint` for the

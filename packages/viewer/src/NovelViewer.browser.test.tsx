@@ -25,6 +25,7 @@ import { useState } from "react";
 import { expect, test as base } from "vite-plus/test";
 import { render } from "vitest-browser-react";
 
+import { fitZoom } from "./fit-zoom";
 import { NovelViewer } from "./NovelViewer";
 import type { NovelViewerProps } from "./NovelViewer";
 
@@ -70,19 +71,20 @@ async function renderViewer(options: ViewerFixtureOptions, props: ViewerFixtureP
 
   const found = [...parsed.warnings, ...proofread.value];
   const diagnostics = options.reportedAs?.(found) ?? found;
+  const typography: NovelViewerProps["typography"] = {
+    fontFaces: [],
+    fontPreset: composed.value.settings.appearance.fontPreset,
+    prepare: (parsed) => ({ parsed, mapRange: (range) => range }),
+    fontFamily: FontPreset.of(composed.value.settings.appearance.fontPreset).family,
+    composer: options.composer ?? novelComposer,
+    measurer: logicalRunMeasurer,
+    dispose: () => {},
+  };
   const screen = await render(
     <NovelViewer
       composed={composed.value}
       diagnostics={diagnostics}
-      typography={{
-        fontFaces: [],
-        fontPreset: composed.value.settings.appearance.fontPreset,
-        prepare: (parsed) => ({ parsed, mapRange: (range) => range }),
-        fontFamily: FontPreset.of(composed.value.settings.appearance.fontPreset).family,
-        composer: options.composer ?? novelComposer,
-        measurer: logicalRunMeasurer,
-        dispose: () => {},
-      }}
+      typography={typography}
       {...props}
     />,
   );
@@ -90,7 +92,7 @@ async function renderViewer(options: ViewerFixtureOptions, props: ViewerFixtureP
     .poll(() => screen.container.querySelector(".kgv-viewer") !== null, { timeout: 10000 })
     .toBe(true);
 
-  return { composed: composed.value, diagnostics, screen };
+  return { composed: composed.value, diagnostics, screen, typography };
 }
 
 const test = base.extend<{ renderViewer: typeof renderViewer }>({
@@ -824,7 +826,10 @@ for (const zoom of [50, 100, 150]) {
   test(`renders fixed A5 dimensions and mirrored margins at ${zoom}%`, async ({ renderViewer }) => {
     const { screen } = await renderViewer(
       { text: "あ".repeat(27 * 23 * 2 + 1) },
-      { zoom: { value: zoom, min: 1, max: 200, step: 1, onChange: () => {} } },
+      {
+        startPageSide: "left",
+        zoom: { value: zoom, min: 1, max: 200, step: 1, onChange: () => {} },
+      },
     );
     const pages = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-page"));
     const first = pages[0];
@@ -866,3 +871,103 @@ for (const zoom of [50, 100, 150]) {
     expect(Number.parseFloat(getComputedStyle(second).paddingRight)).toBeCloseTo(mm(13), 1);
   });
 }
+
+for (const startPageSide of ["right", "left"] as const) {
+  test(`arranges spreads from the ${startPageSide} side and restores single pages`, async ({
+    renderViewer,
+  }) => {
+    const { screen, composed, typography } = await renderViewer(
+      { text: "あ".repeat(27 * 23 * 2 * 3 + 1) },
+      { spread: true, startPageSide },
+    );
+    const pages = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-page"));
+    const [first, second, third, fourth] = pages;
+    expect.assert(
+      first !== undefined && second !== undefined && third !== undefined && fourth !== undefined,
+    );
+    const bounds = () => pages.map((page) => page.getBoundingClientRect());
+    const [a, b, c, d] = bounds();
+    expect.assert(a !== undefined && b !== undefined && c !== undefined && d !== undefined);
+
+    expect(first.dataset.pageSide).toBe(startPageSide);
+    const pairRight = startPageSide === "right" ? a : b;
+    const pairLeft = startPageSide === "right" ? b : c;
+    const nextRow = startPageSide === "right" ? c : d;
+    expect(pairRight.top).toBeCloseTo(pairLeft.top, 1);
+    expect(pairRight.left).toBeCloseTo(pairLeft.right, 1);
+    expect(nextRow.top).toBeGreaterThan(pairLeft.bottom);
+
+    await screen.rerender(<NovelViewer composed={composed} typography={typography} />);
+
+    const [singleFirst, singleSecond] = bounds();
+    expect.assert(singleFirst !== undefined && singleSecond !== undefined);
+    expect(first.dataset.pageSide).toBe("right");
+    expect(singleSecond.top).toBeGreaterThan(singleFirst.bottom);
+    expect(singleSecond.left).toBeCloseTo(singleFirst.left, 1);
+  });
+}
+
+test("fits the full spread when switching from single pages", async ({ renderViewer }) => {
+  let singleZoom = 0;
+  let spreadZoom = 0;
+  const { screen, composed, typography } = await renderViewer(
+    { text: "あ" },
+    {
+      fit: true,
+      zoom: {
+        value: 100,
+        min: 1,
+        max: 200,
+        step: 1,
+        onChange: (value) => {
+          singleZoom = value;
+        },
+      },
+    },
+  );
+  singleZoom = 0;
+  screen.container.style.width = "400px";
+  screen.container.style.height = "1000px";
+  const viewport = screen.container.querySelector<HTMLElement>(".kgv-viewport");
+  expect.assert(viewport !== null);
+  const expectedZoom = (paperWidthMm: number) => {
+    const viewportStyle = getComputedStyle(viewport);
+    return fitZoom({
+      viewportWidthPx:
+        viewport.clientWidth -
+        Number.parseFloat(viewportStyle.paddingInlineStart) -
+        Number.parseFloat(viewportStyle.paddingInlineEnd),
+      viewportHeightPx:
+        viewport.clientHeight -
+        Number.parseFloat(viewportStyle.paddingBlockStart) -
+        Number.parseFloat(viewportStyle.paddingBlockEnd),
+      paperWidthMm,
+      paperHeightMm: composed.layout.geometry.paperHeightMm,
+      min: 1,
+      max: 200,
+      step: 1,
+    });
+  };
+  await expect.poll(() => singleZoom).toBe(expectedZoom(composed.layout.geometry.paperWidthMm));
+
+  await screen.rerender(
+    <NovelViewer
+      composed={composed}
+      typography={typography}
+      fit
+      spread
+      zoom={{
+        value: 100,
+        min: 1,
+        max: 200,
+        step: 1,
+        onChange: (value) => {
+          spreadZoom = value;
+        },
+      }}
+    />,
+  );
+
+  await expect.poll(() => spreadZoom).toBe(expectedZoom(composed.layout.geometry.paperWidthMm * 2));
+  expect(spreadZoom).toBeLessThan(singleZoom);
+});

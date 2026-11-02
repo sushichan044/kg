@@ -584,3 +584,44 @@ test("keeps settings available after font loading fails and recovers with Gothic
   expect(screen.container.querySelector('[role="alert"]')).toBeNull();
   expect(screen.container.querySelectorAll(".kgv-glyph").length).toBeGreaterThan(0);
 });
+
+test("switches spread layout and chooses the starting page side", async ({ novelSource }) => {
+  novelSource.current = "あ".repeat(27 * 23 * 2 + 1);
+  await page.viewport(1280, 800);
+  const screen = await render(<App />);
+  const toggle = screen.getByRole("checkbox", { name: "見開き表示" });
+  const side = screen.getByRole("combobox", { name: "開始ページの位置" });
+  await expect.element(toggle).not.toBeChecked();
+  await expect.element(side).toHaveValue("right");
+  await vi.waitFor(() => {
+    expect(screen.container.querySelectorAll(".kgv-page")).toHaveLength(2);
+  });
+
+  await toggle.click();
+
+  await vi.waitFor(() => {
+    expect(screen.container.querySelector(".kgv-stack")).toHaveAttribute("data-spread");
+    expect(screen.container.querySelector(".kgv-page")).toHaveAttribute("data-page-side", "right");
+  });
+  await side.selectOptions("left");
+
+  await vi.waitFor(() => {
+    expect(screen.container.querySelector(".kgv-page")).toHaveAttribute("data-page-side", "left");
+  });
+  await screen.unmount();
+  const restored = await render(<App />);
+
+  await expect.element(restored.getByRole("checkbox", { name: "見開き表示" })).toBeChecked();
+  await expect
+    .element(restored.getByRole("combobox", { name: "開始ページの位置" }))
+    .toHaveValue("left");
+  await vi.waitFor(() => {
+    expect(restored.container.querySelector(".kgv-stack")).toHaveAttribute("data-spread");
+    expect(restored.container.querySelector(".kgv-page")).toHaveAttribute("data-page-side", "left");
+  });
+  await restored.getByRole("checkbox", { name: "見開き表示" }).click();
+
+  await vi.waitFor(() => {
+    expect(restored.container.querySelector(".kgv-stack")).not.toHaveAttribute("data-spread");
+  });
+});

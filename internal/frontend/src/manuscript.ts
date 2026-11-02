@@ -33,6 +33,11 @@ export type ManuscriptAction =
   | Readonly<{ kind: "document.replace"; text: string }>
   | Readonly<{ kind: "composition.replace"; composition: NovelCompositionSettings }>
   | Readonly<{ kind: "grid-visibility.replace"; showGrid: boolean }>
+  | Readonly<{ kind: "spread.replace"; spread: boolean }>
+  | Readonly<{
+      kind: "start-page-side.replace";
+      startPageSide: ManuscriptPreferences["startPageSide"];
+    }>
   | Readonly<{ kind: "notation.replace"; notation: ManuscriptNotation }>
   | Readonly<{ kind: "zoom.replace"; zoom: number; fit: boolean }>
   | Readonly<{ kind: "preset.apply"; preset: ManuscriptPreset }>
@@ -66,6 +71,15 @@ export function manuscriptReducer(
       return {
         ...state,
         preferences: { ...state.preferences, showGrid: action.showGrid },
+      };
+    }
+    case "spread.replace": {
+      return { ...state, preferences: { ...state.preferences, spread: action.spread } };
+    }
+    case "start-page-side.replace": {
+      return {
+        ...state,
+        preferences: { ...state.preferences, startPageSide: action.startPageSide },
       };
     }
     case "zoom.replace": {

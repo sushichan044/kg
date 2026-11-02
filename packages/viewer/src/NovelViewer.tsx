@@ -41,6 +41,8 @@ export type NovelViewerProps = Readonly<{
   zoom?: NovelViewerZoom;
   fit?: boolean;
   showGrid?: boolean;
+  spread?: boolean;
+  startPageSide?: "left" | "right";
   ariaLabel?: string;
   className?: string;
   onViewEvent?: (event: NovelViewEvent) => void;
@@ -387,6 +389,8 @@ function NovelViewerComponent(
     zoom,
     fit = false,
     showGrid = true,
+    spread = false,
+    startPageSide = "right",
     ariaLabel = "小説プレビュー",
     className,
     onViewEvent,
@@ -453,7 +457,7 @@ function NovelViewerComponent(
         fitZoom({
           viewportWidthPx: width,
           viewportHeightPx: height,
-          paperWidthMm: geometry.paperWidthMm,
+          paperWidthMm: geometry.paperWidthMm * (spread ? 2 : 1),
           paperHeightMm: geometry.paperHeightMm,
           min,
           max,
@@ -467,7 +471,7 @@ function NovelViewerComponent(
     return () => {
       observer.disconnect();
     };
-  }, [fit, geometry.paperHeightMm, geometry.paperWidthMm, max, min, onChange, step]);
+  }, [fit, geometry.paperHeightMm, geometry.paperWidthMm, max, min, onChange, spread, step]);
 
   useEffect(() => {
     if (pendingPageRef.current !== null) scrollToPage(pendingPageRef.current);
@@ -599,7 +603,7 @@ function NovelViewerComponent(
       data-typography={usesTypography ? selectedFont.id : undefined}
     >
       <div ref={viewportRef} className="kgv-viewport">
-        <div className="kgv-stack" style={style}>
+        <div className="kgv-stack" data-spread={spread ? "" : undefined} style={style}>
           {renderedPages.map(({ id, page, pageIndex, stages }) => (
             <section
               key={id}
@@ -607,7 +611,16 @@ function NovelViewerComponent(
                 pageRefs.current[pageIndex] = element;
               }}
               data-page-index={pageIndex}
-              data-page-side={pageIndex % 2 === 0 ? "left" : "right"}
+              data-page-side={
+                pageIndex % 2 === 0 ? startPageSide : startPageSide === "right" ? "left" : "right"
+              }
+              style={
+                spread
+                  ? {
+                      gridRow: Math.floor((pageIndex + (startPageSide === "left" ? 1 : 0)) / 2) + 1,
+                    }
+                  : undefined
+              }
               data-grid={showGrid ? "visible" : "hidden"}
               className="kgv-page"
               aria-label={`${pageIndex + 1}ページ目、全${pages.length}ページ`}
