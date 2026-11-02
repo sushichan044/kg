@@ -24,42 +24,33 @@ import { assertNever } from "./lib/assert-never";
 import type { ManuscriptNotation, ManuscriptPreferences, ManuscriptPreset } from "./lib/storage";
 
 export type ManuscriptState = Readonly<{
-  source: string;
   preferences: ManuscriptPreferences;
-  activeDiagnosticId: string | null;
 }>;
 
 export type ManuscriptAction =
-  | Readonly<{ kind: "document.replace"; text: string }>
   | Readonly<{ kind: "composition.replace"; composition: NovelCompositionSettings }>
   | Readonly<{ kind: "grid-visibility.replace"; showGrid: boolean }>
   | Readonly<{ kind: "notation.replace"; notation: ManuscriptNotation }>
   | Readonly<{ kind: "zoom.replace"; zoom: number; fit: boolean }>
   | Readonly<{ kind: "preset.apply"; preset: ManuscriptPreset }>
   | Readonly<{ kind: "preset.save"; preset: ManuscriptPreset }>
-  | Readonly<{ kind: "preset.delete"; name: string }>
-  | Readonly<{ kind: "diagnostic.select"; id: string | null }>;
+  | Readonly<{ kind: "preset.delete"; name: string }>;
 
 export function manuscriptReducer(
   state: ManuscriptState,
   action: ManuscriptAction,
 ): ManuscriptState {
   switch (action.kind) {
-    case "document.replace": {
-      return { ...state, source: action.text, activeDiagnosticId: null };
-    }
     case "composition.replace": {
       return {
         ...state,
         preferences: { ...state.preferences, composition: action.composition },
-        activeDiagnosticId: null,
       };
     }
     case "notation.replace": {
       return {
         ...state,
         preferences: { ...state.preferences, notation: action.notation },
-        activeDiagnosticId: null,
       };
     }
     case "grid-visibility.replace": {
@@ -78,7 +69,6 @@ export function manuscriptReducer(
       return {
         ...state,
         preferences: { ...state.preferences, composition: action.preset.composition },
-        activeDiagnosticId: null,
       };
     }
     case "preset.save": {
@@ -96,9 +86,6 @@ export function manuscriptReducer(
           presets: state.preferences.presets.filter(({ name }) => name !== action.name),
         },
       };
-    }
-    case "diagnostic.select": {
-      return { ...state, activeDiagnosticId: action.id };
     }
     default: {
       return assertNever(action);

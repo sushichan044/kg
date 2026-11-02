@@ -11,15 +11,15 @@ import type {
   PresentationKind,
 } from "@sushichan044/kg-core";
 import {
-  forwardRef,
   useCallback,
   useEffect,
+  useEffectEvent,
   useImperativeHandle,
   useMemo,
   useRef,
   useState,
 } from "react";
-import type { CSSProperties, ForwardedRef, ReactNode } from "react";
+import type { CSSProperties, ReactNode, Ref } from "react";
 
 import { fitZoom } from "./fit-zoom";
 import type { ReadyTypography } from "./typography";
@@ -34,6 +34,7 @@ const DEFAULT_ZOOM = { value: 100, min: 1, max: Number.MAX_SAFE_INTEGER, step: 1
 >;
 
 export type NovelViewerProps = Readonly<{
+  ref?: Ref<NovelViewHandle>;
   composed: NovelComposedManuscript;
   typography?: ReadyTypography;
   diagnostics?: readonly ManuscriptDiagnostic[];
@@ -378,22 +379,20 @@ function renderRuby(annotation: Extract<ComposedAnnotationFragment, { kind: "rub
   );
 }
 
-function NovelViewerComponent(
-  {
-    composed,
-    typography,
-    diagnostics = NO_DIAGNOSTICS,
-    activeDiagnosticId = null,
-    zoom,
-    fit = false,
-    showGrid = true,
-    ariaLabel = "小説プレビュー",
-    className,
-    onViewEvent,
-    onDiagnosticSelect,
-  }: NovelViewerProps,
-  ref: ForwardedRef<NovelViewHandle>,
-) {
+function NovelViewerRenderer({
+  ref,
+  composed,
+  typography,
+  diagnostics = NO_DIAGNOSTICS,
+  activeDiagnosticId = null,
+  zoom,
+  fit = false,
+  showGrid = true,
+  ariaLabel = "小説プレビュー",
+  className,
+  onViewEvent,
+  onDiagnosticSelect,
+}: NovelViewerProps) {
   const { pages, geometry } = composed.layout;
   const viewportRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<Array<HTMLElement | null>>([]);
@@ -435,6 +434,13 @@ function NovelViewerComponent(
     [scrollToDiagnostic, scrollToPage],
   );
 
+  const onFitChange = useEffectEvent((percent: number) => {
+    onChange(percent);
+  });
+  const onVisiblePageChange = useEffectEvent((page: number) => {
+    onViewEvent?.({ kind: "visible-page.change", page });
+  });
+
   useEffect(() => {
     if (!fit) return;
     const viewport = viewportRef.current;
@@ -449,7 +455,7 @@ function NovelViewerComponent(
         viewport.clientHeight -
         Number.parseFloat(viewportStyle.paddingBlockStart) -
         Number.parseFloat(viewportStyle.paddingBlockEnd);
-      onChange(
+      onFitChange(
         fitZoom({
           viewportWidthPx: width,
           viewportHeightPx: height,
@@ -467,7 +473,7 @@ function NovelViewerComponent(
     return () => {
       observer.disconnect();
     };
-  }, [fit, geometry.paperHeightMm, geometry.paperWidthMm, max, min, onChange, step]);
+  }, [fit, geometry.paperHeightMm, geometry.paperWidthMm, max, min, step]);
 
   useEffect(() => {
     if (pendingPageRef.current !== null) scrollToPage(pendingPageRef.current);
@@ -484,7 +490,7 @@ function NovelViewerComponent(
         if (visible !== undefined) {
           const page = Number(visible.target.getAttribute("data-page-index"));
           visiblePageRef.current = page;
-          onViewEvent?.({ kind: "visible-page.change", page });
+          onVisiblePageChange(page);
         }
       },
       { root: viewport, threshold: [0.25, 0.5, 0.75] },
@@ -493,7 +499,7 @@ function NovelViewerComponent(
     return () => {
       observer.disconnect();
     };
-  }, [onViewEvent, pages]);
+  }, [pages]);
 
   useEffect(() => {
     if (activeDiagnosticId !== null) scrollToDiagnostic(activeDiagnosticId);
@@ -704,60 +710,43 @@ function NovelViewerComponent(
   );
 }
 
-const NovelViewerRenderer = forwardRef(NovelViewerComponent);
-
-const AutomaticNovelViewer = forwardRef(function AutomaticNovelViewer(
-  props: NovelViewerProps,
-  ref: ForwardedRef<NovelViewHandle>,
-) {
+function AutomaticNovelViewer(props: NovelViewerProps) {
   const state = useTypography(props.composed.settings.appearance.fontPreset);
-  const typography = state.kind === "ready" ? state.typography : undefined;
+  if (state.kind !== "ready") return <TypographyStatus state={state} />;
+  return <PreparedNovelViewer {...props} typography={state.typography} />;
+}
+
+function PreparedNovelViewer(props: NovelViewerProps & { typography: ReadyTypography }) {
+  const { typography } = props;
   const prepared = useMemo(
-    () => typography?.prepare(props.composed.parsed),
+    () => typography.prepare(props.composed.parsed),
     [props.composed.parsed, typography],
   );
   const composed = useMemo(
     () =>
-      typography !== undefined && prepared !== undefined
-        ? composeManuscript(prepared.parsed, {
-            composer: typography.composer,
-            settings: props.composed.settings,
-          })
-        : undefined,
+      composeManuscript(prepared.parsed, {
+        composer: typography.composer,
+        settings: props.composed.settings,
+      }),
     [prepared, props.composed.settings, typography],
   );
   const diagnostics = useMemo(
     () =>
-      prepared === undefined
-        ? props.diagnostics
-        : props.diagnostics?.map((diagnostic) => ({
-            ...diagnostic,
-            range: prepared.mapRange(diagnostic.range),
-          })),
+      props.diagnostics?.map((diagnostic) => ({
+        ...diagnostic,
+        range: prepared.mapRange(diagnostic.range),
+      })),
     [prepared, props.diagnostics],
   );
-  if (state.kind !== "ready") return <TypographyStatus state={state} />;
-  if (composed === undefined || !composed.ok || prepared === undefined)
-    return <p role="alert">原稿を組版できませんでした。</p>;
-  return (
-    <NovelViewerRenderer
-      {...props}
-      ref={ref}
-      composed={composed.value}
-      typography={state.typography}
-      diagnostics={diagnostics}
-    />
-  );
-});
+  if (!composed.ok) return <p role="alert">原稿を組版できませんでした。</p>;
+  return <NovelViewerRenderer {...props} composed={composed.value} diagnostics={diagnostics} />;
+}
 
-export const NovelViewer = forwardRef(function NovelViewer(
-  props: NovelViewerProps,
-  ref: ForwardedRef<NovelViewHandle>,
-) {
+export function NovelViewer(props: NovelViewerProps) {
   const fontPreset = props.composed.settings.appearance.fontPreset;
   if (props.typography !== undefined && props.typography.fontPreset !== fontPreset)
     return <p role="alert">書体と組版設定が一致しません。</p>;
   if (props.typography !== undefined || FontPreset.of(fontPreset).measurement === "logical")
-    return <NovelViewerRenderer {...props} ref={ref} />;
-  return <AutomaticNovelViewer key={fontPreset} {...props} ref={ref} />;
-});
+    return <NovelViewerRenderer {...props} />;
+  return <AutomaticNovelViewer key={fontPreset} {...props} />;
+}

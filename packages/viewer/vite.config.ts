@@ -52,7 +52,7 @@ export default defineConfig({
         react({
           // SEE: https://tsdown.dev/recipes/react-support#native-oxc-support-experimental
           compiler: {
-            target: "18",
+            target: "19",
             panicThreshold: "critical_errors",
           },
           // Only needed when `dts: true`: prevent the plugin from
@@ -64,7 +64,7 @@ export default defineConfig({
       sourcemap: false,
       treeshake: true,
       unused: {
-        ignore: ["react-compiler-runtime", "react-dom"],
+        ignore: ["react-dom"],
       },
     },
   ],

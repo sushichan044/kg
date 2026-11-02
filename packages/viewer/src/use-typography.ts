@@ -22,8 +22,6 @@ export function useTypography(
     attempt: number;
     state: TypographyState;
   }> | null>(null);
-  if (loaded !== null && (loaded.fontPreset !== fontPreset || loaded.attempt !== attempt))
-    setLoaded(null);
   useEffect(() => {
     let cancelled = false;
     let owned: ReadyTypography | undefined;

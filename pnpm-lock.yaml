@@ -204,9 +204,6 @@ catalogs:
     react:
       specifier: 19.3.0
       version: 19.3.0
-    react-compiler-runtime:
-      specifier: 1.0.0
-      version: 1.0.0
     react-dom:
       specifier: 19.3.0
       version: 19.3.0
@@ -307,9 +304,6 @@ importers:
       harfbuzzjs:
         specifier: 1.6.3
         version: 1.6.3
-      react-compiler-runtime:
-        specifier: catalog:prod
-        version: 1.0.0(react@19.3.0)
     devDependencies:
       '@arethetypeswrong/core':
         specifier: catalog:dev
@@ -1707,11 +1701,6 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  react-compiler-runtime@1.0.0:
-    resolution: {integrity: sha512-rRfjYv66HlG8896yPUDONgKzG5BxZD1nV9U6rkm+7VCuvQc903C4MjcoZR4zPw53IKSOX9wMQVpA1IAbRtzQ7w==}
-    peerDependencies:
-      react: ^17.0.0 || ^18.0.0 || ^19.0.0 || ^0.0.0-experimental
-
   react-dom@19.3.0:
     resolution: {integrity: sha512-JDk8dgif51OjFoDE70+OT9ICyYr+69HlmihNwp1+Nsfbna3t5sIiCa9ZJktDmQ4/1b/rn26hIAR2uYXDMr5r0Q==}
     peerDependencies:
@@ -2914,10 +2903,6 @@ snapshots:
       package-manager-detector: 1.8.0
       picocolors: 1.1.1
       sade: 1.8.1
-
-  react-compiler-runtime@1.0.0(react@19.3.0):
-    dependencies:
-      react: 19.3.0
 
   react-dom@19.3.0(react@19.3.0):
     dependencies:
