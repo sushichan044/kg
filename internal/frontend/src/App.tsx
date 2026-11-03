@@ -1,3 +1,4 @@
+import { Dialog } from "@base-ui/react/dialog";
 import type { ManuscriptDiagnostic } from "@sushichan044/kg-core";
 import {
   DiagnosticList,
@@ -7,10 +8,17 @@ import {
 } from "@sushichan044/kg-viewer";
 import type { NovelViewEvent, NovelViewHandle } from "@sushichan044/kg-viewer";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import type { MouseEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
+import FilesIcon from "~icons/lucide/files";
+import DiagnosticsIcon from "~icons/lucide/message-square-warning";
+import SettingsIcon from "~icons/lucide/settings-2";
+import CloseIcon from "~icons/lucide/x";
 
-import { FilePanel, Sidebar } from "./components/Sidebar";
-import { SettingsPanel, ViewerToolbar, ZoomControls } from "./components/ViewerControls";
+import { FileSwitcher } from "./components/FileSwitcher";
+import { IconButton } from "./components/IconButton";
+import { Modal } from "./components/Modal";
+import { Sidebar } from "./components/Sidebar";
+import { SettingsPanel, ViewerToolbar, ZoomControls, ZOOM } from "./components/ViewerControls";
 import { useServerEvents } from "./hooks/useServerEvents";
 import { fetchContent, fetchFiles } from "./lib/api";
 import type { FileEntry } from "./lib/api";
@@ -34,42 +42,21 @@ type SheetProps = Readonly<{
 }>;
 
 function Sheet({ open, title, children, onClose }: SheetProps) {
-  const ref = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    const dialog = ref.current;
-    if (dialog === null) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
-
-  const dismissBackdrop = (event: MouseEvent<HTMLDialogElement>) => {
-    if (event.target !== event.currentTarget) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const inside =
-      event.clientX >= rect.left &&
-      event.clientX <= rect.right &&
-      event.clientY >= rect.top &&
-      event.clientY <= rect.bottom;
-    if (!inside) event.currentTarget.close();
-  };
-
   return (
-    <dialog
-      ref={ref}
+    <Modal
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
+      title={title}
       className="mobile-sheet"
-      aria-label={title}
-      onClose={onClose}
-      onClick={dismissBackdrop}
     >
       <header className="mobile-sheet__header">
-        <h2>{title}</h2>
-        <button type="button" aria-label={`${title}を閉じる`} onClick={() => ref.current?.close()}>
-          閉じる
-        </button>
+        <Dialog.Title>{title}</Dialog.Title>
+        <Dialog.Close aria-label={`${title}を閉じる`}>閉じる</Dialog.Close>
       </header>
-      <div className="mobile-sheet__body">{children}</div>
-    </dialog>
+      <div className="mobile-sheet__body">{open ? children : null}</div>
+    </Modal>
   );
 }
 
@@ -133,10 +120,10 @@ export function App() {
   const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [loadedDocument, setLoadedDocument] = useState<{ id: string } | null>(null);
   const [status, setStatus] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [fileSwitcherOpen, setFileSwitcherOpen] = useState(false);
   const [diagnosticDrawerOpen, setDiagnosticDrawerOpen] = useState(false);
-  const [filesSheetOpen, setFilesSheetOpen] = useState(false);
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
-  const [diagnosticsSheetOpen, setDiagnosticsSheetOpen] = useState(false);
   const viewRef = useRef<NovelViewHandle>(null);
   const appStateRef = useRef(appState);
   const manuscriptRef = useRef(manuscript);
@@ -245,7 +232,6 @@ export function App() {
     (id: string) => {
       const found = files.find((file) => file.id === id);
       if (found !== undefined) commitAppState({ version: 1, selectedPath: found.path });
-      setFilesSheetOpen(false);
     },
     [commitAppState, files],
   );
@@ -280,11 +266,11 @@ export function App() {
   const selectDiagnostic = useCallback((diagnostic: ManuscriptDiagnostic) => {
     dispatch({ kind: "diagnostic.select", id: diagnostic.id });
     viewRef.current?.scrollToDiagnostic(diagnostic.id);
-    setDiagnosticsSheetOpen(false);
   }, []);
 
-  const settings = (
+  const renderSettings = (idPrefix: string) => (
     <SettingsPanel
+      idPrefix={idPrefix}
       onSpreadChange={(spread) => {
         commitPreferenceAction({ kind: "spread.replace", spread });
       }}
@@ -296,7 +282,6 @@ export function App() {
       spread={manuscript.preferences.spread}
       startPageSide={manuscript.preferences.startPageSide}
       showGrid={manuscript.preferences.showGrid}
-      presets={manuscript.preferences.presets}
       status={status}
       onNotationChange={(notation) => {
         commitPreferenceAction({ kind: "notation.replace", notation });
@@ -307,105 +292,76 @@ export function App() {
       onGridChange={(showGrid) => {
         commitPreferenceAction({ kind: "grid-visibility.replace", showGrid });
       }}
-      onPresetApply={(preset) => {
-        commitPreferenceAction({ kind: "preset.apply", preset });
-      }}
-      onPresetSave={(preset) => {
-        commitPreferenceAction({ kind: "preset.save", preset });
-      }}
-      onPresetDelete={(name) => {
-        commitPreferenceAction({ kind: "preset.delete", name });
-      }}
     />
   );
 
   return (
-    <div className={diagnosticDrawerOpen ? "app app--diagnostics" : "app"}>
+    <div className="app" data-sidebar={sidebarOpen ? "open" : "closed"}>
       <a className="skip-link visually-hidden" href="#preview">
         プレビューへスキップ
       </a>
       <Sidebar files={files} selectedId={selectedId} onSelect={onSelect} status={status}>
-        <SettingsPanel
-          onSpreadChange={(spread) => {
-            commitPreferenceAction({ kind: "spread.replace", spread });
-          }}
-          onStartPageSideChange={(startPageSide) => {
-            commitPreferenceAction({ kind: "start-page-side.replace", startPageSide });
-          }}
-          idPrefix="desktop-"
-          notation={manuscript.preferences.notation}
-          composition={manuscript.preferences.composition}
-          spread={manuscript.preferences.spread}
-          startPageSide={manuscript.preferences.startPageSide}
-          showGrid={manuscript.preferences.showGrid}
-          presets={manuscript.preferences.presets}
-          status={status}
-          onNotationChange={(notation) => {
-            commitPreferenceAction({ kind: "notation.replace", notation });
-          }}
-          onCompositionChange={(composition) => {
-            commitPreferenceAction({ kind: "composition.replace", composition });
-          }}
-          onGridChange={(showGrid) => {
-            commitPreferenceAction({ kind: "grid-visibility.replace", showGrid });
-          }}
-          onPresetApply={(preset) => {
-            commitPreferenceAction({ kind: "preset.apply", preset });
-          }}
-          onPresetSave={(preset) => {
-            commitPreferenceAction({ kind: "preset.save", preset });
-          }}
-          onPresetDelete={(name) => {
-            commitPreferenceAction({ kind: "preset.delete", name });
-          }}
-        />
+        {renderSettings("desktop-")}
       </Sidebar>
 
       <main id="preview" className="preview" tabIndex={-1} aria-label="プレビュー">
         {selectedFile === null ? null : (
           <>
-            {processed?.ok && (
-              <ViewerToolbar
-                className="desktop-viewer-toolbar"
-                documentLabel={selectedFile.path}
-                composed={processed.value.composed}
-                diagnosticCount={diagnostics.length}
-                zoom={zoom}
-                fit={manuscript.preferences.fit}
-                onZoomChange={changeZoom}
-                onFitChange={enableFit}
-                onDiagnosticsOpen={() => {
+            <ViewerToolbar
+              className="desktop-viewer-toolbar"
+              sidebarOpen={sidebarOpen}
+              onSidebarToggle={() => {
+                setSidebarOpen((open) => !open);
+              }}
+              onFilesOpen={() => {
+                setFileSwitcherOpen(true);
+              }}
+              documentLabel={selectedFile.path}
+              composed={processed?.ok ? processed.value.composed : null}
+              diagnosticCount={diagnostics.length}
+              zoom={zoom}
+              fit={manuscript.preferences.fit}
+              onZoomChange={changeZoom}
+              onFitChange={enableFit}
+              onDiagnosticsOpen={() => {
+                setDiagnosticDrawerOpen((open) => !open);
+              }}
+            />
+            <header className="mobile-toolbar">
+              <IconButton
+                label="ファイル"
+                onClick={() => {
+                  setFileSwitcherOpen(true);
+                }}
+              >
+                <FilesIcon aria-hidden="true" />
+              </IconButton>
+              <div className="mobile-document">
+                <strong title={selectedFile.path}>{selectedFile.path.split("/").at(-1)}</strong>
+                {processed?.ok && (
+                  <small>
+                    {processed.value.composed.layout.stats.chars}字・
+                    {processed.value.composed.layout.stats.pages}ページ
+                  </small>
+                )}
+              </div>
+              <IconButton
+                label={`診断 ${diagnostics.length}件`}
+                className="diagnostics-trigger"
+                onClick={() => {
                   setDiagnosticDrawerOpen((open) => !open);
                 }}
-              />
-            )}
-            <header className="mobile-toolbar">
-              <button
-                type="button"
-                onClick={() => {
-                  setFilesSheetOpen(true);
-                }}
               >
-                ファイル
-              </button>
-              <strong title={selectedFile.path}>{selectedFile.path}</strong>
-              <button
-                type="button"
-                aria-label={`診断 ${diagnostics.length}件`}
-                onClick={() => {
-                  setDiagnosticsSheetOpen(true);
-                }}
-              >
-                診断 <span>{diagnostics.length}</span>
-              </button>
-              <button
-                type="button"
+                <DiagnosticsIcon aria-hidden="true" /> <span>{diagnostics.length}</span>
+              </IconButton>
+              <IconButton
+                label="設定"
                 onClick={() => {
                   setSettingsSheetOpen(true);
                 }}
               >
-                設定
-              </button>
+                <SettingsIcon aria-hidden="true" />
+              </IconButton>
             </header>
             {loadedDocument?.id !== selectedId ? (
               <p className="preview__loading">読み込み中…</p>
@@ -418,7 +374,7 @@ export function App() {
                 typography={typography}
                 diagnostics={diagnostics}
                 activeDiagnosticId={activeDiagnosticId}
-                zoom={{ value: zoom, min: 50, max: 150, step: 25, onChange: setFitZoom }}
+                zoom={{ value: zoom, ...ZOOM, onChange: setFitZoom }}
                 fit={manuscript.preferences.fit}
                 spread={manuscript.preferences.spread}
                 startPageSide={manuscript.preferences.startPageSide}
@@ -426,11 +382,6 @@ export function App() {
                 onViewEvent={onViewEvent}
                 onDiagnosticSelect={(diagnostic) => {
                   dispatch({ kind: "diagnostic.select", id: diagnostic.id });
-                  if (window.matchMedia("(max-width: 52rem)").matches) {
-                    setDiagnosticsSheetOpen(true);
-                  } else {
-                    setDiagnosticDrawerOpen(true);
-                  }
                 }}
               />
             ) : (
@@ -451,15 +402,14 @@ export function App() {
         <aside className="diagnostic-drawer" aria-label="診断">
           <header>
             <h2>診断</h2>
-            <button
-              type="button"
-              aria-label="診断を閉じる"
+            <IconButton
+              label="診断を閉じる"
               onClick={() => {
                 setDiagnosticDrawerOpen(false);
               }}
             >
-              閉じる
-            </button>
+              <CloseIcon aria-hidden="true" />
+            </IconButton>
           </header>
           <DiagnosticList
             diagnostics={diagnostics}
@@ -469,15 +419,13 @@ export function App() {
         </aside>
       )}
 
-      <Sheet
-        open={filesSheetOpen}
-        title="ファイル"
-        onClose={() => {
-          setFilesSheetOpen(false);
-        }}
-      >
-        <FilePanel files={files} selectedId={selectedId} onSelect={onSelect} />
-      </Sheet>
+      <FileSwitcher
+        open={fileSwitcherOpen}
+        onOpenChange={setFileSwitcherOpen}
+        files={files}
+        selectedId={selectedId}
+        onSelect={onSelect}
+      />
       <Sheet
         open={settingsSheetOpen}
         title="表示設定"
@@ -498,20 +446,7 @@ export function App() {
           onZoomChange={changeZoom}
           onFitChange={enableFit}
         />
-        {settings}
-      </Sheet>
-      <Sheet
-        open={diagnosticsSheetOpen}
-        title="診断"
-        onClose={() => {
-          setDiagnosticsSheetOpen(false);
-        }}
-      >
-        <DiagnosticList
-          diagnostics={diagnostics}
-          activeDiagnosticId={activeDiagnosticId}
-          onSelect={selectDiagnostic}
-        />
+        {renderSettings("mobile-")}
       </Sheet>
     </div>
   );

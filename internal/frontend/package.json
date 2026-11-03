@@ -3,13 +3,18 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@base-ui/react": "1.9.0",
     "@sushichan044/kg-core": "workspace:*",
     "@sushichan044/kg-viewer": "workspace:*",
+    "cmdk": "1.1.1",
     "react": "catalog:prod",
     "react-dom": "catalog:prod",
     "valibot": "catalog:prod"
   },
   "devDependencies": {
+    "@iconify-json/lucide": "1.2.150",
+    "@svgr/core": "8.1.0",
+    "@svgr/plugin-jsx": "8.1.0",
     "@types/react": "catalog:dev",
     "@types/react-dom": "catalog:dev",
     "@vitejs/plugin-react": "catalog:dev",
@@ -17,6 +22,7 @@
     "oxc-transform-react": "catalog:prod",
     "playwright": "catalog:dev",
     "typescript": "catalog:dev",
+    "unplugin-icons": "24.0.0",
     "vite-plus": "catalog:dev",
     "vitest-browser-react": "catalog:dev"
   }

@@ -79,7 +79,7 @@ async function renderWithHostStyles(text: string, parser?: ManuscriptParser) {
     <>
       <style>{hostStyles}</style>
       <NovelViewer composed={composed.value} diagnostics={diagnostics} />
-      <DiagnosticList diagnostics={diagnostics} />
+      <DiagnosticList onSelect={() => {}} diagnostics={diagnostics} />
     </>,
   );
   await expect
@@ -118,7 +118,7 @@ test("keeps semantic annotation styles when the host resets fonts", async () => 
 test("keeps the diagnostic band an unpainted overlay under host button styles", async () => {
   const { styleOf } = await renderWithHostStyles("数字は2026年のまま。");
 
-  const band = styleOf("button.kgv-diagnostic-band");
+  const band = styleOf(".kgv-diagnostic-trigger");
   expect(band.position).toBe("absolute");
   expect(band.borderTopWidth).toBe("0px");
   expect(band.paddingTop).toBe("0px");

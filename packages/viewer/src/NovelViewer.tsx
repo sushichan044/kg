@@ -21,6 +21,8 @@ import {
 } from "react";
 import type { CSSProperties, ForwardedRef, ReactNode } from "react";
 
+import { DiagnosticHover } from "./DiagnosticHover";
+import { DiagnosticMarker } from "./DiagnosticMarker";
 import { fitZoom } from "./fit-zoom";
 import type { ReadyTypography } from "./typography";
 import { cssFontFeatures } from "./typography-profile";
@@ -399,6 +401,7 @@ function NovelViewerComponent(
   ref: ForwardedRef<NovelViewHandle>,
 ) {
   const { pages, geometry } = composed.layout;
+  const rootRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<Array<HTMLElement | null>>([]);
   const diagnosticRefs = useRef(new Map<string, HTMLElement>());
@@ -561,42 +564,36 @@ function NovelViewerComponent(
     };
     const active = diagnostic.id === activeDiagnosticId;
 
-    if (!startsHere) {
-      return (
+    return (
+      <span key={diagnostic.id}>
         <span
-          key={diagnostic.id}
           className="kgv-diagnostic-band"
           data-diagnostic-id={diagnostic.id}
           data-diagnostic-severity={diagnostic.severity}
           data-diagnostic-active={active ? "" : undefined}
-          data-diagnostic-continued=""
+          data-diagnostic-continued={startsHere ? undefined : ""}
           style={bandStyle}
           aria-hidden="true"
         />
-      );
-    }
-
-    return (
-      <button
-        key={diagnostic.id}
-        ref={(element) => {
-          if (element === null) diagnosticRefs.current.delete(diagnostic.id);
-          else diagnosticRefs.current.set(diagnostic.id, element);
-        }}
-        type="button"
-        className="kgv-diagnostic-band"
-        data-diagnostic-id={diagnostic.id}
-        data-diagnostic-severity={diagnostic.severity}
-        data-diagnostic-active={active ? "" : undefined}
-        style={bandStyle}
-        aria-label={`${diagnostic.location.start.line}行${diagnostic.location.start.column}列: ${diagnostic.message}`}
-        onClick={() => onDiagnosticSelect?.(diagnostic)}
-      />
+        {startsHere && (
+          <DiagnosticMarker
+            diagnostic={diagnostic}
+            container={rootRef}
+            style={bandStyle}
+            register={(element) => {
+              if (element === null) diagnosticRefs.current.delete(diagnostic.id);
+              else diagnosticRefs.current.set(diagnostic.id, element);
+            }}
+            onSelect={onDiagnosticSelect}
+          />
+        )}
+      </span>
     );
   };
 
   return (
     <div
+      ref={rootRef}
       className={joinClassNames("kgv-viewer", className)}
       aria-label={ariaLabel}
       lang="ja"
@@ -647,7 +644,7 @@ function NovelViewerComponent(
                             {cells.map((cell) => {
                               const found = cell.diagnostics;
                               const active = found.some(({ id }) => id === activeDiagnosticId);
-                              return (
+                              const content = (
                                 <span
                                   key={cell.range.graphemes.start}
                                   className="kgv-cell"
@@ -676,6 +673,17 @@ function NovelViewerComponent(
                                     </span>,
                                   )}
                                 </span>
+                              );
+                              return found.length > 0 ? (
+                                <DiagnosticHover
+                                  key={cell.range.graphemes.start}
+                                  diagnostics={found}
+                                  container={rootRef}
+                                >
+                                  {content}
+                                </DiagnosticHover>
+                              ) : (
+                                content
                               );
                             })}
                           </span>

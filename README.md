@@ -21,7 +21,17 @@ vp run build
 vp run test
 ```
 
-Frontend development uses the Go server on port 6280:
+Frontend-only development uses a local mock catalog and update stream:
+
+```sh
+vp run --filter kg-frontend dev:mock
+```
+
+Open <http://localhost:5174> and edit the sample manuscripts under
+[`internal/frontend/mock/manuscripts`](./internal/frontend/mock/manuscripts).
+See the [mock environment guide](./internal/frontend/mock/README.md) for details.
+
+Full-stack frontend development uses the Go server on port 6280:
 
 ```sh
 go run . --foreground --no-open

@@ -12,27 +12,23 @@ const AppStateSchema = readonlyObject({
   selectedPath: v.nullable(v.string()),
 });
 
-const ManuscriptPresetSchema = readonlyObject({
-  name: v.pipe(v.string(), v.trim(), v.nonEmpty()),
-  composition: NovelCompositionSettings.schema,
-});
-
-const ManuscriptPreferencesSchema = readonlyObject({
-  version: v.literal(7),
-  notation: v.union([v.literal("pixiv"), v.literal("kakuyomu")]),
-  composition: NovelCompositionSettings.schema,
-  showGrid: v.boolean(),
-  spread: v.optional(v.boolean(), false),
-  startPageSide: v.optional(v.picklist(["left", "right"]), "right"),
-  zoom: v.pipe(v.number(), v.finite(), v.minValue(1)),
-  fit: v.boolean(),
-  presets: v.pipe(v.array(ManuscriptPresetSchema), v.readonly()),
-});
+const ManuscriptPreferencesSchema = v.pipe(
+  v.object({
+    version: v.literal(7),
+    notation: v.union([v.literal("pixiv"), v.literal("kakuyomu")]),
+    composition: NovelCompositionSettings.schema,
+    showGrid: v.boolean(),
+    spread: v.optional(v.boolean(), false),
+    startPageSide: v.optional(v.picklist(["left", "right"]), "right"),
+    zoom: v.pipe(v.number(), v.finite(), v.minValue(1)),
+    fit: v.boolean(),
+  }),
+  v.readonly(),
+);
 
 const PageSchema = v.pipe(v.number(), v.integer(), v.minValue(0));
 
 export type AppState = v.InferOutput<typeof AppStateSchema>;
-export type ManuscriptPreset = v.InferOutput<typeof ManuscriptPresetSchema>;
 export type ManuscriptPreferences = v.InferOutput<typeof ManuscriptPreferencesSchema>;
 export type ManuscriptNotation = ManuscriptPreferences["notation"];
 
@@ -46,7 +42,6 @@ export const DEFAULT_MANUSCRIPT_PREFERENCES: ManuscriptPreferences = {
   startPageSide: "right",
   zoom: 100,
   fit: false,
-  presets: [],
 };
 
 function readJson(key: string): unknown {

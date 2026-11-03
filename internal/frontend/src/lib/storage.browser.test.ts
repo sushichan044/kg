@@ -29,7 +29,7 @@ test("returns defaults when current state is absent", () => {
   expect(loadManuscriptPreferences()).toEqual(DEFAULT_MANUSCRIPT_PREFERENCES);
 });
 
-test("stores frontend-owned notation, composition, grid visibility, zoom, and presets", () => {
+test("stores frontend-owned notation, composition, grid visibility, and zoom", () => {
   const preferences = {
     ...DEFAULT_MANUSCRIPT_PREFERENCES,
     composition: NovelCompositionSettings.forPaper("a4", {
@@ -148,3 +148,25 @@ for (const invalid of [{ spread: "true" }, { startPageSide: "center" }]) {
     expect(loadManuscriptPreferences()).toEqual(DEFAULT_MANUSCRIPT_PREFERENCES);
   });
 }
+
+test("discards named presets while preserving existing display preferences", () => {
+  localStorage.setItem(
+    "kg.manuscript.preferences.v7",
+    JSON.stringify({
+      ...DEFAULT_MANUSCRIPT_PREFERENCES,
+      zoom: 300,
+      notation: "kakuyomu",
+      presets: [{ name: "Old preset", composition: DEFAULT_MANUSCRIPT_PREFERENCES.composition }],
+    }),
+  );
+
+  const preferences = loadManuscriptPreferences();
+
+  expect(preferences.zoom).toBe(300);
+  expect(preferences.notation).toBe("kakuyomu");
+  expect(preferences).not.toHaveProperty("presets");
+  expect(saveManuscriptPreferences(preferences)).toBe(true);
+  expect(
+    JSON.parse(localStorage.getItem("kg.manuscript.preferences.v7") ?? "null"),
+  ).not.toHaveProperty("presets");
+});

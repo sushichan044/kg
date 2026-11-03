@@ -1,5 +1,7 @@
 import type { ManuscriptDiagnostic } from "@sushichan044/kg-core";
 
+import { DiagnosticMessage } from "./DiagnosticMessage";
+
 export type DiagnosticListProps = Readonly<{
   diagnostics: readonly ManuscriptDiagnostic[];
   activeDiagnosticId?: string | null;
@@ -32,16 +34,20 @@ export function DiagnosticList({
           data-diagnostic-origin={item.origin.kind}
           data-diagnostic-severity={item.severity}
         >
-          <button
-            type="button"
-            aria-current={item.id === activeDiagnosticId ? "true" : undefined}
-            onClick={() => onSelect?.(item)}
-          >
-            <span className="kgv-diagnostic-location">
-              {item.location.start.line}行 {item.location.start.column}列
-            </span>
-            <span>{item.message}</span>
-          </button>
+          <DiagnosticMessage diagnostic={item} />
+          {onSelect !== undefined && (
+            <button
+              type="button"
+              className="kgv-diagnostic-jump"
+              aria-label={`${item.location.start.line}行${item.location.start.column}列の本文へ移動`}
+              aria-current={item.id === activeDiagnosticId ? "true" : undefined}
+              onClick={() => {
+                onSelect(item);
+              }}
+            >
+              本文へ移動
+            </button>
+          )}
         </li>
       ))}
     </ol>

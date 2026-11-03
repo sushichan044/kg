@@ -23,6 +23,7 @@ import {
 } from "@sushichan044/kg-core/plugin";
 import { useState } from "react";
 import { expect, test as base } from "vite-plus/test";
+import { page, userEvent } from "vite-plus/test/browser";
 import { render } from "vitest-browser-react";
 
 import { fitZoom } from "./fit-zoom";
@@ -781,7 +782,12 @@ test("keeps a split diagnostic as one control with continuation bands", async ({
   );
 
   expect(bands).toHaveLength(2);
-  expect(Array.from(bands).filter(({ tagName }) => tagName === "BUTTON")).toHaveLength(1);
+  expect(screen.container.querySelectorAll(".kgv-diagnostic-trigger")).toHaveLength(
+    diagnostics.length,
+  );
+  expect(
+    Array.from(bands).filter((band) => band.hasAttribute("data-diagnostic-continued")),
+  ).toHaveLength(1);
 });
 
 test("bands a diagnostic that falls on a space the composer sets as an アキ", async ({
@@ -970,4 +976,136 @@ test("fits the full spread when switching from single pages", async ({ renderVie
 
   await expect.poll(() => spreadZoom).toBe(expectedZoom(composed.layout.geometry.paperWidthMm * 2));
   expect(spreadZoom).toBeLessThan(singleZoom);
+});
+
+test("selects manuscript characters natively without a break between each glyph", async ({
+  renderViewer,
+}) => {
+  const { screen } = await renderViewer({ text: "[b:あいうえお]", parser: pixivParser, flow });
+  const glyphs = screen.container.querySelectorAll(".kgv-glyph");
+  const first = glyphs[0]?.firstChild;
+  const last = glyphs[glyphs.length - 1]?.firstChild;
+  expect.assert(first !== null && first !== undefined && last !== null && last !== undefined);
+  const selection = window.getSelection();
+  expect.assert(selection !== null);
+  const range = document.createRange();
+  range.setStart(first, 0);
+  range.setEnd(last, last.textContent?.length ?? 0);
+
+  selection.removeAllRanges();
+  selection.addRange(range);
+
+  expect(selection.toString()).toBe("あいうえお");
+  const event = new ClipboardEvent("copy", { bubbles: true, cancelable: true });
+  first.parentElement?.dispatchEvent(event);
+  expect(event.defaultPrevented).toBe(false);
+  selection.removeAllRanges();
+});
+
+test("shows hover diagnostics that stay open for text selection and close with Escape", async ({
+  renderViewer,
+}) => {
+  const { screen, diagnostics } = await renderViewer({ text: "　数字は2026年。", flow });
+  const diagnostic = diagnostics.find(({ origin }) => origin.id === "kg/max-arabic-numeral-digits");
+  expect.assert(diagnostic !== undefined);
+  const marker = screen.getByRole("button", {
+    name: `${diagnostic.location.start.line}行${diagnostic.location.start.column}列: ${diagnostic.message}`,
+  });
+
+  const viewer = screen.container.querySelector<HTMLElement>(".kgv-viewer");
+  expect.assert(viewer !== null);
+  viewer.style.setProperty("--kgv-text", "rgb(30, 60, 90)");
+
+  await marker.hover();
+
+  const message = screen.getByText(diagnostic.message, { exact: true });
+  await expect.element(message).toBeVisible();
+  await message.hover();
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  await expect.element(message).toBeVisible();
+  const description = screen.container.querySelector(".kgv-diagnostic-description");
+  expect.assert(description !== null);
+  expect(description.closest(".kgv-viewer")).toBe(viewer);
+  expect(getComputedStyle(description).color).toBe("rgb(30, 60, 90)");
+  const range = document.createRange();
+  range.selectNodeContents(description);
+  const selection = window.getSelection();
+  expect.assert(selection !== null);
+  selection.removeAllRanges();
+  selection.addRange(range);
+  expect(selection.toString()).toBe(diagnostic.message);
+  selection.removeAllRanges();
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(() => screen.container.querySelector(".kgv-diagnostic-popover")).toBeNull();
+});
+
+test("shows diagnostics when hovering the text while keeping glyphs natively selectable", async ({
+  renderViewer,
+}) => {
+  const { screen, diagnostics } = await renderViewer({ text: "　数字は2026年。", flow });
+  const diagnostic = diagnostics[0];
+  expect.assert(diagnostic !== undefined);
+  const cell = screen.container.querySelector<HTMLElement>(".kgv-cell[data-diagnostic]");
+  expect.assert(cell !== null);
+  expect(cell.tagName).toBe("SPAN");
+  expect(cell.closest("button")).toBeNull();
+
+  await userEvent.hover(cell);
+
+  await expect.element(screen.getByText(diagnostic.message, { exact: true })).toBeVisible();
+  const popup = screen.container.querySelector<HTMLElement>(".kgv-diagnostic-popover");
+  expect.assert(popup !== null);
+  const line = cell.closest(".kgv-line");
+  expect.assert(line !== null);
+  await expect
+    .poll(() => {
+      const popupRect = popup.getBoundingClientRect();
+      const lineRect = line.getBoundingClientRect();
+      return popupRect.right <= lineRect.left || popupRect.left >= lineRect.right;
+    })
+    .toBe(true);
+  const selection = window.getSelection();
+  expect.assert(selection !== null);
+  const range = document.createRange();
+  range.selectNodeContents(cell);
+  selection.removeAllRanges();
+  selection.addRange(range);
+  expect(selection.toString()).toBe(cell.textContent);
+  selection.removeAllRanges();
+});
+
+test("sizes diagnostic details to the manuscript container at the same viewport width", async ({
+  renderViewer,
+}) => {
+  await page.viewport(1280, 900);
+  const { screen } = await renderViewer({ text: "　言葉を探して………", flow });
+  const viewer = screen.container.querySelector<HTMLElement>(".kgv-viewer");
+  const cell = screen.container.querySelector<HTMLElement>(".kgv-cell[data-diagnostic]");
+  expect.assert(viewer !== null && cell !== null);
+  viewer.style.inlineSize = "1000px";
+
+  await userEvent.hover(cell);
+
+  await expect
+    .poll(() => {
+      const description = screen.container.querySelector<HTMLElement>(
+        ".kgv-diagnostic-description",
+      );
+      expect.assert(description !== null);
+      return description.getBoundingClientRect().height;
+    })
+    .toBeLessThan(22);
+
+  viewer.style.inlineSize = "240px";
+  await userEvent.hover(cell);
+
+  await expect
+    .poll(
+      () =>
+        screen.container.querySelector(".kgv-diagnostic-popover")?.getBoundingClientRect().width,
+    )
+    .toBeLessThanOrEqual(208);
+  const description = screen.container.querySelector<HTMLElement>(".kgv-diagnostic-description");
+  expect.assert(description !== null);
+  expect(description.getBoundingClientRect().height).toBeGreaterThan(22);
 });

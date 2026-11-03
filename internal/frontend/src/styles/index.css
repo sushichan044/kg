@@ -5,6 +5,7 @@
   --text: #000;
   --grid: rgb(0 174 204 / 30%);
   --accent: #000;
+  --focus: #738299;
 
   color-scheme: light;
   accent-color: var(--accent);
@@ -56,20 +57,16 @@ select {
   border-radius: 4px;
 }
 
-:where(a, button, input, select):focus-visible {
-  outline: 3px solid var(--accent);
+:where(a, button, input, select, summary):focus-visible {
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
 .app {
   display: grid;
-  grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr);
+  grid-template-columns: 17rem minmax(0, 1fr);
   min-block-size: 100dvb;
   block-size: 100dvb;
-}
-
-.app--diagnostics {
-  grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr) minmax(17rem, 22rem);
 }
 
 .sidebar {
@@ -187,13 +184,57 @@ select {
 }
 
 .toolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-block-size: 2rem;
   padding: 0.25rem 0.55rem;
-  border: 1px solid rgb(0 0 0 / 35%);
+  border: 1px solid transparent;
   border-radius: 3px;
-  background: var(--sidebar);
-  color: inherit;
+  background: transparent;
+  color: #4b5563;
   cursor: pointer;
+}
+
+.toolbar button:hover:not(:disabled),
+.mobile-toolbar button:hover:not(:disabled) {
+  background: #f1f3f5;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-inline-size: 2rem;
+}
+
+.icon-button svg {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  flex-shrink: 0;
+}
+
+.toolbar-tooltip-positioner {
+  z-index: 30;
+}
+
+.toolbar-tooltip {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #d5d9df;
+  border-radius: 4px;
+  background: var(--surface);
+  color: #374151;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
+  font-size: 0.75rem;
+}
+
+.toolbar-tooltip kbd {
+  color: #64748b;
+  font: inherit;
 }
 
 .toolbar button:disabled {
@@ -202,11 +243,11 @@ select {
 }
 
 .toolbar button[aria-pressed="true"] {
-  border-color: var(--accent);
-  outline: 1px solid var(--accent);
+  border-color: #c4cbd4;
+  background: #eef1f5;
 }
 
-.zoom-controls output {
+.zoom-value {
   min-inline-size: 3.5rem;
   text-align: center;
   font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
@@ -217,10 +258,9 @@ select {
   display: inline-grid;
   place-items: center;
   min-inline-size: 1.5em;
-  margin-inline-start: 0.25rem;
-  border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
+  border-radius: 3px;
+  background: #eef1f5;
+  color: #4b5563;
   font-variant-numeric: tabular-nums;
 }
 
@@ -262,7 +302,7 @@ select {
   gap: 0.35rem;
 }
 
-:where(.paper-controls, .offset-controls, .presets) {
+:where(.paper-controls, .offset-controls) {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
@@ -276,7 +316,7 @@ select {
 }
 
 .control input,
-:where(.select-control select, .preset-save input) {
+.select-control select {
   inline-size: 100%;
   padding: 0.35rem;
 }
@@ -317,27 +357,6 @@ select {
   color: var(--accent);
 }
 
-.preset-save,
-.preset-list li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.preset-save input {
-  flex: 1;
-}
-
-.preset-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
 .status {
   margin: 0;
   font-size: 0.8rem;
@@ -352,7 +371,6 @@ select {
 }
 
 @container toolbar (inline-size < 36rem) {
-  .toolbar-summary,
   .zoom-controls {
     display: none;
   }
@@ -374,11 +392,26 @@ select {
 }
 
 .diagnostic-drawer {
+  position: fixed;
+  z-index: 10;
+  inset-block: 4.25rem 1rem;
+  inset-inline-end: 1rem;
+  inline-size: min(22rem, calc(100% - 2rem));
   min-block-size: 0;
   padding: 1rem;
   overflow: auto;
-  border-inline-start: 1px solid rgb(0 0 0 / 18%);
+  border: 1px solid #d5d9df;
+  border-radius: 6px;
   background: var(--sidebar);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 12%);
+}
+
+.diagnostic-drawer > header button {
+  min-block-size: 2rem;
+  border: 0;
+  background: transparent;
+  color: #4b5563;
+  cursor: pointer;
 }
 
 .diagnostic-drawer > header,
@@ -396,28 +429,21 @@ select {
 }
 
 .mobile-sheet {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 0;
+  display: flex;
+  pointer-events: auto;
   inline-size: 100%;
   max-inline-size: none;
   max-block-size: min(86dvb, 52rem);
-  margin: auto 0 0;
+  margin: 0;
   padding: 0;
   flex-direction: column;
   border: 1px solid rgb(0 0 0 / 25%);
   border-radius: 1rem 1rem 0 0;
   background: var(--sidebar);
   color: var(--text);
-}
-
-/* An unconditional `display` here would override the UA default
-   `dialog:not([open]) { display: none }`, since author styles always win
-   over user-agent styles regardless of specificity — leaving every sheet
-   permanently visible in normal document flow instead of closed. */
-.mobile-sheet[open] {
-  display: flex;
-}
-
-.mobile-sheet::backdrop {
-  background: rgb(0 0 0 / 42%);
 }
 
 .mobile-sheet__header {
@@ -439,14 +465,12 @@ select {
 }
 
 @media (max-width: 52rem) {
-  .app,
-  .app--diagnostics {
+  .app {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .sidebar,
-  .desktop-viewer-toolbar,
-  .diagnostic-drawer {
+  .desktop-viewer-toolbar {
     display: none;
   }
 
@@ -472,11 +496,12 @@ select {
 
   .mobile-toolbar button {
     min-block-size: 2.75rem;
+    min-inline-size: 2.75rem;
     padding: 0.35rem 0.55rem;
-    border: 1px solid rgb(0 0 0 / 35%);
+    border: 1px solid transparent;
     border-radius: 4px;
-    background: var(--sidebar);
-    color: inherit;
+    background: transparent;
+    color: #4b5563;
   }
 
   .mobile-toolbar button span {
@@ -502,4 +527,214 @@ select {
   .mobile-toolbar {
     border-color: Highlight;
   }
+}
+
+/* Keep the manuscript canvas distinct from the controls without tinting the paper. */
+.preview > .kgv-viewer {
+  --kgv-surface: #f2f3f4;
+  --kgv-padding: 1.5rem;
+}
+
+.app[data-sidebar="closed"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.app[data-sidebar="closed"] .sidebar {
+  display: none;
+}
+
+.sidebar {
+  gap: 1rem;
+  border-inline-end: 1px solid rgb(0 0 0 / 14%);
+  font-size: 0.875rem;
+}
+
+.sidebar-files > summary,
+.settings-section > summary {
+  cursor: pointer;
+  padding-block: 0.75rem;
+  font-weight: 600;
+}
+
+.sidebar-files > summary span {
+  margin-inline-start: 0.5rem;
+  color: #595959;
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-panel {
+  gap: 0;
+}
+
+.settings-section {
+  border-block-start: 1px solid rgb(0 0 0 / 14%);
+}
+
+.settings-section[open] {
+  padding-block-end: 1rem;
+}
+
+.settings-section > :not(summary) + :not(summary) {
+  margin-block-start: 1rem;
+}
+
+.file-list__item {
+  overflow-wrap: anywhere;
+  padding-block: 0.55rem;
+}
+
+.toolbar {
+  gap: 0.5rem;
+}
+
+.toolbar-document {
+  flex-basis: 12rem;
+}
+
+.toolbar-label {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  font-size: 0.9rem;
+}
+
+.toolbar-summary {
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.modal-portal {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  background: rgb(0 0 0 / 42%);
+}
+
+.file-switcher {
+  position: fixed;
+  pointer-events: auto;
+  inset-block-start: min(18dvb, 8rem);
+  inset-inline: 1rem;
+  inline-size: calc(100% - 2rem);
+  max-inline-size: 36rem;
+  max-block-size: 75dvb;
+  margin-block: 0;
+  margin-inline: auto;
+  padding: 0;
+  border: 1px solid rgb(0 0 0 / 25%);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 20%);
+}
+
+[cmdk-input] {
+  box-sizing: border-box;
+  inline-size: 100%;
+  padding: 1rem;
+  border: 0;
+  border-block-end: 1px solid rgb(0 0 0 / 14%);
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: inherit;
+}
+
+[cmdk-list] {
+  max-block-size: 50dvb;
+  overflow: auto;
+  padding: 0.5rem;
+  scroll-padding-block: 0.5rem;
+}
+
+[cmdk-item] {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem;
+  border-radius: 3px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+[cmdk-item][data-selected="true"] {
+  background: #eef1f5;
+  outline: 1px solid #c4cbd4;
+  outline-offset: -1px;
+}
+
+[cmdk-empty] {
+  padding: 1.5rem 0.75rem;
+}
+
+.file-current,
+.command-footer {
+  color: #595959;
+  font-size: 0.8rem;
+}
+
+.file-current {
+  flex-shrink: 0;
+}
+
+.command-footer {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  border-block-start: 1px solid rgb(0 0 0 / 14%);
+}
+
+.command-footer button {
+  margin-inline-start: auto;
+}
+
+@media (max-width: 52rem) {
+  .app,
+  .app[data-sidebar] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .diagnostic-drawer {
+    inset-block: auto max(0.75rem, env(safe-area-inset-bottom));
+    inset-inline-end: 0.75rem;
+    inline-size: calc(100% - 1.5rem);
+    max-block-size: 60dvb;
+  }
+}
+
+.file-name,
+.file-directory {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-directory {
+  margin-block-start: 0.2rem;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #595959;
+}
+
+.mobile-document {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.mobile-document strong {
+  display: block;
+}
+
+.mobile-document small {
+  display: block;
+  margin-block-start: 0.2rem;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
 }

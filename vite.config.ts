@@ -98,6 +98,7 @@ export default defineConfig({
       },
       {
         files: [
+          "internal/frontend/mock/vite-plugin.test.ts",
           "internal/frontend/src/lib/storage.browser.test.ts",
           "internal/frontend/src/App.browser.test.tsx",
           "packages/viewer/src/NovelViewer.browser.test.tsx",

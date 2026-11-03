@@ -1,23 +1,31 @@
 import react from "@vitejs/plugin-react";
+import Icons from "unplugin-icons/vite";
 import { defineConfig, defineProject } from "vite-plus";
 import { playwright } from "vite-plus/test/browser-playwright";
+
+import { mockFrontend } from "./mock/vite-plugin";
 
 // The Go server owns the port; during frontend development Vite proxies the API
 // and SSE stream (everything under /_/) to it. Vite must not watch paths outside
 // this frontend root.
 const GO_SERVER = "http://localhost:6280";
 
+const iconPlugin = () =>
+  Icons({ compiler: "jsx", jsx: "react", collectionsNodeResolvePath: import.meta.dirname });
+
 export const frontendTestProjects = [
   defineProject({
     root: import.meta.dirname,
+    plugins: [iconPlugin()],
     test: {
       name: "frontend-unit",
-      include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+      include: ["src/**/*.test.ts", "src/**/*.test.tsx", "mock/**/*.test.ts"],
       exclude: ["src/**/*.browser.test.ts", "src/**/*.browser.test.tsx"],
     },
   }),
   defineProject({
     root: import.meta.dirname,
+    plugins: [iconPlugin()],
     test: {
       name: "frontend-browser",
       include: ["src/**/*.browser.test.ts", "src/**/*.browser.test.tsx"],
@@ -31,7 +39,8 @@ export const frontendTestProjects = [
   }),
 ];
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  cacheDir: mode === "mock" ? "node_modules/.vite-mock" : undefined,
   optimizeDeps: {
     include: ["react", "react-dom", "react-dom/client"],
     exclude: ["harfbuzzjs"],
@@ -59,6 +68,11 @@ export default defineConfig({
         dependsOn: [{ task: "build", from: "dependencies" }],
         cache: false,
       },
+      "dev:mock": {
+        command: "vp dev --mode mock",
+        dependsOn: [{ task: "build", from: "dependencies" }],
+        cache: false,
+      },
       preview: {
         command: "vp preview",
         dependsOn: ["build"],
@@ -71,24 +85,27 @@ export default defineConfig({
     },
   },
   test: {
-    // frontend-unit currently has no plain *.test.ts(x) files — everything here is
-    // browser-mode only — so an empty project shouldn't fail a filtered `--project` run.
     passWithNoTests: true,
     projects: frontendTestProjects,
   },
 
-  plugins: [react({ compiler: true })],
+  plugins: [react({ compiler: true }), iconPlugin(), mode === "mock" && mockFrontend()],
   build: {
     // Build straight into the Go embed.FS source directory.
     outDir: "../static/dist",
     emptyOutDir: true,
   },
   server: {
-    proxy: {
-      "/_/": {
-        target: GO_SERVER,
-        changeOrigin: true,
-      },
-    },
+    port: mode === "mock" ? 5174 : undefined,
+    strictPort: mode === "mock",
+    proxy:
+      mode === "mock"
+        ? undefined
+        : {
+            "/_/": {
+              target: GO_SERVER,
+              changeOrigin: true,
+            },
+          },
   },
-});
+}));

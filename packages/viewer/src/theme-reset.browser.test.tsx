@@ -69,7 +69,7 @@ async function renderThemedViewerUnderReset() {
     <>
       <style>{commonReset}</style>
       <NovelViewer composed={composed.value} diagnostics={diagnostics} />
-      <DiagnosticList diagnostics={diagnostics} />
+      <DiagnosticList onSelect={() => {}} diagnostics={diagnostics} />
     </>,
   );
   await expect
@@ -93,12 +93,12 @@ test("keeps the default manuscript theme under a common reset", async () => {
   expect(styleOf('[data-annotation="italic"]').fontStyle).toBe("italic");
 });
 
-test("keeps the diagnostic band visible under a common reset", async () => {
+test("highlights diagnosed text cells under a common reset", async () => {
   const { styleOf } = await renderThemedViewerUnderReset();
 
-  const band = styleOf(".kgv-diagnostic-band");
-  expect(band.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
-  expect(band.boxShadow).not.toBe("none");
+  const cell = styleOf(".kgv-cell[data-diagnostic]");
+  expect(cell.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+  expect(styleOf(".kgv-diagnostic-trigger").backgroundColor).toBe("rgba(0, 0, 0, 0)");
 });
 
 test("keeps the default diagnostic theme under a common reset", async () => {
