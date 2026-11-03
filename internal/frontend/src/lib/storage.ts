@@ -27,6 +27,12 @@ const ManuscriptPreferencesSchema = v.pipe(
 );
 
 const PageSchema = v.pipe(v.number(), v.integer(), v.minValue(0));
+const PreviousA5Schema = v.looseObject({
+  composition: v.looseObject({
+    appearance: v.looseObject({ paperSize: v.literal("a5") }),
+    page: v.looseObject({ topMm: v.literal(12), bottomMm: v.literal(16.55) }),
+  }),
+});
 
 export type AppState = v.InferOutput<typeof AppStateSchema>;
 export type ManuscriptPreferences = v.InferOutput<typeof ManuscriptPreferencesSchema>;
@@ -69,7 +75,18 @@ export function saveAppState(state: AppState): boolean {
 
 export function loadManuscriptPreferences(): ManuscriptPreferences {
   try {
-    const current = v.safeParse(ManuscriptPreferencesSchema, readJson(PREFERENCES_KEY));
+    const stored = readJson(PREFERENCES_KEY);
+    const previous = v.safeParse(PreviousA5Schema, stored);
+    const migrated = previous.success
+      ? {
+          ...previous.output,
+          composition: {
+            ...previous.output.composition,
+            page: { ...previous.output.composition.page, topMm: 16.55, bottomMm: 12 },
+          },
+        }
+      : stored;
+    const current = v.safeParse(ManuscriptPreferencesSchema, migrated);
     return current.success ? current.output : DEFAULT_MANUSCRIPT_PREFERENCES;
   } catch {
     return DEFAULT_MANUSCRIPT_PREFERENCES;

@@ -67,6 +67,7 @@
 }
 
 .kgv-page {
+  position: relative;
   box-sizing: border-box;
   display: grid;
   align-items: start;
@@ -76,6 +77,22 @@
   inline-size: var(--kgv-page-width);
   block-size: var(--kgv-page-height);
   flex: none;
+}
+
+.kgv-folio {
+  --kgv-folio-size: min(calc(var(--kgv-cell-size) * 0.7), var(--kgv-margin-top));
+  position: absolute;
+  top: min(var(--kgv-folio-top), calc(var(--kgv-margin-top) - var(--kgv-folio-size) / 2));
+  left: var(--kgv-margin-outer);
+  transform: translateY(-50%);
+  font-family: var(--kgv-manuscript-font);
+  font-size: var(--kgv-folio-size);
+  line-height: 1;
+}
+
+.kgv-page[data-page-side="right"] .kgv-folio {
+  left: auto;
+  right: var(--kgv-margin-outer);
 }
 
 @supports (content-visibility: auto) {

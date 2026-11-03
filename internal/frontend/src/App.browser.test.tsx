@@ -170,6 +170,7 @@ test("opens compact file, settings, and diagnostics sheets", async () => {
   );
   expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual([
     "ファイル",
+    "PNGをZIPで出力",
     "診断 4件",
     "設定",
   ]);
@@ -456,8 +457,8 @@ test("shows fixed A5 dimensions and restores them after editing another paper fo
       flow: { lineLengthEm: 27, linesPerStage: 23, stagesPerPage: 2 },
       appearance: { paperSize: "a5", fontSizeQ: 12.7 },
       page: {
-        topMm: 12,
-        bottomMm: 16.55,
+        topMm: 16.55,
+        bottomMm: 12,
         innerMm: 21.825,
         outerMm: 13,
         stageGapMm: 10,
@@ -783,4 +784,136 @@ test("closes only the file palette when Escape is pressed over the settings dial
   await expect.element(closeSettings).toHaveFocus();
   await closeSettings.click();
   await expect.element(settingsButton).toHaveFocus();
+});
+
+test("downloads all pages as 600 dpi monochrome PNG files", async ({ novelSource }) => {
+  novelSource.current = "漢字《かんじ》12".repeat(400);
+  await page.viewport(1280, 800);
+  const screen = await render(<App />);
+  await waitFor(() => {
+    expect(screen.container.querySelectorAll(".kgv-page").length).toBeGreaterThan(1);
+  });
+  const pageCount = screen.container.querySelectorAll(".kgv-page").length;
+  let archive: Blob | undefined;
+  const createObjectURL = URL.createObjectURL.bind(URL);
+  const urlSpy = vi.spyOn(URL, "createObjectURL").mockImplementation((value) => {
+    if (value instanceof Blob && value.type === "application/zip") archive = value;
+    return createObjectURL(value);
+  });
+  const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  try {
+    await screen.getByRole("button", { name: "PNGをZIPで出力" }).first().click();
+    await vi.waitFor(
+      () => {
+        expect(archive).toBeDefined();
+      },
+      { timeout: 120000, interval: 200 },
+    );
+    expect.assert(archive !== undefined);
+    const { unzipSync, unzlibSync } = await import("fflate");
+    const entries = unzipSync(new Uint8Array(await archive.arrayBuffer()));
+    expect(Object.keys(entries)).toEqual(
+      Array.from({ length: pageCount }, (_, index) => `${String(index + 1).padStart(3, "0")}.png`),
+    );
+    const first = entries["001.png"];
+    expect.assert(first !== undefined);
+    const view = new DataView(first.buffer, first.byteOffset, first.byteLength);
+    expect(view.getUint32(16)).toBe(Math.round((148 * 600) / 25.4));
+    expect(view.getUint32(20)).toBe(Math.round((210 * 600) / 25.4));
+    expect(first[24]).toBe(1);
+    const imageData = unzlibSync(first.subarray(62, 62 + view.getUint32(54)));
+    expect(imageData.filter((byte) => byte !== 255).length).toBeGreaterThan(
+      view.getUint32(20) + 1000,
+    );
+  } finally {
+    clickSpy.mockRestore();
+    urlSpy.mockRestore();
+  }
+}, 130000);
+
+test("restores the export action and reports an image generation failure", async () => {
+  await page.viewport(1280, 800);
+  const screen = await render(<App />);
+  const exportButton = screen.getByRole("button", { name: "PNGをZIPで出力" }).first();
+  await expect.element(exportButton).toBeEnabled();
+  const { snapdom } = await import("@zumer/snapdom");
+  let rejectCapture: ((reason: Error) => void) | undefined;
+  const capture = vi.spyOn(snapdom, "toCanvas").mockImplementation(
+    () =>
+      new Promise<HTMLCanvasElement>((_, reject) => {
+        rejectCapture = reject;
+      }),
+  );
+  try {
+    await exportButton.click();
+    await expect.element(exportButton).toBeDisabled();
+    await waitFor(() => {
+      expect(rejectCapture).toBeDefined();
+    });
+    expect.assert(rejectCapture !== undefined);
+    rejectCapture(new Error("画像の生成に失敗しました"));
+    await expect
+      .element(screen.getByRole("alert"))
+      .toHaveTextContent("PNG の出力に失敗しました: 画像の生成に失敗しました");
+    await expect.element(exportButton).toBeEnabled();
+    expect(screen.container.querySelector(".export-pages")).toBeNull();
+  } finally {
+    capture.mockRestore();
+  }
+});
+
+test("does not download an export after the app unmounts", async () => {
+  await page.viewport(1280, 800);
+  const screen = await render(<App />);
+  const exportButton = screen.getByRole("button", { name: "PNGをZIPで出力" }).first();
+  await expect.element(exportButton).toBeEnabled();
+  const { snapdom } = await import("@zumer/snapdom");
+  let resolveCapture: ((canvas: HTMLCanvasElement) => void) | undefined;
+  const capture = vi.spyOn(snapdom, "toCanvas").mockImplementation(
+    () =>
+      new Promise<HTMLCanvasElement>((resolve) => {
+        resolveCapture = resolve;
+      }),
+  );
+  const download = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  try {
+    await exportButton.click();
+    await waitFor(() => {
+      expect(resolveCapture).toBeDefined();
+    });
+    await screen.unmount();
+    expect.assert(resolveCapture !== undefined);
+    resolveCapture(document.createElement("canvas"));
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    expect(download).not.toHaveBeenCalled();
+    expect(document.querySelector(".export-pages")).toBeNull();
+  } finally {
+    capture.mockRestore();
+    download.mockRestore();
+  }
+});
+
+test("rejects an export when the browser returns a smaller canvas", async () => {
+  await page.viewport(1280, 800);
+  const screen = await render(<App />);
+  const button = screen.getByRole("button", { name: "PNGをZIPで出力" }).first();
+  await expect.element(button).toBeEnabled();
+  const { snapdom } = await import("@zumer/snapdom");
+  const capture = vi.spyOn(snapdom, "toCanvas").mockResolvedValue(document.createElement("canvas"));
+  const download = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  try {
+    await button.click();
+    await expect
+      .element(screen.getByRole("alert"))
+      .toHaveTextContent(
+        "PNG の出力に失敗しました: このブラウザでは必要な解像度の画像を生成できませんでした",
+      );
+    await expect.element(button).toBeEnabled();
+    expect(download).not.toHaveBeenCalled();
+  } finally {
+    capture.mockRestore();
+    download.mockRestore();
+  }
 });

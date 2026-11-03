@@ -239,9 +239,15 @@ importers:
       '@sushichan044/kg-viewer':
         specifier: workspace:*
         version: link:../../packages/viewer
+      '@zumer/snapdom':
+        specifier: 3.7.0
+        version: 3.7.0
       cmdk:
         specifier: 1.1.1
         version: 1.1.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      fflate:
+        specifier: 0.8.3
+        version: 0.8.3
       react:
         specifier: catalog:prod
         version: 19.3.0
@@ -1800,6 +1806,9 @@ packages:
 
   '@yuku-toolchain/types@0.9.5':
     resolution: {integrity: sha512-KiuLNNgX9uNealaWAR+G3/cMXnRk9x4TY2EkYe/KIag+UPdwiA0RRf1hr1WAxzTP8KGzCTkqUdLPvqh32sEO3w==}
+
+  '@zumer/snapdom@3.7.0':
+    resolution: {integrity: sha512-YUbc4psiyjTktuOkvCkuDNWHjZiqwJZ/SPpnYmOUFoKWi6nyjY3CgW7+uQSwVTVR9ka2/Swz1UiRM739j07kmQ==}
 
   acorn@8.19.0:
     resolution: {integrity: sha512-oJlA3XiRm7Cyk6qFD2Jn8ak9B7jSy0qy00ADO3+8dpT0LSjFihQYv4C02LFCSYJV3Q37xYwwRy5m+IpIiUzqWw==}
@@ -3681,6 +3690,8 @@ snapshots:
 
   '@yuku-toolchain/types@0.9.5': {}
 
+  '@zumer/snapdom@3.7.0': {}
+
   acorn@8.19.0: {}
 
   ansi-regex@5.0.1: {}
@@ -3701,7 +3712,7 @@ snapshots:
 
   babel-plugin-react-compiler@1.0.0:
     dependencies:
-      '@babel/types': 7.29.7
+      '@babel/types': 7.29.11
     optional: true
 
   baseline-browser-mapping@2.11.34: {}

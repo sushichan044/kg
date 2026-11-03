@@ -170,3 +170,23 @@ test("discards named presets while preserving existing display preferences", () 
     JSON.parse(localStorage.getItem("kg.manuscript.preferences.v7") ?? "null"),
   ).not.toHaveProperty("presets");
 });
+
+test("preserves preferences when migrating the former A5 margins", () => {
+  localStorage.setItem(
+    "kg.manuscript.preferences.v7",
+    JSON.stringify({
+      ...DEFAULT_MANUSCRIPT_PREFERENCES,
+      zoom: 125,
+      composition: {
+        ...DEFAULT_MANUSCRIPT_PREFERENCES.composition,
+        page: { ...DEFAULT_MANUSCRIPT_PREFERENCES.composition.page, topMm: 12, bottomMm: 16.55 },
+      },
+    }),
+  );
+
+  const restored = loadManuscriptPreferences();
+
+  expect(restored.zoom).toBe(125);
+  expect(restored.composition.page.topMm).toBe(16.55);
+  expect(restored.composition.page.bottomMm).toBe(12);
+});

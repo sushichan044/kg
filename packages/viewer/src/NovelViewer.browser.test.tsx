@@ -862,8 +862,21 @@ for (const zoom of [50, 100, 150]) {
     expect(bounds.height).toBeCloseTo(mm(210), 1);
     expect(textBounds.width).toBeCloseTo(mm(113.175), 0);
     expect(textBounds.height).toBeCloseTo(mm(181.45), 1);
-    expect(textBounds.top - bounds.top).toBeCloseTo(mm(12), 1);
-    expect(bounds.bottom - textBounds.bottom).toBeCloseTo(mm(16.55), 1);
+    expect(textBounds.top - bounds.top).toBeCloseTo(mm(16.55), 1);
+    expect(bounds.bottom - textBounds.bottom).toBeCloseTo(mm(12), 1);
+    const folio = first.querySelector<HTMLElement>(".kgv-folio");
+    expect.assert(folio !== null);
+    expect(folio.textContent).toBe("1");
+    expect(folio.getBoundingClientRect().left - bounds.left).toBeCloseTo(mm(13), 1);
+    const secondFolio = second.querySelector<HTMLElement>(".kgv-folio");
+    expect.assert(secondFolio !== null);
+    expect(secondFolio.textContent).toBe("2");
+    expect(
+      second.getBoundingClientRect().right - secondFolio.getBoundingClientRect().right,
+    ).toBeCloseTo(mm(13), 1);
+    expect(
+      folio.getBoundingClientRect().top + folio.getBoundingClientRect().height / 2 - bounds.top,
+    ).toBeCloseTo(mm(10), 0);
     expect(textBounds.left - bounds.left).toBeCloseTo(mm(13), 1);
     expect(bounds.right - textBounds.right).toBeCloseTo(mm(21.825), 0);
     expect(bottom.getBoundingClientRect().top - top.getBoundingClientRect().bottom).toBeCloseTo(
