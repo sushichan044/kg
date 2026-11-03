@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.10.2](https://github.com/sushichan044/kg/compare/v0.10.1...v0.10.2) (2026-11-03)
+
+
+### Features
+
+* **viewer:** add folios and print-ready PNG export ([73ae4bc](https://github.com/sushichan044/kg/commit/73ae4bcb225d05d8d2785057d5ab61598ee19f6d))
+* **viewer:** add folios and print-ready PNG export ([90a3d75](https://github.com/sushichan044/kg/commit/90a3d755eceeadf321e281ca16940a3aae98ac18))
+
+
+### Bug Fixes
+
+* **export:** reject images with incorrect dimensions ([3eda4e1](https://github.com/sushichan044/kg/commit/3eda4e117f8d2d2dbe6e9480ed48a2c7087a7797))
+
 ## [0.10.1](https://github.com/sushichan044/kg/compare/v0.10.0...v0.10.1) (2026-11-03)
 
 
