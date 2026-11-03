@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.12.1](https://github.com/sushichan044/kg/compare/kg-core-v0.12.0...kg-core-v0.12.1) (2026-11-03)
+
+
+### Bug Fixes
+
+* **core:** avoid excessive spacing in paragraph composition ([1c48557](https://github.com/sushichan044/kg/commit/1c4855702b4147936a3c6c2f945310a35787b849))
+* **core:** compare expansion badness with an em-scale tolerance ([2c2775f](https://github.com/sushichan044/kg/commit/2c2775fe4b89f3bf90773f75354e1d64ebd20a44))
+* **core:** penalize excessive paragraph spacing before line counts ([968e5b4](https://github.com/sushichan044/kg/commit/968e5b420852567ffa4e5343fc69825b98367179))
+* **core:** sum final expansion badness across all gaps ([e785c2e](https://github.com/sushichan044/kg/commit/e785c2e83e14fa921149011a2c8d04c68d7a3144))
+
 ## [0.12.0](https://github.com/sushichan044/kg/compare/kg-core-v0.11.3...kg-core-v0.12.0) (2026-11-03)
 
 
