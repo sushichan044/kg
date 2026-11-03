@@ -1012,14 +1012,21 @@ test("shows hover diagnostics that stay open for text selection and close with E
     name: `${diagnostic.location.start.line}行${diagnostic.location.start.column}列: ${diagnostic.message}`,
   });
 
+  const viewer = screen.container.querySelector<HTMLElement>(".kgv-viewer");
+  expect.assert(viewer !== null);
+  viewer.style.setProperty("--kgv-text", "rgb(30, 60, 90)");
+
   await marker.hover();
 
   const message = screen.getByText(diagnostic.message, { exact: true });
   await expect.element(message).toBeVisible();
   await message.hover();
+  await new Promise((resolve) => setTimeout(resolve, 500));
   await expect.element(message).toBeVisible();
   const description = screen.container.querySelector(".kgv-diagnostic-description");
   expect.assert(description !== null);
+  expect(description.closest(".kgv-viewer")).toBe(viewer);
+  expect(getComputedStyle(description).color).toBe("rgb(30, 60, 90)");
   const range = document.createRange();
   range.selectNodeContents(description);
   const selection = window.getSelection();
@@ -1029,5 +1036,5 @@ test("shows hover diagnostics that stay open for text selection and close with E
   expect(selection.toString()).toBe(diagnostic.message);
   selection.removeAllRanges();
   await userEvent.keyboard("{Escape}");
-  await expect.element(message).not.toBeVisible();
+  await expect.poll(() => screen.container.querySelector(".kgv-diagnostic-popover")).toBeNull();
 });

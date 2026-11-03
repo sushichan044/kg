@@ -400,6 +400,7 @@ function NovelViewerComponent(
   ref: ForwardedRef<NovelViewHandle>,
 ) {
   const { pages, geometry } = composed.layout;
+  const rootRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<Array<HTMLElement | null>>([]);
   const diagnosticRefs = useRef(new Map<string, HTMLElement>());
@@ -576,6 +577,7 @@ function NovelViewerComponent(
         {startsHere && (
           <DiagnosticMarker
             diagnostic={diagnostic}
+            container={rootRef}
             style={bandStyle}
             register={(element) => {
               if (element === null) diagnosticRefs.current.delete(diagnostic.id);
@@ -590,6 +592,7 @@ function NovelViewerComponent(
 
   return (
     <div
+      ref={rootRef}
       className={joinClassNames("kgv-viewer", className)}
       aria-label={ariaLabel}
       lang="ja"

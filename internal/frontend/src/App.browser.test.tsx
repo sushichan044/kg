@@ -168,12 +168,12 @@ test("opens compact file, settings, and diagnostics sheets", async () => {
   ]);
 
   await screen.getByRole("button", { name: "設定" }).click();
-  const settingsDialog = screen.getByRole("dialog", { name: "表示設定" });
+  const settingsDialog = page.getByRole("dialog", { name: "表示設定" });
   await expect.element(settingsDialog).toBeVisible();
   await settingsDialog.getByRole("button", { name: "表示設定を閉じる" }).click();
 
   await screen.getByRole("button", { name: "診断 4件" }).click();
-  const diagnosticsDialog = screen.getByRole("dialog", { name: "診断" });
+  const diagnosticsDialog = page.getByRole("dialog", { name: "診断" });
   await expect.element(diagnosticsDialog).toBeVisible();
 });
 
@@ -753,4 +753,24 @@ test("allows zoom from 25 to 400 percent and persists manual zoom", async () => 
   await expect
     .element(screen.getByRole("button", { name: "ページに合わせる", exact: true }))
     .toHaveAttribute("aria-pressed", "true");
+});
+
+test("closes only the file palette when Escape is pressed over the settings dialog", async () => {
+  await page.viewport(600, 900);
+  const screen = await render(<App />);
+  const settingsButton = screen.getByRole("button", { name: "設定", exact: true });
+  await settingsButton.click();
+  const settingsDialog = page.getByRole("dialog", { name: "表示設定" });
+  await expect.element(settingsDialog).toBeVisible();
+  const closeSettings = settingsDialog.getByRole("button", { name: "表示設定を閉じる" });
+  await expect.element(closeSettings).toHaveFocus();
+
+  await userEvent.keyboard("{Control>}k{/Control}");
+  await expect.element(page.getByRole("dialog", { name: "ファイルを開く" })).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+
+  await expect.element(settingsDialog).toBeVisible();
+  await expect.element(closeSettings).toHaveFocus();
+  await closeSettings.click();
+  await expect.element(settingsButton).toHaveFocus();
 });

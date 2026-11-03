@@ -1,3 +1,4 @@
+import { Dialog } from "@base-ui/react/dialog";
 import type { ManuscriptDiagnostic } from "@sushichan044/kg-core";
 import {
   DiagnosticList,
@@ -7,9 +8,10 @@ import {
 } from "@sushichan044/kg-viewer";
 import type { NovelViewEvent, NovelViewHandle } from "@sushichan044/kg-viewer";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import type { MouseEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { FileSwitcher } from "./components/FileSwitcher";
+import { Modal } from "./components/Modal";
 import { Sidebar } from "./components/Sidebar";
 import { SettingsPanel, ViewerToolbar, ZoomControls, ZOOM } from "./components/ViewerControls";
 import { useServerEvents } from "./hooks/useServerEvents";
@@ -35,42 +37,21 @@ type SheetProps = Readonly<{
 }>;
 
 function Sheet({ open, title, children, onClose }: SheetProps) {
-  const ref = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    const dialog = ref.current;
-    if (dialog === null) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
-
-  const dismissBackdrop = (event: MouseEvent<HTMLDialogElement>) => {
-    if (event.target !== event.currentTarget) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const inside =
-      event.clientX >= rect.left &&
-      event.clientX <= rect.right &&
-      event.clientY >= rect.top &&
-      event.clientY <= rect.bottom;
-    if (!inside) event.currentTarget.close();
-  };
-
   return (
-    <dialog
-      ref={ref}
+    <Modal
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
+      title={title}
       className="mobile-sheet"
-      aria-label={title}
-      onClose={onClose}
-      onClick={dismissBackdrop}
     >
       <header className="mobile-sheet__header">
-        <h2>{title}</h2>
-        <button type="button" aria-label={`${title}を閉じる`} onClick={() => ref.current?.close()}>
-          閉じる
-        </button>
+        <Dialog.Title>{title}</Dialog.Title>
+        <Dialog.Close aria-label={`${title}を閉じる`}>閉じる</Dialog.Close>
       </header>
       <div className="mobile-sheet__body">{open ? children : null}</div>
-    </dialog>
+    </Modal>
   );
 }
 

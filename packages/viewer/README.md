@@ -178,9 +178,9 @@ The optional theme exposes `--kgv-surface`, `--kgv-paper`, `--kgv-text`,
 ## Browser support
 
 The layout targets browser features that are Baseline Widely Available.
-Diagnostic popovers conditionally load the `interestfor` and Popover polyfills
-when the browser lacks native support. CSS anchor positioning places each card
-beside its marker; browsers without it show the card at the bottom of the viewport.
+Diagnostic popovers use Base UI for hover behavior, positioning, and dismissal.
+Their portal stays inside the viewer root to inherit custom theme properties.
+Applications must provide compatible `react` and `react-dom` versions.
 
 ## License
 

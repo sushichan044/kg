@@ -371,28 +371,21 @@ select {
 }
 
 .mobile-sheet {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 0;
+  display: flex;
+  pointer-events: auto;
   inline-size: 100%;
   max-inline-size: none;
   max-block-size: min(86dvb, 52rem);
-  margin: auto 0 0;
+  margin: 0;
   padding: 0;
   flex-direction: column;
   border: 1px solid rgb(0 0 0 / 25%);
   border-radius: 1rem 1rem 0 0;
   background: var(--sidebar);
   color: var(--text);
-}
-
-/* An unconditional `display` here would override the UA default
-   `dialog:not([open]) { display: none }`, since author styles always win
-   over user-agent styles regardless of specificity — leaving every sheet
-   permanently visible in normal document flow instead of closed. */
-.mobile-sheet[open] {
-  display: flex;
-}
-
-.mobile-sheet::backdrop {
-  background: rgb(0 0 0 / 42%);
 }
 
 .mobile-sheet__header {
@@ -567,13 +560,23 @@ select {
   color: #595959;
 }
 
-.file-switcher::backdrop {
-  background: rgb(0 0 0 / 35%);
+.modal-portal {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  background: rgb(0 0 0 / 42%);
 }
 
 .file-switcher {
   position: fixed;
-  z-index: 21;
+  pointer-events: auto;
   inset-block-start: min(18dvb, 8rem);
   inset-inline: 1rem;
   inline-size: calc(100% - 2rem);

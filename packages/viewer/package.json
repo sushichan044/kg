@@ -82,10 +82,9 @@
     "prepublishOnly": "vp run build"
   },
   "dependencies": {
-    "@oddbird/popover-polyfill": "0.7.3",
+    "@base-ui/react": "1.9.0",
     "@sushichan044/kg-core": "workspace:*",
     "harfbuzzjs": "1.6.3",
-    "interestfor": "1.0.12",
     "react-compiler-runtime": "catalog:prod"
   },
   "devDependencies": {
@@ -106,7 +105,8 @@
     "vitest-browser-react": "catalog:dev"
   },
   "peerDependencies": {
-    "react": "^18.3.1 || ^19.0.0"
+    "react": "^18.3.1 || ^19.0.0",
+    "react-dom": "^18.3.1 || ^19.0.0"
   },
   "engines": {
     "node": ">=22.12.0"

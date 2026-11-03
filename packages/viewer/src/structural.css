@@ -281,10 +281,6 @@
   z-index: 1;
   pointer-events: auto;
   cursor: help;
-  --interest-delay-start: 0.25s;
-  interest-delay-start: var(--interest-delay-start);
-  --interest-delay-end: 0.4s;
-  interest-delay-end: var(--interest-delay-end);
 }
 
 .kgv-cell {
@@ -298,13 +294,15 @@
   user-select: none;
 }
 
+.kgv-diagnostic-positioner {
+  z-index: 2;
+}
+
 .kgv-diagnostic-popover {
-  position: fixed;
-  inset: auto 1rem 1rem;
   box-sizing: border-box;
   inline-size: min(22rem, calc(100vw - 2rem));
-  max-block-size: min(24rem, calc(100dvb - 2rem));
-  margin: 0 auto;
+  max-block-size: min(24rem, var(--available-height));
+  margin: 0;
   padding: 1rem;
   overflow: auto;
   pointer-events: auto;
@@ -364,13 +362,4 @@
 }
 .kgv-viewer[data-typography] .kgv-glyph-sideways {
   font-kerning: var(--kgv-western-kerning);
-}
-
-@supports (position-area: bottom span-right) {
-  .kgv-diagnostic-popover {
-    inset: auto;
-    position-area: bottom span-right;
-    position-try-fallbacks: flip-block, flip-inline;
-    margin: 0.25rem;
-  }
 }

@@ -1,6 +1,8 @@
+import { Dialog } from "@base-ui/react/dialog";
 import { Command } from "cmdk";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
+import { Modal } from "./Modal";
 import type { FilePanelProps } from "./Sidebar";
 
 type FileSwitcherProps = FilePanelProps &
@@ -16,15 +18,6 @@ export function FileSwitcher({
   open,
   onOpenChange,
 }: FileSwitcherProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (dialog === null) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
-
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
@@ -45,28 +38,10 @@ export function FileSwitcher({
   }, [open, onOpenChange]);
 
   return (
-    <dialog
-      ref={dialogRef}
-      className="file-switcher"
-      aria-label="ファイルを開く"
-      onClose={() => {
-        onOpenChange(false);
-      }}
-      onClick={(event) => {
-        if (event.target !== event.currentTarget) return;
-        const rect = event.currentTarget.getBoundingClientRect();
-        if (
-          event.clientX < rect.left ||
-          event.clientX > rect.right ||
-          event.clientY < rect.top ||
-          event.clientY > rect.bottom
-        )
-          event.currentTarget.close();
-      }}
-    >
+    <Modal open={open} onOpenChange={onOpenChange} title="ファイルを開く" className="file-switcher">
       {open && (
         <Command label="ファイル名を検索" loop>
-          <Command.Input autoFocus placeholder="ファイル名を検索…" aria-label="ファイル名を検索" />
+          <Command.Input placeholder="ファイル名を検索…" aria-label="ファイル名を検索" />
           <Command.List label="ファイルの候補">
             <Command.Empty>一致するファイルがありません</Command.Empty>
             {files.map((file) => (
@@ -86,17 +61,10 @@ export function FileSwitcher({
           <div className="command-footer">
             <span>↑ ↓ 選択</span>
             <span>Enter 開く</span>
-            <button
-              type="button"
-              onClick={() => {
-                dialogRef.current?.close();
-              }}
-            >
-              閉じる Esc
-            </button>
+            <Dialog.Close>閉じる Esc</Dialog.Close>
           </div>
         </Command>
       )}
-    </dialog>
+    </Modal>
   );
 }
