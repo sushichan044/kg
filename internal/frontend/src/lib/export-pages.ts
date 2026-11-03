@@ -76,6 +76,8 @@ export async function exportPages(
   const files: Record<string, Uint8Array> = {};
   const digits = Math.max(3, String(pages.length).length);
   const { paperWidthMm, paperHeightMm } = composed.layout.geometry;
+  const width = Math.round((paperWidthMm * 600) / 25.4);
+  const height = Math.round((paperHeightMm * 600) / 25.4);
   for (const [index, page] of pages.entries()) {
     signal.throwIfAborted();
     page.style.contentVisibility = "visible";
@@ -83,14 +85,16 @@ export async function exportPages(
     // Rendering one page at a time bounds the canvas memory required at 600 dpi.
     // eslint-disable-next-line no-await-in-loop
     const canvas = await snapdom.toCanvas(page, {
-      width: Math.round((paperWidthMm * 600) / 25.4),
-      height: Math.round((paperHeightMm * 600) / 25.4),
+      width,
+      height,
       dpr: 1,
       backgroundColor: "#ffffff",
       embedFonts: true,
       localFonts: typography.fontFaces.map((face) => ({ ...face })),
     });
     signal.throwIfAborted();
+    if (canvas.width !== width || canvas.height !== height)
+      throw new Error("このブラウザでは必要な解像度の画像を生成できませんでした");
     const context = canvas.getContext("2d", { willReadFrequently: true });
     if (context === null) throw new Error("画像を生成できませんでした");
     files[`${String(index + 1).padStart(digits, "0")}.png`] = monochromePng(

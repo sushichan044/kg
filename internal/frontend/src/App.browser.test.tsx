@@ -894,3 +894,26 @@ test("does not download an export after the app unmounts", async () => {
     download.mockRestore();
   }
 });
+
+test("rejects an export when the browser returns a smaller canvas", async () => {
+  await page.viewport(1280, 800);
+  const screen = await render(<App />);
+  const button = screen.getByRole("button", { name: "PNGをZIPで出力" }).first();
+  await expect.element(button).toBeEnabled();
+  const { snapdom } = await import("@zumer/snapdom");
+  const capture = vi.spyOn(snapdom, "toCanvas").mockResolvedValue(document.createElement("canvas"));
+  const download = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  try {
+    await button.click();
+    await expect
+      .element(screen.getByRole("alert"))
+      .toHaveTextContent(
+        "PNG の出力に失敗しました: このブラウザでは必要な解像度の画像を生成できませんでした",
+      );
+    await expect.element(button).toBeEnabled();
+    expect(download).not.toHaveBeenCalled();
+  } finally {
+    capture.mockRestore();
+    download.mockRestore();
+  }
+});
