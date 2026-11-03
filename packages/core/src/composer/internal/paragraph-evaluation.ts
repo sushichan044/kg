@@ -29,7 +29,7 @@ function scoreFor(
       modeCounts.forced,
       // JLReq 3.8.4's final expansion follows the bounded stages. Its cubic badness
       // favors bounded layouts first, then spreads unavoidable excess across the paragraph.
-      mode === "stretched" ? Math.max(0, line.deformationRatio - 1) ** 3 : 0,
+      line.finalExpansionBadness,
       modeCounts.stretched,
       modeCounts.hanging,
       modeCounts.shrunk,

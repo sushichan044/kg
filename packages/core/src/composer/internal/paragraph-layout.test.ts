@@ -239,6 +239,7 @@ describe("layoutParagraph", () => {
               break: { kind: ratio === 0 ? "paragraph-end" : "stretched" },
               deformationRatio: ratio,
               deformationCost: ratio,
+              finalExpansionBadness: Math.max(0, ratio - 1) ** 3,
             };
       },
       () => true,
