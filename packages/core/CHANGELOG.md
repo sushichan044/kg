@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/sushichan044/kg/compare/kg-core-v0.11.3...kg-core-v0.12.0) (2026-11-03)
+
+
+### Miscellaneous Chores
+
+* **kg-core:** Synchronize kg versions
+
 ## [0.11.3](https://github.com/sushichan044/kg/compare/kg-core-v0.11.2...kg-core-v0.11.3) (2026-11-02)
 
 
