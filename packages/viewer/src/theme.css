@@ -20,6 +20,8 @@
   --kgv-text-muted: #000;
   --kgv-grid: rgb(0 174 204 / 30%);
   --kgv-accent: #000;
+  --kgv-marker: #c94d54;
+  --kgv-focus: #738299;
   --kgv-controls-surface: #fff;
   --kgv-padding: 2rem;
   --kgv-rule-width: 1px;
@@ -50,20 +52,23 @@
   border-block-end: var(--kgv-rule-width) solid var(--kgv-grid);
 }
 
-/* The tint marks the diagnosed run without intercepting text selection. */
-.kgv-diagnostic-band {
-  background: color-mix(in oklab, var(--kgv-accent) 16%, transparent);
-  box-shadow: inset calc(var(--kgv-cell-size) * 0.13) 0 0 var(--kgv-accent);
+/* Tint the diagnosed cells themselves so vertical neighbours cannot share a marker. */
+.kgv-cell[data-diagnostic] {
+  background: color-mix(in srgb, var(--kgv-marker) 16%, transparent);
 }
 
-/* Drawn inside the band so the selection cannot reach into the channel the ruby uses. */
-.kgv-diagnostic-band[data-diagnostic-active] {
-  outline: 2px solid var(--kgv-accent);
-  outline-offset: -2px;
+.kgv-diagnostic-band {
+  background: transparent;
+}
+
+.kgv-cell[data-diagnostic]:is(:hover, [data-popup-open], [data-diagnostic-active]) {
+  background: color-mix(in srgb, var(--kgv-marker) 24%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--kgv-marker) 60%, transparent);
+  outline-offset: -1px;
 }
 
 .kgv-diagnostic-trigger:focus-visible {
-  outline: 3px solid var(--kgv-accent);
+  outline: 2px solid var(--kgv-focus);
   outline-offset: 2px;
 }
 
@@ -79,13 +84,13 @@
 }
 
 .kgv-diagnostics button:focus-visible {
-  outline: 3px solid var(--kgv-accent, #000);
+  outline: 2px solid var(--kgv-focus, #738299);
   outline-offset: 2px;
 }
 
 .kgv-diagnostics button[aria-current="true"] {
-  border-color: var(--kgv-accent, #000);
-  outline: 1px solid var(--kgv-accent, #000);
+  border-color: var(--kgv-focus, #738299);
+  outline: 1px solid var(--kgv-focus, #738299);
 }
 
 .kgv-diagnostic-location {
@@ -98,22 +103,18 @@
   color: var(--kgv-text-muted, #000);
 }
 
-/* The diagnostic tint and the active-item accent above are drawn with author colors and
-   box-shadow, which forced-colors replaces or strips, so the same states are restated here with
-   system colors. */
 @media (forced-colors: active) {
   .kgv-rule-cell {
     border-color: CanvasText;
   }
 
-  .kgv-diagnostic-band {
-    outline: 2px dashed Highlight;
-    outline-offset: -2px;
+  .kgv-cell[data-diagnostic] {
+    outline: 1px dashed LinkText;
+    outline-offset: -1px;
   }
 
-  .kgv-diagnostic-band[data-diagnostic-active] {
-    outline-style: solid;
-    outline-color: Highlight;
+  .kgv-cell[data-diagnostic]:is(:hover, [data-popup-open], [data-diagnostic-active]) {
+    outline: 1px solid Highlight;
   }
 
   .kgv-diagnostics button[aria-current="true"] {
@@ -123,8 +124,7 @@
 }
 
 .kgv-diagnostic-trigger {
-  background: var(--kgv-accent, #000);
-  border-radius: 2px;
+  background: transparent;
 }
 
 .kgv-diagnostic-popover {
@@ -142,10 +142,4 @@
 
 .kgv-diagnostic-jump {
   margin-block-start: 0.5rem;
-}
-
-@media (forced-colors: active) {
-  .kgv-diagnostic-trigger {
-    background: Highlight;
-  }
 }

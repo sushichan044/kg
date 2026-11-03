@@ -9,6 +9,7 @@
    this file. theme.css follows the same boundary for its default look. */
 
 .kgv-viewer {
+  container: kgv-viewer / inline-size;
   box-sizing: border-box;
   min-inline-size: 0;
   min-block-size: 0;
@@ -300,18 +301,25 @@
 
 .kgv-diagnostic-popover {
   box-sizing: border-box;
-  inline-size: min(22rem, calc(100vw - 2rem));
-  max-block-size: min(24rem, var(--available-height));
+  inline-size: max-content;
+  max-inline-size: min(32rem, calc(100cqi - 2rem), var(--available-width, 32rem));
+  max-block-size: min(18rem, var(--available-height));
   margin: 0;
-  padding: 1rem;
+  padding: 0.65rem 0.8rem;
   overflow: auto;
   pointer-events: auto;
   font:
-    0.875rem/1.6 system-ui,
+    0.8125rem/1.55 system-ui,
     sans-serif;
   writing-mode: horizontal-tb;
   white-space: normal;
   user-select: text;
+}
+
+@container kgv-viewer (inline-size < 32rem) {
+  .kgv-diagnostic-popover {
+    padding: 0.5rem 0.65rem;
+  }
 }
 
 .kgv-diagnostic-message p {

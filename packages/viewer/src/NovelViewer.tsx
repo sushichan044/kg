@@ -21,6 +21,7 @@ import {
 } from "react";
 import type { CSSProperties, ForwardedRef, ReactNode } from "react";
 
+import { DiagnosticHover } from "./DiagnosticHover";
 import { DiagnosticMarker } from "./DiagnosticMarker";
 import { fitZoom } from "./fit-zoom";
 import type { ReadyTypography } from "./typography";
@@ -643,7 +644,7 @@ function NovelViewerComponent(
                             {cells.map((cell) => {
                               const found = cell.diagnostics;
                               const active = found.some(({ id }) => id === activeDiagnosticId);
-                              return (
+                              const content = (
                                 <span
                                   key={cell.range.graphemes.start}
                                   className="kgv-cell"
@@ -672,6 +673,17 @@ function NovelViewerComponent(
                                     </span>,
                                   )}
                                 </span>
+                              );
+                              return found.length > 0 ? (
+                                <DiagnosticHover
+                                  key={cell.range.graphemes.start}
+                                  diagnostics={found}
+                                  container={rootRef}
+                                >
+                                  {content}
+                                </DiagnosticHover>
+                              ) : (
+                                content
                               );
                             })}
                           </span>

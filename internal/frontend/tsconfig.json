@@ -20,7 +20,7 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
-    "types": ["vite-plus/client"]
+    "types": ["vite-plus/client", "unplugin-icons/types/react"]
   },
   "include": ["src", "mock", "vite.config.ts"]
 }

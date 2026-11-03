@@ -9,8 +9,13 @@ import {
 import type { NovelViewEvent, NovelViewHandle } from "@sushichan044/kg-viewer";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import FilesIcon from "~icons/lucide/files";
+import DiagnosticsIcon from "~icons/lucide/message-square-warning";
+import SettingsIcon from "~icons/lucide/settings-2";
+import CloseIcon from "~icons/lucide/x";
 
 import { FileSwitcher } from "./components/FileSwitcher";
+import { IconButton } from "./components/IconButton";
 import { Modal } from "./components/Modal";
 import { Sidebar } from "./components/Sidebar";
 import { SettingsPanel, ViewerToolbar, ZoomControls, ZOOM } from "./components/ViewerControls";
@@ -119,7 +124,6 @@ export function App() {
   const [fileSwitcherOpen, setFileSwitcherOpen] = useState(false);
   const [diagnosticDrawerOpen, setDiagnosticDrawerOpen] = useState(false);
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
-  const [diagnosticsSheetOpen, setDiagnosticsSheetOpen] = useState(false);
   const viewRef = useRef<NovelViewHandle>(null);
   const appStateRef = useRef(appState);
   const manuscriptRef = useRef(manuscript);
@@ -262,7 +266,6 @@ export function App() {
   const selectDiagnostic = useCallback((diagnostic: ManuscriptDiagnostic) => {
     dispatch({ kind: "diagnostic.select", id: diagnostic.id });
     viewRef.current?.scrollToDiagnostic(diagnostic.id);
-    setDiagnosticsSheetOpen(false);
   }, []);
 
   const renderSettings = (idPrefix: string) => (
@@ -293,11 +296,7 @@ export function App() {
   );
 
   return (
-    <div
-      className="app"
-      data-sidebar={sidebarOpen ? "open" : "closed"}
-      data-diagnostics={diagnosticDrawerOpen ? "open" : "closed"}
-    >
+    <div className="app" data-sidebar={sidebarOpen ? "open" : "closed"}>
       <a className="skip-link visually-hidden" href="#preview">
         プレビューへスキップ
       </a>
@@ -329,14 +328,14 @@ export function App() {
               }}
             />
             <header className="mobile-toolbar">
-              <button
-                type="button"
+              <IconButton
+                label="ファイル"
                 onClick={() => {
                   setFileSwitcherOpen(true);
                 }}
               >
-                ファイル
-              </button>
+                <FilesIcon aria-hidden="true" />
+              </IconButton>
               <div className="mobile-document">
                 <strong title={selectedFile.path}>{selectedFile.path.split("/").at(-1)}</strong>
                 {processed?.ok && (
@@ -346,23 +345,23 @@ export function App() {
                   </small>
                 )}
               </div>
-              <button
-                type="button"
-                aria-label={`診断 ${diagnostics.length}件`}
+              <IconButton
+                label={`診断 ${diagnostics.length}件`}
+                className="diagnostics-trigger"
                 onClick={() => {
-                  setDiagnosticsSheetOpen(true);
+                  setDiagnosticDrawerOpen((open) => !open);
                 }}
               >
-                診断 <span>{diagnostics.length}</span>
-              </button>
-              <button
-                type="button"
+                <DiagnosticsIcon aria-hidden="true" /> <span>{diagnostics.length}</span>
+              </IconButton>
+              <IconButton
+                label="設定"
                 onClick={() => {
                   setSettingsSheetOpen(true);
                 }}
               >
-                設定
-              </button>
+                <SettingsIcon aria-hidden="true" />
+              </IconButton>
             </header>
             {loadedDocument?.id !== selectedId ? (
               <p className="preview__loading">読み込み中…</p>
@@ -403,15 +402,14 @@ export function App() {
         <aside className="diagnostic-drawer" aria-label="診断">
           <header>
             <h2>診断</h2>
-            <button
-              type="button"
-              aria-label="診断を閉じる"
+            <IconButton
+              label="診断を閉じる"
               onClick={() => {
                 setDiagnosticDrawerOpen(false);
               }}
             >
-              閉じる
-            </button>
+              <CloseIcon aria-hidden="true" />
+            </IconButton>
           </header>
           <DiagnosticList
             diagnostics={diagnostics}
@@ -449,19 +447,6 @@ export function App() {
           onFitChange={enableFit}
         />
         {renderSettings("mobile-")}
-      </Sheet>
-      <Sheet
-        open={diagnosticsSheetOpen}
-        title="診断"
-        onClose={() => {
-          setDiagnosticsSheetOpen(false);
-        }}
-      >
-        <DiagnosticList
-          diagnostics={diagnostics}
-          activeDiagnosticId={activeDiagnosticId}
-          onSelect={selectDiagnostic}
-        />
       </Sheet>
     </div>
   );

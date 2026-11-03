@@ -5,6 +5,7 @@
   --text: #000;
   --grid: rgb(0 174 204 / 30%);
   --accent: #000;
+  --focus: #738299;
 
   color-scheme: light;
   accent-color: var(--accent);
@@ -56,8 +57,8 @@ select {
   border-radius: 4px;
 }
 
-:where(a, button, input, select):focus-visible {
-  outline: 3px solid var(--accent);
+:where(a, button, input, select, summary):focus-visible {
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -183,13 +184,57 @@ select {
 }
 
 .toolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-block-size: 2rem;
   padding: 0.25rem 0.55rem;
-  border: 1px solid rgb(0 0 0 / 35%);
+  border: 1px solid transparent;
   border-radius: 3px;
-  background: var(--sidebar);
-  color: inherit;
+  background: transparent;
+  color: #4b5563;
   cursor: pointer;
+}
+
+.toolbar button:hover:not(:disabled),
+.mobile-toolbar button:hover:not(:disabled) {
+  background: #f1f3f5;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-inline-size: 2rem;
+}
+
+.icon-button svg {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  flex-shrink: 0;
+}
+
+.toolbar-tooltip-positioner {
+  z-index: 30;
+}
+
+.toolbar-tooltip {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #d5d9df;
+  border-radius: 4px;
+  background: var(--surface);
+  color: #374151;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
+  font-size: 0.75rem;
+}
+
+.toolbar-tooltip kbd {
+  color: #64748b;
+  font: inherit;
 }
 
 .toolbar button:disabled {
@@ -198,8 +243,8 @@ select {
 }
 
 .toolbar button[aria-pressed="true"] {
-  border-color: var(--accent);
-  outline: 1px solid var(--accent);
+  border-color: #c4cbd4;
+  background: #eef1f5;
 }
 
 .zoom-value {
@@ -213,10 +258,9 @@ select {
   display: inline-grid;
   place-items: center;
   min-inline-size: 1.5em;
-  margin-inline-start: 0.25rem;
-  border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
+  border-radius: 3px;
+  background: #eef1f5;
+  color: #4b5563;
   font-variant-numeric: tabular-nums;
 }
 
@@ -327,7 +371,6 @@ select {
 }
 
 @container toolbar (inline-size < 36rem) {
-  .file-search-trigger kbd,
   .zoom-controls {
     display: none;
   }
@@ -349,11 +392,26 @@ select {
 }
 
 .diagnostic-drawer {
+  position: fixed;
+  z-index: 10;
+  inset-block: 4.25rem 1rem;
+  inset-inline-end: 1rem;
+  inline-size: min(22rem, calc(100% - 2rem));
   min-block-size: 0;
   padding: 1rem;
   overflow: auto;
-  border-inline-start: 1px solid rgb(0 0 0 / 18%);
+  border: 1px solid #d5d9df;
+  border-radius: 6px;
   background: var(--sidebar);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 12%);
+}
+
+.diagnostic-drawer > header button {
+  min-block-size: 2rem;
+  border: 0;
+  background: transparent;
+  color: #4b5563;
+  cursor: pointer;
 }
 
 .diagnostic-drawer > header,
@@ -412,8 +470,7 @@ select {
   }
 
   .sidebar,
-  .desktop-viewer-toolbar,
-  .diagnostic-drawer {
+  .desktop-viewer-toolbar {
     display: none;
   }
 
@@ -439,11 +496,12 @@ select {
 
   .mobile-toolbar button {
     min-block-size: 2.75rem;
+    min-inline-size: 2.75rem;
     padding: 0.35rem 0.55rem;
-    border: 1px solid rgb(0 0 0 / 35%);
+    border: 1px solid transparent;
     border-radius: 4px;
-    background: var(--sidebar);
-    color: inherit;
+    background: transparent;
+    color: #4b5563;
   }
 
   .mobile-toolbar button span {
@@ -477,16 +535,8 @@ select {
   --kgv-padding: 1.5rem;
 }
 
-.app[data-diagnostics="open"] {
-  grid-template-columns: 17rem minmax(0, 1fr) 21rem;
-}
-
 .app[data-sidebar="closed"] {
   grid-template-columns: minmax(0, 1fr);
-}
-
-.app[data-sidebar="closed"][data-diagnostics="open"] {
-  grid-template-columns: minmax(0, 1fr) 21rem;
 }
 
 .app[data-sidebar="closed"] .sidebar {
@@ -553,13 +603,6 @@ select {
   font-variant-numeric: tabular-nums;
 }
 
-.file-search-trigger kbd {
-  margin-inline-start: 0.75rem;
-  font: inherit;
-  font-size: 0.75rem;
-  color: #595959;
-}
-
 .modal-portal {
   position: fixed;
   inset: 0;
@@ -620,8 +663,8 @@ select {
 }
 
 [cmdk-item][data-selected="true"] {
-  background: rgb(0 0 0 / 8%);
-  outline: 1px solid currentColor;
+  background: #eef1f5;
+  outline: 1px solid #c4cbd4;
   outline-offset: -1px;
 }
 
@@ -653,9 +696,15 @@ select {
 
 @media (max-width: 52rem) {
   .app,
-  .app[data-sidebar],
-  .app[data-diagnostics] {
+  .app[data-sidebar] {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .diagnostic-drawer {
+    inset-block: auto max(0.75rem, env(safe-area-inset-bottom));
+    inset-inline-end: 0.75rem;
+    inline-size: calc(100% - 1.5rem);
+    max-block-size: 60dvb;
   }
 }
 

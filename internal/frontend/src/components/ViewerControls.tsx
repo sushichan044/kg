@@ -11,8 +11,15 @@ import {
 import type { NovelComposedManuscript } from "@sushichan044/kg-core";
 import { useState } from "react";
 import * as v from "valibot";
+import DiagnosticsIcon from "~icons/lucide/message-square-warning";
+import MinusIcon from "~icons/lucide/minus";
+import PanelLeftIcon from "~icons/lucide/panel-left";
+import PlusIcon from "~icons/lucide/plus";
+import FitIcon from "~icons/lucide/scan";
+import SearchIcon from "~icons/lucide/search";
 
 import type { ManuscriptNotation } from "../lib/storage";
+import { IconButton } from "./IconButton";
 
 type ZoomControlsProps = Readonly<{
   zoom: number;
@@ -39,38 +46,36 @@ export function ZoomControls({
   const zoomIn = zoom < ZOOM.max ? Math.min(ZOOM.max, zoom + ZOOM.step) : null;
   return (
     <div className={classNames("zoom-controls", className)} aria-label="ズーム">
-      <button
-        type="button"
-        aria-label="縮小"
+      <IconButton
+        label="縮小"
         disabled={zoomOut === null}
         onClick={() => {
           if (zoomOut !== null) onZoomChange(zoomOut);
         }}
       >
-        −
-      </button>
-      <span className="zoom-value" aria-label="現在のズーム" aria-live="polite">
+        <MinusIcon aria-hidden="true" />
+      </IconButton>
+      <span className="zoom-value" role="status" aria-label="現在のズーム">
         {Math.round(zoom)}%
       </span>
-      <button
-        type="button"
-        aria-label="拡大"
+      <IconButton
+        label="拡大"
         disabled={zoomIn === null}
         onClick={() => {
           if (zoomIn !== null) onZoomChange(zoomIn);
         }}
       >
-        ＋
-      </button>
-      <button
-        type="button"
+        <PlusIcon aria-hidden="true" />
+      </IconButton>
+      <IconButton
+        label="ページに合わせる"
         aria-pressed={fit}
         onClick={() => {
           onFitChange(true);
         }}
       >
-        ページに合わせる
-      </button>
+        <FitIcon aria-hidden="true" />
+      </IconButton>
     </div>
   );
 }
@@ -99,18 +104,23 @@ export function ViewerToolbar({
   return (
     <div className={classNames("toolbar-container", zoomProps.className)}>
       <div className="toolbar">
-        <button
-          type="button"
-          aria-label="サイドバー"
+        <IconButton
+          label="サイドバー"
           aria-expanded={sidebarOpen}
           aria-controls="workspace-sidebar"
           onClick={onSidebarToggle}
         >
-          サイドバー
-        </button>
-        <button type="button" className="file-search-trigger" onClick={onFilesOpen}>
-          ファイルを検索 <kbd>⌘K / Ctrl K</kbd>
-        </button>
+          <PanelLeftIcon aria-hidden="true" />
+        </IconButton>
+        <IconButton
+          label="ファイルを検索"
+          shortcut="⌘K / Ctrl K"
+          aria-keyshortcuts="Meta+K Control+K"
+          className="file-search-trigger"
+          onClick={onFilesOpen}
+        >
+          <SearchIcon aria-hidden="true" />
+        </IconButton>
         <div className="toolbar-document">
           <strong className="toolbar-label" title={documentLabel}>
             {documentLabel}
@@ -123,14 +133,13 @@ export function ViewerToolbar({
         </div>
         <div className="toolbar-actions">
           <ZoomControls {...zoomProps} className={undefined} />
-          <button
-            type="button"
+          <IconButton
+            label={`診断 ${diagnosticCount}件`}
             className="diagnostics-trigger"
-            aria-label={`診断 ${diagnosticCount}件`}
             onClick={onDiagnosticsOpen}
           >
-            診断 <span>{diagnosticCount}</span>
-          </button>
+            <DiagnosticsIcon aria-hidden="true" /> <span>{diagnosticCount}</span>
+          </IconButton>
         </div>
       </div>
     </div>

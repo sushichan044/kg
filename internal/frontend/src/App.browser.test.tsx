@@ -115,17 +115,22 @@ test("renders composer-owned combined units without duplicating the accessible m
   });
 });
 
-test("connects proofreading feedback to the drawer and manuscript cells", async () => {
+test("opens diagnostics over the manuscript without resizing the preview", async () => {
   await page.viewport(1280, 800);
   const screen = await render(<App />);
 
   const diagnosticsTrigger = screen.getByRole("button", { name: "診断 4件" });
   await expect.element(diagnosticsTrigger).toBeVisible();
+  const preview = screen.container.querySelector(".kgv-viewport");
+  expect.assert(preview !== null);
+  const width = preview.getBoundingClientRect().width;
 
   await diagnosticsTrigger.click();
 
   const drawer = screen.getByRole("complementary", { name: "診断" });
   await expect.element(drawer).toBeVisible();
+  expect(preview.getBoundingClientRect().width).toBe(width);
+  expect(screen.container.querySelector('[role="dialog"]')).toBeNull();
 
   await drawer
     .getByRole("button", { name: /行.*列の本文へ移動/ })
@@ -156,14 +161,16 @@ test("opens compact file, settings, and diagnostics sheets", async () => {
   });
 
   await waitFor(() => {
-    expect(screen.container.querySelector(".mobile-toolbar")?.textContent).toContain("診断 4");
+    expect(
+      screen.container.querySelector('.mobile-toolbar [aria-label="診断 4件"]'),
+    ).not.toBeNull();
   });
   const buttons = Array.from(
     screen.container.querySelectorAll<HTMLButtonElement>(".mobile-toolbar button"),
   );
-  expect(buttons.map((button) => button.textContent.trim())).toEqual([
+  expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual([
     "ファイル",
-    "診断 4",
+    "診断 4件",
     "設定",
   ]);
 
@@ -173,8 +180,9 @@ test("opens compact file, settings, and diagnostics sheets", async () => {
   await settingsDialog.getByRole("button", { name: "表示設定を閉じる" }).click();
 
   await screen.getByRole("button", { name: "診断 4件" }).click();
-  const diagnosticsDialog = page.getByRole("dialog", { name: "診断" });
-  await expect.element(diagnosticsDialog).toBeVisible();
+  const diagnosticsPanel = page.getByRole("complementary", { name: "診断" });
+  await expect.element(diagnosticsPanel).toBeVisible();
+  expect(screen.container.querySelector('[role="dialog"]')).toBeNull();
 });
 
 test("opens the file selected by the URL and preserves unrelated URL state", async () => {
@@ -531,7 +539,7 @@ test("waits for the bundled font and composes the latest source with its real me
 
   const screen = await render(<App />);
 
-  await expect.element(screen.getByRole("status")).toHaveTextContent("書体を読み込んでいます…");
+  await expect.element(screen.getByText("書体を読み込んでいます…", { exact: true })).toBeVisible();
   expect(screen.container.querySelector(".kgv-viewer")).toBeNull();
   novelSource.current = "あofficeい";
   expect.assert(FakeEventSource.latest !== undefined);
@@ -704,7 +712,9 @@ test("keeps settings folded and restores the sidebar after hiding it", async () 
 test("switches files with Command K and Ctrl K and restores focus on Escape", async () => {
   await page.viewport(1440, 900);
   const screen = await render(<App />);
-  const search = screen.getByRole("button", { name: /ファイルを検索.*Ctrl K/ });
+  const search = screen.getByRole("button", { name: "ファイルを検索", exact: true });
+  await search.hover();
+  await expect.element(page.getByRole("tooltip")).toHaveTextContent("ファイルを検索⌘K / Ctrl K");
   await search.click();
   const input = page.getByRole("combobox", { name: "ファイル名を検索" });
   await input.fill("共有");

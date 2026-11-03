@@ -112,7 +112,8 @@ div.kgv-viewer
                         │   └── span.kgv-emphasis
                         │       └── span.kgv-emphasis-mark
                         └── span.kgv-line-diagnostics
-                            └── button|span.kgv-diagnostic-band
+                            ├── span.kgv-diagnostic-band
+                            └── button.kgv-diagnostic-trigger
 ```
 
 The ruling, text, ruby, emphasis, and diagnostics are independent
@@ -134,12 +135,17 @@ centers. Core handles contextual overhang, compound reading arrangement, and
 annotation conflicts before the snapshot reaches this viewer. Update this viewer with the matching core public
 contract; the old per-grapheme combination contract has no adapter.
 
-One diagnostic band covers the range that reaches a line. Identical ranges are
-split into lanes so each remains visible. Bands are inert decorations. A separate
-`button.kgv-diagnostic-trigger` beside the start of each diagnostic opens
-`.kgv-diagnostic-popover` on hover, keyboard activation, or tap. The popover contains
-selectable text and supports Escape dismissal. The body glyphs use inline boxes
-so native selection does not insert a line break between every character.
+One inert diagnostic band records the range that reaches a line. The default
+theme highlights the diagnosed cells themselves. Hovering their text opens
+`.kgv-diagnostic-popover`, with every diagnostic affecting that cell. A transparent
+`button.kgv-diagnostic-trigger` beside each diagnostic provides keyboard access.
+The tooltip contains selectable text and supports Escape dismissal. The body
+glyphs use inline boxes so native selection does not insert a line break between
+every character.
+
+Touch layouts should expose `DiagnosticList` or an equivalent control rather
+than rely on the narrow keyboard triggers. The frontend provides this list from
+its diagnostic toolbar button.
 
 State is exposed through these attributes:
 
@@ -173,12 +179,13 @@ do not replace them because fit zoom and positioned text depend on them.
 
 The optional theme exposes `--kgv-surface`, `--kgv-paper`, `--kgv-text`,
 `--kgv-text-muted`, `--kgv-grid`, `--kgv-rule-width`, `--kgv-accent`,
+`--kgv-marker` (diagnostic tint), `--kgv-focus` (keyboard focus),
 `--kgv-controls-surface`, and `--kgv-padding`.
 
 ## Browser support
 
 The layout targets browser features that are Baseline Widely Available.
-Diagnostic popovers use Base UI for hover behavior, positioning, and dismissal.
+Diagnostic tooltips use Base UI for hover behavior, positioning, and dismissal.
 Their portal stays inside the viewer root to inherit custom theme properties.
 Applications must provide compatible `react` and `react-dom` versions.
 

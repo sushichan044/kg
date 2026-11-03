@@ -1,4 +1,5 @@
 import react from "@vitejs/plugin-react";
+import Icons from "unplugin-icons/vite";
 import { defineConfig, defineProject } from "vite-plus";
 import { playwright } from "vite-plus/test/browser-playwright";
 
@@ -9,9 +10,13 @@ import { mockFrontend } from "./mock/vite-plugin";
 // this frontend root.
 const GO_SERVER = "http://localhost:6280";
 
+const iconPlugin = () =>
+  Icons({ compiler: "jsx", jsx: "react", collectionsNodeResolvePath: import.meta.dirname });
+
 export const frontendTestProjects = [
   defineProject({
     root: import.meta.dirname,
+    plugins: [iconPlugin()],
     test: {
       name: "frontend-unit",
       include: ["src/**/*.test.ts", "src/**/*.test.tsx", "mock/**/*.test.ts"],
@@ -20,6 +25,7 @@ export const frontendTestProjects = [
   }),
   defineProject({
     root: import.meta.dirname,
+    plugins: [iconPlugin()],
     test: {
       name: "frontend-browser",
       include: ["src/**/*.browser.test.ts", "src/**/*.browser.test.tsx"],
@@ -83,7 +89,7 @@ export default defineConfig(({ mode }) => ({
     projects: frontendTestProjects,
   },
 
-  plugins: [react({ compiler: true }), mode === "mock" && mockFrontend()],
+  plugins: [react({ compiler: true }), iconPlugin(), mode === "mock" && mockFrontend()],
   build: {
     // Build straight into the Go embed.FS source directory.
     outDir: "../static/dist",
