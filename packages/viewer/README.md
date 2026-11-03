@@ -137,7 +137,7 @@ contract; the old per-grapheme combination contract has no adapter.
 One diagnostic band covers the range that reaches a line. Identical ranges are
 split into lanes so each remains visible. Bands are inert decorations. A separate
 `button.kgv-diagnostic-trigger` beside the start of each diagnostic opens
-`.kgv-diagnostic-popover` on hover, keyboard focus, or tap. The popover contains
+`.kgv-diagnostic-popover` on hover, keyboard activation, or tap. The popover contains
 selectable text and supports Escape dismissal. The body glyphs use inline boxes
 so native selection does not insert a line break between every character.
 
