@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.12.2](https://github.com/sushichan044/kg/compare/kg-viewer-v0.12.1...kg-viewer-v0.12.2) (2026-11-03)
+
+
+### Features
+
+* **viewer:** add folios and print-ready PNG export ([73ae4bc](https://github.com/sushichan044/kg/commit/73ae4bcb225d05d8d2785057d5ab61598ee19f6d))
+* **viewer:** add folios and print-ready PNG export ([90a3d75](https://github.com/sushichan044/kg/commit/90a3d755eceeadf321e281ca16940a3aae98ac18))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @sushichan044/kg-core bumped to 0.12.2
+
 ## [0.12.1](https://github.com/sushichan044/kg/compare/kg-viewer-v0.12.0...kg-viewer-v0.12.1) (2026-11-03)
 
 
