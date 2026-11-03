@@ -21,7 +21,7 @@ ADR 0004 の composer は書記素の advance を順に加算し、行長を超�
 候補の評価は次の辞書順とする。
 
 1. 禁則違反は候補から除外する。
-2. `natural < shrink < hanging < stretch < forced` の順で優先する。ただし読者に見えないアキだけを詰めた行は natural と同格に扱う。
+2. Minimize forced lines, then the sum of cubic per-gap excess beyond the bounded adjustments in JLReq 3.8.4. Bounded layouts have zero excess; unavoidable final expansion is distributed rather than concentrated in one line. Within equal excess, prefer `natural < shrink < hanging < stretch < forced`. Treat shrinkage of invisible spacing as equivalent to natural layout.
 3. JLReq の優先度が高い glue から変形する。優先度 0 は視覚的に中立なアキを表し、変形コストを 0 とする。
 4. 正規化した変形量の三乗と、隣接行で密度が急変する fitness を小さくする。
 5. 完全な同点では前の行へ多く入る改行を選ぶ。

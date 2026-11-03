@@ -7,7 +7,12 @@ import type { SpacingOpportunity } from "./spacing-opportunity";
 const EPSILON = 1e-9;
 
 export type CandidateLine = ParagraphLinePlan &
-  Readonly<{ deformationRatio: number; deformationCost: number; nextCursor?: number }>;
+  Readonly<{
+    deformationRatio: number;
+    deformationCost: number;
+    finalExpansionBadness: number;
+    nextCursor?: number;
+  }>;
 export type CandidateLineContext = Readonly<{
   start: number;
   contentStart: number;
@@ -69,6 +74,7 @@ export const CandidateLine = {
         hangingIndex: null,
         deformationRatio: 0,
         deformationCost: 0,
+        finalExpansionBadness: 0,
       };
     }
 
@@ -84,6 +90,7 @@ export const CandidateLine = {
         hangingIndex: null,
         deformationRatio: 0,
         deformationCost: 0,
+        finalExpansionBadness: 0,
       };
     }
 
@@ -107,6 +114,7 @@ export const CandidateLine = {
         hangingIndex: null,
         deformationRatio: chargeableCapacity <= EPSILON ? 0 : chargeableShrink / chargeableCapacity,
         deformationCost: shrunk.deformationCost,
+        finalExpansionBadness: 0,
       };
     }
 
@@ -128,6 +136,7 @@ export const CandidateLine = {
         hangingIndex: lastVisible,
         deformationRatio: overflow / Math.max(lastAdvance, EPSILON),
         deformationCost: 0,
+        finalExpansionBadness: 0,
       };
     }
 
@@ -154,6 +163,7 @@ export const CandidateLine = {
               ? 0
               : underflow / capacity,
         deformationCost: stretched.deformationCost,
+        finalExpansionBadness: finalExpansion.slots.length * stretched.finalStretchPerSlotEm ** 3,
       };
     }
 
@@ -168,6 +178,7 @@ export const CandidateLine = {
       hangingIndex: null,
       deformationRatio: Math.abs(naturalSizeEm - lineLengthEm) / Math.max(lineLengthEm, EPSILON),
       deformationCost: 0,
+      finalExpansionBadness: 0,
     };
   },
 } as const;

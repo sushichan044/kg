@@ -1,7 +1,7 @@
 import type { CandidateLine } from "./candidate-line";
 
 const EPSILON = 1e-9;
-export type Score = readonly [number, number, number, number, number, number, number];
+export type Score = readonly [number, number, number, number, number, number, number, number];
 export type ParagraphEvaluation = Readonly<{
   scoreFor: (
     line: CandidateLine,
@@ -27,6 +27,9 @@ function scoreFor(
   return {
     score: [
       modeCounts.forced,
+      // JLReq 3.8.4's final expansion follows the bounded stages. Its cubic badness
+      // favors bounded layouts first, then spreads unavoidable excess across the paragraph.
+      line.finalExpansionBadness,
       modeCounts.stretched,
       modeCounts.hanging,
       modeCounts.shrunk,
@@ -47,6 +50,7 @@ export function addScore(left: Score, right: Score): Score {
     left[4] + right[4],
     left[5] + right[5],
     left[6] + right[6],
+    left[7] + right[7],
   ];
 }
 

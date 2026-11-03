@@ -215,6 +215,50 @@ function spacingWidths(plan: { pairSpacings: ReadonlyArray<{ widthEm: number }> 
 }
 
 describe("layoutParagraph", () => {
+  test.each([
+    {
+      description: "prefers bounded layouts even when final expansion has very small cubic badness",
+      firstRatio: 1.0005,
+      alternativeRatio: 0.5,
+    },
+    {
+      description:
+        "distributes unavoidable final expansion instead of concentrating it in one line",
+      firstRatio: 4,
+      alternativeRatio: 1.2,
+    },
+  ])("$description", ({ firstRatio, alternativeRatio }) => {
+    const paragraph = atoms("AAAA", flexiblePrefixProfile);
+    const prepared = prepareParagraph(paragraph, 2, flexiblePrefixProfile);
+    const ratios = new Map([
+      ["0:1", firstRatio],
+      ["1:4", 0],
+      ["0:2", alternativeRatio],
+      ["2:3", alternativeRatio],
+      ["3:4", 0],
+    ]);
+
+    const plans = optimizeParagraph(
+      paragraph,
+      2,
+      (start, end) => {
+        const ratio = ratios.get(`${start}:${end}`);
+        return ratio === undefined
+          ? undefined
+          : {
+              ...prepared.resolveCandidate(start, end),
+              inlineSizeEm: 2,
+              break: { kind: ratio === 0 ? "paragraph-end" : "stretched" },
+              deformationRatio: ratio,
+              deformationCost: ratio,
+              finalExpansionBadness: Math.max(0, ratio - 1) ** 3,
+            };
+      },
+      () => true,
+    );
+
+    expect(plans.map(({ end }) => end)).toEqual([2, 3, 4]);
+  });
   test("keeps paths with different continuation positions until a complete path is selected", () => {
     const paragraph = atoms("AAAA", flexiblePrefixProfile);
     const prepared = prepareParagraph(paragraph, 2, flexiblePrefixProfile);

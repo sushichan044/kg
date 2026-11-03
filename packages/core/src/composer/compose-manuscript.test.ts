@@ -14,6 +14,7 @@ import type { ManuscriptComposer } from "./manuscript-composer";
 import type { NovelComposedManuscript } from "./novel-composer";
 import { createNovelComposer, novelComposer } from "./novel-composer";
 import type { NovelLine } from "./novel-line";
+import { logicalRunMeasurer } from "./run-measurer";
 
 function lineGlyphs(line: NovelLine) {
   return line.items.filter((item) => item.kind === "glyph" || item.kind === "combined-glyph");
@@ -75,6 +76,45 @@ const labelComposer = (
 const lyingLabel = (): LabelLayout => ({ label: 1 }) as unknown as LabelLayout;
 
 describe("composeManuscript", () => {
+  test.each([
+    { mark: "。", advanceScale: 1 },
+    { mark: "、", advanceScale: 1 },
+    { mark: "。", advanceScale: 1.0004 },
+    { mark: "、", advanceScale: 1.0004 },
+    { mark: "。", advanceScale: 0.9996 },
+    { mark: "、", advanceScale: 0.9996 },
+  ])(
+    "keeps A6 sentences compact with $mark at width scale $advanceScale",
+    ({ mark, advanceScale }) => {
+      const source = `　だがしかし${mark}今日の私の心はまるで芽吹きを迎えた若葉のよう。華金だから？　それはもちろんそうだ。私とて管理職である以前に社会人なのだから、大切な人と過ごす休日のために働いていると言っても過言ではない。仕事のきりがいいから？　これは大いにその通り。`;
+      // Browser font metrics can differ slightly from the logical one-em advance.
+      const composer = createNovelComposer({
+        measurer: (request) => {
+          const measured = logicalRunMeasurer(request);
+          return { ...measured, advanceEm: measured.advanceEm * advanceScale };
+        },
+      });
+
+      const result = composeManuscript(parsed(source), {
+        composer,
+        settings: NovelCompositionSettings.forPaper("a6", NovelCompositionSettings.defaults),
+      });
+
+      expect.assert(result.ok);
+      const lines = contentLines(result.value);
+      const firstLine = lines[0];
+      expect.assert(firstLine !== undefined);
+
+      expect(lineText(firstLine)).toContain(`だがしかし${mark}今日の私の心は`);
+      expect(lines.map(lineText).join("")).toBe(source);
+      for (const line of lines) {
+        expect(line.break.kind).not.toBe("forced");
+        for (const item of line.items.filter((item) => item.kind === "glue")) {
+          expect(item.widthEm - item.naturalWidthEm).toBeLessThanOrEqual(0.25 + 1e-9);
+        }
+      }
+    },
+  );
   test.each(["――", "——", "──", "……", "‥‥", "〳〵", "〴〵"])(
     "keeps %s together at a potential line boundary",
     (marks) => {
