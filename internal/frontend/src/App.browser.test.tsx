@@ -830,3 +830,67 @@ test("downloads all pages as 600 dpi monochrome PNG files", async ({ novelSource
     urlSpy.mockRestore();
   }
 }, 130000);
+
+test("restores the export action and reports an image generation failure", async () => {
+  await page.viewport(1280, 800);
+  const screen = await render(<App />);
+  const exportButton = screen.getByRole("button", { name: "PNGをZIPで出力" }).first();
+  await expect.element(exportButton).toBeEnabled();
+  const { snapdom } = await import("@zumer/snapdom");
+  let rejectCapture: ((reason: Error) => void) | undefined;
+  const capture = vi.spyOn(snapdom, "toCanvas").mockImplementation(
+    () =>
+      new Promise<HTMLCanvasElement>((_, reject) => {
+        rejectCapture = reject;
+      }),
+  );
+  try {
+    await exportButton.click();
+    await expect.element(exportButton).toBeDisabled();
+    await waitFor(() => {
+      expect(rejectCapture).toBeDefined();
+    });
+    expect.assert(rejectCapture !== undefined);
+    rejectCapture(new Error("画像の生成に失敗しました"));
+    await expect
+      .element(screen.getByRole("alert"))
+      .toHaveTextContent("PNG の出力に失敗しました: 画像の生成に失敗しました");
+    await expect.element(exportButton).toBeEnabled();
+    expect(screen.container.querySelector(".export-pages")).toBeNull();
+  } finally {
+    capture.mockRestore();
+  }
+});
+
+test("does not download an export after the app unmounts", async () => {
+  await page.viewport(1280, 800);
+  const screen = await render(<App />);
+  const exportButton = screen.getByRole("button", { name: "PNGをZIPで出力" }).first();
+  await expect.element(exportButton).toBeEnabled();
+  const { snapdom } = await import("@zumer/snapdom");
+  let resolveCapture: ((canvas: HTMLCanvasElement) => void) | undefined;
+  const capture = vi.spyOn(snapdom, "toCanvas").mockImplementation(
+    () =>
+      new Promise<HTMLCanvasElement>((resolve) => {
+        resolveCapture = resolve;
+      }),
+  );
+  const download = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  try {
+    await exportButton.click();
+    await waitFor(() => {
+      expect(resolveCapture).toBeDefined();
+    });
+    await screen.unmount();
+    expect.assert(resolveCapture !== undefined);
+    resolveCapture(document.createElement("canvas"));
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    expect(download).not.toHaveBeenCalled();
+    expect(document.querySelector(".export-pages")).toBeNull();
+  } finally {
+    capture.mockRestore();
+    download.mockRestore();
+  }
+});

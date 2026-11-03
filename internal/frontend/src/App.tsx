@@ -15,6 +15,8 @@ import DiagnosticsIcon from "~icons/lucide/message-square-warning";
 import SettingsIcon from "~icons/lucide/settings-2";
 import CloseIcon from "~icons/lucide/x";
 
+import { ExportJob } from "./components/ExportJob";
+import type { ExportRequest } from "./components/ExportJob";
 import { FileSwitcher } from "./components/FileSwitcher";
 import { IconButton } from "./components/IconButton";
 import { Modal } from "./components/Modal";
@@ -121,9 +123,9 @@ export function App() {
   const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [loadedDocument, setLoadedDocument] = useState<{ id: string } | null>(null);
   const [status, setStatus] = useState("");
-  const [exporting, setExporting] = useState(false);
+  const [exportRequest, setExportRequest] = useState<ExportRequest | null>(null);
+  const exporting = exportRequest !== null;
   const [exportError, setExportError] = useState("");
-  const exportingRef = useRef(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [fileSwitcherOpen, setFileSwitcherOpen] = useState(false);
   const [diagnosticDrawerOpen, setDiagnosticDrawerOpen] = useState(false);
@@ -145,37 +147,26 @@ export function App() {
 
   const startExport = () => {
     if (
-      exportingRef.current ||
+      exporting ||
       !processed?.ok ||
       typography === undefined ||
       selectedFile === null ||
       loadedDocument?.id !== selectedId
     )
       return;
-    exportingRef.current = true;
-    setExporting(true);
     setExportError("");
-    void import("./lib/export-pages")
-      .then(({ exportPages }) =>
-        exportPages(
-          processed.value.composed,
-          typography,
-          manuscript.preferences.startPageSide,
-          selectedFile.path.split("/").at(-1) ?? "pages",
-        ),
-      )
-      .catch((error: unknown) => {
-        setExportError(
-          error instanceof Error
-            ? `PNG の出力に失敗しました: ${error.message}`
-            : "PNG の出力に失敗しました",
-        );
-      })
-      .finally(() => {
-        exportingRef.current = false;
-        setExporting(false);
-      });
+    setExportRequest({
+      composed: processed.value.composed,
+      typography,
+      startPageSide: manuscript.preferences.startPageSide,
+      filename: selectedFile.path.split("/").at(-1) ?? "pages",
+    });
   };
+
+  const finishExport = useCallback((error: string | null) => {
+    setExportRequest(null);
+    if (error !== null) setExportError(`PNG の出力に失敗しました: ${error}`);
+  }, []);
 
   const commitAppState = useCallback((next: AppState) => {
     appStateRef.current = next;
@@ -450,6 +441,8 @@ export function App() {
           </>
         )}
       </main>
+
+      {exportRequest !== null && <ExportJob request={exportRequest} onFinish={finishExport} />}
 
       {diagnosticDrawerOpen && (
         <aside className="diagnostic-drawer" aria-label="診断">
