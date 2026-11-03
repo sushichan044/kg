@@ -170,6 +170,7 @@ test("opens compact file, settings, and diagnostics sheets", async () => {
   );
   expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual([
     "ファイル",
+    "PNGをZIPで出力",
     "診断 4件",
     "設定",
   ]);
@@ -456,8 +457,8 @@ test("shows fixed A5 dimensions and restores them after editing another paper fo
       flow: { lineLengthEm: 27, linesPerStage: 23, stagesPerPage: 2 },
       appearance: { paperSize: "a5", fontSizeQ: 12.7 },
       page: {
-        topMm: 12,
-        bottomMm: 16.55,
+        topMm: 16.55,
+        bottomMm: 12,
         innerMm: 21.825,
         outerMm: 13,
         stageGapMm: 10,
@@ -784,3 +785,48 @@ test("closes only the file palette when Escape is pressed over the settings dial
   await closeSettings.click();
   await expect.element(settingsButton).toHaveFocus();
 });
+
+test("downloads all pages as 600 dpi monochrome PNG files", async ({ novelSource }) => {
+  novelSource.current = "漢字《かんじ》12".repeat(400);
+  await page.viewport(1280, 800);
+  const screen = await render(<App />);
+  await waitFor(() => {
+    expect(screen.container.querySelectorAll(".kgv-page").length).toBeGreaterThan(1);
+  });
+  const pageCount = screen.container.querySelectorAll(".kgv-page").length;
+  let archive: Blob | undefined;
+  const createObjectURL = URL.createObjectURL.bind(URL);
+  const urlSpy = vi.spyOn(URL, "createObjectURL").mockImplementation((value) => {
+    if (value instanceof Blob && value.type === "application/zip") archive = value;
+    return createObjectURL(value);
+  });
+  const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  try {
+    await screen.getByRole("button", { name: "PNGをZIPで出力" }).first().click();
+    await vi.waitFor(
+      () => {
+        expect(archive).toBeDefined();
+      },
+      { timeout: 120000, interval: 200 },
+    );
+    expect.assert(archive !== undefined);
+    const { unzipSync, unzlibSync } = await import("fflate");
+    const entries = unzipSync(new Uint8Array(await archive.arrayBuffer()));
+    expect(Object.keys(entries)).toEqual(
+      Array.from({ length: pageCount }, (_, index) => `${String(index + 1).padStart(3, "0")}.png`),
+    );
+    const first = entries["001.png"];
+    expect.assert(first !== undefined);
+    const view = new DataView(first.buffer, first.byteOffset, first.byteLength);
+    expect(view.getUint32(16)).toBe(Math.round((148 * 600) / 25.4));
+    expect(view.getUint32(20)).toBe(Math.round((210 * 600) / 25.4));
+    expect(first[24]).toBe(1);
+    const imageData = unzlibSync(first.subarray(62, 62 + view.getUint32(54)));
+    expect(imageData.filter((byte) => byte !== 255).length).toBeGreaterThan(
+      view.getUint32(20) + 1000,
+    );
+  } finally {
+    clickSpy.mockRestore();
+    urlSpy.mockRestore();
+  }
+}, 130000);

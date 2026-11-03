@@ -9,6 +9,7 @@ import {
 import type { NovelViewEvent, NovelViewHandle } from "@sushichan044/kg-viewer";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import DownloadIcon from "~icons/lucide/download";
 import FilesIcon from "~icons/lucide/files";
 import DiagnosticsIcon from "~icons/lucide/message-square-warning";
 import SettingsIcon from "~icons/lucide/settings-2";
@@ -120,6 +121,9 @@ export function App() {
   const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [loadedDocument, setLoadedDocument] = useState<{ id: string } | null>(null);
   const [status, setStatus] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
+  const exportingRef = useRef(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [fileSwitcherOpen, setFileSwitcherOpen] = useState(false);
   const [diagnosticDrawerOpen, setDiagnosticDrawerOpen] = useState(false);
@@ -138,6 +142,40 @@ export function App() {
     files.find((file) => file.path === appState.selectedPath) ?? files[0] ?? null;
   const selectedId = selectedFile?.id ?? null;
   const selectedPath = selectedFile?.path ?? null;
+
+  const startExport = () => {
+    if (
+      exportingRef.current ||
+      !processed?.ok ||
+      typography === undefined ||
+      selectedFile === null ||
+      loadedDocument?.id !== selectedId
+    )
+      return;
+    exportingRef.current = true;
+    setExporting(true);
+    setExportError("");
+    void import("./lib/export-pages")
+      .then(({ exportPages }) =>
+        exportPages(
+          processed.value.composed,
+          typography,
+          manuscript.preferences.startPageSide,
+          selectedFile.path.split("/").at(-1) ?? "pages",
+        ),
+      )
+      .catch((error: unknown) => {
+        setExportError(
+          error instanceof Error
+            ? `PNG の出力に失敗しました: ${error.message}`
+            : "PNG の出力に失敗しました",
+        );
+      })
+      .finally(() => {
+        exportingRef.current = false;
+        setExporting(false);
+      });
+  };
 
   const commitAppState = useCallback((next: AppState) => {
     appStateRef.current = next;
@@ -316,6 +354,8 @@ export function App() {
               onFilesOpen={() => {
                 setFileSwitcherOpen(true);
               }}
+              onExport={startExport}
+              exporting={exporting || loadedDocument?.id !== selectedId}
               documentLabel={selectedFile.path}
               composed={processed?.ok ? processed.value.composed : null}
               diagnosticCount={diagnostics.length}
@@ -346,6 +386,18 @@ export function App() {
                 )}
               </div>
               <IconButton
+                label="PNGをZIPで出力"
+                disabled={
+                  exporting ||
+                  !processed?.ok ||
+                  typography === undefined ||
+                  loadedDocument?.id !== selectedId
+                }
+                onClick={startExport}
+              >
+                <DownloadIcon aria-hidden="true" />
+              </IconButton>
+              <IconButton
                 label={`診断 ${diagnostics.length}件`}
                 className="diagnostics-trigger"
                 onClick={() => {
@@ -363,6 +415,7 @@ export function App() {
                 <SettingsIcon aria-hidden="true" />
               </IconButton>
             </header>
+            {exportError !== "" && <p role="alert">{exportError}</p>}
             {loadedDocument?.id !== selectedId ? (
               <p className="preview__loading">読み込み中…</p>
             ) : typographyState.kind !== "ready" ? (

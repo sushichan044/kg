@@ -70,6 +70,9 @@ by core. Body font sizes use Q (1Q = 0.25mm). Zoom scales all physical dimension
 together. Pages alternate inner and outer margins according to `startPageSide`.
 The inner margin faces the center of each spread.
 
+Each page shows its one-based page number at the outer edge of the text area,
+centered 10mm below the top edge of the paper. The number scales with the page.
+
 See [`@sushichan044/kg-core`](../core/README.md) for parsing, composition,
 source mapping, and schema validation, and `@sushichan044/kg-core/lint` for the
 proofreading APIs that produce the diagnostics these components render.
@@ -98,6 +101,7 @@ div.kgv-viewer
     └── div.kgv-stack
         └── section.kgv-page[data-page-index][data-grid]
             ├── p.kgv-visually-hidden
+            ├── span.kgv-folio
             └── div.kgv-page-grid
                 └── div.kgv-stage
                     └── div.kgv-line

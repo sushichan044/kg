@@ -4,8 +4,8 @@ export const A5_PAGE_FORMAT = {
   page: {
     lineGapMm: 1.825,
     stageGapMm: 10,
-    topMm: 12,
-    bottomMm: 16.55,
+    topMm: 16.55,
+    bottomMm: 12,
     innerMm: 21.825,
     outerMm: 13,
   },

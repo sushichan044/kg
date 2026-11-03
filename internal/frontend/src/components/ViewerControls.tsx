@@ -11,6 +11,7 @@ import {
 import type { NovelComposedManuscript } from "@sushichan044/kg-core";
 import { useState } from "react";
 import * as v from "valibot";
+import DownloadIcon from "~icons/lucide/download";
 import DiagnosticsIcon from "~icons/lucide/message-square-warning";
 import MinusIcon from "~icons/lucide/minus";
 import PanelLeftIcon from "~icons/lucide/panel-left";
@@ -89,6 +90,8 @@ type ViewerToolbarProps = ZoomControlsProps &
     sidebarOpen: boolean;
     onSidebarToggle: () => void;
     onFilesOpen: () => void;
+    onExport: () => void;
+    exporting: boolean;
   }>;
 
 export function ViewerToolbar({
@@ -99,6 +102,8 @@ export function ViewerToolbar({
   sidebarOpen,
   onSidebarToggle,
   onFilesOpen,
+  onExport,
+  exporting,
   ...zoomProps
 }: ViewerToolbarProps) {
   return (
@@ -133,6 +138,13 @@ export function ViewerToolbar({
         </div>
         <div className="toolbar-actions">
           <ZoomControls {...zoomProps} className={undefined} />
+          <IconButton
+            label="PNGをZIPで出力"
+            disabled={composed === null || exporting}
+            onClick={onExport}
+          >
+            <DownloadIcon aria-hidden="true" />
+          </IconButton>
           <IconButton
             label={`診断 ${diagnosticCount}件`}
             className="diagnostics-trigger"

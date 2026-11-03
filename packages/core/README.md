@@ -267,7 +267,7 @@ plugin output fail explicitly; values are never clamped or partially trusted.
 body cells; line pitch is `fontSizeQ / 4 + lineGapMm`.
 
 A5 is fixed at 12.7Q, 27 characters per line, 23 lines per stage, and two stages.
-Its line gap is 1.825mm, stage gap 10mm, top margin 12mm, bottom margin 16.55mm,
+Its line gap is 1.825mm, stage gap 10mm, top margin 16.55mm, bottom margin 12mm,
 inner margin 21.825mm, and outer margin 13mm. `NovelCompositionSettings.defaults`
 contains this format. Typeface and reserved lines remain configurable.
 

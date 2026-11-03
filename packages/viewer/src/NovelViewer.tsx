@@ -82,6 +82,7 @@ type NovelStyle = CSSProperties & {
   "--kgv-font-synthesis": string;
   "--kgv-page-height": string;
   "--kgv-page-width": string;
+  "--kgv-folio-top": string;
 };
 
 type PositionedStyle = CSSProperties & {
@@ -522,6 +523,7 @@ function NovelViewerComponent(
       "--kgv-font-synthesis": selectedFont.rendering.synthesis,
       "--kgv-page-height": `${geometry.paperHeightMm * (value / 100)}mm`,
       "--kgv-page-width": `${geometry.paperWidthMm * (value / 100)}mm`,
+      "--kgv-folio-top": `${10 * (value / 100)}mm`,
     }),
     [composed.settings.flow.lineLengthEm, geometry, fontFamily, selectedFont, value],
   );
@@ -624,6 +626,9 @@ function NovelViewerComponent(
               data-offscreen={pageIndex > 0 ? "" : undefined}
             >
               <p className="kgv-visually-hidden">{pageText(page)}</p>
+              <span className="kgv-folio" aria-hidden="true">
+                {pageIndex + 1}
+              </span>
               <div className="kgv-page-grid">
                 {stages.map((stage) => (
                   <div key={stage.id} className="kgv-stage">
