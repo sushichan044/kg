@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.12.1](https://github.com/sushichan044/kg/compare/kg-viewer-v0.12.0...kg-viewer-v0.12.1) (2026-11-03)
+
+
+### Miscellaneous Chores
+
+* **kg-viewer:** Synchronize kg versions
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @sushichan044/kg-core bumped to 0.12.1
+
 ## [0.12.0](https://github.com/sushichan044/kg/compare/kg-viewer-v0.11.3...kg-viewer-v0.12.0) (2026-11-03)
 
 
