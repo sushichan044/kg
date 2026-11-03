@@ -215,14 +215,26 @@ function spacingWidths(plan: { pairSpacings: ReadonlyArray<{ widthEm: number }> 
 }
 
 describe("layoutParagraph", () => {
-  test("distributes unavoidable final expansion instead of concentrating it in one line", () => {
+  test.each([
+    {
+      description: "prefers bounded layouts even when final expansion has very small cubic badness",
+      firstRatio: 1.0005,
+      alternativeRatio: 0.5,
+    },
+    {
+      description:
+        "distributes unavoidable final expansion instead of concentrating it in one line",
+      firstRatio: 4,
+      alternativeRatio: 1.2,
+    },
+  ])("$description", ({ firstRatio, alternativeRatio }) => {
     const paragraph = atoms("AAAA", flexiblePrefixProfile);
     const prepared = prepareParagraph(paragraph, 2, flexiblePrefixProfile);
     const ratios = new Map([
-      ["0:1", 4],
+      ["0:1", firstRatio],
       ["1:4", 0],
-      ["0:2", 1.2],
-      ["2:3", 1.2],
+      ["0:2", alternativeRatio],
+      ["2:3", alternativeRatio],
       ["3:4", 0],
     ]);
 

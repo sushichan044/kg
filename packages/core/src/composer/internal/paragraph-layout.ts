@@ -80,7 +80,11 @@ function isBetter(
 ): boolean {
   if (current === undefined) return true;
   for (let index = 0; index < candidateState.score.length; index += 1) {
-    const difference = (candidateState.score[index] ?? 0) - (current.score[index] ?? 0);
+    const candidate = candidateState.score[index] ?? 0;
+    const existing = current.score[index] ?? 0;
+    // Compare cubic expansion costs in em units so the tolerance does not hide small expansion.
+    const difference =
+      index === 1 ? Math.cbrt(candidate) - Math.cbrt(existing) : candidate - existing;
     if (Math.abs(difference) > EPSILON) return difference < 0;
   }
   return compareBreaks(breaksOf(candidateState, states), breaksOf(current, states)) < 0;
