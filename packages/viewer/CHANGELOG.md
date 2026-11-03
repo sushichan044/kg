@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.12.0](https://github.com/sushichan044/kg/compare/kg-viewer-v0.11.3...kg-viewer-v0.12.0) (2026-11-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **frontend:** Diagnostic bands are decorative spans. Custom themes must target .kgv-diagnostic-trigger, .kgv-diagnostic-message, and .kgv-diagnostic-jump for controls and messages. Named manuscript presets have been removed.
+
+### Features
+
+* **frontend:** refine writing controls and diagnostic overlays ([ac826ff](https://github.com/sushichan044/kg/commit/ac826ffccc60f1a574742378973e6e84186acefd))
+* **frontend:** streamline the writing workspace ([929b5d5](https://github.com/sushichan044/kg/commit/929b5d5f810beae4f61acec7d4af8a932a637118))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @sushichan044/kg-core bumped to 0.12.0
+
 ## [0.11.3](https://github.com/sushichan044/kg/compare/kg-viewer-v0.11.2...kg-viewer-v0.11.3) (2026-11-02)
 
 

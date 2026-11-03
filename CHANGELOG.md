@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.10.0](https://github.com/sushichan044/kg/compare/v0.9.3...v0.10.0) (2026-11-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **frontend:** Diagnostic bands are decorative spans. Custom themes must target .kgv-diagnostic-trigger, .kgv-diagnostic-message, and .kgv-diagnostic-jump for controls and messages. Named manuscript presets have been removed.
+
+### Features
+
+* **frontend:** add a standalone mock development environment ([5c7b51d](https://github.com/sushichan044/kg/commit/5c7b51d5459dc2bf9e25917ed99677f8e577db7e))
+* **frontend:** refine writing controls and diagnostic overlays ([ac826ff](https://github.com/sushichan044/kg/commit/ac826ffccc60f1a574742378973e6e84186acefd))
+* **frontend:** streamline the writing workspace ([929b5d5](https://github.com/sushichan044/kg/commit/929b5d5f810beae4f61acec7d4af8a932a637118))
+
 ## [0.9.3](https://github.com/sushichan044/kg/compare/v0.9.2...v0.9.3) (2026-11-02)
 
 
