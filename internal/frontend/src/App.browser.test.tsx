@@ -1,8 +1,10 @@
+import { RouterProvider } from "react-router/dom";
 import { expect, test as base, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
 import { render } from "vitest-browser-react";
+import type { RenderResult } from "vitest-browser-react";
 
-import { App } from "./App";
+import { createAppRouter } from "./router";
 
 import "@sushichan044/kg-viewer/styles.css";
 import "./styles/index.css";
@@ -54,6 +56,7 @@ type Fixtures = {
   novelSource: { current: string };
   fontRequest: { failure: boolean; gate: Promise<void> | null };
   browserEnvironment: undefined;
+  renderApp: () => Promise<RenderResult>;
 };
 
 const test = base.extend<Fixtures>({
@@ -97,14 +100,24 @@ const test = base.extend<Fixtures>({
     },
     { auto: true },
   ],
+  renderApp: async ({}, use) => {
+    const routers: Array<ReturnType<typeof createAppRouter>> = [];
+    await use(async () => {
+      const router = createAppRouter();
+      routers.push(router);
+      return render(<RouterProvider router={router} />);
+    });
+    for (const router of routers) router.dispose();
+  },
 });
 
 test("renders composer-owned combined units without duplicating the accessible manuscript", async ({
   novelSource,
+  renderApp,
 }) => {
   novelSource.current = "あ12い";
 
-  const screen = await render(<App />);
+  const screen = await renderApp();
 
   await waitFor(() => {
     const cells = Array.from(screen.container.querySelectorAll(".kgv-cell"));
@@ -115,9 +128,11 @@ test("renders composer-owned combined units without duplicating the accessible m
   });
 });
 
-test("opens diagnostics over the manuscript without resizing the preview", async () => {
+test("opens diagnostics over the manuscript without resizing the preview", async ({
+  renderApp,
+}) => {
   await page.viewport(1280, 800);
-  const screen = await render(<App />);
+  const screen = await renderApp();
 
   const diagnosticsTrigger = screen.getByRole("button", { name: "診断 4件" });
   await expect.element(diagnosticsTrigger).toBeVisible();
@@ -152,9 +167,9 @@ test("opens diagnostics over the manuscript without resizing the preview", async
 
 // モバイル用ツールバーは、52rem（832px）のブレークポイントを下回ったときだけ表示される。
 // クリックが画面上に実在するコントロールに当たるよう、これより狭いビューポートが要る。
-test("opens compact file, settings, and diagnostics sheets", async () => {
+test("opens compact file, settings, and diagnostics sheets", async ({ renderApp }) => {
   await page.viewport(600, 900);
-  const screen = await render(<App />);
+  const screen = await renderApp();
 
   await waitFor(() => {
     const label = screen.container.querySelector(".mobile-toolbar strong");
@@ -188,14 +203,16 @@ test("opens compact file, settings, and diagnostics sheets", async () => {
   expect(screen.container.querySelector('[role="dialog"]')).toBeNull();
 });
 
-test("opens the file selected by the URL and preserves unrelated URL state", async () => {
+test("opens the file selected by the URL and preserves unrelated URL state", async ({
+  renderApp,
+}) => {
   window.history.replaceState(
     null,
     "",
     "/?mode=preview&file=%E5%85%B1%E6%9C%89+%E5%8E%9F%E7%A8%BF.txt#preview",
   );
 
-  const screen = await render(<App />);
+  const screen = await renderApp();
 
   await waitFor(() => {
     const label = screen.container.querySelector(".toolbar-label");
@@ -207,13 +224,13 @@ test("opens the file selected by the URL and preserves unrelated URL state", asy
   expect(window.location.hash).toBe("#preview");
 });
 
-test("updates the shared URL when another file is selected", async () => {
+test("updates the shared URL when another file is selected", async ({ renderApp }) => {
   window.history.replaceState(
     null,
     "",
     "/?mode=preview&file=%E5%85%B1%E6%9C%89+%E5%8E%9F%E7%A8%BF.txt#preview",
   );
-  const screen = await render(<App />);
+  const screen = await renderApp();
 
   await waitFor(() => {
     const label = screen.container.querySelector(".toolbar-label");
@@ -235,10 +252,10 @@ test("updates the shared URL when another file is selected", async () => {
   expect(window.location.hash).toBe("#preview");
 });
 
-test("normalizes an unknown URL file to the first available file", async () => {
+test("normalizes an unknown URL file to the first available file", async ({ renderApp }) => {
   window.history.replaceState(null, "", "/?file=missing.txt");
 
-  const screen = await render(<App />);
+  const screen = await renderApp();
 
   await waitFor(() => {
     const label = screen.container.querySelector(".toolbar-label");
@@ -248,7 +265,9 @@ test("normalizes an unknown URL file to the first available file", async () => {
   });
 });
 
-test("synchronizes the URL after a failed initial catalog load is refreshed", async () => {
+test("synchronizes the URL after a failed initial catalog load is refreshed", async ({
+  renderApp,
+}) => {
   let catalogRequests = 0;
   vi.stubGlobal(
     "fetch",
@@ -267,7 +286,7 @@ test("synchronizes the URL after a failed initial catalog load is refreshed", as
     }),
   );
 
-  const screen = await render(<App />);
+  const screen = await renderApp();
 
   await waitFor(() => {
     expect(FakeEventSource.latest).toBeDefined();
@@ -284,7 +303,7 @@ test("synchronizes the URL after a failed initial catalog load is refreshed", as
   });
 });
 
-test("keeps the newest catalog when an older request finishes last", async () => {
+test("keeps the newest catalog when an older request finishes last", async ({ renderApp }) => {
   let catalogRequests = 0;
   let resolveInitialCatalog: ((response: Response) => void) | undefined;
   vi.stubGlobal(
@@ -310,7 +329,7 @@ test("keeps the newest catalog when an older request finishes last", async () =>
     }),
   );
 
-  const screen = await render(<App />);
+  const screen = await renderApp();
 
   await waitFor(() => {
     expect(FakeEventSource.latest).toBeDefined();
@@ -339,10 +358,13 @@ test("keeps the newest catalog when an older request finishes last", async () =>
   expect(new URL(window.location.href).searchParams.get("file")).toBe("共有 原稿.txt");
 });
 
-test("renders pixiv notation after the initial load and a file reload", async ({ novelSource }) => {
+test("renders pixiv notation after the initial load and a file reload", async ({
+  novelSource,
+  renderApp,
+}) => {
   novelSource.current = pixivSource;
 
-  const screen = await render(<App />);
+  const screen = await renderApp();
 
   await waitFor(() => {
     for (const kind of ["ruby", "bold", "italic", "emphasis"]) {
@@ -371,10 +393,11 @@ test("renders pixiv notation after the initial load and a file reload", async ({
 
 test("toggles the decorative grid without changing composition settings", async ({
   novelSource,
+  renderApp,
 }) => {
   novelSource.current = "あいう";
   await page.viewport(1280, 800);
-  const screen = await render(<App />);
+  const screen = await renderApp();
   await screen
     .getByRole("complementary", { name: "ワークスペース" })
     .getByText("表示", { exact: true })
@@ -400,10 +423,11 @@ test("toggles the decorative grid without changing composition settings", async 
 
 test("switches the persisted notation parser without auto-detecting source", async ({
   novelSource,
+  renderApp,
 }) => {
   novelSource.current = kakuyomuSource;
   await page.viewport(1280, 800);
-  const screen = await render(<App />);
+  const screen = await renderApp();
   await screen
     .getByRole("complementary", { name: "ワークスペース" })
     .getByText("記法", { exact: true })
@@ -428,9 +452,11 @@ test("switches the persisted notation parser without auto-detecting source", asy
   });
 });
 
-test("shows fixed A5 dimensions and restores them after editing another paper format", async () => {
+test("shows fixed A5 dimensions and restores them after editing another paper format", async ({
+  renderApp,
+}) => {
   await page.viewport(1280, 900);
-  const screen = await render(<App />);
+  const screen = await renderApp();
   await screen
     .getByRole("complementary", { name: "ワークスペース" })
     .getByText("用紙・組版・書体", { exact: true })
@@ -471,9 +497,11 @@ test("shows fixed A5 dimensions and restores them after editing another paper fo
   });
 });
 
-test("lets a user correct an oversized format without saving invalid settings", async () => {
+test("lets a user correct an oversized format without saving invalid settings", async ({
+  renderApp,
+}) => {
   await page.viewport(1280, 900);
-  const screen = await render(<App />);
+  const screen = await renderApp();
   await screen
     .getByRole("complementary", { name: "ワークスペース" })
     .getByText("用紙・組版・書体", { exact: true })
@@ -496,9 +524,9 @@ test("lets a user correct an oversized format without saving invalid settings", 
   });
 });
 
-test("selects the fixed A6 composition from the paper control", async () => {
+test("selects the fixed A6 composition from the paper control", async ({ renderApp }) => {
   await page.viewport(1280, 900);
-  const screen = await render(<App />);
+  const screen = await renderApp();
   await screen
     .getByRole("complementary", { name: "ワークスペース" })
     .getByText("用紙・組版・書体", { exact: true })
@@ -535,13 +563,14 @@ test("selects the fixed A6 composition from the paper control", async () => {
 test("waits for the bundled font and composes the latest source with its real metrics", async ({
   fontRequest,
   novelSource,
+  renderApp,
 }) => {
   let release = () => {};
   fontRequest.gate = new Promise<void>((resolve) => {
     release = resolve;
   });
 
-  const screen = await render(<App />);
+  const screen = await renderApp();
 
   await expect.element(screen.getByText("書体を読み込んでいます…", { exact: true })).toBeVisible();
   expect(screen.container.querySelector(".kgv-viewer")).toBeNull();
@@ -563,10 +592,11 @@ test("waits for the bundled font and composes the latest source with its real me
 
 test("retries font loading after a failed request without showing a mismatched preview", async ({
   fontRequest,
+  renderApp,
 }) => {
   fontRequest.failure = true;
 
-  const screen = await render(<App />);
+  const screen = await renderApp();
 
   await expect
     .element(screen.getByRole("alert"))
@@ -579,9 +609,12 @@ test("retries font loading after a failed request without showing a mismatched p
   });
 });
 
-test("switches typography profiles without changing manuscript source", async ({ novelSource }) => {
+test("switches typography profiles without changing manuscript source", async ({
+  novelSource,
+  renderApp,
+}) => {
   novelSource.current = "あ゛ん゛";
-  const screen = await render(<App />);
+  const screen = await renderApp();
   await screen
     .getByRole("complementary", { name: "ワークスペース" })
     .getByText("用紙・組版・書体", { exact: true })
@@ -615,9 +648,10 @@ test("switches typography profiles without changing manuscript source", async ({
 
 test("keeps settings available after font loading fails and recovers with Gothic", async ({
   fontRequest,
+  renderApp,
 }) => {
   fontRequest.failure = true;
-  const screen = await render(<App />);
+  const screen = await renderApp();
   await screen
     .getByRole("complementary", { name: "ワークスペース" })
     .getByText("用紙・組版・書体", { exact: true })
@@ -635,10 +669,13 @@ test("keeps settings available after font loading fails and recovers with Gothic
   expect(screen.container.querySelectorAll(".kgv-glyph").length).toBeGreaterThan(0);
 });
 
-test("switches spread layout and chooses the starting page side", async ({ novelSource }) => {
+test("switches spread layout and chooses the starting page side", async ({
+  novelSource,
+  renderApp,
+}) => {
   novelSource.current = "あ".repeat(27 * 23 * 2 + 1);
   await page.viewport(1280, 800);
-  const screen = await render(<App />);
+  const screen = await renderApp();
   await screen
     .getByRole("complementary", { name: "ワークスペース" })
     .getByText("表示", { exact: true })
@@ -664,7 +701,7 @@ test("switches spread layout and chooses the starting page side", async ({ novel
     expect(screen.container.querySelector(".kgv-page")).toHaveAttribute("data-page-side", "left");
   });
   await screen.unmount();
-  const restored = await render(<App />);
+  const restored = await renderApp();
   await restored
     .getByRole("complementary", { name: "ワークスペース" })
     .getByText("表示", { exact: true })
@@ -686,9 +723,9 @@ test("switches spread layout and chooses the starting page side", async ({ novel
   });
 });
 
-test("keeps settings folded and restores the sidebar after hiding it", async () => {
+test("keeps settings folded and restores the sidebar after hiding it", async ({ renderApp }) => {
   await page.viewport(1440, 900);
-  const screen = await render(<App />);
+  const screen = await renderApp();
   await expect
     .element(screen.getByRole("button", { name: "サイドバー", exact: true }))
     .toBeVisible();
@@ -712,9 +749,11 @@ test("keeps settings folded and restores the sidebar after hiding it", async () 
   await expect.element(screen.getByRole("combobox", { name: "用紙" })).toBeVisible();
 });
 
-test("switches files with Command K and Ctrl K and restores focus on Escape", async () => {
+test("switches files with Command K and Ctrl K and restores focus on Escape", async ({
+  renderApp,
+}) => {
   await page.viewport(1440, 900);
-  const screen = await render(<App />);
+  const screen = await renderApp();
   const search = screen.getByRole("button", { name: "ファイルを検索", exact: true });
   await search.hover();
   await expect.element(page.getByRole("tooltip")).toHaveTextContent("ファイルを検索⌘K / Ctrl K");
@@ -745,9 +784,9 @@ test("switches files with Command K and Ctrl K and restores focus on Escape", as
     .toBe("testdata/novel.txt");
 });
 
-test("allows zoom from 25 to 400 percent and persists manual zoom", async () => {
+test("allows zoom from 25 to 400 percent and persists manual zoom", async ({ renderApp }) => {
   await page.viewport(1600, 900);
-  const screen = await render(<App />);
+  const screen = await renderApp();
   const zoom = screen.getByRole("main").getByLabelText("現在のズーム");
   await expect.element(zoom).toHaveTextContent("100%");
 
@@ -768,9 +807,11 @@ test("allows zoom from 25 to 400 percent and persists manual zoom", async () => 
     .toHaveAttribute("aria-pressed", "true");
 });
 
-test("closes only the file palette when Escape is pressed over the settings dialog", async () => {
+test("closes only the file palette when Escape is pressed over the settings dialog", async ({
+  renderApp,
+}) => {
   await page.viewport(600, 900);
-  const screen = await render(<App />);
+  const screen = await renderApp();
   const settingsButton = screen.getByRole("button", { name: "設定", exact: true });
   await settingsButton.click();
   const settingsDialog = page.getByRole("dialog", { name: "表示設定" });
@@ -788,10 +829,10 @@ test("closes only the file palette when Escape is pressed over the settings dial
   await expect.element(settingsButton).toHaveFocus();
 });
 
-test("downloads all pages as 600 dpi monochrome PNG files", async ({ novelSource }) => {
+test("downloads all pages as 600 dpi monochrome PNG files", async ({ novelSource, renderApp }) => {
   novelSource.current = "漢字《かんじ》12".repeat(400);
   await page.viewport(1280, 800);
-  const screen = await render(<App />);
+  const screen = await renderApp();
   await waitFor(() => {
     expect(screen.container.querySelectorAll(".kgv-page").length).toBeGreaterThan(1);
   });
@@ -833,9 +874,11 @@ test("downloads all pages as 600 dpi monochrome PNG files", async ({ novelSource
   }
 }, 130000);
 
-test("restores the export action and reports an image generation failure", async () => {
+test("restores the export action and reports an image generation failure", async ({
+  renderApp,
+}) => {
   await page.viewport(1280, 800);
-  const screen = await render(<App />);
+  const screen = await renderApp();
   const exportButton = screen.getByRole("button", { name: "PNGをZIPで出力" }).first();
   await expect.element(exportButton).toBeEnabled();
   const { snapdom } = await import("@zumer/snapdom");
@@ -864,9 +907,9 @@ test("restores the export action and reports an image generation failure", async
   }
 });
 
-test("does not download an export after the app unmounts", async () => {
+test("does not download an export after the app unmounts", async ({ renderApp }) => {
   await page.viewport(1280, 800);
-  const screen = await render(<App />);
+  const screen = await renderApp();
   const exportButton = screen.getByRole("button", { name: "PNGをZIPで出力" }).first();
   await expect.element(exportButton).toBeEnabled();
   const { snapdom } = await import("@zumer/snapdom");
@@ -897,9 +940,9 @@ test("does not download an export after the app unmounts", async () => {
   }
 });
 
-test("rejects an export when the browser returns a smaller canvas", async () => {
+test("rejects an export when the browser returns a smaller canvas", async ({ renderApp }) => {
   await page.viewport(1280, 800);
-  const screen = await render(<App />);
+  const screen = await renderApp();
   const button = screen.getByRole("button", { name: "PNGをZIPで出力" }).first();
   await expect.element(button).toBeEnabled();
   const { snapdom } = await import("@zumer/snapdom");

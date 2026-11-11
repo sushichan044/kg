@@ -5,7 +5,7 @@ import type { FileEntry } from "../lib/api";
 export type FilePanelProps = Readonly<{
   files: readonly FileEntry[];
   selectedId: string | null;
-  onSelect: (id: string) => void;
+  onSelect: (path: string) => void;
 }>;
 
 export function FilePanel({ files, selectedId, onSelect }: FilePanelProps) {
@@ -21,7 +21,7 @@ export function FilePanel({ files, selectedId, onSelect }: FilePanelProps) {
               title={file.path}
               aria-current={file.id === selectedId ? "page" : undefined}
               onClick={() => {
-                onSelect(file.id);
+                onSelect(file.path);
               }}
             >
               <span className="file-name">{file.path.split("/").at(-1)}</span>

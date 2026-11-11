@@ -24,13 +24,11 @@ import { assertNever } from "./lib/assert-never";
 import type { ManuscriptNotation, ManuscriptPreferences } from "./lib/storage";
 
 export type ManuscriptState = Readonly<{
-  source: string;
   preferences: ManuscriptPreferences;
   activeDiagnosticId: string | null;
 }>;
 
 export type ManuscriptAction =
-  | Readonly<{ kind: "document.replace"; text: string }>
   | Readonly<{ kind: "composition.replace"; composition: NovelCompositionSettings }>
   | Readonly<{ kind: "grid-visibility.replace"; showGrid: boolean }>
   | Readonly<{ kind: "spread.replace"; spread: boolean }>
@@ -47,9 +45,6 @@ export function manuscriptReducer(
   action: ManuscriptAction,
 ): ManuscriptState {
   switch (action.kind) {
-    case "document.replace": {
-      return { ...state, source: action.text, activeDiagnosticId: null };
-    }
     case "composition.replace": {
       return {
         ...state,
