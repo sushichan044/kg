@@ -20,3 +20,4 @@ export { MeasurementTextRange } from "./composer/measurement-text-range";
 export { MeasuredCluster } from "./composer/measured-cluster";
 export { RunMeasurement } from "./composer/run-measurement";
 export type { PresentationKind } from "./composer/presentation-kind";
+export { GlyphOrientation } from "./composer/glyph-orientation";
