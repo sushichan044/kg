@@ -40,6 +40,10 @@
       "types": "./dist/lint.d.mts",
       "import": "./dist/lint.mjs"
     },
+    "./worker/proofread": {
+      "types": "./dist/worker-proofread.d.mts",
+      "import": "./dist/worker-proofread.mjs"
+    },
     "./plugin": {
       "types": "./dist/plugin.d.mts",
       "import": "./dist/plugin.mjs"
@@ -60,6 +64,7 @@
   },
   "devDependencies": {
     "@arethetypeswrong/core": "catalog:dev",
+    "@sushichan044/kg-worker-rpc": "workspace:*",
     "publint": "catalog:dev",
     "typescript": "catalog:dev",
     "unplugin-unused": "catalog:dev",

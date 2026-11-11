@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2023"],
+    "lib": ["ES2023", "ESNext.Disposable", "WebWorker"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,

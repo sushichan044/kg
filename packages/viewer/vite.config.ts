@@ -54,13 +54,20 @@ export default defineConfig({
     {
       attw: { level: "error", profile: "esm-only" },
       clean: true,
+      // private な worker-rpc とその依存 comlink だけを意図してバンドルする
+      deps: { onlyBundle: ["@sushichan044/kg-worker-rpc", "comlink"] },
       dts: {
         generator: "tsgo",
       },
       // スタイルシートは src からそのまま素のアセットとして配布する（package.json の exports を
       // 参照）。pack は CSS のエントリーをすべて 1 つのファイルにまとめるので、
       // structural と theme の分割を表せず、これらのシートにはトランスパイルも要らない。
-      entry: ["src/index.ts", "src/typography.ts"],
+      entry: {
+        index: "src/index.ts",
+        typography: "src/typography.ts",
+        "worker-export": "src/export/index.ts",
+        "worker-export-encoder": "src/export/worker.ts",
+      },
       fixedExtension: true,
       format: "esm",
       fromVite: true,

@@ -14,11 +14,7 @@ import type {
   NovelCompositionSettings,
   ManuscriptDiagnostic,
 } from "@sushichan044/kg-core";
-import {
-  createDefaultProofreadingRules,
-  ProofreadError,
-  proofreadManuscript,
-} from "@sushichan044/kg-core/lint";
+import { ProofreadError } from "@sushichan044/kg-core/lint";
 
 import { assertNever } from "./lib/assert-never";
 import type { ManuscriptNotation, ManuscriptPreferences } from "./lib/storage";
@@ -89,9 +85,13 @@ export function manuscriptReducer(
   }
 }
 
-export type ProcessedManuscript = Readonly<{
+/**
+ * 組版まで終えた原稿。校正は別に（Worker で）行うので、ここに含まれる診断は
+ * 解析と組版の警告だけである。
+ */
+export type ComposedSource = Readonly<{
   composed: NovelComposedManuscript;
-  diagnostics: readonly ManuscriptDiagnostic[];
+  warnings: readonly ManuscriptDiagnostic[];
 }>;
 
 /**
@@ -103,6 +103,8 @@ export type ProcessManuscriptError =
   | Readonly<{ stage: "parse"; error: ParseError }>
   | Readonly<{ stage: "compose"; error: ComposeError }>
   | Readonly<{ stage: "proofread"; error: ProofreadError }>;
+
+export type ComposeSourceError = Exclude<ProcessManuscriptError, { stage: "proofread" }>;
 
 export const ProcessManuscriptError = {
   describe: (failure: ProcessManuscriptError): string => {
@@ -123,12 +125,15 @@ export const ProcessManuscriptError = {
   },
 } as const;
 
-export function processManuscript(
+/**
+ * 解析と組版を同期で行う。組版は書体の計測にブラウザーの DOM を使うので、メインスレッドに残る。
+ */
+export function composeSource(
   source: string,
   composition: NovelCompositionSettings,
   notation: ManuscriptNotation,
   composer: typeof novelComposer = novelComposer,
-): ManuscriptResult<ProcessedManuscript, ProcessManuscriptError> {
+): ManuscriptResult<ComposedSource, ComposeSourceError> {
   const parser = notation === "pixiv" ? pixivParser : kakuyomuParser;
   const parsed = parseManuscript(source, { parser });
   if (!parsed.ok) return ManuscriptResult.fail({ stage: "parse", error: parsed.error });
@@ -140,20 +145,13 @@ export function processManuscript(
   });
   if (!composed.ok) return ManuscriptResult.fail({ stage: "compose", error: composed.error });
 
-  const proofread = proofreadManuscript(composed.value, {
-    rules: createDefaultProofreadingRules(),
-  });
-  if (!proofread.ok) return ManuscriptResult.fail({ stage: "proofread", error: proofread.error });
-
   return ManuscriptResult.succeed({
     composed: composed.value,
-    diagnostics: [
+    warnings: [
       ...parsed.warnings.map((warning) =>
         Object.assign({}, warning, { range: prepared.mapRange(warning.range) }),
       ),
       ...composed.warnings,
-      ...proofread.warnings,
-      ...proofread.value,
     ],
   });
 }

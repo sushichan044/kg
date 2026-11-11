@@ -15,10 +15,12 @@ export default defineConfig({
     {
       attw: { level: "error", profile: "esm-only" },
       clean: true,
+      // private な worker-rpc とその依存 comlink だけを意図してバンドルする
+      deps: { onlyBundle: ["@sushichan044/kg-worker-rpc", "comlink"] },
       dts: {
         generator: "tsgo",
       },
-      entry: ["src/index.ts", "src/lint.ts", "src/plugin.ts"],
+      entry: ["src/index.ts", "src/lint.ts", "src/worker-proofread.ts", "src/plugin.ts"],
       fixedExtension: true,
       format: "esm",
       fromVite: true,
