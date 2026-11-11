@@ -1,10 +1,11 @@
 import type { TypographyState } from "./use-typography";
 
-export function TypographyStatus({
-  state,
-}: Readonly<{ state: TypographyState & { retry: () => void } }>) {
+export function TypographyLoading() {
+  return <p role="status">書体を読み込んでいます…</p>;
+}
+
+export function TypographyStatus({ state }: Readonly<{ state: TypographyState }>) {
   if (state.kind === "ready") return null;
-  if (state.kind === "loading") return <p role="status">書体を読み込んでいます…</p>;
   return (
     <div role="alert">
       <p>書体を読み込めませんでした。</p>

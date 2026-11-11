@@ -105,6 +105,7 @@ export default defineConfig({
           "packages/viewer/src/NovelViewer.browser.test.tsx",
           "packages/viewer/src/typography.browser.test.tsx",
           "packages/viewer/src/automatic-typography.browser.test.tsx",
+          "packages/viewer/src/use-typography.browser.test.tsx",
           "packages/viewer/font-proof/**/*.tsx",
         ],
         rules: {

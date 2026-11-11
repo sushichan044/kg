@@ -13,7 +13,7 @@ type FileSwitcherProps = FilePanelProps &
 
 export function FileSwitcher({
   files,
-  selectedId,
+  selectedPath,
   onSelect,
   open,
   onOpenChange,
@@ -58,7 +58,7 @@ export function FileSwitcher({
                 }}
               >
                 <span>{file.path}</span>
-                {file.id === selectedId ? <span className="file-current">表示中</span> : null}
+                {file.path === selectedPath ? <span className="file-current">表示中</span> : null}
               </Command.Item>
             ))}
           </Command.List>

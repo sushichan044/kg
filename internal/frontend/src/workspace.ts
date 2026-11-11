@@ -1,4 +1,4 @@
-import { replace } from "react-router";
+import { createSearchParams, replace } from "react-router";
 
 import { fetchContent, fetchFiles } from "./lib/api";
 import type { FileEntry } from "./lib/api";
@@ -18,6 +18,12 @@ export type Workspace = Readonly<{
   // 選択の保存に失敗したときだけ入る
   status: string;
 }>;
+
+export function searchWithFile(params: URLSearchParams, path: string): string {
+  const next = createSearchParams(params);
+  next.set(FILE_QUERY_PARAM, path);
+  return `?${next.toString()}`;
+}
 
 function resolveSelectedFile(
   files: readonly FileEntry[],
@@ -40,9 +46,7 @@ export async function loadWorkspace(request: Request): Promise<Workspace | Respo
   if (requestedPath !== (selected?.path ?? null)) {
     if (selected === null) url.searchParams.delete(FILE_QUERY_PARAM);
     else url.searchParams.set(FILE_QUERY_PARAM, selected.path);
-    // loader に渡る request の URL はハッシュを落としている
-    // このアプリの移動はハッシュを変えないので、いまのハッシュを引き継ぐ
-    return replace(`${url.pathname}${url.search}${window.location.hash}`);
+    return replace(`${url.pathname}${url.search}`);
   }
 
   const status = saveAppState({ version: 1, selectedPath: selected?.path ?? null })

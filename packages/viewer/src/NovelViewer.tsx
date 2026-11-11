@@ -10,7 +10,15 @@ import type {
   NovelPage as ComposedNovelPage,
   PresentationKind,
 } from "@sushichan044/kg-core";
-import { useEffect, useEffectEvent, useImperativeHandle, useRef, useState } from "react";
+import {
+  Suspense,
+  use,
+  useEffect,
+  useEffectEvent,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import type { CSSProperties, Ref, RefCallback, RefObject, ReactNode } from "react";
 
 import { DiagnosticHover } from "./DiagnosticHover";
@@ -18,7 +26,8 @@ import { DiagnosticMarker } from "./DiagnosticMarker";
 import { fitZoom } from "./fit-zoom";
 import type { ReadyTypography } from "./typography";
 import { cssFontFeatures } from "./typography-profile";
-import { TypographyStatus } from "./TypographyStatus";
+import { TypographyContext, TypographyProvider } from "./TypographyProvider";
+import { TypographyLoading, TypographyStatus } from "./TypographyStatus";
 import { useTypography } from "./use-typography";
 
 const NO_DIAGNOSTICS: readonly ManuscriptDiagnostic[] = [];
@@ -836,34 +845,65 @@ function NovelViewerRenderer({
   );
 }
 
-function AutomaticNovelViewer(props: NovelViewerProps) {
+// 診断だけが変わったときに組版をやり直さないよう、フックの戻り値として診断の変換と別のスコープに分ける
+function useMeasuredComposition(
+  parsed: NovelComposedManuscript["parsed"],
+  settings: NovelComposedManuscript["settings"],
+  typography: ReadyTypography,
+) {
+  "use memo";
+  const prepared = typography.prepare(parsed);
+  const composed = composeManuscript(prepared.parsed, {
+    composer: typography.composer,
+    settings,
+  });
+  return { prepared, composed };
+}
+
+function MeasuredNovelViewer(props: NovelViewerProps) {
   const state = useTypography(props.composed.settings.appearance.fontPreset);
-  const typography = state.kind === "ready" ? state.typography : undefined;
-  const prepared = typography?.prepare(props.composed.parsed);
-  const composed =
-    typography !== undefined && prepared !== undefined
-      ? composeManuscript(prepared.parsed, {
-          composer: typography.composer,
-          settings: props.composed.settings,
-        })
-      : undefined;
-  const diagnostics =
-    prepared === undefined
-      ? props.diagnostics
-      : props.diagnostics?.map((diagnostic) => ({
-          ...diagnostic,
-          range: prepared.mapRange(diagnostic.range),
-        }));
-  if (state.kind !== "ready") return <TypographyStatus state={state} />;
-  if (composed === undefined || !composed.ok || prepared === undefined)
-    return <p role="alert">原稿を組版できませんでした。</p>;
+  if (state.kind === "failed") return <TypographyStatus state={state} />;
+  return <ComposedNovelViewer {...props} typography={state.typography} />;
+}
+
+function ComposedNovelViewer({
+  typography,
+  ...props
+}: NovelViewerProps & Readonly<{ typography: ReadyTypography }>) {
+  const { prepared, composed } = useMeasuredComposition(
+    props.composed.parsed,
+    props.composed.settings,
+    typography,
+  );
+  if (!composed.ok) return <p role="alert">原稿を組版できませんでした。</p>;
+  const diagnostics = props.diagnostics?.map((diagnostic) => ({
+    ...diagnostic,
+    range: prepared.mapRange(diagnostic.range),
+  }));
   return (
     <NovelViewerRenderer
       {...props}
       composed={composed.value}
-      typography={state.typography}
+      typography={typography}
       diagnostics={diagnostics}
     />
+  );
+}
+
+function AutomaticNovelViewer(props: NovelViewerProps) {
+  const cache = use(TypographyContext);
+  const viewer = (
+    <Suspense fallback={<TypographyLoading />}>
+      <MeasuredNovelViewer {...props} />
+    </Suspense>
+  );
+  // 自前のキャッシュは書体を切り替えたときに作り直し、使わなくなった書体をすぐ解放する
+  return cache === null ? (
+    <TypographyProvider key={props.composed.settings.appearance.fontPreset}>
+      {viewer}
+    </TypographyProvider>
+  ) : (
+    viewer
   );
 }
 
@@ -873,5 +913,5 @@ export function NovelViewer(props: NovelViewerProps) {
     return <p role="alert">書体と組版設定が一致しません。</p>;
   if (props.typography !== undefined || FontPreset.of(fontPreset).measurement === "logical")
     return <NovelViewerRenderer {...props} />;
-  return <AutomaticNovelViewer key={fontPreset} {...props} />;
+  return <AutomaticNovelViewer {...props} />;
 }

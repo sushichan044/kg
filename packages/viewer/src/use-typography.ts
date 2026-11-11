@@ -1,62 +1,35 @@
-import { ManuscriptResult } from "@sushichan044/kg-core";
 import type { FontPresetId } from "@sushichan044/kg-core";
-import { useEffect, useState } from "react";
+import { startTransition, use, useState } from "react";
 
-import { loadTypography } from "./typography";
 import type { ReadyTypography, TypographyLoadError } from "./typography";
+import { TypographyContext } from "./TypographyProvider";
 
 export type TypographyState =
-  | Readonly<{ kind: "loading" }>
   | Readonly<{ kind: "ready"; typography: ReadyTypography }>
-  | Readonly<{ kind: "failed"; error: TypographyLoadError }>;
+  | Readonly<{ kind: "failed"; error: TypographyLoadError; retry: () => void }>;
 
 /**
- * 選択が変わるか、コンポーネントがアンマウントされるまで、フォントリソースを保持する。
+ * 最も近い TypographyProvider のキャッシュから書体を読み、読み込みが終わるまで中断する
  */
-export function useTypography(
-  fontPreset: FontPresetId,
-): TypographyState & Readonly<{ retry: () => void }> {
+export function useTypography(fontPreset: FontPresetId): TypographyState {
+  const cache = use(TypographyContext);
+  if (cache === null) throw new Error("useTypography must be used within a TypographyProvider");
   const [attempt, setAttempt] = useState(0);
-  const [loaded, setLoaded] = useState<Readonly<{
-    fontPreset: FontPresetId;
-    attempt: number;
-    state: TypographyState;
-  }> | null>(null);
-  if (loaded !== null && (loaded.fontPreset !== fontPreset || loaded.attempt !== attempt))
-    setLoaded(null);
-  useEffect(() => {
-    let cancelled = false;
-    let owned: ReadyTypography | undefined;
-    void loadTypography({ fontPreset })
-      .catch(() => ManuscriptResult.fail({ kind: "font-load" as const }))
-      .then((result) => {
-        if (cancelled) {
-          if (result.ok) result.value.dispose();
-          return;
-        }
-        if (result.ok) owned = result.value;
-        setLoaded({
-          fontPreset,
-          attempt,
-          state: result.ok
-            ? { kind: "ready", typography: result.value }
-            : { kind: "failed", error: result.error },
-        });
-      });
-    return () => {
-      cancelled = true;
-      owned?.dispose();
-    };
-  }, [fontPreset, attempt]);
-  const state: TypographyState =
-    loaded?.fontPreset === fontPreset && loaded.attempt === attempt
-      ? loaded.state
-      : { kind: "loading" };
+  const result = use(cache.load(fontPreset, attempt));
+  if (result.ok) return { kind: "ready", typography: result.value };
+  const { error } = result;
   return {
-    ...state,
+    kind: "failed",
+    error,
     retry: () => {
-      if (state.kind === "failed" && state.error.kind === "shaper-load") window.location.reload();
-      else setAttempt((value) => value + 1);
+      // シェーパーの読み込みに失敗した import() はブラウザーに記録され、再読み込みしないとやり直せない
+      if (error.kind === "shaper-load") {
+        window.location.reload();
+        return;
+      }
+      startTransition(() => {
+        setAttempt(cache.nextAttempt(fontPreset));
+      });
     },
   };
 }

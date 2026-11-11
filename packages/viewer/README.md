@@ -234,9 +234,51 @@ const composed = composeManuscript(prepared.parsed, {
 // Pass the same typography to NovelViewer; dispose it when the owner unmounts.
 ```
 
-`useTypography(fontPreset)` owns loading, retry and disposal for React consumers.
-`TypographyStatus` renders the corresponding loading or retry control. Switching
-fonts releases the previous resource and waits for a matching resource before drawing.
+React consumers load fonts through `TypographyProvider` and `useTypography(fontPreset)`:
+
+```tsx
+import { NovelViewer, TypographyProvider, useTypography } from "@sushichan044/kg-viewer";
+import { Suspense } from "react";
+
+function Preview({ composed }) {
+  const state = useTypography(composed.settings.appearance.fontPreset);
+  if (state.kind === "failed")
+    return (
+      <div role="alert">
+        <p>Font failed to load ({state.error.kind}).</p>
+        <button type="button" onClick={state.retry}>
+          Retry
+        </button>
+      </div>
+    );
+  return <NovelViewer composed={composed} typography={state.typography} />;
+}
+
+<TypographyProvider>
+  <Suspense fallback={<p role="status">Loading font…</p>}>
+    <Preview composed={composed} />
+  </Suspense>
+</TypographyProvider>;
+```
+
+The package ships no status components: the consumer renders the Suspense
+fallback and the failure UI from `state.error` and `state.retry`.
+
+`useTypography` suspends until the font is ready, then returns
+`{ kind: "ready", typography }` or `{ kind: "failed", error, retry }`. It throws
+when no `TypographyProvider` is above it. Place the provider above the Suspense
+boundary; a provider inside the boundary loses its cache each time it suspends.
+The provider caches every loaded preset and disposes all of them when it unmounts,
+including loads that finish later. A preset that was loaded before is returned
+without suspending, so changing the preset inside a transition (for example with
+`useDeferredValue`) keeps the previous preview on screen until the new font is ready.
+`retry` reloads a failed preset in a transition; after a `shaper-load` failure it
+reloads the page.
+
+Without a `typography` prop, `NovelViewer` suspends inside its own boundary and
+shows built-in Japanese messages: a loading message while the font loads and a
+retry control when it fails. It uses an enclosing `TypographyProvider` when one
+exists; otherwise it owns a cache that it replaces when the font preset changes.
 A supplied resource whose ID differs from the composition settings is rejected.
 
 The loader shares OpenType features and actual face weights between HarfBuzz

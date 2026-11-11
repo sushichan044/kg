@@ -60,6 +60,8 @@ type Fixtures = {
   fontRequest: { failure: boolean; gate: Promise<void> | null };
   browserEnvironment: undefined;
   renderApp: () => Promise<RenderResult>;
+  gateRequest: (pattern: string) => () => void;
+  watchLoadingText: (target: Node) => { readonly seen: boolean };
 };
 
 const test = base.extend<Fixtures>({
@@ -115,9 +117,42 @@ const test = base.extend<Fixtures>({
     await use(async () => {
       const router = createAppRouter();
       routers.push(router);
-      return render(<RouterProvider router={router} />);
+      return render(<RouterProvider router={router} useTransitions />);
     });
     for (const router of routers) router.dispose();
+  },
+  gateRequest: async ({}, use) => {
+    await use((pattern) => {
+      let resolve = () => {};
+      const promise = new Promise<void>((done) => {
+        resolve = done;
+      });
+      const forward = window.fetch;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+          const url = input instanceof Request ? input.url : input.toString();
+          if (url.includes(pattern)) await promise;
+          return forward(input, init);
+        }),
+      );
+      return () => {
+        resolve();
+      };
+    });
+  },
+  watchLoadingText: async ({}, use) => {
+    const observers: MutationObserver[] = [];
+    await use((target) => {
+      const watch = { seen: false };
+      const observer = new MutationObserver(() => {
+        if (target.textContent?.includes("書体を読み込んでいます…")) watch.seen = true;
+      });
+      observer.observe(target, { childList: true, subtree: true, characterData: true });
+      observers.push(observer);
+      return watch;
+    });
+    for (const observer of observers) observer.disconnect();
   },
 });
 
@@ -231,7 +266,6 @@ test("opens the file selected by the URL and preserves unrelated URL state", asy
   });
   expect(new URL(window.location.href).searchParams.get("file")).toBe("共有 原稿.txt");
   expect(new URL(window.location.href).searchParams.get("mode")).toBe("preview");
-  expect(window.location.hash).toBe("#preview");
 });
 
 test("updates the shared URL when another file is selected", async ({ renderApp }) => {
@@ -248,7 +282,7 @@ test("updates the shared URL when another file is selected", async ({ renderApp 
     expect(label.textContent).toBe("共有 原稿.txt");
   });
 
-  const fileListItem = screen.container.querySelector<HTMLButtonElement>(
+  const fileListItem = screen.container.querySelector<HTMLAnchorElement>(
     ".sidebar .file-list__item",
   );
   expect.assert(fileListItem !== null, "sidebar has no file list item");
@@ -259,7 +293,38 @@ test("updates the shared URL when another file is selected", async ({ renderApp 
     expect(new URL(window.location.href).searchParams.get("file")).toBe("testdata/novel.txt");
   });
   expect(new URL(window.location.href).searchParams.get("mode")).toBe("preview");
-  expect(window.location.hash).toBe("#preview");
+});
+
+test("moves the sidebar highlight on click and keeps the current preview until the file loads", async ({
+  renderApp,
+  gateRequest,
+}) => {
+  await page.viewport(1280, 800);
+  const release = gateRequest("/_/api/files/shared/content");
+  const screen = await renderApp();
+  const sidebar = screen.getByRole("complementary", { name: "ワークスペース" });
+  const novelLink = sidebar.getByRole("link", { name: "testdata/novel.txt", exact: true });
+  const sharedLink = sidebar.getByRole("link", { name: "共有 原稿.txt", exact: true });
+  const preview = screen.getByRole("main");
+  const exportButton = screen.getByRole("button", { name: "PNGをZIPで出力" }).first();
+  await expect.element(exportButton).toBeEnabled();
+
+  await sharedLink.click();
+
+  await expect.element(sharedLink).toHaveAttribute("aria-current", "page");
+  await expect.element(novelLink).not.toHaveAttribute("aria-current");
+  await expect.element(preview).toHaveAttribute("aria-busy", "true");
+  await expect.element(exportButton).toBeDisabled();
+  expect(screen.container.querySelector(".toolbar-label")).toHaveTextContent("testdata/novel.txt");
+  expect(screen.container.querySelector(".kgv-viewer")).not.toBeNull();
+
+  release();
+
+  await waitFor(() => {
+    expect(screen.container.querySelector(".toolbar-label")).toHaveTextContent("共有 原稿.txt");
+  });
+  await expect.element(preview).toHaveAttribute("aria-busy", "false");
+  await expect.element(exportButton).toBeEnabled();
 });
 
 test("normalizes an unknown URL file to the first available file", async ({ renderApp }) => {
@@ -372,10 +437,10 @@ test("shows a content failure instead of an empty manuscript and opens another f
   expect(screen.container.querySelector(".kgv-viewer")).toBeNull();
   const sidebar = screen.getByRole("complementary", { name: "ワークスペース" });
   await expect
-    .element(sidebar.getByRole("button", { name: "testdata/novel.txt", exact: true }))
+    .element(sidebar.getByRole("link", { name: "testdata/novel.txt", exact: true }))
     .toHaveAttribute("aria-current", "page");
 
-  await sidebar.getByRole("button", { name: "共有 原稿.txt", exact: true }).click();
+  await sidebar.getByRole("link", { name: "共有 原稿.txt", exact: true }).click();
 
   await waitFor(() => {
     const label = screen.container.querySelector(".toolbar-label");
@@ -438,17 +503,15 @@ test("selects the file switched to and refreshes the file list when its content 
   api.files = [...files, { id: "added", path: "追加.txt" }];
   api.failingContent.add("shared");
 
-  await sidebar.getByRole("button", { name: "共有 原稿.txt", exact: true }).click();
+  await sidebar.getByRole("link", { name: "共有 原稿.txt", exact: true }).click();
 
   await expect
     .element(screen.getByRole("main").getByText("本文を取得できませんでした", { exact: true }))
     .toBeVisible();
   await expect
-    .element(sidebar.getByRole("button", { name: "共有 原稿.txt", exact: true }))
+    .element(sidebar.getByRole("link", { name: "共有 原稿.txt", exact: true }))
     .toHaveAttribute("aria-current", "page");
-  await expect
-    .element(sidebar.getByRole("button", { name: "追加.txt", exact: true }))
-    .toBeVisible();
+  await expect.element(sidebar.getByRole("link", { name: "追加.txt", exact: true })).toBeVisible();
   expect(screen.container.querySelector(".kgv-viewer")).toBeNull();
 });
 
@@ -731,6 +794,31 @@ test("retries font loading after a failed request without showing a mismatched p
   });
 });
 
+test("restores the saved page after the font loads on retry", async ({
+  fontRequest,
+  novelSource,
+  renderApp,
+}) => {
+  novelSource.current = "あ".repeat(27 * 23 * 2 * 2 + 1);
+  sessionStorage.setItem("kg.app.page.v1:testdata/novel.txt", "1");
+  fontRequest.failure = true;
+  await page.viewport(1280, 800);
+  const screen = await renderApp();
+  await expect.element(screen.getByRole("button", { name: "再試行" })).toBeVisible();
+  fontRequest.failure = false;
+
+  await screen.getByRole("button", { name: "再試行" }).click();
+
+  await waitFor(() => {
+    const viewport = screen.container.querySelector(".kgv-viewport");
+    const target = screen.container.querySelectorAll(".kgv-page")[1];
+    expect.assert(viewport !== null, "viewer did not render");
+    expect.assert(target !== undefined, "second page did not render");
+    const offset = target.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
+    expect(Math.abs(offset)).toBeLessThan(2);
+  });
+});
+
 test("switches typography profiles without changing manuscript source", async ({
   novelSource,
   renderApp,
@@ -766,6 +854,71 @@ test("switches typography profiles without changing manuscript source", async ({
   expect(
     [...screen.container.querySelectorAll(".kgv-glyph")].map((glyph) => glyph.textContent),
   ).toEqual(["あ゙", "ん゙"]);
+});
+
+test("keeps the previous preview while another font loads", async ({
+  renderApp,
+  gateRequest,
+  watchLoadingText,
+}) => {
+  await page.viewport(1280, 800);
+  const screen = await renderApp();
+  await screen
+    .getByRole("complementary", { name: "ワークスペース" })
+    .getByText("用紙・組版・書体", { exact: true })
+    .first()
+    .click();
+  const preview = screen.getByRole("main");
+  const exportButton = screen.getByRole("button", { name: "PNGをZIPで出力" }).first();
+  await waitFor(() => {
+    expect(screen.container.querySelector('[data-typography="mincho"]')).not.toBeNull();
+  });
+  await expect.element(exportButton).toBeEnabled();
+  const release = gateRequest("GenEiKoburiMin6");
+  const loadingText = watchLoadingText(screen.container);
+
+  await screen.getByRole("combobox", { name: "書体" }).selectOptions("genei-koburi");
+
+  await expect.element(preview).toHaveAttribute("aria-busy", "true");
+  await expect.element(exportButton).toBeDisabled();
+  expect(screen.container.querySelector('[data-typography="mincho"]')).not.toBeNull();
+
+  release();
+
+  await waitFor(() => {
+    expect(screen.container.querySelector('[data-typography="genei-koburi"]')).not.toBeNull();
+  });
+  await expect.element(preview).toHaveAttribute("aria-busy", "false");
+  await expect.element(exportButton).toBeEnabled();
+  expect(loadingText.seen).toBe(false);
+});
+
+test("switches back to an already loaded font without showing the loading text", async ({
+  renderApp,
+  watchLoadingText,
+}) => {
+  await page.viewport(1280, 800);
+  const screen = await renderApp();
+  await screen
+    .getByRole("complementary", { name: "ワークスペース" })
+    .getByText("用紙・組版・書体", { exact: true })
+    .first()
+    .click();
+  await waitFor(() => {
+    expect(screen.container.querySelector('[data-typography="mincho"]')).not.toBeNull();
+  });
+  await screen.getByRole("combobox", { name: "書体" }).selectOptions("genei-koburi");
+  await waitFor(() => {
+    expect(screen.container.querySelector('[data-typography="genei-koburi"]')).not.toBeNull();
+  });
+  const loadingText = watchLoadingText(screen.container);
+
+  await screen.getByRole("combobox", { name: "書体" }).selectOptions("mincho");
+
+  await waitFor(() => {
+    expect(screen.container.querySelector('[data-typography="mincho"]')).not.toBeNull();
+  });
+  expect(loadingText.seen).toBe(false);
 });
 
 test("keeps settings available after font loading fails and recovers with Gothic", async ({
@@ -887,7 +1040,7 @@ test("switches files with Command K and Ctrl K and restores focus on Escape", as
     .toHaveTextContent("共有 原稿.txt");
   await userEvent.keyboard("{Enter}");
   await expect
-    .element(screen.getByRole("button", { name: "共有 原稿.txt", exact: true }))
+    .element(screen.getByRole("link", { name: "共有 原稿.txt", exact: true }))
     .toBeVisible();
   await expect
     .poll(() => new URL(window.location.href).searchParams.get("file"))
