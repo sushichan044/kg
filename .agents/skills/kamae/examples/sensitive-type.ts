@@ -1,8 +1,8 @@
 /**
  * A practical example of PII protection using the Sensitive type wrapper
  *
- * Encloses values in a closure and automatically masks them in JSON.stringify / console.log /
- * template literals. Integrates with Zod to auto-wrap at parse time.
+ * Encloses values in a closure and automatically masks them in
+ * JSON.stringify / console.log / template literals. Integrates with Zod to auto-wrap at parse time.
  */
 
 import { z } from "zod";
