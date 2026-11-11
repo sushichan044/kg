@@ -3,11 +3,14 @@ package server_test
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,6 +18,17 @@ import (
 
 	"github.com/sushichan044/kg/internal/server"
 )
+
+// testPort is the port handlers under test believe they listen on. Requests
+// built by newLocalRequest name it in Host, as a browser on kg's page would.
+const testPort = 7777
+
+func newLocalRequest(method, target string, body io.Reader) *http.Request {
+	req := httptest.NewRequest(method, target, body)
+	req.Host = net.JoinHostPort("127.0.0.1", strconv.Itoa(testPort))
+
+	return req
+}
 
 func discardLogger() *slog.Logger {
 	return slog.New(slog.DiscardHandler)
@@ -64,9 +78,9 @@ func TestHandler_FileContentReturnsRawText(t *testing.T) {
 	srv := newRunningServer(t, dir, dir)
 	id := server.FileID(filepath.Join(dir, "a.txt"))
 
-	req := httptest.NewRequest(http.MethodGet, "/_/api/files/"+id+"/content", nil)
+	req := newLocalRequest(http.MethodGet, "/_/api/files/"+id+"/content", nil)
 	rec := httptest.NewRecorder()
-	srv.Handler(dummySPA()).ServeHTTP(rec, req)
+	srv.Handler(dummySPA(), testPort).ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Equal(t, "こんにちは\n世界", rec.Body.String())
@@ -78,9 +92,9 @@ func TestHandler_FileContentUnknownIDReturns404(t *testing.T) {
 
 	srv := server.New(discardLogger())
 
-	req := httptest.NewRequest(http.MethodGet, "/_/api/files/deadbeef/content", nil)
+	req := newLocalRequest(http.MethodGet, "/_/api/files/deadbeef/content", nil)
 	rec := httptest.NewRecorder()
-	srv.Handler(dummySPA()).ServeHTTP(rec, req)
+	srv.Handler(dummySPA(), testPort).ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusNotFound, rec.Code)
 }
@@ -90,9 +104,9 @@ func TestHandler_UnknownRouteFallsBackToSPA(t *testing.T) {
 
 	srv := server.New(discardLogger())
 
-	req := httptest.NewRequest(http.MethodGet, "/some/client/route", nil)
+	req := newLocalRequest(http.MethodGet, "/some/client/route", nil)
 	rec := httptest.NewRecorder()
-	srv.Handler(dummySPA()).ServeHTTP(rec, req)
+	srv.Handler(dummySPA(), testPort).ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Equal(t, "spa", rec.Body.String())
@@ -156,9 +170,9 @@ func newRunningServer(t *testing.T, baseDir string, roots ...string) *server.Ser
 func getJSON(t *testing.T, srv *server.Server, path string) []byte {
 	t.Helper()
 
-	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req := newLocalRequest(http.MethodGet, path, nil)
 	rec := httptest.NewRecorder()
-	srv.Handler(dummySPA()).ServeHTTP(rec, req)
+	srv.Handler(dummySPA(), testPort).ServeHTTP(rec, req)
 	require.Equal(t, http.StatusOK, rec.Code)
 
 	return rec.Body.Bytes()

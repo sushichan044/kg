@@ -3,6 +3,7 @@ package server_test
 import (
 	"bufio"
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -24,7 +25,10 @@ func TestWatcher_EmitsEventsOnFilesystemChanges(t *testing.T) {
 	writeFile(t, target, "hi")
 
 	srv := newRunningServer(t, dir, dir)
-	ts := httptest.NewServer(srv.Handler(dummySPA()))
+	ts := httptest.NewUnstartedServer(nil)
+	port := ts.Listener.Addr().(*net.TCPAddr).Port
+	ts.Config.Handler = srv.Handler(dummySPA(), port)
+	ts.Start()
 	t.Cleanup(ts.Close)
 
 	events := subscribeSSE(t, ts.URL+"/_/events")
