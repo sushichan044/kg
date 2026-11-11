@@ -252,11 +252,13 @@
   text-transform: none;
 }
 
-.kgv-glyph-upright {
+.kgv-glyph-upright,
+.kgv-glyph[data-orientation="upright"] {
   text-orientation: upright;
 }
 
-.kgv-glyph-sideways {
+.kgv-glyph-sideways,
+.kgv-glyph[data-orientation="sideways"] {
   text-orientation: sideways;
 }
 

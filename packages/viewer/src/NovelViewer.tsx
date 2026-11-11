@@ -10,6 +10,7 @@ import type {
   NovelPage as ComposedNovelPage,
   PresentationKind,
 } from "@sushichan044/kg-core";
+import { GlyphOrientation } from "@sushichan044/kg-core/plugin";
 import {
   Suspense,
   use,
@@ -196,6 +197,7 @@ type RenderedCell = Readonly<{
   advanceEm: number;
   disposition: SingleGlyphUnit["disposition"];
   presentation: PresentationKind;
+  orientation: Exclude<PresentationKind, "mixed">;
   diagnostics: readonly ManuscriptDiagnostic[];
 }>;
 type EmphasisMark = Readonly<{
@@ -312,6 +314,12 @@ function lineDiagnostics(
         advanceEm: item.renderSpan.advanceEm,
         disposition: item.disposition,
         presentation: item.presentation,
+        // 測定器と同じ規則で向きを決める
+        // mixed のまま描かせると、引用符や半角カナの向きと幅がブラウザーごとに変わり、測った幅と合わなくなる
+        orientation:
+          item.presentation === "mixed"
+            ? GlyphOrientation.of(item.value, "mixed")
+            : item.presentation,
         diagnostics: [] as ManuscriptDiagnostic[],
       } satisfies RenderedCell;
       cells.push(cell);
@@ -582,11 +590,14 @@ function NovelPage({
                           {wrapAnnotations(
                             annotationsForRange(line, cell.range),
                             <span
-                              lang={cell.presentation === "sideways" ? "en" : "ja"}
+                              lang={cell.orientation === "sideways" ? "en" : "ja"}
                               className={joinClassNames(
                                 "kgv-glyph",
                                 presentationClass(cell.presentation),
                               )}
+                              data-orientation={
+                                cell.presentation === "mixed" ? cell.orientation : undefined
+                              }
                             >
                               {cell.value}
                             </span>,

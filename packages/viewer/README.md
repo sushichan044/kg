@@ -162,6 +162,7 @@ State is exposed through these attributes:
 | `data-offscreen`            | `.kgv-page`                        | present on later pages                          |
 | `data-disposition`          | `.kgv-cell`                        | `placed`, `hanging`                             |
 | `data-presentation`         | `.kgv-cell`                        | `mixed`, `upright`, `sideways`, `tate-chu-yoko` |
+| `data-orientation`          | `.kgv-glyph` in a `mixed` cell     | `upright`, `sideways`                           |
 | `data-diagnostic`           | `.kgv-cell`                        | present on diagnosed cells                      |
 | `data-side`                 | ruby characters and emphasis marks | `before`, `after`                               |
 | `data-annotation`           | annotation elements                | annotation kind                                 |

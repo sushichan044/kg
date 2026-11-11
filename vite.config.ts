@@ -107,6 +107,7 @@ export default defineConfig({
           "packages/viewer/src/automatic-typography.browser.test.tsx",
           "packages/viewer/src/use-typography.browser.test.tsx",
           "packages/viewer/src/measure.test.ts",
+          "packages/viewer/src/pinned-orientation.browser.test.tsx",
           "packages/viewer/font-proof/**/*.tsx",
         ],
         rules: {
