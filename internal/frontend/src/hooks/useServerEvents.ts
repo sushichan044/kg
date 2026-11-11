@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useEffectEvent } from "react";
 import * as v from "valibot";
 
 export type ServerEventHandlers = Readonly<{
@@ -31,10 +31,11 @@ function parseEvent<TSchema extends v.GenericSchema>(
 // サーバープロセスが入れ替わると（`started` イベントの PID が新しくなると）ページを再読み込みする。
 // これにより、バイナリーを再ビルドするとブラウザーが自動で更新される。
 export function useServerEvents(handlers: ServerEventHandlers): void {
-  const ref = useRef(handlers);
-
-  useEffect(() => {
-    ref.current = handlers;
+  const onCatalogChanged = useEffectEvent(() => {
+    handlers.onCatalogChanged();
+  });
+  const onFileChanged = useEffectEvent((id: string) => {
+    handlers.onFileChanged(id);
   });
 
   useEffect(() => {
@@ -54,12 +55,12 @@ export function useServerEvents(handlers: ServerEventHandlers): void {
     });
 
     source.addEventListener("update", () => {
-      ref.current.onCatalogChanged();
+      onCatalogChanged();
     });
 
     source.addEventListener("file-changed", (e) => {
       const changed = parseEvent(FileChangedEventSchema, e.data);
-      if (changed !== undefined) ref.current.onFileChanged(changed.id);
+      if (changed !== undefined) onFileChanged(changed.id);
     });
 
     return () => {

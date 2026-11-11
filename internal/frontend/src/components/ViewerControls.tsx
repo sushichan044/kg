@@ -130,11 +130,11 @@ export function ViewerToolbar({
           <strong className="toolbar-label" title={documentLabel}>
             {documentLabel}
           </strong>
-          {composed !== null && (
+          {composed !== null ? (
             <span className="toolbar-summary">
               {composed.layout.stats.chars}字・{composed.layout.stats.pages}ページ
             </span>
-          )}
+          ) : null}
         </div>
         <div className="toolbar-actions">
           <ZoomControls {...zoomProps} className={undefined} />
@@ -370,7 +370,7 @@ export function SettingsPanel({
               ))}
             </select>
           </label>
-          {!fixed && (
+          {!fixed ? (
             <label className="control">
               <span>文字サイズ（Q）</span>
               <input
@@ -389,7 +389,7 @@ export function SettingsPanel({
                 }}
               />
             </label>
-          )}
+          ) : null}
           <label className="select-control">
             <span>書体</span>
             <select
@@ -410,11 +410,11 @@ export function SettingsPanel({
               ))}
             </select>
           </label>
-          {draft !== null && (
+          {draft !== null ? (
             <p className="paper-warning" role="alert">
               用紙に収まりません。字数・行数・段数・文字サイズ・空き行を調整してください。
             </p>
-          )}
+          ) : null}
         </fieldset>
 
         <details className="settings-details">
@@ -448,11 +448,11 @@ export function SettingsPanel({
           </fieldset>
         </details>
       </details>
-      {status && (
+      {status ? (
         <p className="status" role="status">
           {status}
         </p>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -25,11 +25,11 @@ export function FilePanel({ files, selectedId, onSelect }: FilePanelProps) {
               }}
             >
               <span className="file-name">{file.path.split("/").at(-1)}</span>
-              {file.path.includes("/") && (
+              {file.path.includes("/") ? (
                 <span className="file-directory">
                   {file.path.slice(0, file.path.lastIndexOf("/"))}
                 </span>
-              )}
+              ) : null}
             </button>
           </li>
         ))}

@@ -1,6 +1,6 @@
 import { Dialog } from "@base-ui/react/dialog";
 import { Command } from "cmdk";
-import { useEffect } from "react";
+import { useEffect, useEffectEvent } from "react";
 
 import { Modal } from "./Modal";
 import type { FilePanelProps } from "./Sidebar";
@@ -18,6 +18,10 @@ export function FileSwitcher({
   open,
   onOpenChange,
 }: FileSwitcherProps) {
+  const toggle = useEffectEvent(() => {
+    onOpenChange(!open);
+  });
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
@@ -29,17 +33,17 @@ export function FileSwitcher({
       )
         return;
       event.preventDefault();
-      onOpenChange(!open);
+      toggle();
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open, onOpenChange]);
+  }, []);
 
   return (
     <Modal open={open} onOpenChange={onOpenChange} title="ファイルを開く" className="file-switcher">
-      {open && (
+      {open ? (
         <Command label="ファイル名を検索" loop>
           <Command.Input placeholder="ファイル名を検索…" aria-label="ファイル名を検索" />
           <Command.List label="ファイルの候補">
@@ -54,7 +58,7 @@ export function FileSwitcher({
                 }}
               >
                 <span>{file.path}</span>
-                {file.id === selectedId && <span className="file-current">表示中</span>}
+                {file.id === selectedId ? <span className="file-current">表示中</span> : null}
               </Command.Item>
             ))}
           </Command.List>
@@ -64,7 +68,7 @@ export function FileSwitcher({
             <Dialog.Close>閉じる Esc</Dialog.Close>
           </div>
         </Command>
-      )}
+      ) : null}
     </Modal>
   );
 }
