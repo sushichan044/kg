@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.0](https://github.com/sushichan044/kg/compare/kg-core-v0.12.2...kg-core-v0.13.0) (2026-11-11)
+
+
+### Bug Fixes
+
+* **core:** detect halfwidth punctuation beside astral kanji ([401d92c](https://github.com/sushichan044/kg/commit/401d92c53516479ce151bcbdfc2d9beefd76266b))
+* harden the local server and clean up audit findings ([a36c90e](https://github.com/sushichan044/kg/commit/a36c90e8bdffb42f95262a0c290497daab58451d))
+
 ## [0.12.2](https://github.com/sushichan044/kg/compare/kg-core-v0.12.1...kg-core-v0.12.2) (2026-11-03)
 
 
