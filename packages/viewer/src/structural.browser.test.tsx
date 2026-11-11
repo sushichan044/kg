@@ -16,9 +16,11 @@ import { NovelViewer } from "./NovelViewer";
 import "./structural.css";
 
 /**
- * Rules a plain-CSS application is likely to ship, written the way such applications write them:
- * bare element selectors and a universal reset, loaded after the viewer's own stylesheet. The grid
- * has to survive exactly this in the host document.
+ * 素の CSS で書かれたアプリケーションが出荷しがちな規則を、
+ * そうしたアプリケーションの書き方のまま並べたもの。
+ * 要素セレクターだけの規則と全称セレクターのリセットを、
+ * ビューアー自身のスタイルシートより後に読み込む。
+ * グリッドは、ホスト文書でのこうした規則に耐えなければならない。
  */
 const hostStyles = `
   *,
@@ -139,7 +141,7 @@ test("rules the nominal em pitch behind positioned text", async () => {
   pitchProbe.remove();
 
   expect(rules.length).toBeGreaterThanOrEqual(cells.length);
-  // Cell and rule indexes diverge once the half-width digits begin.
+  // 半角の数字が始まると、こまの添字と罫の添字がずれる。
   for (const [index, cell] of cells.slice(0, 2).entries()) {
     const rule = rules[index];
     expect.assert(rule !== undefined, `line has no rule at index ${index}`);

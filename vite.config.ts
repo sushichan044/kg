@@ -18,6 +18,7 @@ export default defineConfig({
     ],
     jsdoc: {
       commentLineStrategy: "multiline",
+      lineWrappingStyle: "balance",
     },
     sortImports: true,
   },

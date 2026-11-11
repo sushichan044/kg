@@ -8,7 +8,7 @@ const TextRangeSchema = v.pipe(
 );
 
 /**
- * A half-open `[start, end)` interval. The unit is fixed by whichever branded range wraps it.
+ * 半開区間 `[start, end)`。単位は、これを包むブランド付きの範囲型によって決まる。
  */
 export type TextRange = v.InferOutput<typeof TextRangeSchema>;
 

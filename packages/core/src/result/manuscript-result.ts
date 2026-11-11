@@ -4,11 +4,11 @@ import { ManuscriptDiagnostic } from "../diagnostic/manuscript-diagnostic";
 import { readonlyArray, readonlyObject } from "../internal/schema";
 
 /**
- * The outcome of one pipeline stage. Success carries warnings the stage recovered from; failure
- * carries exactly one error so callers can `switch` on its `kind` exhaustively.
+ * パイプラインの 1 ステージの結果。成功時は、ステージが回復した警告を持つ。
+ * 失敗時はエラーをちょうど 1 つ持つので、呼び出し側は `kind` で網羅的に `switch` できる。
  *
- * `ok` rather than a `kind` discriminant: this is a Result, and every Result library in the
- * ecosystem spells the success flag this way.
+ * `kind` の判別子ではなく `ok` を使う。これは Result 型であり、
+ * エコシステムのどの Result ライブラリも成功フラグをこの綴りにしているためである。
  */
 export type ManuscriptResult<TValue, TError> =
   | Readonly<{ ok: true; value: TValue; warnings: readonly ManuscriptDiagnostic[] }>
@@ -23,7 +23,7 @@ export const ManuscriptResult = {
   fail: <TError>(error: TError): ManuscriptResult<never, TError> => ({ ok: false, error }),
 
   /**
-   * Validates a result that crossed a plugin boundary, including the diagnostics it carries.
+   * プラグインの境界を越えた結果を、それが持つ診断も含めて検証する。
    */
   schema: <TValue, TError>(
     value: v.GenericSchema<unknown, TValue>,

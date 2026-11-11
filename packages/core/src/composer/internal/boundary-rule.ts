@@ -49,8 +49,9 @@ export const BoundaryRule = {
     profile: JapaneseTypesettingProfile,
     context: BoundaryContext,
   ): BoundaryRule => {
-    // Runs and shared group/jukugo complexes own their interior spacing, even
-    // when a legal break splits the complex. Kinsoku alone does not suppress spacing.
+    // ランや、グループルビ・熟語ルビで共有するまとまりは、
+    // 許される分割位置でまとまりが分かれる場合でも、内部の字間を自分で持つ。
+    // 禁則だけでは字間を抑止しない。
     const spacingAllowed =
       !context.runInterior && !context.rubySpacingInterior && !context.sourceGap;
     return {

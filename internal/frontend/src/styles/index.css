@@ -526,7 +526,7 @@ select {
   }
 }
 
-/* Keep the manuscript canvas distinct from the controls without tinting the paper. */
+/* 紙面に色を付けずに、原稿のキャンバスをコントロールと見分けられるようにする。 */
 .preview > .kgv-viewer {
   --kgv-surface: #f2f3f4;
   --kgv-padding: 1.5rem;

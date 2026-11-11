@@ -138,9 +138,9 @@ test("gives upright Latin initials a full-width vertical advance", async ({ rend
 
     expect(cellBounds.height).toBeCloseTo(japaneseBounds.height, 1);
     expect(Number.parseFloat(getComputedStyle(glyph).fontSize)).toBeCloseTo(cellBounds.height, 1);
-    // A font's ascent+descent can exceed its own em-square by a few px, and how much
-    // varies by the actual font a platform substitutes, so the glyph box is allowed to
-    // spill slightly past the cell rather than sit flush inside it.
+    // フォントのアセントとディセントの合計は、そのフォント自身の全角の枠を数 px 超えることがあり、
+    // 超える量はプラットフォームが代替する実際のフォントによって変わる。
+    // そのため、グリフのボックスはこまにぴったり収まらず、少しはみ出してもよいことにする。
     expect(glyphBounds.top).toBeGreaterThanOrEqual(cellBounds.top - 3);
     expect(glyphBounds.bottom).toBeLessThanOrEqual(cellBounds.bottom + 3);
   }
@@ -173,7 +173,7 @@ for (const fontPreset of ["mincho", "gothic"] as const) {
       const closingBounds = closing.getBoundingClientRect();
       expect(punctuationBounds.height).toBeCloseTo(japanese.getBoundingClientRect().height, 1);
       expect(closingBounds.top).toBeCloseTo(punctuationBounds.bottom, 1);
-      // Font metrics can extend beyond the em square even when the cell reserves the correct width.
+      // こまが正しい幅を確保していても、フォントメトリクスは全角の枠を超えることがある。
       expect(glyph.getBoundingClientRect().bottom).toBeLessThanOrEqual(closingBounds.top + 3);
     }
   });
@@ -666,7 +666,7 @@ test("marks every emphasised character beside its line", async ({ renderViewer }
 
   const lineBounds = line.getBoundingClientRect();
 
-  // One mark per marked character, each in the gap beside the cell it belongs to.
+  // 圏点を付けた文字 1 字につき圏点が 1 つあり、それぞれが対応するこまの脇の隙間に収まる。
   for (const [index, mark] of marks.entries()) {
     const marked = cells[index + 1];
     expect.assert(marked !== undefined, "viewer has no cell for this mark");
@@ -692,8 +692,9 @@ test("places an emphasised character where an unmarked one sits", async ({ rende
   const [plain, marked] = cells;
   expect.assert(plain !== undefined && marked !== undefined);
 
-  // The room text-emphasis reserves for the mark belongs to the glyph box, so a box that has moved
-  // still measures as if it had not. Measure the ink the reader sees instead.
+  // text-emphasis が圏点のために確保する空きはグリフのボックスに含まれる。
+  // そのため、ボックスが動いていても、測定値は動いていないときと同じになる。
+  // 代わりに、読み手に見える字面を測る。
   const inkOf = (cell: HTMLElement) => {
     const glyph = cell.querySelector<HTMLElement>(".kgv-glyph");
     expect.assert(glyph !== null, "cell has no glyph");
@@ -769,8 +770,8 @@ test("keeps partially overlapping diagnostics selectable in separate lanes", asy
 test("keeps a split diagnostic as one control with continuation bands", async ({
   renderViewer,
 }) => {
-  // Eight kana, the quarter em JLReq puts between kana and a numeral, and one more numeral fill the
-  // ten em line, so the numeral run — and the diagnostic over it — carries on to the next line.
+  // 仮名 8 字、JLReq が仮名と数字の間に入れる四分、数字 1 字で全角 10 字分の行が埋まる。
+  // そのため、数字の連なりと、その上の診断は次の行へ続く。
   const { diagnostics, screen } = await renderViewer({
     text: `${"あ".repeat(8)}２０２６`,
     flow,
@@ -793,9 +794,9 @@ test("keeps a split diagnostic as one control with continuation bands", async ({
 test("bands a diagnostic that falls on a space the composer sets as an アキ", async ({
   renderViewer,
 }) => {
-  // A half-width space after a `！` is the wrong space, and the diagnostic covers the space itself.
-  // JLReq sets a 欧文間隔 as an アキ, so it leaves the composer as glue rather than as a glyph — the band
-  // has to reach it there or the reader is told nothing.
+  // `！` の後ろの半角スペースは誤ったスペースであり、診断はそのスペース自体を覆う。
+  // JLReq は欧文間隔をアキとして組むので、コンポーザーからはグリフではなくグルーとして出てくる。
+  // 帯がそこまで届かなければ、読み手には何も伝わらない。
   const { diagnostics, screen } = await renderViewer({ text: "あ！ い", flow });
   const diagnostic = diagnostics.find(
     ({ origin }) => origin.id === "kg/space-after-question-or-exclamation",

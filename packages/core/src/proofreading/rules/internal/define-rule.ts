@@ -8,12 +8,12 @@ import { displayRange } from "./rule-range";
 const DEFAULT_MESSAGE_ID = "default";
 
 /**
- * What a single-message rule may vary per finding, beyond the range it reports.
+ * 単一メッセージのルールが、報告する範囲のほかに、指摘ごとに変えられるもの。
  */
 export type ReportOptions = Pick<ProofreadingReport, "data" | "severity">;
 
 /**
- * Builds a single-message rule; the body reports ranges and the wrapper names the message.
+ * 単一メッセージのルールを作る。本体が範囲を報告し、ラッパーがメッセージを名付ける。
  */
 export function defineParsedRule(
   id: string,
@@ -39,14 +39,14 @@ export type MatchRuleOptions = Readonly<{
   pattern: RegExp;
   message: string;
   /**
-   * Narrows a syntactic match to an actual violation, for rules that count what they matched.
+   * 構文上の一致を、実際の違反に絞り込む。一致したものを数えるルール向け。
    */
   accept?: (match: RegExpExecArray) => boolean;
 }>;
 
 /**
- * Builds a rule that scans each display line with a sticky pattern. Matching per line rather than
- * across the whole text keeps findings from spanning a line break.
+ * 各表示行をスティッキーパターンで走査するルールを作る。
+ * テキスト全体ではなく行ごとに照合することで、指摘が改行をまたがなくなる。
  */
 export function defineMatchRule(options: MatchRuleOptions): ParsedProofreadingRule {
   return defineParsedRule(options.id, options.message, (manuscript, report) => {

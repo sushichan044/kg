@@ -17,8 +17,8 @@ export type BookStyle = Readonly<{
   annotation: AnnotationStyle;
 }>;
 
-// kg reduces invisible line-end space before Western word spaces. This order is a product
-// choice; JLReq 3.8.3 puts word-space reduction first.
+// kg は、欧文間隔より先に行末の見えないアキを詰める。この順序は製品としての選択で、
+// JLReq 3.8.3 は欧文間隔を詰めることを最初に置いている。
 const shrink = {
   "line-end": { stage: 0, costPerEm: 0 },
   "word-space": { stage: 1, costPerEm: 1 },
@@ -38,7 +38,7 @@ const stretch = {
 
 export const defaultBookStyle: BookStyle = {
   adjustment: (direction, category) => (direction === "shrink" ? shrink : stretch)[category],
-  // JLReq 3.1.5 scheme ③: half-em at paragraph start and flush at a turned-over head.
+  // JLReq 3.1.5 の③。改行行頭は二分アキ、折返し行頭は天付きにする。
   lineStartSpacing: (first, head) =>
     first === "cl-01" && head === "paragraph-start" ? { kind: "glue", naturalWidthEm: 0.5 } : null,
   finalStretchCostPerEm: 4,

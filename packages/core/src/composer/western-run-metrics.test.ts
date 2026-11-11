@@ -15,7 +15,7 @@ function present<T>(value: T | undefined): T {
 }
 
 /**
- * Nonuniform advances expose source-position errors when a measured run is split.
+ * 送り幅が一様でないと、測定済みのランを分割したときのソース位置の誤りが表に出る。
  */
 function metricsProvider(advanceEm = 2.4, requests: string[] = []): RunMeasurer {
   const spans = [
@@ -47,7 +47,7 @@ function metricsProvider(advanceEm = 2.4, requests: string[] = []): RunMeasurer 
 }
 
 /**
- * Direct annotations isolate placement regressions from notation parsing.
+ * 注釈を直接与えて、配置の不具合を記法のパースから切り離す。
  */
 function compose(text: string, measurer: RunMeasurer, partialAnnotation?: "bold" | "ruby") {
   const parsed = parseManuscript(text);

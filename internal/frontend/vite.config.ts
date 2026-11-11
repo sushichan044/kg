@@ -5,9 +5,9 @@ import { playwright } from "vite-plus/test/browser-playwright";
 
 import { mockFrontend } from "./mock/vite-plugin";
 
-// The Go server owns the port; during frontend development Vite proxies the API
-// and SSE stream (everything under /_/) to it. Vite must not watch paths outside
-// this frontend root.
+// ポートは Go サーバーが持つ。フロントエンドの開発中、
+// Vite は API と SSE ストリーム（/_/ 以下のすべて）をそのサーバーへプロキシする。
+// Vite はこのフロントエンドのルートの外側にあるパスを監視してはならない。
 const GO_SERVER = "http://localhost:6280";
 
 const iconPlugin = () =>
@@ -91,7 +91,7 @@ export default defineConfig(({ mode }) => ({
 
   plugins: [react({ compiler: true }), iconPlugin(), mode === "mock" && mockFrontend()],
   build: {
-    // Build straight into the Go embed.FS source directory.
+    // Go の embed.FS の元になるディレクトリへ直接ビルドする。
     outDir: "../static/dist",
     emptyOutDir: true,
   },

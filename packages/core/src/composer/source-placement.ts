@@ -18,7 +18,7 @@ const SourcePlacementSchema = v.variant("kind", [
 ]);
 
 /**
- * Logical source positions; shared positions never imply interior caret locations.
+ * 論理上のソース位置。共有された位置は、その内側にキャレットを置ける位置があることを意味しない。
  */
 export type SourcePlacement = v.InferOutput<typeof SourcePlacementSchema>;
 

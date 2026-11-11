@@ -100,8 +100,9 @@ export type ProcessedManuscript = Readonly<{
 }>;
 
 /**
- * Which stage failed, wrapping that stage's own error. Tagging by stage keeps the three error
- * unions distinguishable, which a flat union of them would not.
+ * どの段階が失敗したかを示し、その段階自身のエラーを包む。
+ * 段階でタグ付けすると 3 つのエラーユニオンを区別できる。
+ * 3 つを単純にまとめたユニオンでは区別できない。
  */
 export type ProcessManuscriptError =
   | Readonly<{ stage: "parse"; error: ParseError }>

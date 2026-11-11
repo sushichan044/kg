@@ -2,9 +2,9 @@ import type { ParsedProofreadingRule } from "../proofreading-rule";
 import { defineMixedWidthRule } from "./internal/mixed-width";
 
 /**
- * Halfwidth and fullwidth digits (半角数字 and 全角数字) in one work. A fullwidth digit stands upright on
- * its own em; a halfwidth pair sets as 縦中横 inside one. Mixing them is 表記ゆれ, but which one a work
- * uses is its own choice, hence a warning.
+ * 同一の作品の中の半角数字と全角数字。全角数字は自分の全角の枠に正立し、
+ * 半角数字の二桁は縦中横としてその枠の中に組まれる。両者の混在は表記ゆれだが、
+ * どちらを使うかは作品ごとの選択であるため、警告とする。
  */
 export const consistentNumeralWidthRule = (): ParsedProofreadingRule =>
   defineMixedWidthRule({

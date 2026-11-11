@@ -121,7 +121,7 @@ describe("proofreadManuscript", () => {
       kind: "parsed",
       meta: { id: "example/broken-report", messages: { broken: "broken" } },
       check: (_manuscript, context) => {
-        // A JavaScript rule can report anything; the report schema is what stops it.
+        // JavaScript のルールは何でも報告できる。それを止めるのはレポートのスキーマである。
         context.report({ range: null, messageId: "broken" } as unknown as never);
       },
     } as const satisfies ParsedProofreadingRule;

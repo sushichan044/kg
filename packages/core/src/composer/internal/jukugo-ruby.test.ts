@@ -58,7 +58,7 @@ describe("appendix F jukugo distribution", () => {
   });
 
   test("uses physical width rather than the number of provider clusters", () => {
-    // These widths can each be reported as a single cluster by a provider.
+    // これらの幅は、それぞれプロバイダが一つのクラスタとして報告することがある。
     const result = JukugoRuby.resolve(readings([1.25, 1.75]), { head: false, tail: false });
 
     expect.assert(result.kind === "needs-spacing");

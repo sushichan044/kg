@@ -3,7 +3,7 @@ import * as v from "valibot";
 const PresentationKindSchema = v.picklist(["mixed", "upright", "sideways", "tate-chu-yoko"]);
 
 /**
- * Vertical orientation, independent of source membership and shaping clusters.
+ * 縦組での文字の向き。ソース上の所属やシェーピングのクラスタとは独立している。
  */
 export type PresentationKind = v.InferOutput<typeof PresentationKindSchema>;
 

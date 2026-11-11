@@ -3,7 +3,7 @@ import * as v from "valibot";
 import { TextRange } from "./text-range";
 
 /**
- * UTF-16 offsets into the display text, from which service-specific notation has been removed.
+ * 表示用テキストへの UTF-16 オフセット。サービス固有の記法を取り除いた後のテキストである。
  */
 const DisplayRangeSchema = v.pipe(TextRange.schema, v.brand("DisplayRange"));
 

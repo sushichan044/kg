@@ -19,7 +19,7 @@ export function prepareTextForFont(text: string, fontPreset: FontPresetId): stri
 }
 
 /**
- * Prepare display text after parsing; source and UTF-16 offsets remain unchanged.
+ * パースの後に表示用テキストを準備する。ソースと UTF-16 オフセットは変わらない。
  */
 export function prepareManuscriptForFont(
   parsed: ParsedManuscript,

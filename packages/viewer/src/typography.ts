@@ -50,7 +50,7 @@ export type TypographyOptions = Readonly<{
 }>;
 
 /**
- * Load every declared face before exposing a synchronous, matching composer.
+ * 宣言されたフェイスをすべて読み込んでから、それに対応する同期的なコンポーザーを公開する。
  */
 export async function loadTypography({
   fontPreset,
@@ -208,7 +208,8 @@ export async function loadTypography({
     } else if (request.kind === "base" && request.presentation === "tate-chu-yoko") {
       result = {
         kind: "advance",
-        advanceEm: [...segmenter.segment(request.text)].length * 0.5 * request.scale,
+        // text-combine-upright は、長さにかかわらず連なり全体を全角 1 字分に収めて描く。
+        advanceEm: request.scale,
       };
     } else {
       result = { kind: "advance", advanceEm: nativeAdvance(request, probe) };

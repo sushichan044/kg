@@ -9,7 +9,7 @@ const ParsedGraphemeSchema = readonlyObject({
 });
 
 /**
- * One user-perceived character of display text, mapped back to where it came from.
+ * 表示用テキストのうち、利用者が 1 文字と知覚する単位。どこに由来するかへの対応付けを持つ。
  */
 export type ParsedGrapheme = v.InferOutput<typeof ParsedGraphemeSchema>;
 

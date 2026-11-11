@@ -3,7 +3,7 @@ import { createManuscriptDraft } from "./internal/manuscript-draft";
 import type { ManuscriptParser } from "./manuscript-parser";
 
 /**
- * Treats the source verbatim: no notation, no annotations, display text equals source.
+ * ソースをそのまま扱う。記法も注釈もなく、表示用テキストはソースと等しい。
  */
 export const plainTextParser: ManuscriptParser = {
   id: "kg/plain-text",

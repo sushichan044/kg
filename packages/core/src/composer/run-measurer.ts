@@ -22,7 +22,8 @@ function graphemeWidth(grapheme: string): number {
 }
 
 /**
- * Deterministic DOM-independent metrics. Aggregate width does not imply a shared cluster.
+ * DOM に依存しない決定的な測定値。幅をまとめて持っていても、
+ * 一つのクラスタを共有しているとは限らない。
  */
 export const logicalRunMeasurer: RunMeasurer = (request) => {
   const segments = [...graphemeSegmenter.segment(request.text)];

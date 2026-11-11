@@ -13,11 +13,11 @@ import { spaceAfterQuestionOrExclamationRule } from "./space-after-question-or-e
 import { variantCharacterRule } from "./variant-character";
 
 /**
- * The built-in rule set at its default configuration. Infallible by construction: every rule is
- * built from constants, so there is no options error for a caller to handle.
+ * 既定の構成での組み込みルール一式。構成上、失敗しない。すべてのルールが定数から作られるので、
+ * 呼び出し側が扱うべきオプションのエラーは存在しない。
  *
- * Rules whose answer depends on the work's own conventions — which width numerals take, whether a
- * word is written in kanji or kana — are exported individually instead of included here.
+ * 答えが作品固有の慣習に依存するルール（数字がどの幅を取るか、語を漢字で書くかかなで書くか）は、
+ * ここに含めず個別にエクスポートする。
  */
 export function createDefaultProofreadingRules(): readonly ParsedProofreadingRule[] {
   return [

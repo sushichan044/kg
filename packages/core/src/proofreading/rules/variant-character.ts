@@ -4,7 +4,7 @@ import { defineParsedRule } from "./internal/define-rule";
 import { sourceRange } from "./internal/rule-range";
 
 /**
- * Mongolian free variation selectors, variation selectors, CJK compatibility ideographs, IVSes.
+ * モンゴル語の自由字形選択子、字形選択子、CJK 互換漢字、IVS。
  */
 function isVariantCharacter(character: string): boolean {
   const codePoint = character.codePointAt(0);
@@ -21,11 +21,11 @@ function isVariantCharacter(character: string): boolean {
 }
 
 /**
- * Variant forms of a character (異体字) and the selectors that request them (字形選択子 / IVS). Whether
- * such a form survives depends on the font and the platform, so a manuscript that relies on one
- * will not read the same everywhere it is published.
+ * 文字の異体字と、それを要求するセレクター（字形選択子 / IVS）。
+ * 異体字が残るかどうかはフォントとプラットフォームに依存する。そのため、異体字に頼った原稿は、
+ * 公開先によって同じようには読めない。
  *
- * Scans the source rather than the display text: notation removal must not hide a variant.
+ * 表示用テキストではなくソースを走査する。記法の除去によって異体字が隠れてはならないからである。
  */
 export const variantCharacterRule = (): ParsedProofreadingRule =>
   defineParsedRule(

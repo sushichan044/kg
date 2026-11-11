@@ -376,7 +376,7 @@ describe("public render units", () => {
   });
 
   test("emits one positioned emphasis mark for a combined unit", () => {
-    // pixiv emphasis can be supplied semantically without changing plain source identity.
+    // pixiv 形式の圏点は、プレーンなソースの同一性を変えずに、意味として与えられる。
     const parsed = parseManuscript("12");
     expect.assert(parsed.ok);
     const range = parsed.value.graphemes[0]?.range;

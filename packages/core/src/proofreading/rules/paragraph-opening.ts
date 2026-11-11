@@ -23,12 +23,12 @@ const OpeningBracketsSchema = v.pipe(v.string(), v.nonEmpty());
 export type ParagraphOpeningOptions = Readonly<{ openingBrackets?: string }>;
 
 /**
- * Paragraph indentation (字下げ, JLReq 3.5.1). Japanese prose opens a paragraph with exactly one
- * ideographic space (和字間隔), and a paragraph opening with a bracket (始め括弧類) carries none, because
- * the bracket is already set on a half em and reads as the indent itself.
+ * 段落の字下げ（JLReq 3.5.1）。日本語の文章は、段落を全角空白（和字間隔）ちょうど 1 つで始める。
+ * 始め括弧類で始まる段落には字下げをしない。括弧がすでに二分で組まれており、
+ * それ自体が字下げのように読めるからである。
  *
- * The three findings are branches of that one decision rather than separate rules, so a line can
- * never collect two of them at once.
+ * 3 つの指摘は、別々のルールではなく 1 つの判断の分岐である。
+ * そのため、1 行が 2 つの指摘を同時に受けることはない。
  */
 function build(openingBrackets: string): ParsedProofreadingRule {
   return {
@@ -43,14 +43,14 @@ function build(openingBrackets: string): ParsedProofreadingRule {
         if (isDecorationLine(line.text)) continue;
 
         const indent = leadingSpaces(line.text);
-        // An empty line, or one holding nothing but spaces, opens no paragraph.
+        // 空行、または空白だけの行は、段落を始めない。
         const opening = line.text[indent.length];
         if (opening === undefined) continue;
 
         if (openingBrackets.includes(opening)) {
           if (indent !== "") report(line.start, line.start + indent.length, "unexpected-indent");
         } else if (!line.text.startsWith(IDEOGRAPHIC_SPACE)) {
-          // A leading astral character occupies two UTF-16 code units.
+          // 行頭の BMP 外の文字は、UTF-16 のコード単位を 2 つ占める。
           const length = (line.text.codePointAt(0) ?? 0) > 0xffff ? 2 : 1;
           report(line.start, line.start + length, "leading-character");
         } else if (indent.length !== 1) {

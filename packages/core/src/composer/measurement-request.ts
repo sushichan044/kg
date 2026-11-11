@@ -29,7 +29,7 @@ const MeasurementRequestSchema = v.variant("kind", [
 ]);
 
 /**
- * Synchronous measurement in body em; the provider applies scale exactly once.
+ * 本文の全角を単位とする同期的な測定。倍率はプロバイダがちょうど1回だけ適用する。
  */
 export type MeasurementRequest = v.InferOutput<typeof MeasurementRequestSchema>;
 

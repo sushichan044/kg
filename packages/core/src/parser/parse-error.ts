@@ -4,7 +4,7 @@ import type { NamespacedId } from "../namespaced-id";
 import type { ValidationIssue } from "../result/validation-issue";
 
 /**
- * Everything that can go wrong while turning source text into a {@link ParsedManuscript}.
+ * ソーステキストを {@link ParsedManuscript} に変換する間に起こりうるすべての失敗。
  */
 export type ParseError =
   | Readonly<{ kind: "InvalidParserId"; parserId: string }>
@@ -18,7 +18,7 @@ export type ParseError =
 
 export const ParseError = {
   /**
-   * Human-readable rendering. Branch on `kind` instead when the caller needs to react.
+   * 人が読める形の文字列。呼び出し側が処理を分けたい場合は、代わりに `kind` で分岐する。
    */
   describe: (error: ParseError): string => {
     switch (error.kind) {

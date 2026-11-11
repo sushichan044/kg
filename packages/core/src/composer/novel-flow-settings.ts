@@ -19,12 +19,11 @@ const NovelFlowSettingsSchema = readonlyObject({
 });
 
 /**
- * The text grid of one page, in the terms a Japanese book is specified in: `lineLengthEm` is the
- * characters per line (字詰め), `linesPerStage` the lines in one block of text (行数), and
- * `stagesPerPage` how many such blocks a page is divided into (段組).
+ * 1ページ分の版面のグリッドを、日本の書籍の仕様と同じ言い方で表す。`lineLengthEm` は1行の字詰め、
+ * `linesPerStage` は1段の行数、`stagesPerPage` はページを何段に分けるか（段組）を表す。
  *
- * These are counts of em cells, not physical lengths. `ManuscriptGeometry` turns them into
- * millimetres once a paper size and a font size are known.
+ * これらは全角を単位とする数であり、物理的な長さではない。用紙サイズと文字サイズが決まると、
+ * `ManuscriptGeometry` がミリメートルに換算する。
  */
 export type NovelFlowSettings = v.InferOutput<typeof NovelFlowSettingsSchema>;
 

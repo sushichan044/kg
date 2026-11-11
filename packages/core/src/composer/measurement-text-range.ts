@@ -5,7 +5,7 @@ import { TextRange } from "../range/text-range";
 const MeasurementTextRangeSchema = v.pipe(TextRange.schema, v.brand("MeasurementTextRange"));
 
 /**
- * Request-local, end-exclusive UTF-16 offsets, never manuscript offsets.
+ * リクエスト内でだけ有効な、終端を含まない UTF-16 オフセット。原稿上のオフセットではない。
  */
 export type MeasurementTextRange = v.InferOutput<typeof MeasurementTextRangeSchema>;
 

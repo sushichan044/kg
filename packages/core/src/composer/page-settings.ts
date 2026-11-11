@@ -23,8 +23,8 @@ export const ManuscriptPageSettings = {
   defaults: A5_PAGE_FORMAT.page,
 
   /**
-   * Centre a text grid for paper sizes without a fixed format (not A5 or A6) using half-cell line
-   * gaps and two-cell stage gaps.
+   * 決まった判型を持たない用紙サイズ（A5 判でも A6 判でもないもの）で、行間を二分、
+   * 段間を全角2字分として、版面のグリッドを中央に置く。
    */
   centered: (
     flow: NovelFlowSettings,

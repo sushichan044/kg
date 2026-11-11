@@ -150,8 +150,8 @@ test("opens diagnostics over the manuscript without resizing the preview", async
   expect(screen.container.querySelector("iframe")).toBeNull();
 });
 
-// The mobile toolbar only becomes visible below the 52rem (832px) breakpoint;
-// a narrower viewport is required so the click lands on a real, on-screen control.
+// モバイル用ツールバーは、52rem（832px）のブレークポイントを下回ったときだけ表示される。
+// クリックが画面上に実在するコントロールに当たるよう、これより狭いビューポートが要る。
 test("opens compact file, settings, and diagnostics sheets", async () => {
   await page.viewport(600, 900);
   const screen = await render(<App />);

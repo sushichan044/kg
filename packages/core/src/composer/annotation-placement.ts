@@ -11,7 +11,7 @@ const AnnotationPlacementSchema = readonlyObject({
 });
 
 /**
- * Block offsets start at the body's right edge and increase leftward in vertical-rl.
+ * 行送り方向のオフセットは本文の右端を起点とし、vertical-rl では左へ進むほど大きくなる。
  */
 export type AnnotationPlacement = v.InferOutput<typeof AnnotationPlacementSchema>;
 

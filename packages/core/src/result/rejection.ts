@@ -5,8 +5,9 @@ import { readonlyObject } from "../internal/schema";
 const RejectionSchema = readonlyObject({ reason: v.string() });
 
 /**
- * How a plugin reports that it declined to produce a result. Core turns it into a typed variant of
- * the stage's own error union, so plugins never have to construct core's error types.
+ * プラグインが結果の生成を断ったことを報告する方法。core はこれを、
+ * そのステージ自身のエラー共用体の型付きバリアントに変換する。
+ * そのため、プラグインが core のエラー型を組み立てる必要はない。
  */
 export type Rejection = v.InferOutput<typeof RejectionSchema>;
 

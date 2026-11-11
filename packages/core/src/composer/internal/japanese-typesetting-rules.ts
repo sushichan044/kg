@@ -4,63 +4,64 @@ import { SENTENCE_ENDING_MARKS, TATE_CHU_YOKO_MARKS } from "../../internal/japan
 import type { PresentationKind } from "../presentation-kind";
 
 /**
- * The JLReq character classes (文字クラス) these rules distinguish. The bare `cl-NN` identifiers are
- * kept rather than descriptive names so the spacing and penalty tables below can be read side by
- * side with the tables in the specification.
+ * このルールが区別する JLReq の文字クラス。
+ * 説明的な名前ではなく `cl-NN` の識別子をそのまま使うのは、
+ * 下の字間とペナルティの表を規格の表と並べて読めるようにするためだ。
  *
- * JLReq defines thirty classes. Math (cl-17, cl-18) and warichu brackets (cl-28, cl-29) are absent
- * because a novel is not set with them. The base-group classes are absent for a different reason: a
- * novel does carry ruby (cl-22, cl-23), but ruby is an annotation the composer positions
- * separately, and `JapaneseCharacter` cannot describe a base group at all — nor a reference mark
- * (cl-20) or a subscripted base (cl-21). A base character is therefore classified here as whatever
- * it is on its own, which for the kanji that usually carries ruby means cl-19.
+ * JLReq は30の文字クラスを定める。数式（cl-17、cl-18）と割注括弧類（cl-28、cl-29）は、
+ * 小説では使わないので含めない。親文字群のクラスを含めないのは別の理由による。
+ * 小説にもルビ（cl-22、cl-23）はあるが、ルビはコンポーザーが別に配置する注釈であり、
+ * `JapaneseCharacter` はそもそも親文字群を表せない。
+ * 合印（cl-20）や添え字付きの親文字（cl-21）も同様だ。
+ * そのため、親文字はここでは単独の場合のクラスに分類する。
+ * ルビが付くことの多い漢字なら cl-19 になる。
  *
  * @see https://www.w3.org/TR/jlreq/#character_classes
  */
 export const japaneseCharacterClasses = [
-  // 始め括弧類 — opening brackets.
+  // 始め括弧類
   "cl-01",
-  // 終わり括弧類 — closing brackets.
+  // 終わり括弧類
   "cl-02",
-  // ハイフン類 — hyphens.
+  // ハイフン類
   "cl-03",
-  // 区切り約物 — dividing punctuation, the question and exclamation marks.
+  // 区切り約物（疑問符と感嘆符）
   "cl-04",
-  // 中点類 — middle dots.
+  // 中点類
   "cl-05",
-  // 句点類 — full stops.
+  // 句点類
   "cl-06",
-  // 読点類 — commas.
+  // 読点類
   "cl-07",
-  // 分離禁止文字 — characters that must not be split from their own repetition.
+  // 分離禁止文字（同じ文字が連続するとき、その間で分割してはならない文字）
   "cl-08",
-  // 繰返し記号 — iteration marks.
+  // 繰返し記号
   "cl-09",
-  // 長音記号 — the prolonged sound mark.
+  // 長音記号
   "cl-10",
-  // 小書きの仮名 — small kana.
+  // 小書きの仮名
   "cl-11",
-  // 前置省略記号 — prefixed abbreviations such as a currency sign.
+  // 前置省略記号（通貨記号など）
   "cl-12",
-  // 後置省略記号 — postfixed abbreviations such as a degree or percent sign.
+  // 後置省略記号（度記号やパーセント記号など）
   "cl-13",
-  // 和字間隔 — the ideographic space.
+  // 和字間隔（全角スペース）
   "cl-14",
-  // 平仮名 — hiragana.
+  // 平仮名
   "cl-15",
-  // 片仮名 — katakana.
+  // 片仮名
   "cl-16",
-  // 漢字等 — kanji and the like, and the fallback for anything unclassified.
+  // 漢字等。どのクラスにも当たらない文字の分類先も兼ねる。
   "cl-19",
-  // 連数字中の文字 — a digit inside a grouped numeral.
+  // 連数字中の文字
   "cl-24",
-  // 単位記号中の文字 — a character inside a unit symbol.
+  // 単位記号中の文字
   "cl-25",
-  // 欧文間隔 — the western word space.
+  // 欧文間隔
   "cl-26",
-  // 欧文用文字 — western characters.
+  // 欧文用文字
   "cl-27",
-  // 縦中横中の文字 — a character inside a tate-chu-yoko group.
+  // 縦中横中の文字
   "cl-30",
 ] as const;
 
@@ -70,8 +71,8 @@ export type JapaneseBoundaryClass = JapaneseCharacterClass | "cl-22" | "cl-23";
 const boundaryClasses = [...japaneseCharacterClasses, "cl-22", "cl-23"] as const;
 
 /**
- * A character together with the vertical presentation already chosen for it, because the same
- * character classifies differently inside a tate-chu-yoko group than it does on its own.
+ * 文字と、その文字にすでに選んだ縦組での表示方法の組。
+ * 同じ文字でも、縦中横の中では単独の場合と異なるクラスに分類されるからだ。
  */
 export type JapaneseCharacter = Readonly<{
   value: string;
@@ -119,9 +120,9 @@ export type JapaneseTypesettingRules = Readonly<{
   ) => TypographicBoxMetrics;
   pairSpacing: (left: JapaneseBoundaryClass, right: JapaneseBoundaryClass) => RuleSpacing;
   /**
-   * The アキ a character _is_, rather than the box it sets in, or `null` for every class that sets as
-   * a glyph. 欧文間隔 (cl-26) is the only class JLReq treats this way: it carries no ink, its width is
-   * stated by rule rather than measured, and the line adjustment resizes it before anything else.
+   * 文字が組まれるボックスではなく、その文字自体が表すアキ。
+   * グリフとして組むクラスでは `null` になる。JLReq がこう扱うクラスは欧文間隔（cl-26）だけだ。
+   * 字面を持たず、幅は測定ではなく規則で決まり、行の調整処理はほかの何よりも先にその幅を変える。
    */
   spacingCharacter: (
     characterClass: JapaneseCharacterClass,
@@ -129,14 +130,14 @@ export type JapaneseTypesettingRules = Readonly<{
   ) => RuleCharacterSpacing | null;
   lineEndSpacing: (last: JapaneseBoundaryClass) => RuleLineEndSpacing | null;
   /**
-   * Whether the pair participates in JLReq 3.8.4's final expansion stage. This is independent of
-   * line-breaking permission: 表6 admits some mid-line gaps that a kinsoku rule would not admit as a
-   * break boundary.
+   * その組合せが JLReq 3.8.4 の最終段階の空ける処理に加わるかどうか。
+   * これは行の分割の可否とは独立している。
+   * 表6 は、禁則では分割位置として認めない行中の字間の一部も、空ける処理の対象にしている。
    */
   canExpandAtFinalStage: (left: JapaneseBoundaryClass, right: JapaneseBoundaryClass) => boolean;
   /**
-   * `null` where a break between two classes is prohibited, otherwise a cost a caller may weigh.
-   * The composer only tests for `null` today, so every permitted break is priced at zero.
+   * 二つのクラスの間での分割が禁止される場合は `null`、そうでなければ呼び出し側が考慮できるコスト。
+   * 現在のコンポーザーは `null` かどうかしか見ないので、許される分割はすべてコスト0とする。
    */
   breakPenalty: (left: JapaneseBoundaryClass, right: JapaneseBoundaryClass) => number | null;
   canHang: (characterClass: JapaneseBoundaryClass) => boolean;
@@ -164,16 +165,16 @@ const KATAKANA = /^\p{Script=Katakana}$/u;
 const WESTERN = /^[\p{Script=Latin}\p{Script=Greek}\p{Script=Cyrillic}]$/u;
 
 /**
- * Order matters: a character inside a tate-chu-yoko group is cl-30 (3.2.5) and an upright Latin
- * letter or Arabic numeral is cl-19 (3.2.4), whatever either would be on its own; anything left
- * unmatched is cl-19 too, the class JLReq reserves for kanji and the like. A tate-chu-yoko `！？`
- * stays cl-04, the class JLReq gives `⁉`, so it still may not open a line.
+ * 順序に意味がある。縦中横中の文字は cl-30（3.2.5）、
+ * 正立の欧字やアラビア数字は cl-19（3.2.4）になり、単独の場合のクラスは問わない。
+ * どれにも当たらない文字も、JLReq が漢字等に充てる cl-19 になる。縦中横の `！？` は、
+ * JLReq が `⁉` に与えるクラスである cl-04 のままなので、引き続き行頭に置けない。
  *
- * The quarter em 3.2.6 sets between Japanese and a Western character or numeral applies only to a
- * character rotated 90 degrees in vertical writing mode or mixed into horizontal writing mode —
- * 3.2.6 states that scope explicitly. A character set upright keeps its own rule, 3.2.4, which
- * reads it as a full-width monospace glyph classed with kanji and set solid against its neighbours,
- * the same as a tate-chu-yoko run's 3.2.5.
+ * 3.2.6 が和文と欧字または数字の間に入れる四分は、縦組で90度回転した文字か、
+ * 横組に混ぜた文字にだけ適用する。3.2.6 はこの範囲を明示している。
+ * 正立で組む文字には独自の規則 3.2.4 があり、
+ * 全角のモノスペースのグリフとして漢字と同じクラスに分類し、隣とはベタ組にする。
+ * 縦中横のランに対する 3.2.5 と同じだ。
  */
 function classify({ value, presentation }: JapaneseCharacter): JapaneseCharacterClass {
   value = value.replace(/[\u3099\u309A]/gu, "");
@@ -220,11 +221,11 @@ function classify({ value, presentation }: JapaneseCharacter): JapaneseCharacter
 }
 
 /**
- * 無印 in 表1 with no colour in 表6: the pair is set solid and line adjustment leaves it alone.
+ * 表1 で無印、表6 で色なし。この組合せはベタ組で、行の調整処理でも変えない。
  */
 const SOLID: RuleSpacing = { kind: "glue", naturalWidthEm: 0 };
 /**
- * `1/4` in 表6: set solid, but line adjustment may open it up to a quarter em.
+ * 表6 の `1/4`。ベタ組だが、行の調整処理で四分まで空けてよい。
  */
 const SOLID_EXPANDABLE: RuleSpacing = {
   kind: "glue",
@@ -232,7 +233,7 @@ const SOLID_EXPANDABLE: RuleSpacing = {
   stretch: { category: "solid", amountEm: 0.25, granularity: "continuous" },
 };
 /**
- * `1/2` in 表1 with `1/2-0` in 表3: a half em that line adjustment may take down to solid.
+ * 表1 の `1/2` と表3 の `1/2-0`。行の調整処理でベタ組まで詰めてよい二分。
  */
 const HALF: RuleSpacing = {
   kind: "glue",
@@ -240,11 +241,11 @@ const HALF: RuleSpacing = {
   shrink: { category: "punctuation", amountEm: 0.5, granularity: "continuous" },
 };
 /**
- * `1/2` in both tables: the half em exists but is not a reduction opportunity.
+ * 両方の表で `1/2`。二分のアキはあるが、詰める処理が可能な箇所ではない。
  */
 const FIXED_HALF: RuleSpacing = { kind: "glue", naturalWidthEm: 0.5 };
 /**
- * `1/4` in 表1 with `1/4-0` in 表3: a quarter em that may go down to solid.
+ * 表1 の `1/4` と表3 の `1/4-0`。ベタ組まで詰めてよい四分。
  */
 const QUARTER: RuleSpacing = {
   kind: "glue",
@@ -252,14 +253,15 @@ const QUARTER: RuleSpacing = {
   shrink: { category: "middle-dot", amountEm: 0.25, granularity: "continuous" },
 };
 /**
- * `1/4` in both tables: the quarter em exists but is not a reduction opportunity.
+ * 両方の表で `1/4`。四分のアキはあるが、詰める処理が可能な箇所ではない。
  */
 const FIXED_QUARTER: RuleSpacing = { kind: "glue", naturalWidthEm: 0.25 };
 /**
- * `1/4-1/8` in 表3 with `1/4-1/2` in 表6: the Japanese-to-western quarter em, reducible to an eighth
- * and expandable to a half. 3.2.6 sets this only against a Western character rotated 90 degrees or
- * mixed into horizontal text (cl-27) and a numeral or unit symbol (cl-24, cl-25); an upright
- * Western character classifies as cl-19 instead and never reaches this constant.
+ * 表3 の `1/4-1/8` と表6 の `1/4-1/2`。和欧間の四分で、
+ * 八分まで詰めることも二分まで空けることもできる。3.2.6 がこれを入れるのは、
+ * 90度回転した欧字または横組に混ぜた欧字（cl-27）と、
+ * 数字または単位記号（cl-24、cl-25）に対してだけだ。正立の欧字は代わりに cl-19 に分類され、
+ * この定数には至らない。
  */
 const MIXED_TEXT_QUARTER: RuleSpacing = {
   kind: "glue",
@@ -268,8 +270,7 @@ const MIXED_TEXT_QUARTER: RuleSpacing = {
   stretch: { category: "mixed-text", amountEm: 0.25, granularity: "continuous" },
 };
 /**
- * The same quarter em where 表6 leaves it out of the expansion: between a unit symbol and the
- * quantity on either side of it.
+ * 同じ四分のうち、表6 が空ける処理の対象から外すもの。単位記号と、その前後の数量との間に入る。
  */
 const UNIT_SYMBOL_QUARTER: RuleSpacing = {
   kind: "glue",
@@ -277,7 +278,7 @@ const UNIT_SYMBOL_QUARTER: RuleSpacing = {
   shrink: { category: "mixed-text", amountEm: 0.125, granularity: "continuous" },
 };
 /**
- * 表1 注3 with 表3 注1: two middle dots meet, and their quarters go solid together.
+ * 表1 注3 と表3 注1。二つの中点が隣り合い、それぞれの四分を一緒にベタ組にする。
  */
 const TWO_QUARTERS: RuleSpacing = {
   kind: "glue",
@@ -285,7 +286,7 @@ const TWO_QUARTERS: RuleSpacing = {
   shrink: { category: "middle-dot", amountEm: 0.5, granularity: "continuous" },
 };
 /**
- * 表1 注5 with 表3 注2: a full stop's fixed half em plus the following middle dot's quarter.
+ * 表1 注5 と表3 注2。句点の固定の二分と、後ろに続く中点の四分。
  */
 const FIXED_HALF_AND_QUARTER: RuleSpacing = {
   kind: "glue",
@@ -293,11 +294,11 @@ const FIXED_HALF_AND_QUARTER: RuleSpacing = {
   shrink: { category: "middle-dot", amountEm: 0.25, granularity: "continuous" },
 };
 /**
- * 表1 注5 with 表3 注3: a comma's half em plus the following middle dot's quarter.
+ * 表1 注5 と表3 注3。読点の二分と、後ろに続く中点の四分。
  *
- * 表3 spends the quarter at stage 4 and the half at stage 5, which one capacity cannot say. Both are
- * reducible to solid, so the total is right and only the order collapses — and `、・` is rare enough
- * that the order never shows.
+ * 表3 は四分を第4段階で、二分を第5段階で詰めるが、一つの調整可能量ではそれを表せない。
+ * どちらもベタ組まで詰められるので合計は正しく、崩れるのは順序だけだ。`、・` はまれなので、
+ * その順序の違いが表に出ることはない。
  */
 const HALF_AND_QUARTER: RuleSpacing = {
   kind: "glue",
@@ -305,14 +306,14 @@ const HALF_AND_QUARTER: RuleSpacing = {
   shrink: { category: "punctuation", amountEm: 0.75, granularity: "continuous" },
 };
 /**
- * 欧文間隔（cl-26）の三分アキ. JLReq states the western word space as a third em by rule rather than by
- * measurement, and makes it the first space a line adjustment reaches for: down to a 四分アキ when the
- * line is over (3.8.3 a), up to a 二分アキ when it is short (3.8.4 a).
+ * 欧文間隔（cl-26）の三分アキ。JLReq は欧文間隔を測定ではなく規則で全角の3分の1と定め、
+ * 行の調整処理で最初に手をつけるアキとしている。行がはみ出すときは四分アキまで詰め（3.8.3 a）、
+ * 足りないときは二分アキまで空ける（3.8.4 a）。
  *
- * The two capacities are written as differences from the limits rather than as `1/12` and `1/6`,
- * because a third of an em is not representable in binary while the limits JLReq states are: this
- * way `naturalWidthEm - shrink.amountEm` is exactly 0.25 and `naturalWidthEm + stretch.amountEm`
- * exactly 0.5.
+ * 二つの調整可能量は `1/12` と `1/6` ではなく、限界からの差として書く。
+ * 全角の3分の1は2進数で表せないが、JLReq が示す限界は表せるからだ。
+ * こうすると `naturalWidthEm - shrink.amountEm` はちょうど 0.25、
+ * `naturalWidthEm + stretch.amountEm` はちょうど 0.5 になる。
  */
 const WORD_SPACE: RuleCharacterSpacing = {
   kind: "glue",
@@ -329,18 +330,17 @@ const WORD_SPACE: RuleCharacterSpacing = {
   },
 };
 /**
- * 表1 注13 と 表3 注4: a word space at a line head or a line end has no width and is no adjustment
- * opportunity, since the white would fall outside the text area where no reader can see it. 注13
- * adds ただし，この部分が移動し，これとは異なる配置になった場合は，欧文間隔（cl-26）の空き量を確保する — which is why the answer is given per
- * candidate line and not once per source line.
+ * 表1 注13 と表3 注4。行頭や行末の欧文間隔は幅を持たず、調整箇所にもならない。
+ * そのアキは版面の外に出て、読者からは見えないからだ。
+ * 注13 は「ただし，この部分が移動し，これとは異なる配置になった場合は，欧文間隔（cl-26）の空き量を
+ * 確保する」と付け加えている。そのため、この答えはソースの行ごとに1回ではなく、候補行ごとに出す。
  */
 const EDGE_WORD_SPACE: RuleCharacterSpacing = { kind: "glue", naturalWidthEm: 0 };
 
 /**
- * The classes that take a quarter em against a numeral, unit symbol or western character rotated 90
- * degrees or mixed into horizontal text (3.2.6) — an upright western character classifies as cl-19
- * and is covered by the general kanji rows and columns instead. Dividing punctuation is on the list
- * in that direction only, because the space before a `？` or `！` is solid (3.1.6).
+ * 数字、単位記号、または90度回転した欧字か横組に混ぜた欧字に対して四分を取るクラス（3.2.6）。
+ * 正立の欧字は cl-19 に分類され、代わりに漢字等の一般の行と列で扱う。
+ * 区切り約物がこのリストに入るのはこの向きだけだ。`？` や `！` の前はベタ組だからだ（3.1.6）。
  */
 const JAPANESE_BEFORE_WESTERN = [
   "cl-04",
@@ -369,10 +369,10 @@ const NUMERAL_UNIT_OR_WESTERN = ["cl-24", "cl-25", "cl-27"] as const;
 const PUNCTUATION_TAKING_SPACE_AFTER = ["cl-02", "cl-06", "cl-07"] as const;
 
 /**
- * 表6 の色付きの小間: the classes a solid pair may be opened up between at stage 3. Neither list holds a
- * bracket, a middle dot, a full stop, a comma, a hyphen, an ideographic space or a word space —
- * JLReq opens none of those — and only the left-hand list holds a numeral, unit symbol or western
- * character, since the space on their Japanese side belongs to stage 2 instead.
+ * 表6 の色付きの小間。第3段階でベタ組の組合せを空けてよいクラス。どちらのリストにも、括弧、中点、
+ * 句点、読点、ハイフン、和字間隔、欧文間隔は含まない。JLReq はそれらをどれも空けないからだ。
+ * また、数字、単位記号、欧字を含むのは左側のリストだけだ。
+ * それらの和文側のアキは第2段階に属するからだ。
  */
 const EXPANDABLE_BEFORE = [
   "cl-08",
@@ -407,12 +407,12 @@ const EXPANDABLE_AFTER = [
 ] as const;
 
 /**
- * The gray, blue and pink cells of 表6: all pairs that join the fourth and final expansion stage.
- * The finite capacities above cover the blue and pink cells at stages three and two; once those
- * stages are exhausted, JLReq 3.8.4 d adds the remainder equally across every cell named here.
+ * 表6 のグレー、青、ピンクの小間。空ける処理の第4段階、つまり最終段階に加わるすべての組合せ。
+ * 上の有限の調整可能量は、青とピンクの小間を第3段階と第2段階で扱う。それらの段階を使い切ると、
+ * JLReq 3.8.4 d がここに挙げたすべての小間に残りを均等に加える。
  *
- * A cl-08/cl-08 cell is blue only for different kinds of mark (注4). BoundaryRule excludes binding
- * sequences using the original character values.
+ * Cl-08 同士の小間が青になるのは、種類の異なる記号の場合だけだ（注4）。
+ * BoundaryRule は元の文字の値を使って、分割不可の文字の連続を除外する。
  */
 const FINAL_EXPANSION_BASIC_AFTER = new Set<JapaneseCharacterClass>([
   "cl-01",
@@ -523,9 +523,10 @@ const FINAL_EXPANSION_AFTER = new Map<JapaneseCharacterClass, ReadonlySet<Japane
 ]);
 
 function canExpandAtFinalStage(left: JapaneseBoundaryClass, right: JapaneseBoundaryClass): boolean {
-  // Explicit spaces supply their own width, and a horizontal western run (cl-27) reads as one word
-  // rather than as independent Japanese cells. Adding another unbounded boundary beside either
-  // produces double space or a hole disproportionate to the run's own length.
+  // 明示的なアキは自分の幅を持ち、横向きの欧文のラン（cl-27）は
+  // 独立した和文の文字ではなく一つの単語として読む。
+  // そのどちらかの隣に上限のない境界をさらに加えると、
+  // アキが二重になるか、ラン自体の長さに見合わない穴が空く。
   if (
     left === "cl-14" ||
     left === "cl-26" ||
@@ -536,19 +537,19 @@ function canExpandAtFinalStage(left: JapaneseBoundaryClass, right: JapaneseBound
   ) {
     return false;
   }
-  // Ruby complexes share the ordinary Japanese final-stage cells. Membership
-  // restrictions are resolved by BoundaryRule before these numeric capacities are used.
+  // ルビのまとまりは、通常の和文と同じ最終段階の小間を使う。所属による制約は、
+  // これらの数値の調整可能量を使う前に BoundaryRule が解決する。
   const leftClass = left === "cl-22" || left === "cl-23" ? "cl-19" : left;
   const rightClass = right === "cl-22" || right === "cl-23" ? "cl-19" : right;
   if (FINAL_EXPANSION_AFTER.get(leftClass)?.has(rightClass) !== true) return false;
 
-  // A pair with intrinsic white already carries punctuation or mixed-text semantics. Its finite
-  // stage, where one exists, is the upper bound; only pairs set solid at rest take the final stage.
+  // もともとアキを持つ組合せは、すでに約物や和欧混植としての意味を担っている。有限の段階があれば、
+  // それが上限になる。最終段階を使うのは、調整前にベタ組の組合せだけだ。
   return pairSpacing(left, right).naturalWidthEm === 0;
 }
 
 /**
- * The classes JLReq 3.1.2 sets on a half em rather than a full one.
+ * JLReq 3.1.2 が全角ではなく二分で組むクラス。
  */
 const HALF_EM_CLASSES = new Set<JapaneseCharacterClass>([
   "cl-01",
@@ -567,12 +568,12 @@ type PairSpacingRule = Readonly<{
 }>;
 
 /**
- * 附属書 表1（文字間の空き量）and 表3（行の調整処理で詰める処理が可能な箇所）as rows, columns and the exceptions the tables
- * themselves carry. A later rule overrides an earlier one, so each block reads the way the appendix
- * does: a column of the table, then a row, then the cells that break the row.
+ * 附属書 表1（文字間の空き量）と表3（行の調整処理で詰める処理が可能な箇所）を、行・列と、
+ * 表自体が持つ例外として表したもの。後のルールが前のルールを上書きするので、
+ * 各ブロックは附属書と同じ順に読める。表の列、次に行、最後にその行の例外となる小間の順だ。
  *
- * `be` and `af` in 表1 only say whose character size a half or a quarter is measured against, which
- * cannot differ while the composer sets one size, so the notation is reduced to an amount here.
+ * 表1 の `be` と `af` は、二分や四分をどちらの文字サイズで測るかを示すだけだ。
+ * コンポーザーが文字サイズを一つしか使わない間は違いが出ないので、ここでは記法を量に簡略化する。
  *
  * @see https://www.w3.org/TR/jlreq/#spacing_between_characters
  * @see https://www.w3.org/TR/jlreq/#opportunities_for_intercharacter_space_reduction_during_line_adjustment
@@ -580,76 +581,77 @@ type PairSpacingRule = Readonly<{
 const PAIR_SPACING_RULES: readonly PairSpacingRule[] = [
   { left: "any", right: "any", spacing: SOLID },
 
-  // 表6（行の調整処理で空ける処理が可能な箇所）first, because every rule below it either leaves a pair
-  // solid or replaces it with an アキ of its own, and 表6 opens up only pairs that are solid to begin
-  // with. The Japanese-to-western quarter em, which 表6 does expand, carries its own capacity.
+  // 最初に表6（行の調整処理で空ける処理が可能な箇所）を置く。
+  // 下のルールはどれも、組合せをベタ組のままにするか独自のアキで置き換えるかのどちらかで、
+  // 表6 はもともとベタ組の組合せだけを空けるからだ。表6 が空ける和欧間の四分は、
+  // 独自の調整可能量を持つ。
   { left: EXPANDABLE_BEFORE, right: EXPANDABLE_AFTER, spacing: SOLID_EXPANDABLE },
-  // 表6 の cl-24 / cl-25 / cl-27 列: a mark that is neither Japanese nor western may still be opened
-  // up against one, 注10 including a percent or degree sign after a western character.
+  // 表6 の cl-24 / cl-25 / cl-27 の列。和文でも欧文でもない記号も、それらに対して空けてよい。
+  // 注10 により、欧字の後ろのパーセント記号や度記号も含む。
   { left: ["cl-08", "cl-12", "cl-13"], right: NUMERAL_UNIT_OR_WESTERN, spacing: SOLID_EXPANDABLE },
-  // The cells 表6 leaves white inside those two blocks. A prefixed abbreviation binds to the numeral
-  // it introduces (`￥100`) and 注8 keeps a numeral tight against a postfixed abbreviation (`10％`);
-  // for the other two the table gives no reason beyond leaving the cell blank.
+  // 表6 がこの二つのブロックの中で白のままにしている小間。
+  // 前置省略記号は後ろに付く数字と結びつき（`￥100`）、
+  // 注8 は数字を後置省略記号に密着させる（`10％`）。残りの二つについては、
+  // 表は小間を空欄にしている以外の理由を示していない。
   { left: ["cl-08"], right: ["cl-24", "cl-25"], spacing: SOLID },
   { left: ["cl-12"], right: ["cl-24"], spacing: SOLID },
   { left: ["cl-24"], right: ["cl-13"], spacing: SOLID },
   { left: ["cl-09", "cl-10", "cl-11"], right: ["cl-08"], spacing: SOLID },
 
-  // 表1 の cl-01 列: an opening bracket takes a half em before it (3.1.2).
+  // 表1 の cl-01 の列。始め括弧の前は二分アキ（3.1.2）。
   { left: "any", right: ["cl-01"], spacing: HALF },
-  // 表1 の cl-05 列: a middle dot takes a quarter em before it (3.1.2).
+  // 表1 の cl-05 の列。中点の前は四分アキ（3.1.2）。
   { left: "any", right: ["cl-05"], spacing: QUARTER },
-  // 表1 の cl-02 / cl-06 / cl-07 列: the space belongs after those, never before (3.1.4 ①②).
+  // 表1 の cl-02 / cl-06 / cl-07 の列。これらのアキは後ろに置き、前には置かない（3.1.4 ①②）。
   { left: "any", right: PUNCTUATION_TAKING_SPACE_AFTER, spacing: SOLID },
 
-  // Japanese against a numeral, unit symbol or western character (3.2.6).
+  // 和文と、数字、単位記号、欧字との間（3.2.6）。
   { left: JAPANESE_BEFORE_WESTERN, right: NUMERAL_UNIT_OR_WESTERN, spacing: MIXED_TEXT_QUARTER },
   { left: NUMERAL_UNIT_OR_WESTERN, right: JAPANESE_AFTER_WESTERN, spacing: MIXED_TEXT_QUARTER },
-  // 表1 の cl-24 / cl-25 / cl-27 の交差: a unit symbol takes a quarter em against the quantity beside
-  // it, which 3.1.10 calls customary for the `4` and the `k` of `4 km` (図2.28). 表6 never expands
-  // those, and 表3 leaves the numeral-before-unit quarter out of line adjustment altogether.
+  // 表1 の cl-24 / cl-25 / cl-27 の交差。単位記号は隣の数量との間に四分を取る。
+  // 3.1.10 は `4 km` の `4` と `k` の間についてこれを慣用としている（図2.28）。
+  // 表6 はこれらを決して空けず、表3 は数字と単位の間の四分を行の調整処理の対象から完全に外す。
   { left: ["cl-25"], right: ["cl-24"], spacing: UNIT_SYMBOL_QUARTER },
   { left: ["cl-27"], right: ["cl-25"], spacing: UNIT_SYMBOL_QUARTER },
   { left: ["cl-24"], right: ["cl-25"], spacing: FIXED_QUARTER },
 
-  // 表1 の cl-02 / cl-07 行: a closing bracket or comma takes a half em after it (3.1.2).
+  // 表1 の cl-02 / cl-07 の行。終わり括弧と読点の後ろは二分アキ（3.1.2）。
   { left: ["cl-02", "cl-07"], right: "any", spacing: HALF },
-  // 表1 の cl-06 行: so does a full stop, but mid-line that half em marks the end of a sentence and
-  // JLReq 3.8.3 keeps it out of line adjustment entirely.
+  // 表1 の cl-06 の行。句点も同じだが、行中の句点の後ろの二分は文の終わりを示すので、
+  // JLReq 3.8.3 は行の調整処理の対象から完全に外す。
   { left: ["cl-06"], right: "any", spacing: FIXED_HALF },
-  // 表1 の cl-05 列 again, since the row above would otherwise cover it (表1 注5).
+  // 表1 の cl-05 の列をもう一度適用する。そうしないと上の行のルールが上書きしてしまう（表1 注5）。
   { left: ["cl-02"], right: ["cl-05"], spacing: QUARTER },
   { left: ["cl-06"], right: ["cl-05"], spacing: FIXED_HALF_AND_QUARTER },
   { left: ["cl-07"], right: ["cl-05"], spacing: HALF_AND_QUARTER },
-  // Consecutive punctuation sets solid and the trailing half em is taken once (3.1.4 ①②⑥).
+  // 連続する約物の間はベタ組にし、後ろの二分は1回だけ取る（3.1.4 ①②⑥）。
   {
     left: PUNCTUATION_TAKING_SPACE_AFTER,
     right: PUNCTUATION_TAKING_SPACE_AFTER,
     spacing: SOLID,
   },
-  // 表1 の cl-02 行 cl-14 列: an ideographic space after a closing bracket absorbs the half em.
+  // 表1 の cl-02 の行と cl-14 の列。終わり括弧の後ろの和字間隔が二分を吸収する。
   { left: ["cl-02"], right: ["cl-14"], spacing: SOLID },
 
-  // 表1 の cl-05 行: a middle dot takes a quarter em after it as well (3.1.2), which is why a middle
-  // dot is a half-em box with a quarter on each side and still occupies one em.
+  // 表1 の cl-05 の行。中点は後ろにも四分を取る（3.1.2）。そのため中点は、
+  // 二分のボックスの両側に四分ずつを持ち、全体で全角1字分を占める。
   { left: ["cl-05"], right: "any", spacing: QUARTER },
   { left: ["cl-05"], right: ["cl-05"], spacing: TWO_QUARTERS },
 
-  // 表1 の cl-01 行: nothing follows an opening bracket, since its space sits before it (3.1.4 ⑤).
+  // 表1 の cl-01 の行。始め括弧のアキは前に置くので、後ろには何も続かない（3.1.4 ⑤）。
   { left: ["cl-01"], right: "any", spacing: SOLID },
   { left: ["cl-01"], right: ["cl-05"], spacing: QUARTER },
 
-  // 表1 の cl-14 行: an ideographic space is itself the space, so it needs none after it.
+  // 表1 の cl-14 の行。和字間隔はそれ自体がアキなので、後ろにアキは要らない。
   { left: ["cl-14"], right: "any", spacing: SOLID },
   { left: ["cl-14"], right: ["cl-05"], spacing: QUARTER },
 
-  // 表1 の cl-26 行と cl-26 列: a western word space is set solid against its neighbours, except for
-  // the half em an opening bracket and the quarter em a middle dot always take. 表3 marks no cell of
-  // that row or column as a reduction opportunity, and its preamble says why: the first stage of the
-  // adjustment is the word space's own width, and the table sets out 「優先順位の第2段階以降の処理」 only. The
-  // word space is therefore narrowed by `spacingCharacter`, and the spaces beside it stay fixed —
-  // collapsing a bracket's half em on top of a boundary stage 1 has already tightened would take the
-  // same word boundary away twice.
+  // 表1 の cl-26 の行と列。欧文間隔は隣とベタ組にする。ただし、始め括弧が常に取る二分と、
+  // 中点が常に取る四分は除く。表3 はこの行と列のどの小間も詰める処理が可能な箇所としておらず、
+  // その前文が理由を示している。調整の第1段階は欧文間隔自体の幅であり、
+  // 表は「優先順位の第2段階以降の処理」だけを示すからだ。
+  // そのため欧文間隔は `spacingCharacter` が狭め、その隣のアキは固定のままにする。
+  // 第1段階ですでに詰めた境界で括弧の二分まで詰めると、同じ単語の区切りを二重に詰めることになる。
   { left: "any", right: ["cl-26"], spacing: SOLID },
   { left: PUNCTUATION_TAKING_SPACE_AFTER, right: ["cl-26"], spacing: FIXED_HALF },
   { left: ["cl-05"], right: ["cl-26"], spacing: FIXED_QUARTER },
@@ -675,18 +677,16 @@ function pairSpacing(left: JapaneseBoundaryClass, right: JapaneseBoundaryClass):
 }
 
 /**
- * `null` removes the break opportunity outright rather than pricing it, because the three rules
- * below are prohibitions and not preferences.
+ * `null` は分割位置にコストを付けるのではなく、分割位置そのものをなくす。
+ * 下の三つのルールは優先度ではなく禁止だからだ。
  *
- * Line-end prohibition (行末禁則, JLReq 3.1.8): an opening bracket or a prefixed abbreviation may not
- * be the last character on a line, since it belongs to what follows it.
+ * 行末禁則（JLReq 3.1.8）。始め括弧と前置省略記号は、後ろに続くものに属するので、
+ * 行の最後の文字にしてはならない。
  *
- * Line-start prohibition (行頭禁則, JLReq 3.1.7): closing brackets, hyphens, dividing punctuation,
- * middle dots, full stops, commas, iteration marks, the prolonged sound mark, small kana and
- * postfixed abbreviations may not open a line.
+ * 行頭禁則（JLReq 3.1.7）。終わり括弧、ハイフン、区切り約物、中点、句点、読点、繰返し記号、
+ * 長音記号、小書きの仮名、後置省略記号は、行頭に置いてはならない。
  *
- * Binding sequences (JLReq C.2 note 5) depend on the actual characters and are resolved separately
- * by BoundaryRule.
+ * 分割不可の文字の連続（JLReq C.2 注5）は実際の文字に依存するので、BoundaryRule が別に解決する。
  */
 function breakPenalty(left: JapaneseBoundaryClass, right: JapaneseBoundaryClass): number | null {
   if (left === "cl-01" || left === "cl-12") return null;
@@ -711,17 +711,17 @@ export const defaultJapaneseTypesettingRules: JapaneseTypesettingRules = {
   classify,
 
   /**
-   * Opening and closing brackets, full stops, commas and middle dots are set on a half em (JLReq
-   * 3.1.2); the space the pair table puts around them is what brings each back to a full em.
+   * 始め括弧、終わり括弧、句点、読点、中点は二分で組む（JLReq 3.1.2）。
+   * 組合せの表がその周りに入れるアキによって、それぞれ全角1字分に戻る。
    *
-   * A fullwidth glyph keeps drawing its ink where the font put it, so halving the advance alone
-   * would leave the ink outside the box. The offset pulls it back: an opening bracket draws in the
-   * trailing half of its em, a middle dot in the centre, and the rest in the leading half.
+   * 全角のグリフは、フォントが置いた位置に字面を描き続ける。そのため送り幅を半分にしただけでは、
+   * 字面がボックスの外にはみ出す。オフセットで字面を引き戻し、始め括弧は全角の後ろ半分に、
+   * 中点は中央に、それ以外は前半分に描く。
    */
   boxMetrics: (characterClass, measuredAdvanceEm) => {
-    // 欧文間隔 (cl-26) sets no box at all: the whole of its width is the アキ `spacingCharacter`
-    // declares. The measured advance is discarded on purpose, the way 3.1.2's half em below
-    // overrides the measurement for brackets and punctuation.
+    // 欧文間隔（cl-26）はボックスを一切持たない。幅全体が `spacingCharacter` の示すアキだ。
+    // 測定した送り幅は意図して捨てる。下で 3.1.2 の二分が括弧類や約物の測定値を上書きするのと
+    // 同じだ。
     if (characterClass === "cl-26") return { advanceEm: 0, renderOffsetEm: 0 };
     const advanceEm = HALF_EM_CLASSES.has(characterClass)
       ? Math.min(0.5, measuredAdvanceEm)
@@ -744,12 +744,12 @@ export const defaultJapaneseTypesettingRules: JapaneseTypesettingRules = {
     characterClass !== "cl-26" ? null : position === "mid-line" ? WORD_SPACE : EDGE_WORD_SPACE,
 
   /**
-   * The half em trailing a closing bracket, full stop or comma at the line end, and the quarter em
-   * trailing a middle dot there (JLReq 3.1.9). The book style selects their order and visual cost.
+   * 行末の終わり括弧、句点、読点の後ろの二分と、行末の中点の後ろの四分（JLReq 3.1.9）。
+   * その順序と見た目のコストは組版スタイルが決める。
    *
-   * Both are all-or-nothing. 3.1.9 admits the full アキ or ベタ組 and forbids anything in between, so a
-   * line whose overflow is smaller than the アキ has to find the difference somewhere else — or break
-   * elsewhere. A line-end middle dot takes the quarter before it into the same amount (表3 注5).
+   * どちらも二択だ。3.1.9 はアキをすべて取るかベタ組にするかだけを認め、その中間を禁じる。
+   * そのため、はみ出し量がそのアキより小さい行は、差分をほかで見つけるか、
+   * ほかの位置で分割するしかない。行末の中点は、前の四分も同じ量に含める（表3 注5）。
    */
   lineEndSpacing: (last) =>
     last === "cl-02" || last === "cl-06" || last === "cl-07"
@@ -785,8 +785,8 @@ export const defaultJapaneseTypesettingRules: JapaneseTypesettingRules = {
   breakPenalty,
 
   /**
-   * Hanging punctuation (ぶら下げ組, JLReq 3.8.2) lets a full stop or comma sit outside the text area
-   * instead of forcing the line to be respaced. JLReq admits no other class for it.
+   * ぶら下げ組（JLReq 3.8.2）では、行の字間を組み直す代わりに、句点や読点を版面の外に置く。
+   * JLReq はほかのクラスにはこれを認めない。
    */
   canHang: (characterClass) => characterClass === "cl-07" || characterClass === "cl-06",
 };

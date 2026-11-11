@@ -2,8 +2,9 @@ import type { ParsedProofreadingRule } from "../proofreading-rule";
 import { defineMatchRule } from "./internal/define-rule";
 
 /**
- * The ellipsis a novel sets is the 2倍リーダ: two copies of `…` read as one mark six dots long. An odd
- * run leaves half of it, the same way an odd dash run does.
+ * 小説が組む三点リーダは 2倍リーダ、すなわち `…` を 2 つ並べて、
+ * 点 6 つ分の 1 つの約物として読ませるものである。奇数個の連なりは、
+ * 奇数個のダッシュの連なりと同様に、半分が余る。
  */
 export const evenEllipsisRule = (): ParsedProofreadingRule =>
   defineMatchRule({

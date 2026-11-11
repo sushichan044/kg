@@ -34,8 +34,8 @@ function presentationOf(text: string): PresentationKind {
 }
 
 /**
- * Recognize sentence-wide presentation while keeping words as separate line-break units. Standalone
- * dotted abbreviations retain the existing per-token presentation.
+ * 文全体にわたる表示方法を認識しつつ、単語は個別の行分割の単位として保つ。
+ * 単独のピリオド付き略語は、従来どおりトークンごとの表示方法を保つ。
  */
 function recognizeText(graphemes: readonly ParsedGrapheme[]): CompositionRun[] {
   const runs: CompositionRun[] = [];
@@ -60,7 +60,7 @@ function recognizeText(graphemes: readonly ParsedGrapheme[]): CompositionRun[] {
         abbreviationParts.length > 1 &&
         abbreviationParts.every((part) => UPRIGHT_LATIN_ABBREVIATION.test(part));
       if (/[A-Za-z]/u.test(text) && WESTERN_CONTEXT.test(text) && !standaloneDottedAbbreviation) {
-        // Presentation spans the sentence; only individual words prohibit line breaks.
+        // 表示方法は文全体にわたる。行の分割を禁止するのは個々の単語の内側だけだ。
         while (cursor < contextEnd) {
           const end = ASCII_WORD.test(graphemes[cursor]?.value ?? "")
             ? stretchEnd(graphemes, cursor, ASCII_WORD)
@@ -74,7 +74,8 @@ function recognizeText(graphemes: readonly ParsedGrapheme[]): CompositionRun[] {
     if (TATE_CHU_YOKO_MARK.test(first.value)) {
       const end = stretchEnd(graphemes, cursor, TATE_CHU_YOKO_MARK);
       const members = graphemes.slice(cursor, end);
-      // A stretch of four or more stays uncombined as a whole, so no 2-3 mark tail is carved out of it.
+      // 4個以上の連続は全体として組み合わせずに残すので、
+      // その末尾から2〜3個分を切り出すことはしない。
       if (members.length === 2 || members.length === 3) push(members, "tate-chu-yoko");
       else for (const member of members) push([member], "mixed");
       cursor = end;
@@ -91,7 +92,7 @@ function recognizeText(graphemes: readonly ParsedGrapheme[]): CompositionRun[] {
 }
 
 /**
- * Split configured symbols before recognizing western words and presentation runs.
+ * 欧文の単語や表示方法のランを認識する前に、設定された記号で分割する。
  */
 function recognize(
   graphemes: readonly ParsedGrapheme[],

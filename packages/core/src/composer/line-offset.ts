@@ -8,7 +8,7 @@ const LineOffsetSchema = readonlyObject({
 });
 
 /**
- * Blank lines reserved at the start and end of a scope.
+ * スコープの先頭と末尾に確保する空き行。
  */
 export type LineOffset = v.InferOutput<typeof LineOffsetSchema>;
 

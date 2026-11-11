@@ -102,7 +102,7 @@ function place(
 export const JukugoRuby = {
   resolve: (readings: readonly JukugoReading[], edges: JukugoEdges): JukugoRuby => {
     const empty = readings.map(() => ({ beforeEm: 0, afterEm: 0 }));
-    // F.2 prefers borrowing within the compound before using its outside neighbours.
+    // F.2 は、熟語の外側の隣接文字に掛ける前に、熟語の内側で融通することを優先する。
     for (const outer of [false, true]) {
       const offsetsEm = place(readings, boundsFor(readings, edges, empty, outer));
       if (offsetsEm !== undefined) return { kind: "placed", offsetsEm };
@@ -122,8 +122,8 @@ export const JukugoRuby = {
     });
     const bounds = boundsFor(readings, edges, shares, true);
     let amountEm = 0;
-    // Every contiguous reading interval must fit between its endpoint bounds.
-    // Solve those linear inequalities without retaining a quadratic constraint graph.
+    // 連続するルビ文字の区間はすべて、両端の限界の間に収まらなければならない。
+    // 二次の大きさの制約グラフを保持せずに、この線形不等式を解く。
     for (let start = 0; start < readings.length; start += 1) {
       let advanceEm = 0;
       for (let end = start; end < readings.length; end += 1) {

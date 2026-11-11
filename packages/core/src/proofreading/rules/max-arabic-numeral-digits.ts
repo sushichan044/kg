@@ -14,14 +14,14 @@ const MaxDigitsSchema = v.pipe(v.number(), v.finite(), v.integer(), v.minValue(1
 export type MaxArabicNumeralDigitsOptions = Readonly<{ maxDigits?: number }>;
 
 /**
- * Arabic numerals in vertical writing (縦組). A short run is set as 縦中横 (JLReq 3.2.5) and stays
- * upright inside one em, but a longer one has nowhere to go: it either turns the line sideways or
- * breaks across it. The usual limit is two digits, past which a novel spells the number in kanji.
+ * 縦組のアラビア数字。短い連なりは縦中横（JLReq 3.2.5）として組まれ、全角の枠の中に正立するが、
+ * 長い連なりは枠に収まらず、横倒しになるか、枠をまたいで分割される。通常の上限は 2 桁で、
+ * それを超える数は小説では漢数字で表記する。
  */
 function build(maxDigits: number): ParsedProofreadingRule {
   return defineMatchRule({
     id: RULE_ID,
-    // Integer part and fractional part are counted separately.
+    // 整数部と小数部は別々に数える。
     pattern: /([0-9０-９]+)(?:[.．]([0-9０-９]+))?/gu,
     accept: (match) => (match[1]?.length ?? 0) > maxDigits || (match[2]?.length ?? 0) > maxDigits,
     message: `${maxDigits}桁を超えるアラビア数字が使われています`,

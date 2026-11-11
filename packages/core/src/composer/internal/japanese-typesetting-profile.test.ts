@@ -7,19 +7,18 @@ import {
 } from "./japanese-typesetting-profile";
 
 /**
- * 附属書 表1（文字間の空き量）for the classes this profile distinguishes, transcribed from
- * `tables/table_ja2.pdf` of w3c/jlreq at 04837cd. Rows are the class placed before, columns the
- * class placed after, and `LE` the line end.
+ * 附属書 表1（文字間の空き量）のうち、このプロファイルが区別するクラスの分を、
+ * w3c/jlreq の 04837cd 時点の `tables/table_ja2.pdf` から書き写したもの。行は前に置くクラス、
+ * 列は後ろに置くクラスで、`LE` は行末を表す。
  *
- * A cell holds the amount of space in em, where `.` is 無印 (set solid) and `x` is ×印, a placement
- * JLReq prohibits outright and this profile answers with a break prohibition instead. 表1 writes
- * `1/2 be` and `1/2 af` to say whose character size the half is measured against, which cannot
- * differ while the composer sets one size, so only the amount is kept here; the `hang` and `ruby
- * hang` suffixes concern ruby overhang and are dropped for the same reason.
+ * 各小間は空き量を全角単位で持つ。`.` は無印（ベタ組）、`x` は×印を表す。
+ * ×印は JLReq がそもそも禁止する配置で、このプロファイルは代わりに分割禁止で応える。
+ * 表1 は `1/2 be` や `1/2 af` と書いて、二分をどちらの文字サイズで測るかを示すが、
+ * コンポーザーが文字サイズを一つしか使わない間は違いが出ないので、ここでは量だけを残す。
+ * `hang` と `ruby hang` の添え書きはルビの掛かりに関するもので、同じ理由で省く。
  *
- * Cells carrying a note hold the amount that note states: 注3 (a quarter plus a quarter), 注5 (a half
- * plus a quarter), 注12 (a quarter), 注2 and 注6 (a half at the line end), 注4 (a quarter at the line
- * end) and 注13 (a word space at the line end has no width).
+ * 注のある小間は、その注が示す量を持つ。注3（四分と四分）、注5（二分と四分）、注12（四分）、
+ * 注2 と注6（行末で二分）、注4（行末で四分）、注13（行末の欧文間隔は幅を持たない）。
  *
  * Copyright © 2008 W3C® (MIT, ERCIM, Keio), All Rights Reserved.
  *
@@ -52,21 +51,19 @@ const SPACING_AMOUNTS = `
 `;
 
 /**
- * 附属書 表3（行の調整処理で詰める処理が可能な箇所）for the same classes, transcribed from `tables/table_ja4.pdf` of the
- * same revision, and read as the amount of space each cell may give up. `1/2-0` becomes a half,
- * `1/4-0` a quarter, `1/4-1/8` an eighth and `1/2=0` a half at the line end; a bare `1/2` or `1/4`
- * becomes `.`, since that space exists but is no reduction opportunity.
+ * 附属書 表3（行の調整処理で詰める処理が可能な箇所）の同じクラスの分を、
+ * 同じリビジョンの `tables/table_ja4.pdf` から書き写し、各小間が詰められる空き量として読んだもの。
+ * `1/2-0` は二分、`1/4-0` は四分、`1/4-1/8` は八分、`1/2=0` は行末の二分になる。
+ * 単独の `1/2` や `1/4` は `.` とする。そのアキは存在するが、詰める処理が可能な箇所ではないからだ。
  *
- * Note-bearing cells again hold what the note states: 注1 (both quarters of two adjacent middle
- * dots), 注2 (only the middle dot's quarter, because a full stop's half em stays), 注3 (the comma's
- * half and the middle dot's quarter) and 注4 (a word space has no width at the line end). 注5 lets
- * the quarter before and the quarter after a line-end middle dot go solid together; the line-end
- * cell still holds only the trailing quarter, and the profile names the leading one separately
- * through `absorbsPrecedingEm`.
+ * 注のある小間も、その注が示す量を持つ。注1（隣り合う二つの中点の四分の両方）、
+ * 注2（中点の四分だけ。句点の二分は残るため）、注3（読点の二分と中点の四分）、
+ * 注4（行末の欧文間隔は幅を持たない）。注5 は、行末の中点の前の四分と後ろの四分を一緒に
+ * ベタ組にすることを認める。行末の小間は後ろの四分だけを持ち、
+ * 前の四分はプロファイルが `absorbsPrecedingEm` で別に示す。
  *
- * The whole cl-26 row and column are blank, so nothing beside a western word space is reducible
- * even where 表1 gives it space. Reducing the word space itself is JLReq's own first stage and this
- * profile does not do it yet.
+ * Cl-26 の行と列はすべて空欄なので、表1 でアキがある箇所でも、欧文間隔の隣は詰められない。
+ * 欧文間隔自体を詰めるのは JLReq の第1段階で、このプロファイルはまだそれを行わない。
  *
  * Copyright © 2008 W3C® (MIT, ERCIM, Keio), All Rights Reserved.
  *
@@ -99,23 +96,23 @@ const REDUCIBLE_AMOUNTS = `
 `;
 
 /**
- * 附属書 表6（行の調整処理で空ける処理が可能な箇所）for the same classes, transcribed from `tables/table_ja7.pdf` of the
- * same revision, and read as the amount of space each cell may take on. `1/4-1/2` becomes a quarter
- * added to the Japanese-to-western quarter em, and `1/4` a quarter added to a solid pair. 表6 has no
- * line head or line end, because JLReq expands neither.
+ * 附属書 表6（行の調整処理で空ける処理が可能な箇所）の同じクラスの分を、
+ * 同じリビジョンの `tables/table_ja7.pdf` から書き写し、各小間が空けられる空き量として読んだもの。
+ * `1/4-1/2` は和欧間の四分に加える四分、`1/4` はベタ組の組合せに加える四分になる。
+ * JLReq は行頭も行末も空けないので、表6 には行頭も行末もない。
  *
- * A blank cell means no finite expansion. In the PDF a blank cell means that only where its
- * background is white; a blank cell on a coloured background is JLReq's fourth stage, which spreads
- * the remainder over every admitted gap. `FINAL_EXPANSION_OPPORTUNITIES` transcribes that
- * background separately because the glyphs in the cells carry no record of it.
+ * 空欄の小間は、上限のある空ける処理がないことを表す。
+ * PDF で空欄がそれを意味するのは地色が白い小間だけで、
+ * 色付きの地色の空欄は JLReq の第4段階に当たり、許されるすべての字間に残りを配る。
+ * 小間の記号にはその地色が記録されないので、`FINAL_EXPANSION_OPPORTUNITIES` で別に書き写す。
  *
- * Note-bearing cells: 注4 (two adjacent 分離禁止文字 of different kinds may be opened up; the boundary
- * resolver excludes binding sequences), 注8 (a numeral before a postfixed abbreviation may not be
- * opened up), 注9 and 注11 (a numeral before a western character, and two western characters, only in
- * variant schemes), 注10 (a postfixed abbreviation after a western character may be, unless that
- * character is a quantity symbol or an Arabic numeral — which this profile classifies as cl-24
- * anyway) and 注12 (two tate-chu-yoko characters may be, but only across a group boundary, which is
- * the only place the composer asks).
+ * 注のある小間。注4（種類の異なる分離禁止文字が隣り合う場合は空けてよい。
+ * 分割不可の文字の連続は境界の解決処理が除外する）、
+ * 注8（後置省略記号の前の数字は空けてはならない）、
+ * 注9 と注11（欧字の前の数字、および欧字同士は、別の方式でだけ空ける）、
+ * 注10（欧字の後ろの後置省略記号は空けてよい。ただし、その欧字が量記号かアラビア数字の場合は除く。
+ * このプロファイルはそれをいずれにせよ cl-24 に分類する）、注12（縦中横中の文字同士は空けてよいが、
+ * グループの境界をまたぐ場合だけで、コンポーザーが問い合わせるのもそこだけだ）。
  *
  * Copyright © 2008 W3C® (MIT, ERCIM, Keio), All Rights Reserved.
  *
@@ -148,12 +145,13 @@ const EXPANDABLE_AMOUNTS = `
 `;
 
 /**
- * The colored and gray backgrounds of 表6 for the supported classes. `y` means the pair joins the
- * fourth expansion stage; `.` is a white cell and never opens. Earlier-stage cells are `y` too,
- * because JLReq 3.8.4 d adds the final remainder across stages one through four together.
+ * 表6 のうち、対応するクラスの色付きとグレーの地色。
+ * `y` はその組合せが空ける処理の第4段階に加わることを、`.` は白い小間で、決して空けないことを表す。
+ * JLReq 3.8.4 d は最後の残りを第1段階から第4段階までまとめて配るので、
+ * それより前の段階の小間も `y` とする。
  *
- * 表6 注4 colors cl-08/cl-08 only for two different kinds of mark. BoundaryRule excludes binding
- * sequences using the original character values.
+ * 表6 注4 は、cl-08 同士の小間を、種類の異なる記号の場合に限って色付きにしている。
+ * BoundaryRule は元の文字の値を使って、分割不可の文字の連続を除外する。
  */
 const FINAL_EXPANSION_OPPORTUNITIES = `
         01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 19 24 25 26 27 30
@@ -195,7 +193,7 @@ type TableCell = Readonly<{
   left: JapaneseCharacterClass;
   right: JapaneseCharacterClass | typeof LINE_END;
   /**
-   * `null` where the table prohibits the placement outright (×印).
+   * 表が配置そのものを禁止している箇所（×印）では `null`。
    */
   amountEm: number | null;
 }>;
@@ -207,9 +205,9 @@ type ExpansionOpportunityCell = Readonly<{
 }>;
 
 /**
- * A label the grid does not name a class with would otherwise reach `pairSpacing` as an unknown
- * class and be answered from its default, so a mistyped row or column would assert solid spacing
- * for a class that does not exist.
+ * グリッドがクラスとして名付けていないラベルは、
+ * そのままだと未知のクラスとして `pairSpacing` に渡り、既定値で答えられてしまう。
+ * すると、行や列のラベルを打ち間違えたときに、存在しないクラスに対してベタ組を検証することになる。
  */
 function characterClassOf(name: string, label: string): JapaneseCharacterClass {
   const characterClass = japaneseCharacterClasses.find((candidate) => candidate === `cl-${label}`);
@@ -321,8 +319,7 @@ describe("defaultJapaneseTypesettingProfile", () => {
     ["℃", "mixed", "cl-25"],
     [" ", "sideways", "cl-26"],
     ["a", "sideways", "cl-27"],
-    // JLReq 3.2.4 classes an upright Western character with kanji rather than with a horizontal
-    // Western run.
+    // JLReq 3.2.4 は、正立の欧字を横向きの欧文のランではなく漢字と同じクラスに分類する。
     ["A", "upright", "cl-19"],
     ["1", "tate-chu-yoko", "cl-30"],
   ] as const)("classifies %s (%s) as %s", (value, presentation, expected) => {
@@ -331,8 +328,8 @@ describe("defaultJapaneseTypesettingProfile", () => {
 
   test("covers every class it distinguishes in every appendix table", () => {
     const classes = [...japaneseCharacterClasses].sort();
-    // A duplicated label with another dropped would keep the row and column sets whole, so count
-    // the cells as well.
+    // ラベルが一つ重複して別の一つが抜けていても、行と列の集合は欠けずに見えるので、
+    // 小間の数も数える。
     const withLineEnd = {
       rows: classes,
       columns: [...classes, LINE_END].sort(),
@@ -341,7 +338,7 @@ describe("defaultJapaneseTypesettingProfile", () => {
 
     expect(labelsOf(SPACING_TABLE)).toEqual(withLineEnd);
     expect(labelsOf(REDUCTION_TABLE)).toEqual(withLineEnd);
-    // 表6 has no line end, because JLReq expands neither line end nor line head.
+    // JLReq は行末も行頭も空けないので、表6 には行末がない。
     expect(labelsOf(EXPANSION_TABLE)).toEqual({
       rows: classes,
       columns: classes,
@@ -422,7 +419,7 @@ describe("defaultJapaneseTypesettingProfile", () => {
     expect.assert(solid.stretch !== undefined, "solid pair has no stretch capacity");
 
     expect(mixedText.stretch.stage).toBeLessThan(solid.stretch.stage);
-    // Stage 2 opens the quarter em to a half, stage 3 opens a solid pair to a quarter.
+    // 第2段階は四分を二分まで空け、第3段階はベタ組の組合せを四分まで空ける。
     expect(mixedText.naturalWidthEm + mixedText.stretch.amountEm).toBe(0.5);
     expect(solid.naturalWidthEm + solid.stretch.amountEm).toBe(0.25);
   });
@@ -449,7 +446,7 @@ describe("defaultJapaneseTypesettingProfile", () => {
     expect(lineEnd.spacing.shrink.stage).toBeLessThan(middleDot.shrink.stage);
     expect(middleDot.shrink.stage).toBeLessThan(punctuation.shrink.stage);
     expect(punctuation.shrink.stage).toBeLessThan(mixedText.shrink.stage);
-    // Cost is independent of the stage that executes the reduction.
+    // コストは、詰める処理を行う段階には依存しない。
     expect(lineEnd.spacing.shrink.stage).toBe(0);
     expect(lineEnd.spacing.shrink.costPerEm).toBe(0);
   });
@@ -484,12 +481,12 @@ describe("defaultJapaneseTypesettingProfile", () => {
     expect.assert(midLine.shrink !== undefined, "a word space has no shrink capacity");
     expect.assert(midLine.stretch !== undefined, "a word space has no stretch capacity");
 
-    // A third of an em is not representable in binary; the 四分アキ and 二分アキ limits JLReq states are.
+    // 全角の3分の1は2進数で表せないが、JLReq が示す四分アキと二分アキの限界は表せる。
     expect(midLine.naturalWidthEm).toBeCloseTo(1 / 3, 12);
     expect(midLine.naturalWidthEm - midLine.shrink.amountEm).toBe(0.25);
     expect(midLine.naturalWidthEm + midLine.stretch.amountEm).toBe(0.5);
     expect(atEdge).toEqual({ kind: "glue", naturalWidthEm: 0 });
-    // Its box is nothing at all: the whole width is the アキ above, whatever the measurer reported.
+    // ボックスは一切持たない。測定器が何を報告しても、幅全体が上のアキになる。
     expect(defaultJapaneseTypesettingProfile.boxMetrics("cl-26", 0.5)).toEqual({
       advanceEm: 0,
       renderOffsetEm: 0,
@@ -518,8 +515,8 @@ describe("defaultJapaneseTypesettingProfile", () => {
     expect.assert(middleDot.shrink !== undefined, "middle-dot space has no shrink capacity");
     expect.assert(mixedText.stretch !== undefined, "mixed-text space has no stretch capacity");
 
-    // JLReq 3.8.3 a and 3.8.4 a: the word space is the first stage of both directions. Only the
-    // line-end reduction, which the reader cannot see at all, is taken ahead of it.
+    // JLReq 3.8.3 a と 3.8.4 a。欧文間隔は詰める処理でも空ける処理でも第1段階だ。
+    // それより先に行うのは、読者からまったく見えない行末の詰めだけだ。
     expect(wordSpace.shrink.stage).toBeLessThan(middleDot.shrink.stage);
     expect(wordSpace.stretch.stage).toBeLessThan(mixedText.stretch.stage);
     expect(wordSpace.shrink.stage).toBeGreaterThan(0);
@@ -545,7 +542,7 @@ describe("defaultJapaneseTypesettingProfile", () => {
       "all-or-nothing",
     ]);
 
-    // Nothing mid-line is discrete: 表3 writes `1/2=0` only against the line end.
+    // 行中に離散的なアキはない。表3 が `1/2=0` と書くのは行末に対してだけだ。
     const midLine = japaneseCharacterClasses.flatMap((left) =>
       japaneseCharacterClasses.flatMap((right) => {
         const { shrink, stretch } = defaultJapaneseTypesettingProfile.pairSpacing(left, right);
@@ -561,8 +558,8 @@ describe("defaultJapaneseTypesettingProfile", () => {
   });
 
   test("takes the quarter em before a line-end middle dot into the line-end amount", () => {
-    // 表3 注5: the quarter before and the quarter after go solid together, so the profile has to name
-    // the one that is not its own.
+    // 表3 注5。前の四分と後ろの四分を一緒にベタ組にするので、
+    // プロファイルは自分のものではない方の四分を示す必要がある。
     const middleDot = defaultJapaneseTypesettingProfile.lineEndSpacing("cl-05");
     const fullStop = defaultJapaneseTypesettingProfile.lineEndSpacing("cl-06");
     expect.assert(middleDot !== null, "a middle dot takes no space at the line end");

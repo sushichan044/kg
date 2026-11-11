@@ -293,7 +293,7 @@ describe("parseManuscript", () => {
 });
 
 /**
- * The parser under test never runs; only its ID is inspected.
+ * テスト対象のパーサーは実行されない。検査されるのは ID だけである。
  */
 function unreachableManuscript() {
   return { source: "", displayText: "", graphemes: [], annotations: [] };

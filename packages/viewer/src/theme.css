@@ -1,22 +1,22 @@
-/* Optional default look. Nothing here is required to render the novel preview,
-   so consumers may skip this file and style the documented class/data-attribute
-   contract themselves.
+/* 任意の既定の見た目。小説プレビューの描画に、ここにある規則は必要ない。利用者は
+   このファイルを読み込まず、文書化されたクラスと data 属性の取り決めに沿って
+   自分でスタイルを付けてもよい。
 
-   Like structural.css, this file is deliberately unlayered and selected by
-   package classes. That keeps universal and element resets from erasing the
-   default look. Override it deliberately with an equally specific selector
-   loaded after this file.
+   structural.css と同じく、このファイルも意図的にレイヤーに入れず、パッケージの
+   クラスで指定する。これにより、全称セレクターや要素セレクターのリセットで既定の
+   見た目が消えるのを防ぐ。意図して上書きするときは、このファイルの後に読み込む
+   同じ詳細度のセレクターを使う。
 
-   DiagnosticList is often rendered outside .kgv-viewer (in a drawer or dialog),
-   where the tokens declared below do not reach it, so its rules read tokens with
-   literal fallbacks. */
+   DiagnosticList は、ドロワーやダイアログなど .kgv-viewer の外に描画されることが
+   多く、その場合は以下で宣言するトークンが届かない。そのため、その規則では
+   リテラルのフォールバック付きでトークンを読む。 */
 
 .kgv-viewer {
   --kgv-surface: #fff;
   --kgv-paper: #fff;
   --kgv-text: #000;
-  /* Secondary text. Kept above 4.5:1 on both --kgv-surface and --kgv-controls-surface,
-       which opacity-based dimming cannot guarantee. */
+  /* 二次的なテキスト。--kgv-surface と --kgv-controls-surface のどちらの上でも
+       4.5:1 を上回るようにする。不透明度による減光では、これを保証できない。 */
   --kgv-text-muted: #000;
   --kgv-grid: rgb(0 174 204 / 30%);
   --kgv-accent: #000;
@@ -36,13 +36,15 @@
   box-shadow: 0 1px 4px rgb(0 0 0 / 15%);
 }
 
-/* The ruling of one line. Each box of the ruling layer draws its own head and sides, and the last
-   one closes the foot, so every rule is painted once — never doubled by the neighbour, and never
-   widening the line, since these boxes carry no text and are out of flow.
+/* 1 行分の罫線。罫線レイヤーの各ボックスが自分の天と左右を描き、最後のボックスが
+   地を閉じる。そのため、どの罫も 1 回だけ描かれ、隣のボックスと重なって太くなる
+   ことがない。これらのボックスはテキストを持たず、フローの外にあるので、行の幅も
+   広げない。
 
-   A repeating gradient over the whole line would express this in one declaration, but engines tile
-   a repeating gradient at whole device pixels: at a fractional cell pitch that silently drops
-   roughly every fifth rule. Painting each rule as a border of its own box keeps them all. */
+   行全体に繰り返しグラデーションを掛ければ 1 つの宣言で表せるが、エンジンは繰り返し
+   グラデーションをデバイスピクセルの整数単位で敷き詰める。こまの間隔が小数になると、
+   およそ 5 本に 1 本の罫が黙って抜け落ちる。罫を各ボックス自身のボーダーとして描けば、
+   すべての罫が残る。 */
 .kgv-rule-cell {
   border-block-start: var(--kgv-rule-width) solid var(--kgv-grid);
   border-inline: var(--kgv-rule-width) solid var(--kgv-grid);
@@ -52,7 +54,7 @@
   border-block-end: var(--kgv-rule-width) solid var(--kgv-grid);
 }
 
-/* Tint the diagnosed cells themselves so vertical neighbours cannot share a marker. */
+/* 診断のあるこま自体に色を付ける。縦に隣り合うこまが、1 つのマーカーを共有しないようにするため。 */
 .kgv-cell[data-diagnostic] {
   background: color-mix(in srgb, var(--kgv-marker) 16%, transparent);
 }

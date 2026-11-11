@@ -8,8 +8,8 @@ const ValidationIssueSchema = readonlyObject({
 });
 
 /**
- * One schema violation, reduced to the two things a caller acts on: where it happened and what was
- * wrong. Keeping our own shape means the validation library stays an implementation detail.
+ * スキーマ違反 1 件。呼び出し側が対処に使う「どこで起きたか」と「何が誤っていたか」の 2 点だけに
+ * 絞る。独自の形にしておくことで、検証ライブラリは実装の詳細にとどまる。
  */
 export type ValidationIssue = v.InferOutput<typeof ValidationIssueSchema>;
 

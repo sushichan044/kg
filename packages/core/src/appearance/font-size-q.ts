@@ -3,7 +3,7 @@ import * as v from "valibot";
 const FontSizeQSchema = v.pipe(v.number(), v.finite(), v.minValue(Number.MIN_VALUE));
 
 /**
- * A body font size in quarter millimetres: 1Q = 0.25mm.
+ * 本文のフォントサイズを級数（Q）で表す。1Q = 0.25mm。
  */
 export type FontSizeQ = v.InferOutput<typeof FontSizeQSchema>;
 

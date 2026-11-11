@@ -73,7 +73,7 @@ const ComposedAnnotationFragmentSchema = v.pipe(
 );
 
 /**
- * A source-associated fragment with composer-owned decoration positions in body em.
+ * ソースに対応づいた注釈の断片。装飾の位置はコンポーザーが決め、本文の全角を単位とする。
  */
 export type ComposedAnnotationFragment = v.InferOutput<typeof ComposedAnnotationFragmentSchema>;
 

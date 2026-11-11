@@ -28,10 +28,12 @@ function messageIdFor(run: string, preferred: DashCharacter): DashMessageId | un
 }
 
 /**
- * The dash a novel sets is the 2倍ダッシュ: two copies of one character read as a single rule two ems
- * long. That is why an odd run is a finding — half a dash is left over — and why the characters
- * must match, since only a repeat of the same character joins without a seam. JLReq classes the
- * dash as 分離禁止文字 (cl-08) for the same reason: the pair must not be split across lines.
+ * 小説が組むダッシュは 2倍ダッシュ、すなわち同じ文字を 2 つ並べて、
+ * 全角 2 つ分の長さの 1 本の罫線として読ませるものである。
+ * 奇数個の連なりが指摘になるのはそのためで、半分が余る。
+ * 文字が一致しなければならないのも同じ理由で、同じ文字の繰り返しだけが継ぎ目なくつながる。
+ * JLReq がダッシュを分離禁止文字（cl-08）に分類するのも同じ理由による。
+ * 対を行の途中で分割してはならない。
  */
 function build(preferred: DashCharacter): ParsedProofreadingRule {
   const messages = {

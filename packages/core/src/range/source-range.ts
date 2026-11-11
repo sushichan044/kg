@@ -5,7 +5,7 @@ import { TextRange } from "./text-range";
 const SourceRangeSchema = v.pipe(TextRange.schema, v.brand("SourceRange"));
 
 /**
- * UTF-16 offsets into the unmodified source text, including any service-specific notation.
+ * 加工していないソーステキストへの UTF-16 オフセット。サービス固有の記法も含む。
  */
 export type SourceRange = v.InferOutput<typeof SourceRangeSchema>;
 

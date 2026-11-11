@@ -102,7 +102,7 @@ const freeLineEndProfile: JapaneseTypesettingProfile = {
 };
 
 /**
- * The same all-or-nothing line end, with one visible half em mid-line for it to compete against.
+ * 同じく二分アキかベタ組かの二択の行末に、競合相手として行中の見える二分を一つ加えたもの。
  */
 const lineEndAndCommaProfile: JapaneseTypesettingProfile = {
   ...freeLineEndProfile,
@@ -117,8 +117,8 @@ const lineEndAndCommaProfile: JapaneseTypesettingProfile = {
 };
 
 /**
- * Three capacities the stages can be told apart by: a wide and a narrow space sharing stage 2, and
- * one stage-1 space that has to be spent out before either of them opens.
+ * 段階を見分けられる三つの調整可能量。第2段階を共有する広いアキと狭いアキ、
+ * そしてどちらかが空く前に使い切る必要がある第1段階のアキ一つ。
  */
 const stagedProfile: JapaneseTypesettingProfile = {
   classify: ({ value }) => (value === "W" ? "cl-27" : value === "E" ? "cl-01" : "cl-19"),
@@ -329,8 +329,8 @@ describe("layoutParagraph", () => {
   });
 
   test("leaves a line-end アキ whole when the overflow is smaller than it", () => {
-    // Three and a half em in a 3.2 em line. The line-end half em cannot give three tenths of an em
-    // without landing on a width JLReq 3.1.9 forbids, so the visible half em mid-line gives instead.
+    // 3.2字の行に3字半。行末の二分から全角の10分の3を詰めると JLReq 3.1.9 が禁じる幅になるので、
+    // 代わりに行中の見える二分を詰める。
     const paragraph = "AAP".split("").map((value) => ({
       value,
       boxAdvanceEm: value === "P" ? 0.5 : 1,
@@ -348,8 +348,8 @@ describe("layoutParagraph", () => {
   });
 
   test("refuses to shrink when only an oversized line-end アキ is left", () => {
-    // Three em in a 2.8 em line, and the line end is the only capacity there is. Taking a fifth of
-    // its half em is what 3.1.9 forbids, so the line is not a shrunk line at all.
+    // 2.8字の行に3字で、調整可能量は行末にしかない。
+    // その二分から全角の5分の1を詰めることは 3.1.9 が禁じているので、この行は詰めた行にはならない。
     const paragraph = "AAP".split("").map((value) => ({
       value,
       boxAdvanceEm: value === "P" ? 0.5 : 1,
@@ -366,9 +366,9 @@ describe("layoutParagraph", () => {
   });
 
   test("spreads one stage in proportion to what each space can give", () => {
-    // A narrow space of a quarter em and a wide one of three quarters share stage 2. Half an em of
-    // shortfall goes into them as an eighth and three eighths, not a quarter into each until the
-    // first one runs dry.
+    // 四分の狭いアキと全角の4分の3の広いアキが第2段階を共有する。
+    // 二分の不足は、最初のアキが尽きるまでそれぞれに四分ずつ入れるのではなく、
+    // 八分と全角の8分の3に分けて入れる。
     const plans = layoutParagraph(
       atoms("AAWAA", stagedProfile),
       3.5,
@@ -383,8 +383,8 @@ describe("layoutParagraph", () => {
   });
 
   test("spends the earlier stage out before opening the next one", () => {
-    // Stage 1 holds half an em on its own; stage 2 holds a quarter em twice. Three quarters of an em
-    // of shortfall empties stage 1 and then splits what is left across both spaces of stage 2.
+    // 第1段階だけで二分を持ち、第2段階は四分を二つ持つ。全角の4分の3の不足は、
+    // まず第1段階を使い切り、残りを第2段階の二つのアキに分ける。
     const plans = layoutParagraph(
       atoms("AEAAAA", stagedProfile),
       4.75,
@@ -399,8 +399,8 @@ describe("layoutParagraph", () => {
   });
 
   test("spreads the final-stage remainder evenly across every eligible gap", () => {
-    // The first gap reaches its half-em limit before the final stage. The remaining three tenths
-    // are then added equally to all three gaps, including the one used by the earlier stage.
+    // 最初の字間は、最終段階より前に上限の二分に達する。残りの全角の10分の3は、その後、
+    // 前の段階で使った字間も含めて、3か所すべてに均等に加える。
     const plans = layoutParagraph(
       atoms("AWAAA", finalStageProfile),
       4.8,
@@ -470,7 +470,7 @@ describe("layoutParagraph", () => {
     const elapsedMs = Date.now() - startedAt;
 
     expect(plans).toHaveLength(100);
-    // Unit-width boxes reach the search cutoff after twice the line length, plus its sentinel.
+    // 幅1のボックスは、行長の2倍に番兵を加えたところで探索の打ち切りに達する。
     expect(resolvedCandidates).toBeLessThanOrEqual(paragraph.length * (2 * lineLengthEm + 1));
     expect(elapsedMs).toBeLessThan(2_000);
   });

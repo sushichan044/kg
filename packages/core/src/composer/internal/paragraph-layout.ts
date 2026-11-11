@@ -29,9 +29,9 @@ function previousVisible(atoms: readonly ParagraphElement[], end: number): numbe
 }
 
 /**
- * Whether a shorter line ending somewhere inside `(contentStart, end)` was ever an option — checked
- * as a plain short-circuiting scan rather than building the boundary list first, since this runs
- * once per over-long candidate the optimizer considers.
+ * `(contentStart, end)` の内側のどこかで終わる短い行が選択肢になりえたかどうか。
+ * 最適化処理が検討する長すぎる候補ごとに1回実行されるので、先に境界のリストを作らず、
+ * 単純な短絡評価の走査で確かめる。
  */
 function hasEarlierBoundary(
   boundaryAllowed: (leftIndex: number, rightIndex: number) => boolean,
@@ -45,11 +45,11 @@ function hasEarlierBoundary(
 }
 
 /**
- * The line-end offsets a state's path took, earliest first. Rebuilt on demand by walking `previous`
- * rather than carried on every `State`: every candidate line attempted would otherwise pay for a
- * copy of its whole path, when `isBetter` only ever reads it on the exact-score tie this comparison
- * breaks — for `boundaryAllowed` predicates permissive enough to fully saturate the optimizer's
- * search window, ties are rare enough that this deferred cost is negligible.
+ * 状態の経路がたどった行末のオフセットを、先頭から順に並べたもの。すべての `State` に持たせず、
+ * 必要になった時点で `previous` をたどって組み立てる。
+ * そうしないと、試した候補行ごとに経路全体のコピーの費用がかかる。`isBetter` がこれを読むのは、
+ * この比較で決着をつけるスコアの完全な同点のときだけだ。`boundaryAllowed` の述語が緩く、
+ * 最適化処理の探索範囲を埋め尽くす場合でも、同点はまれなので、この遅延による費用は無視できる。
  */
 function breaksOf(state: State, states: ReadonlyMap<number, ReadonlyMap<string, State>>): number[] {
   const result: number[] = [];
@@ -82,7 +82,7 @@ function isBetter(
   for (let index = 0; index < candidateState.score.length; index += 1) {
     const candidate = candidateState.score[index] ?? 0;
     const existing = current.score[index] ?? 0;
-    // Compare cubic expansion costs in em units so the tolerance does not hide small expansion.
+    // 3乗の空ける処理のコストを全角単位で比べ、許容誤差が小さな空け量を隠さないようにする。
     const difference =
       index === 1 ? Math.cbrt(candidate) - Math.cbrt(existing) : candidate - existing;
     if (Math.abs(difference) > EPSILON) return difference < 0;
@@ -132,8 +132,8 @@ export function layoutParagraph(
       continue;
     }
 
-    // Continuation can change geometry; fitness cannot. Keep only this start's
-    // window, including refused candidates, rather than a dense paragraph graph.
+    // 続く行があるかどうかで幾何は変わりうるが、収まり具合は変わらない。
+    // 段落全体の密なグラフではなく、拒否した候補も含めて、この開始位置の探索範囲だけを保持する。
     const candidatesByEnd = new Map<string, CandidateLine | undefined>();
     for (const state of activeStates.values()) {
       let minimumSizeEm = 0;

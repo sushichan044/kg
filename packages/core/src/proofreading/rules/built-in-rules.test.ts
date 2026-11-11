@@ -352,7 +352,8 @@ describe("createDashRule", () => {
   });
 
   test("rejects a character that is not a supported dash", () => {
-    // JavaScript callers are not protected by DashOptions, so the runtime boundary must reject it.
+    // JavaScript の呼び出し側は DashOptions では守られない。
+    // そのため、実行時の境界で拒否しなければならない。
     const result = createDashRule({ preferred: "ー" as never });
 
     expect.assert(result.ok === false, "expected createDashRule to reject");

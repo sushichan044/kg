@@ -2,9 +2,9 @@ import { useEffect, useRef } from "react";
 import * as v from "valibot";
 
 export type ServerEventHandlers = Readonly<{
-  // onCatalogChanged fires when the file list should be refetched.
+  // onCatalogChanged は、ファイル一覧を取得し直すべきときに呼ばれる。
   onCatalogChanged: () => void;
-  // onFileChanged fires with the ID of a file whose content changed.
+  // onFileChanged は、内容が変わったファイルの ID を渡して呼ばれる。
   onFileChanged: (id: string) => void;
 }>;
 
@@ -12,7 +12,8 @@ const StartedEventSchema = v.object({ pid: v.number() });
 const FileChangedEventSchema = v.object({ id: v.string() });
 
 /**
- * SSE payloads are text off the wire; parse them rather than trusting their declared shape.
+ * SSE のペイロードはネットワークから届いたただのテキストなので、
+ * 宣言された形を信用せずにパースする。
  */
 function parseEvent<TSchema extends v.GenericSchema>(
   schema: TSchema,
@@ -26,9 +27,9 @@ function parseEvent<TSchema extends v.GenericSchema>(
   }
 }
 
-// useServerEvents subscribes to the server's SSE stream. It reloads the page
-// when the server process is replaced (a new PID in the `started` event), so a
-// rebuilt binary refreshes the browser automatically.
+// useServerEvents はサーバーの SSE ストリームを購読する。
+// サーバープロセスが入れ替わると（`started` イベントの PID が新しくなると）ページを再読み込みする。
+// これにより、バイナリーを再ビルドするとブラウザーが自動で更新される。
 export function useServerEvents(handlers: ServerEventHandlers): void {
   const ref = useRef(handlers);
 

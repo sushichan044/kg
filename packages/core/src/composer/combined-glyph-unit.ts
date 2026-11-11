@@ -17,7 +17,7 @@ const CombinedGlyphUnitSchema = v.pipe(
 );
 
 /**
- * One indivisible rendering instruction, with exact or shared member positions.
+ * 分割できない一つの描画命令。構成要素の位置は、個別に確定しているか、共有されている。
  */
 export type CombinedGlyphUnit = v.InferOutput<typeof CombinedGlyphUnitSchema>;
 

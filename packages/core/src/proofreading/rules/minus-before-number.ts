@@ -2,9 +2,9 @@ import type { ParsedProofreadingRule } from "../proofreading-rule";
 import { defineMatchRule } from "./internal/define-rule";
 
 /**
- * A minus sign (U+2212, JLReq 演算記号) with no number after it. It is almost always a mistyped dash or
- * prolonged sound mark, which look alike but belong to different character classes and so are
- * spaced and broken differently.
+ * 後ろに数字が続かないマイナス記号（U+2212、JLReq の演算記号）。ほとんどの場合、
+ * ダッシュか長音記号の打ち間違いである。これらは見た目が似ているが文字クラスが異なるので、
+ * アキの付け方も行の分割の仕方も異なる。
  */
 export const minusBeforeNumberRule = (): ParsedProofreadingRule =>
   defineMatchRule({

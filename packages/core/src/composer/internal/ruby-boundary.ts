@@ -7,7 +7,7 @@ export type RubyBoundary = Readonly<{
 }>;
 
 export const RubyBoundary = {
-  // JLReq 3.3.8: punctuation whitespace depends on its side and resolved spacing.
+  // JLReq 3.3.8。約物側の空白の扱いは、それがどちら側にあるかと、決まった字間の量による。
   overhang: (
     neighbor: RubyBoundary | undefined,
     side: "before" | "after",

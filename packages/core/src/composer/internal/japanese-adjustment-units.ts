@@ -14,8 +14,8 @@ export function adjustmentUnits(
   const select = (spacing: PairSpacing): SpacingCapacity | undefined =>
     adjustment === "shrink" ? spacing.shrink : spacing.stretch;
   const units: AdjustmentUnit[] = [];
-  // A straddle is one line end of one candidate line, so the bookkeeping for it is built only where
-  // the profile actually reports one. Every other line takes the second loop alone.
+  // 前後のアキにまたがる調整箇所（straddle）は候補行1行の行末一つにしか現れないので、
+  // その管理はプロファイルが実際に報告した場合にだけ作る。それ以外の行は2つ目のループだけを通る。
   const straddle = values.find(({ absorbsPrecedingEm }) => absorbsPrecedingEm > 0);
   let absorbedBoundary: number | undefined;
   let absorbedEm = 0;
@@ -31,7 +31,7 @@ export function adjustmentUnits(
     );
     const availableEm = preceding === undefined ? 0 : (select(preceding.spacing)?.amountEm ?? 0);
     absorbingBoundary = straddleSlot.boundary;
-    // 3.1.9 takes the two together: where the space before cannot give, neither goes.
+    // 3.1.9 は二つを一体として扱う。前のアキを詰められないなら、どちらも詰めない。
     if (availableEm + EPSILON >= straddle.absorbsPrecedingEm) {
       absorbedBoundary = precedingBoundary;
       absorbedEm = straddle.absorbsPrecedingEm;

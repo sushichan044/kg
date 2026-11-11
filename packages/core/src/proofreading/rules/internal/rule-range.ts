@@ -5,8 +5,8 @@ import type { TextRange } from "../../../range/text-range";
 const EMPTY_BOUNDS = { start: 0, end: 0 } as const;
 
 /**
- * Turns a span of display text into a full range. The source span is the smallest contiguous run
- * that covers the display span, so it includes any notation the parser removed in between.
+ * 表示用テキストの範囲を、完全な範囲に変換する。ソースの範囲は、
+ * 表示用の範囲を覆う最小の連続した範囲なので、その間でパーサーが取り除いた記法も含む。
  */
 export function displayRange(
   manuscript: ParsedManuscript,
@@ -41,14 +41,14 @@ export function displayRange(
 }
 
 /**
- * A display offset inside a grapheme cannot map past that grapheme's own source span.
+ * 書記素の内側にある表示用オフセットは、その書記素自身のソースの範囲を超えて対応づけられない。
  */
 function clampWithin(offset: number, range: Readonly<{ source: TextRange }>): number {
   return Math.min(offset, range.source.end - range.source.start);
 }
 
 /**
- * Turns a span of source text into a full range, for rules that inspect the raw source.
+ * ソーステキストの範囲を、完全な範囲に変換する。生のソースを検査するルール向け。
  */
 export function sourceRange(manuscript: ParsedManuscript, source: TextRange): ManuscriptRange {
   const covered = manuscript.graphemes.filter(

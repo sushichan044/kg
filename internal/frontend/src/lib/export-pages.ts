@@ -82,7 +82,7 @@ export async function exportPages(
     signal.throwIfAborted();
     page.style.contentVisibility = "visible";
     page.style.boxShadow = "none";
-    // Rendering one page at a time bounds the canvas memory required at 600 dpi.
+    // 1 ページずつ描画すると、600 dpi で必要になるキャンバスのメモリを抑えられる。
     // eslint-disable-next-line no-await-in-loop
     const canvas = await snapdom.toCanvas(page, {
       width,

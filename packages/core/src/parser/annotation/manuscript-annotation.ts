@@ -13,7 +13,7 @@ const ManuscriptAnnotationSchema = v.variant("kind", [
 ]);
 
 /**
- * A closed set: parsers normalise service-specific notation into exactly these four variants.
+ * 閉じた集合。パーサーは、サービス固有の記法をちょうどこの 4 つのバリアントへ正規化する。
  */
 export type ManuscriptAnnotation = v.InferOutput<typeof ManuscriptAnnotationSchema>;
 
@@ -21,7 +21,7 @@ export const ManuscriptAnnotation = {
   schema: ManuscriptAnnotationSchema,
 
   /**
-   * Stable order for rendering: outermost span first, then by variant name.
+   * 描画用の安定した順序。外側の範囲を先に、次にバリアント名の順に並べる。
    */
   compare: (left: ManuscriptAnnotation, right: ManuscriptAnnotation): number =>
     left.range.source.start - right.range.source.start ||

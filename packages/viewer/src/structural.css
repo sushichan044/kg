@@ -1,12 +1,13 @@
-/* Layout physics for the vertical-writing novel preview: the rules the viewer
-   cannot render without. Declares no colors, so it composes with any theme.
+/* 縦組の小説プレビューのレイアウトに関する規則。ビューアーの描画に欠かせない
+   規則だけを置く。色は宣言しないので、どのテーマとも組み合わせられる。
 
-   Deliberately unlayered and selected by class. Layered rules lose to unlayered
-   ones no matter how specific they are, so a `@layer` here would let a host
-   page's `* { box-sizing }` or `button { padding }` reset silently break the
-   layout. Class selectors outrank those element and universal selectors instead.
-   Override a rule on purpose with an equally specific selector loaded after
-   this file. theme.css follows the same boundary for its default look. */
+   意図的にレイヤーに入れず、クラスセレクターで指定する。レイヤー内の規則は、
+   詳細度にかかわらずレイヤー外の規則に負ける。ここで `@layer` を使うと、ホスト
+   ページの `* { box-sizing }` や `button { padding }` のリセットがレイアウトを
+   気づかないうちに崩しかねない。クラスセレクターなら、これらの要素セレクターや
+   全称セレクターより優先される。規則を意図して上書きするときは、このファイルの
+   後に読み込む同じ詳細度のセレクターを使う。theme.css も、既定の見た目について
+   同じ方針を取る。 */
 
 .kgv-viewer {
   container: kgv-viewer / inline-size;
@@ -36,8 +37,8 @@
   min-block-size: 0;
   block-size: 100%;
   overflow: auto;
-  /* The fit-zoom effect measures this padding, so it needs a value even when
-     theme.css — which declares --kgv-padding — is not loaded. */
+  /* fit-zoom のエフェクトがこのパディングを測定するので、--kgv-padding を宣言する
+     theme.css を読み込まない場合にも値が要る。 */
   padding: var(--kgv-padding, 2rem);
   overscroll-behavior: contain;
 }
@@ -119,7 +120,7 @@
   gap: var(--kgv-line-gap);
 }
 
-/* Anchors the two decoration layers below. */
+/* 後続の 2 つの装飾レイヤーの基準位置になる。 */
 .kgv-line {
   position: relative;
   flex: none;
@@ -127,11 +128,11 @@
   block-size: calc(var(--kgv-line-length) * var(--kgv-cell-size));
 }
 
-/* The ruling and the diagnostics are drawn by layers of their own rather than by the boxes
-   holding the text: a layer is sized by the line and contributes no size back, so nothing a
-   theme paints can move the text off the geometry the composer calculated. Which layer covers
-   which follows from document order — ruling, then text, then diagnostics — so neither sheet
-   needs a z-index to keep them apart. */
+/* 罫線と診断は、テキストを入れるボックスではなく、専用のレイヤーに描く。レイヤーの
+   大きさは行で決まり、レイヤー自身は行の大きさに影響しない。そのため、テーマが何を
+   描いても、コンポーザーが計算した配置からテキストがずれることはない。どのレイヤーが
+   どれを覆うかは文書順（罫線、テキスト、診断の順）で決まるので、どちらのスタイル
+   シートも z-index で重なりを分ける必要がない。 */
 .kgv-line-rules,
 .kgv-line-text,
 .kgv-line-ruby,
@@ -139,19 +140,19 @@
 .kgv-line-diagnostics {
   position: absolute;
   inset: 0;
-  /* Only the interactive bands take pointer events; see below. */
+  /* ポインターイベントを受けるのは操作できる帯だけにする。後述。 */
   pointer-events: none;
 }
 
-/* The ruling layer holds one empty box per cell, on the same pitch as the text above it, so a
-   theme has a box per rule to paint and every rule lands on a cell edge. */
+/* 罫線レイヤーは、上のテキストと同じ間隔で、こまごとに空のボックスを 1 つ持つ。
+   テーマは罫ごとにボックスを塗れ、どの罫もこまの縁に載る。 */
 .kgv-line-rules {
   display: flex;
   flex-direction: column;
 }
 
 .kgv-rule-cell {
-  /* Keeps a themed rule inside the box, on the pitch the composer calculated. */
+  /* テーマの罫をボックスの内側に収め、コンポーザーが計算した間隔に合わせる。 */
   box-sizing: border-box;
   flex: none;
   block-size: var(--kgv-cell-size);
@@ -161,8 +162,9 @@
   position: absolute;
   inset-block-start: calc(var(--kgv-item-offset) * var(--kgv-cell-size));
   inset-inline-start: 0;
-  /* The optional ruling is drawn by the layer above, but a host reset or an application may still
-     put a border on a cell; border-box keeps it inside the box instead of growing the text pitch. */
+  /* 任意の罫線は上のレイヤーが描くが、ホストのリセットやアプリケーションがこまに
+     ボーダーを付ける場合がある。border-box にすると、ボーダーがボックスの内側に収まり、
+     テキストの間隔を広げない。 */
   box-sizing: border-box;
   display: block;
   text-align: center;
@@ -177,9 +179,9 @@
   display: block;
 }
 
-/* The <rt> is here for the semantics; the box inside it does the placing. Contributing no box of
-   its own keeps it out of the engine's ruby layout, which would otherwise reserve space for a
-   reading that is positioned elsewhere. */
+/* <rt> は意味づけのために置く。配置は中のボックスが担う。<rt> 自身がボックスを持たない
+   ことで、エンジンのルビレイアウトの対象から外れる。対象になると、別の場所に配置する
+   ルビ文字のための空きが確保されてしまう。 */
 .kgv-ruby-fragment rt {
   display: contents;
 }
@@ -188,7 +190,7 @@
   display: none;
 }
 
-/* These containers share the body's bounds. The composer supplies both axes for each mark. */
+/* これらのコンテナーは本文と同じ範囲を占める。圏点ごとの両軸の位置はコンポーザーが与える。 */
 .kgv-ruby,
 .kgv-emphasis {
   position: absolute;
@@ -212,7 +214,7 @@
   font-size: calc(var(--kgv-decoration-block-size) * var(--kgv-cell-size));
 }
 
-/* Annotation wrappers only carry inherited styles; the glyph owns placement. */
+/* 注釈のラッパーは継承されるスタイルを運ぶだけで、配置はグリフが担う。 */
 .kgv-line-text [data-annotation] {
   display: contents;
 }
@@ -238,8 +240,9 @@
   line-height: 1;
 }
 
-/* Inheritance is not a specificity contest: these reach the characters from the host page's `body`
-   however the viewer is selected, and extra tracking or recasing pushes them out of their cells. */
+/* 継承は詳細度の勝負ではない。これらのプロパティは、ビューアーをどう選択しても
+   ホストページの `body` から文字に届く。字間の追加や大文字小文字の変換があると、
+   文字がこまからはみ出す。 */
 .kgv-glyph,
 .kgv-ruby,
 .kgv-emphasis {
@@ -261,13 +264,13 @@
   text-combine-upright: all;
 }
 
-/* One band per diagnostic per line, covering the cells the diagnostic reaches. The run is placed
-   from its offset and length in cells so a diagnostic spanning several characters is decorated as
-   one continuous band instead of once per character.
+/* 行ごと、診断ごとに帯を 1 つ置き、その診断が及ぶこまを覆う。帯は、こま単位の
+   オフセットと長さから配置する。そのため、複数の文字にまたがる診断は、1 文字ごと
+   ではなく連続した 1 本の帯として装飾される。
 
-   A band takes the whole width of the line unless another diagnostic overlaps it: overlapping
-   boxes would stack, and only the frontmost of them could be clicked, so each takes a lane of the
-   width instead. */
+   別の診断と重ならない限り、帯は行の幅いっぱいを占める。重なるボックスは積み重なり、
+   最前面のものしかクリックできない。そこで、重なる場合は幅をレーンに分けて、
+   それぞれが 1 レーンを使う。 */
 .kgv-diagnostic-band {
   position: absolute;
   box-sizing: border-box;
@@ -283,7 +286,7 @@
   font: inherit;
 }
 
-/* Keep marker controls inside the line gap so they do not intercept glyph selection at low zoom. */
+/* マーカーのコントロールは行間に収める。低倍率でグリフの選択を妨げないようにするため。 */
 .kgv-diagnostic-trigger {
   position: absolute;
   box-sizing: border-box;
@@ -357,7 +360,7 @@
   box-sizing: border-box;
   display: grid;
   inline-size: 100%;
-  /* WCAG 2.5.8 target size. */
+  /* WCAG 2.5.8 のターゲットサイズ。 */
   min-block-size: 2rem;
   margin: 0;
   color: inherit;
@@ -377,7 +380,7 @@
   }
 }
 
-/* Match the ready measurer's fixed-pitch font profile. */
+/* 準備ができた測定器の固定ピッチのフォントプロファイルに合わせる。 */
 .kgv-viewer[data-typography] :is(.kgv-glyph, .kgv-ruby, .kgv-emphasis) {
   font-feature-settings: var(--kgv-font-features);
   font-kerning: none;

@@ -16,7 +16,7 @@ const ManuscriptDiagnosticSchema = readonlyObject({
 });
 
 /**
- * One finding, carrying both the three-way range and the line/column the viewer displays.
+ * 指摘 1 件。3 つの座標系にまたがる範囲と、ビューアーが表示する行・列の両方を持つ。
  */
 export type ManuscriptDiagnostic = v.InferOutput<typeof ManuscriptDiagnosticSchema>;
 
@@ -52,7 +52,7 @@ export const ManuscriptDiagnostic = {
   }),
 
   /**
-   * Stable order for display: by source span, then by producing plugin.
+   * 表示用の安定した順序。ソースの範囲、次に生成元のプラグインの順に並べる。
    */
   compare: (left: ManuscriptDiagnostic, right: ManuscriptDiagnostic): number =>
     left.range.source.start - right.range.source.start ||
