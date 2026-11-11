@@ -7,7 +7,7 @@ import type { JapaneseTypesettingProfile } from "./japanese-typesetting-profile"
 import type { JapaneseBoundaryClass, JapaneseCharacterClass } from "./japanese-typesetting-rules";
 import type { ParagraphElement } from "./paragraph-layout";
 
-export type JapaneseParagraphCharacter = ParagraphElement &
+type JapaneseParagraphCharacter = ParagraphElement &
   Readonly<{ characterClass: JapaneseCharacterClass; effectiveClass: JapaneseBoundaryClass }>;
 
 export type JapaneseParagraph = Readonly<{

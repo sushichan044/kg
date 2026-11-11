@@ -5,7 +5,7 @@ import { graphemeSegmenter } from "./segmenter";
 
 type TextRange = Readonly<{ start: number; end: number }>;
 
-export type QuestionOrExclamationSpacing =
+type QuestionOrExclamationSpacing =
   | Readonly<{ kind: "valid"; marks: TextRange; gap: TextRange }>
   | Readonly<{ kind: "missing"; marks: TextRange }>
   | Readonly<{ kind: "invalid-space"; marks: TextRange; gap: TextRange }>

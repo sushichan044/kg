@@ -19,6 +19,7 @@ go install github.com/sushichan044/kg@latest
 pnpm install
 vp run build
 vp run test
+vp run knip
 ```
 
 Frontend-only development uses a local mock catalog and update stream:

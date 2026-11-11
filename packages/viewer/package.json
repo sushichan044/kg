@@ -43,23 +43,19 @@
       "types": "./dist/index.d.mts",
       "import": "./dist/index.mjs"
     },
-    "./structural.css": {
-      "types": "./styles.d.ts",
-      "default": "./src/structural.css"
-    },
     "./styles.css": {
       "types": "./styles.d.ts",
       "default": "./src/styles.css"
+    },
+    "./structural.css": {
+      "types": "./styles.d.ts",
+      "default": "./src/structural.css"
     },
     "./theme.css": {
       "types": "./styles.d.ts",
       "default": "./src/theme.css"
     },
     "./package.json": "./package.json",
-    "./typography": {
-      "types": "./dist/typography.d.mts",
-      "import": "./dist/typography.mjs"
-    },
     "./fonts/GenEiKoburiMin6-R.ttf": {
       "types": "./font-asset.d.ts",
       "default": "./assets/GenEiKoburiMin6-R.ttf"
@@ -104,6 +100,7 @@
     "vitest-browser-react": "catalog:dev"
   },
   "peerDependencies": {
+    "@types/react": "^19.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

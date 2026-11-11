@@ -19,7 +19,7 @@ export type RubyLineSegment = Readonly<{
   end: number;
   pieces: readonly MeasurementPiece[];
 }>;
-export type PositionedReadingItem = Readonly<{
+type PositionedReadingItem = Readonly<{
   value: string;
   textRange: MeasurementTextRange;
   placement: AnnotationPlacement;

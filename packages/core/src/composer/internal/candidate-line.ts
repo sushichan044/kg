@@ -13,7 +13,7 @@ export type CandidateLine = ParagraphLinePlan &
     finalExpansionBadness: number;
     nextCursor?: number;
   }>;
-export type CandidateLineContext = Readonly<{
+type CandidateLineContext = Readonly<{
   start: number;
   contentStart: number;
   end: number;

@@ -68,6 +68,9 @@ jobs:
       - name: Check
         run: vp run -r check
 
+      - name: Check unused code
+        run: vp run knip
+
       - name: Check generated frontend
         run: vp run check:generated
 

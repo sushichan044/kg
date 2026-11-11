@@ -34,11 +34,17 @@ const PreviousA5Schema = v.looseObject({
   }),
 });
 
-export type AppState = v.InferOutput<typeof AppStateSchema>;
+type AppState = v.InferOutput<typeof AppStateSchema>;
 export type ManuscriptPreferences = v.InferOutput<typeof ManuscriptPreferencesSchema>;
 export type ManuscriptNotation = ManuscriptPreferences["notation"];
 
+/**
+ * @internal
+ */
 export const DEFAULT_APP_STATE: AppState = { version: 1, selectedPath: null };
+/**
+ * @internal
+ */
 export const DEFAULT_MANUSCRIPT_PREFERENCES: ManuscriptPreferences = {
   version: 7,
   notation: "pixiv",

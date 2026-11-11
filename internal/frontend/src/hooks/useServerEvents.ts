@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent } from "react";
 import * as v from "valibot";
 
-export type ServerEventHandlers = Readonly<{
+type ServerEventHandlers = Readonly<{
   // onCatalogChanged は、ファイル一覧を取得し直すべきときに呼ばれる。
   onCatalogChanged: () => void;
   // onFileChanged は、内容が変わったファイルの ID を渡して呼ばれる。
