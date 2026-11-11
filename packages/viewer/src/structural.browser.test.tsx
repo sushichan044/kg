@@ -115,14 +115,14 @@ test("keeps semantic annotation styles when the host resets fonts", async () => 
   expect(styleOf('[data-annotation="italic"]').fontStyle).toBe("italic");
 });
 
-test("keeps the diagnostic band an unpainted overlay under host button styles", async () => {
+test("keeps the diagnostic trigger an unpainted overlay under host button styles", async () => {
   const { styleOf } = await renderWithHostStyles("数字は2026年のまま。");
 
-  const band = styleOf(".kgv-diagnostic-trigger");
-  expect(band.position).toBe("absolute");
-  expect(band.borderTopWidth).toBe("0px");
-  expect(band.paddingTop).toBe("0px");
-  expect(band.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+  const trigger = styleOf(".kgv-diagnostic-trigger");
+  expect(trigger.position).toBe("absolute");
+  expect(trigger.borderTopWidth).toBe("0px");
+  expect(trigger.paddingTop).toBe("0px");
+  expect(trigger.backgroundColor).toBe("rgba(0, 0, 0, 0)");
 });
 
 test("rules the nominal em pitch behind positioned text", async () => {

@@ -57,10 +57,6 @@
   background: color-mix(in srgb, var(--kgv-marker) 16%, transparent);
 }
 
-.kgv-diagnostic-band {
-  background: transparent;
-}
-
 .kgv-cell[data-diagnostic]:is(:hover, [data-popup-open], [data-diagnostic-active]) {
   background: color-mix(in srgb, var(--kgv-marker) 24%, transparent);
   outline: 1px solid color-mix(in srgb, var(--kgv-marker) 60%, transparent);
@@ -121,10 +117,6 @@
     border-color: Highlight;
     outline-color: Highlight;
   }
-}
-
-.kgv-diagnostic-trigger {
-  background: transparent;
 }
 
 .kgv-diagnostic-popover {

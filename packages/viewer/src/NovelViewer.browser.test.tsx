@@ -996,21 +996,28 @@ test("selects manuscript characters natively without a break between each glyph"
 }) => {
   const { screen } = await renderViewer({ text: "[b:あいうえお]", parser: pixivParser, flow });
   const glyphs = screen.container.querySelectorAll(".kgv-glyph");
-  const first = glyphs[0]?.firstChild;
-  const last = glyphs[glyphs.length - 1]?.firstChild;
-  expect.assert(first !== null && first !== undefined && last !== null && last !== undefined);
+  const firstGlyph = [...glyphs].at(0);
+  const lastGlyph = [...glyphs].at(-1);
+  expect.assert(firstGlyph !== undefined);
+  expect.assert(lastGlyph !== undefined);
+  const first = firstGlyph.firstChild;
+  const last = lastGlyph.firstChild;
+  expect.assert(first !== null);
+  expect.assert(last !== null);
   const selection = window.getSelection();
   expect.assert(selection !== null);
   const range = document.createRange();
   range.setStart(first, 0);
-  range.setEnd(last, last.textContent?.length ?? 0);
+  expect.assert(last.textContent !== null);
+  range.setEnd(last, last.textContent.length);
 
   selection.removeAllRanges();
   selection.addRange(range);
 
   expect(selection.toString()).toBe("あいうえお");
   const event = new ClipboardEvent("copy", { bubbles: true, cancelable: true });
-  first.parentElement?.dispatchEvent(event);
+  expect.assert(first.parentElement !== null);
+  first.parentElement.dispatchEvent(event);
   expect(event.defaultPrevented).toBe(false);
   selection.removeAllRanges();
 });

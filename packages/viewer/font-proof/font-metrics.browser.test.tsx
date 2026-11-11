@@ -202,7 +202,9 @@ test("keeps combining dakuten and supplementary characters on grapheme boundarie
     const measured = measurement("genei", text, "ttb");
     expect.assert(measured.kind === "clustered");
     expect(measured.clusters).toHaveLength(1);
-    expect(measured.clusters[0]?.textRange).toEqual({ start: 0, end: 2 });
+    const [cluster] = measured.clusters;
+    expect.assert(cluster !== undefined);
+    expect(cluster.textRange).toEqual({ start: 0, end: 2 });
     const glyph = proof.glyph(text);
     expect(
       Math.abs(
@@ -304,8 +306,11 @@ test("selects a different break using real ligature width instead of logical hal
   const logicalLine = logical.value.layout.pages[0]?.stages[0]?.lines[0];
   expect.assert(logicalLine !== undefined);
 
+  const [firstLine] = proof.lines;
+  expect.assert(firstLine !== undefined);
+
   expect(
-    proof.lines[0]?.items.some((item) => item.kind === "combined-glyph" && item.value === "office"),
+    firstLine.items.some((item) => item.kind === "combined-glyph" && item.value === "office"),
   ).toBe(true);
   expect(logicalLine.items.some((item) => item.kind === "glyph" && item.value === "o")).toBe(false);
 });
@@ -316,8 +321,10 @@ test("keeps a real oversized Western run whole on its overflow line", async ({
 }) => {
   const text = "TypographyTypography";
   const proof = await renderProof(text, { lineLengthEm: 10 });
-  const unit = proof.lines[0]?.items.find((item) => item.kind === "combined-glyph");
-  expect.assert(unit?.kind === "combined-glyph");
+  const [firstLine] = proof.lines;
+  expect.assert(firstLine !== undefined);
+  const unit = firstLine.items.find((item) => item.kind === "combined-glyph");
+  expect.assert(unit !== undefined);
 
   expect(proof.lines).toHaveLength(1);
   expect(unit.value).toBe(text);
