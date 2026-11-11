@@ -7,14 +7,17 @@ import { loadAppState, saveAppState } from "./lib/storage";
 export const WORKSPACE_ROUTE_ID = "workspace";
 export const FILE_QUERY_PARAM = "file";
 
+export type WorkspaceDocument =
+  | Readonly<{ kind: "loaded"; file: FileEntry; source: string }>
+  | Readonly<{ kind: "failed"; file: FileEntry }>;
+
 export type Workspace = Readonly<{
   files: readonly FileEntry[];
-  selected: FileEntry | null;
-  source: string;
+  // null は一覧が空で、開けるファイルが無いことを表す
+  document: WorkspaceDocument | null;
+  // 選択の保存に失敗したときだけ入る
   status: string;
 }>;
-
-const EMPTY_WORKSPACE: Workspace = { files: [], selected: null, source: "", status: "" };
 
 function resolveSelectedFile(
   files: readonly FileEntry[],
@@ -25,21 +28,11 @@ function resolveSelectedFile(
   return files.find((file) => file.path === preferredPath) ?? files[0] ?? null;
 }
 
-export async function loadWorkspace(
-  request: Request,
-  previous: Workspace | undefined,
-): Promise<Workspace | Response> {
-  // 取得に失敗しても例外にせず、直前の表示を残したまま状態の行で知らせる
-  const failed = (status: string): Workspace => ({ ...(previous ?? EMPTY_WORKSPACE), status });
-
-  let files: readonly FileEntry[];
-  try {
-    files = await fetchFiles();
-  } catch {
-    return failed("ファイル一覧の取得に失敗しました");
-  }
+export async function loadWorkspace(request: Request): Promise<Workspace | Response> {
+  // 一覧を取得できないときは例外のまま投げ、ルートの ErrorBoundary に表示を任せる
+  const files = await fetchFiles();
   // 中断された読み込みの結果はルーターが捨てるので、古い一覧で選択を保存しないようここで止める
-  if (request.signal.aborted) return failed("");
+  request.signal.throwIfAborted();
 
   const url = new URL(request.url);
   const requestedPath = url.searchParams.get(FILE_QUERY_PARAM);
@@ -55,15 +48,14 @@ export async function loadWorkspace(
   const status = saveAppState({ version: 1, selectedPath: selected?.path ?? null })
     ? ""
     : "選択状態を保存できませんでした";
-  if (selected === null) return { files, selected, source: "", status };
+  if (selected === null) return { files, document: null, status };
   try {
-    return { files, selected, source: await fetchContent(selected.id), status };
+    return {
+      files,
+      document: { kind: "loaded", file: selected, source: await fetchContent(selected.id) },
+      status,
+    };
   } catch {
-    // 一覧は取得できているので新しいものを返し、本文は直前に表示していたものを残す
-    const shown =
-      previous?.selected == null
-        ? { selected, source: "" }
-        : { selected: previous.selected, source: previous.source };
-    return { files, ...shown, status: "本文の取得に失敗しました" };
+    return { files, document: { kind: "failed", file: selected }, status };
   }
 }

@@ -10,11 +10,11 @@ import type { NovelViewEvent, NovelViewHandle } from "@sushichan044/kg-viewer";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
+  useLoaderData,
   useLocation,
   useNavigate,
   useNavigation,
   useRevalidator,
-  useRouteLoaderData,
 } from "react-router";
 import DownloadIcon from "~icons/lucide/download";
 import FilesIcon from "~icons/lucide/files";
@@ -29,7 +29,6 @@ import { IconButton } from "./components/IconButton";
 import { Modal } from "./components/Modal";
 import { Sidebar } from "./components/Sidebar";
 import { SettingsPanel, ViewerToolbar, ZoomControls, ZOOM } from "./components/ViewerControls";
-import { useServerEvents } from "./hooks/useServerEvents";
 import {
   loadManuscriptPreferences,
   loadPage,
@@ -38,7 +37,7 @@ import {
 } from "./lib/storage";
 import { manuscriptReducer, ProcessManuscriptError, processManuscript } from "./manuscript";
 import type { ManuscriptAction, ManuscriptState } from "./manuscript";
-import { FILE_QUERY_PARAM, WORKSPACE_ROUTE_ID } from "./workspace";
+import { FILE_QUERY_PARAM } from "./workspace";
 import type { Workspace } from "./workspace";
 
 type SheetProps = Readonly<{
@@ -75,16 +74,16 @@ function initialManuscriptState(): ManuscriptState {
 }
 
 export function App() {
-  const workspace = useRouteLoaderData<Workspace>(WORKSPACE_ROUTE_ID);
+  const workspace = useLoaderData<Workspace>();
   const navigation = useNavigation();
   const navigate = useNavigate();
   const location = useLocation();
   const revalidator = useRevalidator();
-  const files = workspace?.files ?? [];
-  const selectedFile = workspace?.selected ?? null;
+  const files = workspace.files;
+  const selectedFile = workspace.document?.file ?? null;
   const selectedId = selectedFile?.id ?? null;
   const selectedPath = selectedFile?.path ?? null;
-  const source = workspace?.source ?? "";
+  const source = workspace.document?.kind === "loaded" ? workspace.document.source : null;
   // SSE による再検証では navigation は idle のままなので、ファイルの切り替えだけが読み込み中になる
   const switching = navigation.state === "loading";
   const [manuscript, dispatch] = useReducer(manuscriptReducer, undefined, initialManuscriptState);
@@ -92,7 +91,7 @@ export function App() {
   const typography = typographyState.kind === "ready" ? typographyState.typography : undefined;
   const processed = useMemo(
     () =>
-      typography === undefined
+      typography === undefined || source === null
         ? null
         : processManuscript(
             source,
@@ -108,8 +107,7 @@ export function App() {
     : null;
   const [zoom, setZoom] = useState(manuscript.preferences.zoom);
   const [preferenceStatus, setPreferenceStatus] = useState("");
-  const status =
-    workspace !== undefined && workspace.status !== "" ? workspace.status : preferenceStatus;
+  const status = workspace.status !== "" ? workspace.status : preferenceStatus;
   const [exportRequest, setExportRequest] = useState<ExportRequest | null>(null);
   const exporting = exportRequest !== null;
   const [exportError, setExportError] = useState("");
@@ -161,15 +159,6 @@ export function App() {
     if (selectedPath === null) return;
     viewRef.current?.scrollToPage(loadPage(selectedPath));
   }, [selectedPath, source]);
-
-  useServerEvents({
-    onCatalogChanged: () => {
-      void revalidator.revalidate();
-    },
-    onFileChanged: (id) => {
-      if (id === selectedId) void revalidator.revalidate();
-    },
-  });
 
   const onSelect = useCallback(
     (path: string) => {
@@ -250,7 +239,27 @@ export function App() {
       </Sidebar>
 
       <main id="preview" className="preview" tabIndex={-1} aria-label="プレビュー">
-        {selectedFile === null ? null : (
+        {selectedFile === null ? null : source === null ? (
+          <div className="preview__failure preview__failure--content" role="alert">
+            <p>本文を取得できませんでした</p>
+            <button
+              type="button"
+              onClick={() => {
+                void revalidator.revalidate();
+              }}
+            >
+              再読み込み
+            </button>{" "}
+            <button
+              type="button"
+              onClick={() => {
+                setFileSwitcherOpen(true);
+              }}
+            >
+              ファイルを選ぶ
+            </button>
+          </div>
+        ) : (
           <>
             <ViewerToolbar
               className="desktop-viewer-toolbar"

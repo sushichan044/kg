@@ -52,8 +52,11 @@ class FakeEventSource {
   close() {}
 }
 
+type FileEntry = (typeof files)[number];
+
 type Fixtures = {
   novelSource: { current: string };
+  api: { files: readonly FileEntry[]; catalogFails: boolean; failingContent: Set<string> };
   fontRequest: { failure: boolean; gate: Promise<void> | null };
   browserEnvironment: undefined;
   renderApp: () => Promise<RenderResult>;
@@ -66,8 +69,11 @@ const test = base.extend<Fixtures>({
   fontRequest: async ({}, use) => {
     await use({ failure: false, gate: null });
   },
+  api: async ({}, use) => {
+    await use({ files, catalogFails: false, failingContent: new Set() });
+  },
   browserEnvironment: [
-    async ({ novelSource, fontRequest }, use) => {
+    async ({ novelSource, fontRequest, api }, use) => {
       window.history.replaceState(null, "", "/");
       localStorage.clear();
       sessionStorage.clear();
@@ -83,13 +89,17 @@ const test = base.extend<Fixtures>({
             if (fontRequest.failure) return new Response("unavailable", { status: 503 });
           }
           if (url.endsWith("/_/api/files")) {
-            return new Response(JSON.stringify(files), {
+            if (api.catalogFails) throw new Error("catalog unavailable");
+            return new Response(JSON.stringify(api.files), {
               headers: { "content-type": "application/json" },
             });
           }
 
-          if (url.includes("/_/api/files/"))
+          if (url.includes("/_/api/files/")) {
+            if ([...api.failingContent].some((id) => url.includes(`/_/api/files/${id}/`)))
+              return new Response("unavailable", { status: 503 });
             return new Response(url.includes("/shared/") ? "共有本文" : novelSource.current);
+          }
           return originalFetch(input);
         }),
       );
@@ -266,32 +276,15 @@ test("normalizes an unknown URL file to the first available file", async ({ rend
 });
 
 test("synchronizes the URL after a failed initial catalog load is refreshed", async ({
+  api,
   renderApp,
 }) => {
-  let catalogRequests = 0;
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (input: RequestInfo | URL) => {
-      const url = input instanceof Request ? input.url : input.toString();
-      if (url.endsWith("/_/api/files")) {
-        catalogRequests += 1;
-        if (catalogRequests === 1) throw new Error("catalog unavailable");
-        return new Response(JSON.stringify([files[1]]), {
-          headers: { "content-type": "application/json" },
-        });
-      }
-
-      if (!url.includes("/_/api/")) return nativeFetch(input);
-      return new Response("共有本文");
-    }),
-  );
-
+  api.catalogFails = true;
   const screen = await renderApp();
-
-  await waitFor(() => {
-    expect(FakeEventSource.latest).toBeDefined();
-  });
+  await expect.element(screen.getByText("ファイル一覧を取得できませんでした")).toBeVisible();
   expect.assert(FakeEventSource.latest !== undefined, "event source did not initialize");
+  api.catalogFails = false;
+  api.files = [files[1]].filter((file) => file !== undefined);
 
   FakeEventSource.latest.emit("update", "{}");
 
@@ -358,30 +351,30 @@ test("keeps the newest catalog when an older request finishes last", async ({ re
   expect(new URL(window.location.href).searchParams.get("file")).toBe("共有 原稿.txt");
 });
 
-test("keeps the file list after the first content request fails and opens another file", async ({
+test("shows a content failure instead of an empty manuscript and opens another file", async ({
+  api,
   renderApp,
 }) => {
   await page.viewport(1280, 800);
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (input: RequestInfo | URL) => {
-      const url = input instanceof Request ? input.url : input.toString();
-      if (url.endsWith("/_/api/files")) {
-        return new Response(JSON.stringify(files), {
-          headers: { "content-type": "application/json" },
-        });
-      }
-
-      if (!url.includes("/_/api/")) return nativeFetch(input);
-      if (url.includes("/shared/")) return new Response("共有本文");
-      return new Response("unavailable", { status: 503 });
-    }),
-  );
+  api.failingContent.add("novel");
 
   const screen = await renderApp();
 
-  await expect.element(screen.getByText("本文の取得に失敗しました")).toBeVisible();
+  await expect
+    .element(
+      screen
+        .getByRole("main")
+        .getByRole("alert")
+        .getByText("本文を取得できませんでした", { exact: true }),
+    )
+    .toBeVisible();
+  expect(screen.getByRole("button", { name: "PNGをZIPで出力" }).elements()).toHaveLength(0);
+  expect(screen.container.querySelector(".kgv-viewer")).toBeNull();
   const sidebar = screen.getByRole("complementary", { name: "ワークスペース" });
+  await expect
+    .element(sidebar.getByRole("button", { name: "testdata/novel.txt", exact: true }))
+    .toHaveAttribute("aria-current", "page");
+
   await sidebar.getByRole("button", { name: "共有 原稿.txt", exact: true }).click();
 
   await waitFor(() => {
@@ -394,48 +387,97 @@ test("keeps the file list after the first content request fails and opens anothe
   });
 });
 
-test("keeps the shown content and refreshes the file list when switching to a file fails", async ({
+test("reloads the content from the content failure", async ({ api, renderApp }) => {
+  await page.viewport(1280, 800);
+  api.failingContent.add("novel");
+  const screen = await renderApp();
+  const reload = screen.getByRole("main").getByRole("button", { name: "再読み込み", exact: true });
+  await expect.element(reload).toBeVisible();
+  api.failingContent.clear();
+
+  await reload.click();
+
+  await waitFor(() => {
+    expect(screen.container.querySelector(".kgv-viewer")).not.toBeNull();
+  });
+  expect(screen.getByRole("main").getByRole("alert").elements()).toHaveLength(0);
+});
+
+// モバイルではサイドバーもツールバーも出ないので、失敗の表示からファイルを選び直せる必要がある
+test("opens another file from the content failure on a compact screen", async ({
+  api,
+  renderApp,
+}) => {
+  await page.viewport(600, 900);
+  api.failingContent.add("novel");
+  const screen = await renderApp();
+  const chooseFile = screen.getByRole("button", { name: "ファイルを選ぶ", exact: true });
+  await expect.element(chooseFile).toBeVisible();
+
+  await chooseFile.click();
+  await page.getByRole("combobox", { name: "ファイル名を検索" }).fill("共有");
+  await userEvent.keyboard("{Enter}");
+
+  await waitFor(() => {
+    const label = screen.container.querySelector(".mobile-toolbar strong");
+    expect.assert(label !== null, "mobile toolbar label did not render");
+    expect(label.textContent).toBe("共有 原稿.txt");
+  });
+});
+
+test("selects the file switched to and refreshes the file list when its content fails", async ({
+  api,
   renderApp,
 }) => {
   await page.viewport(1280, 800);
-  const added = { id: "added", path: "追加.txt" };
-  const catalog = { current: files };
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (input: RequestInfo | URL) => {
-      const url = input instanceof Request ? input.url : input.toString();
-      if (url.endsWith("/_/api/files")) {
-        return new Response(JSON.stringify(catalog.current), {
-          headers: { "content-type": "application/json" },
-        });
-      }
-
-      if (!url.includes("/_/api/")) return nativeFetch(input);
-      if (url.includes("/shared/")) return new Response("unavailable", { status: 503 });
-      return new Response("本文");
-    }),
-  );
   const screen = await renderApp();
   const sidebar = screen.getByRole("complementary", { name: "ワークスペース" });
   await waitFor(() => {
-    const text = screen.container.querySelector(".kgv-visually-hidden");
-    expect.assert(text !== null, "accessible viewer text did not render");
-    expect(text.textContent.trim()).toBe("本文");
+    expect(screen.container.querySelector(".kgv-viewer")).not.toBeNull();
   });
-  catalog.current = [...files, added];
+  api.files = [...files, { id: "added", path: "追加.txt" }];
+  api.failingContent.add("shared");
 
   await sidebar.getByRole("button", { name: "共有 原稿.txt", exact: true }).click();
 
-  await expect.element(screen.getByText("本文の取得に失敗しました")).toBeVisible();
+  await expect
+    .element(screen.getByRole("main").getByText("本文を取得できませんでした", { exact: true }))
+    .toBeVisible();
+  await expect
+    .element(sidebar.getByRole("button", { name: "共有 原稿.txt", exact: true }))
+    .toHaveAttribute("aria-current", "page");
   await expect
     .element(sidebar.getByRole("button", { name: "追加.txt", exact: true }))
     .toBeVisible();
-  const label = screen.container.querySelector(".toolbar-label");
-  expect.assert(label !== null, "toolbar label did not render");
-  expect(label.textContent).toBe("testdata/novel.txt");
-  const text = screen.container.querySelector(".kgv-visually-hidden");
-  expect.assert(text !== null, "accessible viewer text did not render");
-  expect(text.textContent.trim()).toBe("本文");
+  expect(screen.container.querySelector(".kgv-viewer")).toBeNull();
+});
+
+test("shows the catalog failure when a refresh fails and recovers on reload", async ({
+  api,
+  renderApp,
+}) => {
+  const screen = await renderApp();
+  await waitFor(() => {
+    const label = screen.container.querySelector(".toolbar-label");
+    expect.assert(label !== null, "toolbar label did not render");
+    expect(label.textContent).toBe("testdata/novel.txt");
+  });
+  expect.assert(FakeEventSource.latest !== undefined, "event source did not initialize");
+  api.catalogFails = true;
+
+  FakeEventSource.latest.emit("update", "{}");
+
+  await expect.element(screen.getByText("ファイル一覧を取得できませんでした")).toBeVisible();
+  expect(screen.container.querySelector(".kgv-viewer")).toBeNull();
+  api.catalogFails = false;
+
+  await screen.getByRole("button", { name: "再読み込み", exact: true }).click();
+
+  await waitFor(() => {
+    const label = screen.container.querySelector(".toolbar-label");
+    expect.assert(label !== null, "toolbar label did not render");
+    expect(label.textContent).toBe("testdata/novel.txt");
+  });
 });
 
 test("renders pixiv notation after the initial load and a file reload", async ({
