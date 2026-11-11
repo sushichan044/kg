@@ -1,3 +1,5 @@
+blockExoticSubdeps: true
+
 catalogs:
   dev:
     "@arethetypeswrong/core": 0.18.5
@@ -18,9 +20,16 @@ catalogs:
     react-dom: 19.3.0
     valibot: 1.5.0
 
+minimumReleaseAge: 10080
+
 overrides:
   vite: "npm:@voidzero-dev/vite-plus-core@1.1.0"
 
 packages:
   - "internal/frontend"
   - "packages/**"
+
+trustPolicy: no-downgrade
+
+trustPolicyExclude:
+  - semver@6.3.1
