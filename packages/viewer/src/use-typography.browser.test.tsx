@@ -1,5 +1,5 @@
 import type { FontPresetId } from "@sushichan044/kg-core";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useTransition } from "react";
 import { expect, test as base, vi } from "vite-plus/test";
 import { render } from "vitest-browser-react";
 
@@ -65,6 +65,8 @@ function Probe({
 }>) {
   const state = useTypography(fontPreset);
   const typography = state.kind === "ready" ? state.typography : undefined;
+  // retry の中の startTransition はこの遷移にまとまるので、aria-busy が false に戻るのは再試行の結果が描画されたとき
+  const [retrying, startRetry] = useTransition();
   useEffect(() => {
     if (typography !== undefined) onReady?.(typography);
   }, [onReady, typography]);
@@ -72,7 +74,15 @@ function Probe({
     return (
       <div role="alert">
         <p>{state.error.kind}</p>
-        <button type="button" onClick={state.retry}>
+        <button
+          type="button"
+          aria-busy={retrying}
+          onClick={() => {
+            startRetry(() => {
+              state.retry();
+            });
+          }}
+        >
           retry
         </button>
       </div>
@@ -119,6 +129,39 @@ test("shows a retry control after a failure and loads again on retry", async ({ 
 
   await expect.element(screen.getByTestId("first"), { timeout: 10000 }).toHaveTextContent("mincho");
   expect(fontRequest.calls).toBe(2);
+});
+
+test("loads again when a second consumer retries after another consumer's retry failed", async ({
+  fontRequest,
+}) => {
+  fontRequest.failed = true;
+  const screen = await render(
+    <TypographyProvider>
+      <div data-testid="first-slot">
+        <Slot fontPreset="mincho" label="first" />
+      </div>
+      <div data-testid="second-slot">
+        <Slot fontPreset="mincho" label="second" />
+      </div>
+    </TypographyProvider>,
+  );
+  const first = screen.getByTestId("first-slot");
+  const second = screen.getByTestId("second-slot");
+  await expect.element(first.getByRole("alert")).toBeVisible();
+  await expect.element(second.getByRole("alert")).toBeVisible();
+  const firstRetry = first.getByRole("button", { name: "retry" });
+  await firstRetry.click();
+  await expect.element(firstRetry, { timeout: 10000 }).toHaveAttribute("aria-busy", "false");
+  expect(fontRequest.calls).toBe(2);
+  await expect.element(first.getByRole("alert")).toBeVisible();
+  fontRequest.failed = false;
+
+  await second.getByRole("button", { name: "retry" }).click();
+
+  await expect
+    .element(screen.getByTestId("second"), { timeout: 10000 })
+    .toHaveTextContent("mincho");
+  expect(fontRequest.calls).toBe(3);
 });
 
 test("serves an already loaded preset without showing the fallback again", async ({

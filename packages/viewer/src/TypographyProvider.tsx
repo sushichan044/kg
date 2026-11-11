@@ -19,7 +19,7 @@ class TypographyCache {
   #retainers = 0;
 
   // use() は同じ Promise を受け取らないと中断し直すので、書体ごとに 1 つだけ作る
-  // attempt は呼び出し側の再試行の回数で、失敗した読み込みより新しい回のときだけ読み込み直す
+  // attempt は書体ごとの読み込みの通し番号で、失敗した読み込みより新しい回のときだけ読み込み直す
   load(fontPreset: FontPresetId, attempt: number): Promise<TypographyResult> {
     const found = this.#entries.get(fontPreset);
     if (found !== undefined && !(found.failed && found.attempt < attempt)) return found.promise;
@@ -35,6 +35,14 @@ class TypographyCache {
     };
     this.#entries.set(fontPreset, entry);
     return entry.promise;
+  }
+
+  // 再試行で load に渡す attempt を返す
+  // 失敗した読み込みがあればその次の回、読み込み中か成功済みならいまの回を返すので、別の呼び出し側が先に再試行していても読み込み直せる
+  nextAttempt(fontPreset: FontPresetId): number {
+    const found = this.#entries.get(fontPreset);
+    if (found === undefined) return 0;
+    return found.failed ? found.attempt + 1 : found.attempt;
   }
 
   retain(): void {

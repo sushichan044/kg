@@ -28,7 +28,7 @@ export function useTypography(fontPreset: FontPresetId): TypographyState {
         return;
       }
       startTransition(() => {
-        setAttempt(attempt + 1);
+        setAttempt(cache.nextAttempt(fontPreset));
       });
     },
   };
