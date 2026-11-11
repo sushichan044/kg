@@ -794,6 +794,31 @@ test("retries font loading after a failed request without showing a mismatched p
   });
 });
 
+test("restores the saved page after the font loads on retry", async ({
+  fontRequest,
+  novelSource,
+  renderApp,
+}) => {
+  novelSource.current = "あ".repeat(27 * 23 * 2 * 2 + 1);
+  sessionStorage.setItem("kg.app.page.v1:testdata/novel.txt", "1");
+  fontRequest.failure = true;
+  await page.viewport(1280, 800);
+  const screen = await renderApp();
+  await expect.element(screen.getByRole("button", { name: "再試行" })).toBeVisible();
+  fontRequest.failure = false;
+
+  await screen.getByRole("button", { name: "再試行" }).click();
+
+  await waitFor(() => {
+    const viewport = screen.container.querySelector(".kgv-viewport");
+    const target = screen.container.querySelectorAll(".kgv-page")[1];
+    expect.assert(viewport !== null, "viewer did not render");
+    expect.assert(target !== undefined, "second page did not render");
+    const offset = target.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
+    expect(Math.abs(offset)).toBeLessThan(2);
+  });
+});
+
 test("switches typography profiles without changing manuscript source", async ({
   novelSource,
   renderApp,

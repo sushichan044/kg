@@ -109,6 +109,7 @@ export function ManuscriptView({
   const typographyState = useTypography(composition.appearance.fontPreset);
   const typography = typographyState.kind === "ready" ? typographyState.typography : undefined;
   const processed = useProcessedManuscript(source, composition, notation, typography);
+  const viewerShown = processed?.ok === true;
   const diagnostics = processed?.ok ? processed.value.diagnostics : [];
   const activeDiagnosticId = diagnostics.some(({ id }) => id === manuscript.activeDiagnosticId)
     ? manuscript.activeDiagnosticId
@@ -139,9 +140,10 @@ export function ManuscriptView({
 
   // 依存の source は、本文が読み込み直されたことを知るために入れている
   // workspace 全体に依存させると、SSE で一覧だけを取得し直したときにも表示位置が動く
+  // viewerShown は、書体の再試行のあとでビューアーが現れたときにも位置を戻すために入れている
   useEffect(() => {
     viewRef.current?.scrollToPage(loadPage(file.path));
-  }, [file.path, source]);
+  }, [file.path, source, viewerShown]);
 
   const onViewEvent = (event: NovelViewEvent) => {
     savePage(file.path, event.page);
