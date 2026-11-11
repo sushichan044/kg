@@ -1,3 +1,4 @@
+import { resetFontMeasurers } from "@sushichan044/kg-viewer";
 import { RouterProvider } from "react-router/dom";
 import { expect, test as base, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
@@ -80,6 +81,7 @@ const test = base.extend<Fixtures>({
       localStorage.clear();
       sessionStorage.clear();
       FakeEventSource.latest = undefined;
+      resetFontMeasurers();
       vi.stubGlobal("EventSource", FakeEventSource);
       const originalFetch = window.fetch.bind(window);
       vi.stubGlobal(
@@ -1148,6 +1150,57 @@ test("downloads all pages as 600 dpi monochrome PNG files", async ({ novelSource
     urlSpy.mockRestore();
   }
 }, 130000);
+
+test("draws exported pages with the bundled font instead of a fallback", async ({
+  novelSource,
+  renderApp,
+}) => {
+  novelSource.current = "あいうえお漢字";
+  await page.viewport(1280, 800);
+  const screen = await renderApp();
+  const exportButton = screen.getByRole("button", { name: "PNGをZIPで出力" }).first();
+  await expect.element(exportButton).toBeEnabled();
+  const { snapdom } = await import("@zumer/snapdom");
+  const capture = snapdom.toCanvas.bind(snapdom);
+  const pixels = (canvas: HTMLCanvasElement) => {
+    const context = canvas.getContext("2d");
+    expect.assert(context !== null);
+    return context.getImageData(0, 0, canvas.width, canvas.height).data;
+  };
+  const comparisons: Array<{ embedFonts: unknown; differingBytes: number }> = [];
+  const spy = vi.spyOn(snapdom, "toCanvas").mockImplementation(async (element, options) => {
+    const embedded = await capture(element, options);
+    const fallback = await capture(element, { ...options, embedFonts: false });
+    const [withFont, withoutFont] = [pixels(embedded), pixels(fallback)];
+    comparisons.push({
+      embedFonts: options?.embedFonts,
+      differingBytes: withFont.reduce(
+        (count, byte, index) => (byte === withoutFont[index] ? count : count + 1),
+        0,
+      ),
+    });
+    return embedded;
+  });
+  const download = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  try {
+    await exportButton.click();
+
+    await vi.waitFor(
+      () => {
+        expect(download).toHaveBeenCalledOnce();
+      },
+      { timeout: 60000, interval: 200 },
+    );
+    expect(comparisons).toHaveLength(1);
+    const [comparison] = comparisons;
+    expect.assert(comparison !== undefined);
+    expect(comparison.embedFonts).toBe(true);
+    expect(comparison.differingBytes).toBeGreaterThan(1000);
+  } finally {
+    spy.mockRestore();
+    download.mockRestore();
+  }
+}, 90000);
 
 test("restores the export action and reports an image generation failure", async ({
   renderApp,

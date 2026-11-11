@@ -1,7 +1,7 @@
 import { Dialog } from "@base-ui/react/dialog";
 import type { ManuscriptDiagnostic, NovelCompositionSettings } from "@sushichan044/kg-core";
-import { DiagnosticList, NovelViewer, useTypography } from "@sushichan044/kg-viewer";
-import type { NovelViewEvent, NovelViewHandle, ReadyTypography } from "@sushichan044/kg-viewer";
+import { DiagnosticList, NovelViewer, useFontMeasurer } from "@sushichan044/kg-viewer";
+import type { FontMeasurer, NovelViewEvent, NovelViewHandle } from "@sushichan044/kg-viewer";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import DownloadIcon from "~icons/lucide/download";
@@ -68,13 +68,13 @@ function useProcessedManuscript(
   source: string,
   composition: NovelCompositionSettings,
   notation: ManuscriptNotation,
-  typography: ReadyTypography | undefined,
+  measurer: FontMeasurer | undefined,
 ) {
   // ほかのフックを呼ばないフックは、この指示が無いとコンパイルされない
   "use memo";
-  return typography === undefined
+  return measurer === undefined
     ? null
-    : processManuscript(source, composition, notation, typography.composer);
+    : processManuscript(source, composition, notation, measurer.composer);
 }
 
 export type ManuscriptViewProps = Readonly<{
@@ -106,9 +106,9 @@ export function ManuscriptView({
   onPreferenceAction,
   renderSettings,
 }: ManuscriptViewProps) {
-  const typographyState = useTypography(composition.appearance.fontPreset);
-  const typography = typographyState.kind === "ready" ? typographyState.typography : undefined;
-  const processed = useProcessedManuscript(source, composition, notation, typography);
+  const measurerState = useFontMeasurer(composition.appearance.fontPreset);
+  const measurer = measurerState.kind === "ready" ? measurerState.measurer : undefined;
+  const processed = useProcessedManuscript(source, composition, notation, measurer);
   const viewerShown = processed?.ok === true;
   const diagnostics = processed?.ok ? processed.value.diagnostics : [];
   const activeDiagnosticId = diagnostics.some(({ id }) => id === manuscript.activeDiagnosticId)
@@ -123,11 +123,10 @@ export function ManuscriptView({
   const viewRef = useRef<NovelViewHandle>(null);
 
   const startExport = () => {
-    if (exporting || pending || !processed?.ok || typography === undefined) return;
+    if (exporting || pending || !processed?.ok) return;
     setExportError("");
     setExportRequest({
       composed: processed.value.composed,
-      typography,
       startPageSide: manuscript.preferences.startPageSide,
       filename: file.path.split("/").at(-1) ?? "pages",
     });
@@ -202,7 +201,7 @@ export function ManuscriptView({
         </div>
         <IconButton
           label="PNGをZIPで出力"
-          disabled={exporting || pending || !processed?.ok || typography === undefined}
+          disabled={exporting || pending || !processed?.ok}
           onClick={startExport}
         >
           <DownloadIcon aria-hidden="true" />
@@ -226,13 +225,12 @@ export function ManuscriptView({
         </IconButton>
       </header>
       {exportError !== "" ? <p role="alert">{exportError}</p> : null}
-      {typographyState.kind === "failed" ? (
-        <TypographyFailure onRetry={typographyState.retry} />
+      {measurerState.kind === "failed" ? (
+        <TypographyFailure onRetry={measurerState.retry} />
       ) : processed?.ok ? (
         <NovelViewer
           ref={viewRef}
           composed={processed.value.composed}
-          typography={typography}
           diagnostics={diagnostics}
           activeDiagnosticId={activeDiagnosticId}
           zoom={{ value: zoom, ...ZOOM, onChange: setZoom }}

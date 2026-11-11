@@ -1,11 +1,9 @@
 import type { NovelComposedManuscript } from "@sushichan044/kg-core";
 import { NovelViewer } from "@sushichan044/kg-viewer";
-import type { ReadyTypography } from "@sushichan044/kg-viewer";
 import { useEffect, useEffectEvent, useRef } from "react";
 
 export type ExportRequest = Readonly<{
   composed: NovelComposedManuscript;
-  typography: ReadyTypography;
   startPageSide: "left" | "right";
   filename: string;
 }>;
@@ -31,13 +29,7 @@ export function ExportJob({ request, onFinish }: ExportJobProps) {
     void loadExportPages()
       .then(({ exportPages }) => {
         controller.signal.throwIfAborted();
-        return exportPages(
-          host,
-          request.composed,
-          request.typography,
-          request.filename,
-          controller.signal,
-        );
+        return exportPages(host, request.composed, request.filename, controller.signal);
       })
       .then(() => {
         if (!controller.signal.aborted) finish(null);
@@ -55,7 +47,6 @@ export function ExportJob({ request, onFinish }: ExportJobProps) {
     <div ref={hostRef} className="export-pages" aria-hidden="true">
       <NovelViewer
         composed={request.composed}
-        typography={request.typography}
         startPageSide={request.startPageSide}
         showGrid={false}
       />

@@ -1,5 +1,5 @@
+import { FontPreset } from "@sushichan044/kg-core";
 import type { NovelComposedManuscript } from "@sushichan044/kg-core";
-import type { ReadyTypography } from "@sushichan044/kg-viewer";
 import { snapdom } from "@zumer/snapdom";
 import { strToU8, zlibSync, zipSync } from "fflate";
 
@@ -64,10 +64,16 @@ export function monochromePng(image: ImageData): Uint8Array {
 export async function exportPages(
   host: HTMLElement,
   composed: NovelComposedManuscript,
-  typography: ReadyTypography,
   filename: string,
   signal: AbortSignal,
 ): Promise<void> {
+  // @font-face の書体は描くときに初めて読み込まれる
+  // 書き出し用のページは画面外にあり描かれないことがあるので、使う書体の読み込みを待ってから写す
+  const { fontName } = FontPreset.of(composed.settings.appearance.fontPreset);
+  if (fontName !== "")
+    await Promise.all(
+      [400, 700].map((weight) => document.fonts.load(`${weight} 16px "${fontName}"`)),
+    );
   await document.fonts.ready;
   signal.throwIfAborted();
   const pages = Array.from(host.querySelectorAll<HTMLElement>(".kgv-page"));
@@ -90,7 +96,6 @@ export async function exportPages(
       dpr: 1,
       backgroundColor: "#ffffff",
       embedFonts: true,
-      localFonts: typography.fontFaces.map((face) => ({ ...face })),
     });
     signal.throwIfAborted();
     if (canvas.width !== width || canvas.height !== height)

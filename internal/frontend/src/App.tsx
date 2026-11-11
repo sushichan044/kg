@@ -1,4 +1,3 @@
-import { TypographyProvider } from "@sushichan044/kg-viewer";
 import { startTransition, Suspense, useDeferredValue, useReducer, useState } from "react";
 import {
   useLoaderData,
@@ -97,77 +96,75 @@ export function App() {
   );
 
   return (
-    <TypographyProvider>
-      <div className="app" data-sidebar={sidebarOpen ? "open" : "closed"}>
-        <a className="skip-link visually-hidden" href="#preview">
-          プレビューへスキップ
-        </a>
-        <Sidebar files={workspace.files} selectedPath={highlightedPath} onSelect={clearDiagnostic}>
-          {renderSettings("desktop-")}
-        </Sidebar>
+    <div className="app" data-sidebar={sidebarOpen ? "open" : "closed"}>
+      <a className="skip-link visually-hidden" href="#preview">
+        プレビューへスキップ
+      </a>
+      <Sidebar files={workspace.files} selectedPath={highlightedPath} onSelect={clearDiagnostic}>
+        {renderSettings("desktop-")}
+      </Sidebar>
 
-        <main
-          id="preview"
-          className="preview"
-          tabIndex={-1}
-          aria-label="プレビュー"
-          aria-busy={pending}
-          data-pending={pending ? "" : undefined}
-        >
-          {workspace.document === null ? null : workspace.document.kind === "failed" ? (
-            <div className="preview__failure preview__failure--content" role="alert">
-              <p>本文を取得できませんでした</p>
-              <button
-                type="button"
-                onClick={() => {
-                  startTransition(() => revalidator.revalidate());
-                }}
-              >
-                再読み込み
-              </button>{" "}
-              <button
-                type="button"
-                onClick={() => {
-                  setFileSwitcherOpen(true);
-                }}
-              >
-                ファイルを選ぶ
-              </button>
-            </div>
-          ) : (
-            <Suspense fallback={<TypographyLoading />}>
-              <ManuscriptView
-                file={workspace.document.file}
-                source={workspace.document.source}
-                manuscript={manuscript}
-                composition={composition}
-                notation={notation}
-                pending={pending}
-                sidebarOpen={sidebarOpen}
-                onSidebarToggle={() => {
-                  setSidebarOpen((open) => !open);
-                }}
-                onFilesOpen={() => {
-                  setFileSwitcherOpen(true);
-                }}
-                onDiagnosticSelect={(id) => {
-                  dispatch({ kind: "diagnostic.select", id });
-                }}
-                onPreferenceAction={commitPreferenceAction}
-                renderSettings={renderSettings}
-              />
-            </Suspense>
-          )}
-        </main>
+      <main
+        id="preview"
+        className="preview"
+        tabIndex={-1}
+        aria-label="プレビュー"
+        aria-busy={pending}
+        data-pending={pending ? "" : undefined}
+      >
+        {workspace.document === null ? null : workspace.document.kind === "failed" ? (
+          <div className="preview__failure preview__failure--content" role="alert">
+            <p>本文を取得できませんでした</p>
+            <button
+              type="button"
+              onClick={() => {
+                startTransition(() => revalidator.revalidate());
+              }}
+            >
+              再読み込み
+            </button>{" "}
+            <button
+              type="button"
+              onClick={() => {
+                setFileSwitcherOpen(true);
+              }}
+            >
+              ファイルを選ぶ
+            </button>
+          </div>
+        ) : (
+          <Suspense fallback={<TypographyLoading />}>
+            <ManuscriptView
+              file={workspace.document.file}
+              source={workspace.document.source}
+              manuscript={manuscript}
+              composition={composition}
+              notation={notation}
+              pending={pending}
+              sidebarOpen={sidebarOpen}
+              onSidebarToggle={() => {
+                setSidebarOpen((open) => !open);
+              }}
+              onFilesOpen={() => {
+                setFileSwitcherOpen(true);
+              }}
+              onDiagnosticSelect={(id) => {
+                dispatch({ kind: "diagnostic.select", id });
+              }}
+              onPreferenceAction={commitPreferenceAction}
+              renderSettings={renderSettings}
+            />
+          </Suspense>
+        )}
+      </main>
 
-        <FileSwitcher
-          open={fileSwitcherOpen}
-          onOpenChange={setFileSwitcherOpen}
-          files={workspace.files}
-          selectedPath={highlightedPath}
-          onSelect={selectFile}
-        />
-      </div>
-    </TypographyProvider>
+      <FileSwitcher
+        open={fileSwitcherOpen}
+        onOpenChange={setFileSwitcherOpen}
+        files={workspace.files}
+        selectedPath={highlightedPath}
+        onSelect={selectFile}
+      />
+    </div>
   );
 }
