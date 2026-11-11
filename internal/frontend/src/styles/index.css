@@ -67,6 +67,12 @@ select {
   block-size: 100dvb;
 }
 
+/* App を描画できないあいだの表示を、画面の中央に置く */
+.workspace-status {
+  display: grid;
+  min-block-size: 100dvb;
+}
+
 .sidebar {
   display: flex;
   min-block-size: 0;
@@ -365,6 +371,11 @@ select {
   max-inline-size: 34rem;
   padding: 1rem;
   color: var(--accent);
+}
+
+/* ツールバーの行が無いので、プレビューの全体の中央に置く */
+.preview__failure--content {
+  grid-row: 1 / -1;
 }
 
 @container toolbar (inline-size < 36rem) {

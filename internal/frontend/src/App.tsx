@@ -9,6 +9,13 @@ import {
 import type { NovelViewEvent, NovelViewHandle } from "@sushichan044/kg-viewer";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import {
+  useLoaderData,
+  useLocation,
+  useNavigate,
+  useNavigation,
+  useRevalidator,
+} from "react-router";
 import DownloadIcon from "~icons/lucide/download";
 import FilesIcon from "~icons/lucide/files";
 import DiagnosticsIcon from "~icons/lucide/message-square-warning";
@@ -22,20 +29,16 @@ import { IconButton } from "./components/IconButton";
 import { Modal } from "./components/Modal";
 import { Sidebar } from "./components/Sidebar";
 import { SettingsPanel, ViewerToolbar, ZoomControls, ZOOM } from "./components/ViewerControls";
-import { useServerEvents } from "./hooks/useServerEvents";
-import { fetchContent, fetchFiles } from "./lib/api";
-import type { FileEntry } from "./lib/api";
 import {
-  loadAppState,
   loadManuscriptPreferences,
   loadPage,
-  saveAppState,
   saveManuscriptPreferences,
   savePage,
 } from "./lib/storage";
-import type { AppState } from "./lib/storage";
 import { manuscriptReducer, ProcessManuscriptError, processManuscript } from "./manuscript";
 import type { ManuscriptAction, ManuscriptState } from "./manuscript";
+import { FILE_QUERY_PARAM } from "./workspace";
+import type { Workspace } from "./workspace";
 
 type SheetProps = Readonly<{
   open: boolean;
@@ -63,66 +66,48 @@ function Sheet({ open, title, children, onClose }: SheetProps) {
   );
 }
 
-const FILE_QUERY_PARAM = "file";
-
-function loadInitialAppState(): AppState {
-  const stored = loadAppState();
-  const selectedPath = new URL(window.location.href).searchParams.get(FILE_QUERY_PARAM);
-  return selectedPath === null || selectedPath === "" ? stored : { version: 1, selectedPath };
-}
-
-function replaceSelectedPathInURL(path: string | null): void {
-  const url = new URL(window.location.href);
-  if (path === null) url.searchParams.delete(FILE_QUERY_PARAM);
-  else url.searchParams.set(FILE_QUERY_PARAM, path);
-  window.history.replaceState(window.history.state, "", url);
-}
-
-function resolveAppState(files: readonly FileEntry[], current: AppState): AppState {
-  const selectedPath =
-    files.find((file) => file.path === current.selectedPath)?.path ?? files[0]?.path ?? null;
-  return selectedPath === current.selectedPath ? current : { version: 1, selectedPath };
-}
-
 function initialManuscriptState(): ManuscriptState {
   return {
-    source: "",
     preferences: loadManuscriptPreferences(),
     activeDiagnosticId: null,
   };
 }
 
 export function App() {
+  const workspace = useLoaderData<Workspace>();
+  const navigation = useNavigation();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const revalidator = useRevalidator();
+  const files = workspace.files;
+  const selectedFile = workspace.document?.file ?? null;
+  const selectedId = selectedFile?.id ?? null;
+  const selectedPath = selectedFile?.path ?? null;
+  const source = workspace.document?.kind === "loaded" ? workspace.document.source : null;
+  // SSE による再検証では navigation は idle のままなので、ファイルの切り替えだけが読み込み中になる
+  const switching = navigation.state === "loading";
   const [manuscript, dispatch] = useReducer(manuscriptReducer, undefined, initialManuscriptState);
   const typographyState = useTypography(manuscript.preferences.composition.appearance.fontPreset);
   const typography = typographyState.kind === "ready" ? typographyState.typography : undefined;
   const processed = useMemo(
     () =>
-      typography === undefined
+      typography === undefined || source === null
         ? null
         : processManuscript(
-            manuscript.source,
+            source,
             manuscript.preferences.composition,
             manuscript.preferences.notation,
             typography.composer,
           ),
-    [
-      manuscript.preferences.composition,
-      manuscript.preferences.notation,
-      manuscript.source,
-      typography,
-    ],
+    [manuscript.preferences.composition, manuscript.preferences.notation, source, typography],
   );
   const diagnostics = processed?.ok ? processed.value.diagnostics : [];
   const activeDiagnosticId = diagnostics.some(({ id }) => id === manuscript.activeDiagnosticId)
     ? manuscript.activeDiagnosticId
     : null;
   const [zoom, setZoom] = useState(manuscript.preferences.zoom);
-  const [appState, setAppState] = useState(loadInitialAppState);
-  const [files, setFiles] = useState<readonly FileEntry[]>([]);
-  const [catalogLoaded, setCatalogLoaded] = useState(false);
-  const [loadedDocument, setLoadedDocument] = useState<{ id: string } | null>(null);
-  const [status, setStatus] = useState("");
+  const [preferenceStatus, setPreferenceStatus] = useState("");
+  const status = workspace.status !== "" ? workspace.status : preferenceStatus;
   const [exportRequest, setExportRequest] = useState<ExportRequest | null>(null);
   const exporting = exportRequest !== null;
   const [exportError, setExportError] = useState("");
@@ -131,19 +116,11 @@ export function App() {
   const [diagnosticDrawerOpen, setDiagnosticDrawerOpen] = useState(false);
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
   const viewRef = useRef<NovelViewHandle>(null);
-  const appStateRef = useRef(appState);
   const manuscriptRef = useRef(manuscript);
-  const catalogRequestRef = useRef(0);
-  const contentRequestRef = useRef(0);
 
   useEffect(() => {
     manuscriptRef.current = manuscript;
   }, [manuscript]);
-
-  const selectedFile =
-    files.find((file) => file.path === appState.selectedPath) ?? files[0] ?? null;
-  const selectedId = selectedFile?.id ?? null;
-  const selectedPath = selectedFile?.path ?? null;
 
   const startExport = () => {
     if (
@@ -151,7 +128,7 @@ export function App() {
       !processed?.ok ||
       typography === undefined ||
       selectedFile === null ||
-      loadedDocument?.id !== selectedId
+      switching
     )
       return;
     setExportError("");
@@ -168,101 +145,29 @@ export function App() {
     if (error !== null) setExportError(`PNG の出力に失敗しました: ${error}`);
   }, []);
 
-  const commitAppState = useCallback((next: AppState) => {
-    appStateRef.current = next;
-    setAppState(next);
-    if (!saveAppState(next)) setStatus("選択状態を保存できませんでした");
-  }, []);
-
   const commitPreferenceAction = useCallback((action: ManuscriptAction) => {
     const next = manuscriptReducer(manuscriptRef.current, action);
     manuscriptRef.current = next;
     dispatch(action);
-    if (!saveManuscriptPreferences(next.preferences)) setStatus("設定を保存できませんでした");
+    if (!saveManuscriptPreferences(next.preferences))
+      setPreferenceStatus("設定を保存できませんでした");
   }, []);
 
-  const acceptCatalogResponse = useCallback(
-    (request: number, nextFiles: readonly FileEntry[]) => {
-      if (request !== catalogRequestRef.current) return;
-      setFiles(nextFiles);
-      commitAppState(resolveAppState(nextFiles, appStateRef.current));
-      setCatalogLoaded(true);
-    },
-    [commitAppState],
-  );
-
-  const refreshFiles = useCallback(async () => {
-    const request = ++catalogRequestRef.current;
-    try {
-      acceptCatalogResponse(request, await fetchFiles());
-    } catch {
-      if (request === catalogRequestRef.current) setStatus("ファイル一覧の取得に失敗しました");
-    }
-  }, [acceptCatalogResponse]);
-
-  const loadContent = useCallback((id: string) => {
-    const request = ++contentRequestRef.current;
-    return fetchContent(id).then(
-      (text) => {
-        if (request !== contentRequestRef.current) return;
-        dispatch({ kind: "document.replace", text });
-        setLoadedDocument({ id });
-      },
-      () => {
-        if (request === contentRequestRef.current) setStatus("本文の取得に失敗しました");
-      },
-    );
-  }, []);
-
+  // 依存の source は、本文が読み込み直されたことを知るために入れている
+  // workspace 全体に依存させると、SSE で一覧だけを取得し直したときにも表示位置が動く
   useEffect(() => {
-    const request = ++catalogRequestRef.current;
-    void fetchFiles().then(
-      (nextFiles) => {
-        acceptCatalogResponse(request, nextFiles);
-      },
-      () => {
-        if (request === catalogRequestRef.current) setStatus("ファイル一覧の取得に失敗しました");
-      },
-    );
-    return () => {
-      catalogRequestRef.current += 1;
-    };
-  }, [acceptCatalogResponse]);
-
-  useEffect(() => {
-    if (catalogLoaded) replaceSelectedPathInURL(selectedPath);
-  }, [catalogLoaded, selectedPath]);
-
-  useEffect(() => {
-    if (selectedId === null) {
-      contentRequestRef.current += 1;
-      dispatch({ kind: "document.replace", text: "" });
-      return;
-    }
-    void loadContent(selectedId);
-  }, [loadContent, selectedId]);
-
-  useEffect(() => {
-    if (loadedDocument === null || loadedDocument.id !== selectedId || selectedPath === null)
-      return;
+    if (selectedPath === null) return;
     viewRef.current?.scrollToPage(loadPage(selectedPath));
-  }, [loadedDocument, selectedId, selectedPath]);
-
-  useServerEvents({
-    onCatalogChanged: () => {
-      void refreshFiles();
-    },
-    onFileChanged: (id) => {
-      if (id === selectedId) void loadContent(id);
-    },
-  });
+  }, [selectedPath, source]);
 
   const onSelect = useCallback(
-    (id: string) => {
-      const found = files.find((file) => file.id === id);
-      if (found !== undefined) commitAppState({ version: 1, selectedPath: found.path });
+    (path: string) => {
+      dispatch({ kind: "diagnostic.select", id: null });
+      const params = new URLSearchParams(location.search);
+      params.set(FILE_QUERY_PARAM, path);
+      void navigate({ search: `?${params.toString()}`, hash: location.hash }, { replace: true });
     },
-    [commitAppState, files],
+    [location, navigate],
   );
 
   const onViewEvent = useCallback(
@@ -334,7 +239,27 @@ export function App() {
       </Sidebar>
 
       <main id="preview" className="preview" tabIndex={-1} aria-label="プレビュー">
-        {selectedFile === null ? null : (
+        {selectedFile === null ? null : source === null ? (
+          <div className="preview__failure preview__failure--content" role="alert">
+            <p>本文を取得できませんでした</p>
+            <button
+              type="button"
+              onClick={() => {
+                void revalidator.revalidate();
+              }}
+            >
+              再読み込み
+            </button>{" "}
+            <button
+              type="button"
+              onClick={() => {
+                setFileSwitcherOpen(true);
+              }}
+            >
+              ファイルを選ぶ
+            </button>
+          </div>
+        ) : (
           <>
             <ViewerToolbar
               className="desktop-viewer-toolbar"
@@ -346,7 +271,7 @@ export function App() {
                 setFileSwitcherOpen(true);
               }}
               onExport={startExport}
-              exporting={exporting || loadedDocument?.id !== selectedId}
+              exporting={exporting || switching}
               documentLabel={selectedFile.path}
               composed={processed?.ok ? processed.value.composed : null}
               diagnosticCount={diagnostics.length}
@@ -378,12 +303,7 @@ export function App() {
               </div>
               <IconButton
                 label="PNGをZIPで出力"
-                disabled={
-                  exporting ||
-                  !processed?.ok ||
-                  typography === undefined ||
-                  loadedDocument?.id !== selectedId
-                }
+                disabled={exporting || !processed?.ok || typography === undefined || switching}
                 onClick={startExport}
               >
                 <DownloadIcon aria-hidden="true" />
@@ -407,7 +327,7 @@ export function App() {
               </IconButton>
             </header>
             {exportError !== "" && <p role="alert">{exportError}</p>}
-            {loadedDocument?.id !== selectedId ? (
+            {switching ? (
               <p className="preview__loading">読み込み中…</p>
             ) : typographyState.kind !== "ready" ? (
               <TypographyStatus state={typographyState} />

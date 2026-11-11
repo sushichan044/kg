@@ -49,7 +49,7 @@ export function FileSwitcher({
                 key={file.id}
                 value={file.path}
                 onSelect={() => {
-                  onSelect(file.id);
+                  onSelect(file.path);
                   onOpenChange(false);
                 }}
               >
