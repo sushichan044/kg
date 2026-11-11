@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -42,6 +43,27 @@ func TestWatcher_EmitsEventsOnFilesystemChanges(t *testing.T) {
 	// Creating a new file changes the catalog.
 	writeFile(t, filepath.Join(dir, "b.txt"), "b")
 	waitFor(t, events, "update")
+}
+
+func TestWatcher_KeepsRescanningAfterRootIsRemoved(t *testing.T) {
+	t.Parallel()
+
+	base := t.TempDir()
+	removed := filepath.Join(base, "removed")
+	kept := filepath.Join(base, "kept")
+	require.NoError(t, os.MkdirAll(removed, 0o755))
+	require.NoError(t, os.MkdirAll(kept, 0o755))
+	writeFile(t, filepath.Join(removed, "a.txt"), "x")
+	writeFile(t, filepath.Join(kept, "b.txt"), "x")
+	srv := newRunningServer(t, base, removed, kept)
+	require.Equal(t, []string{"kept/b.txt", "removed/a.txt"}, relPaths(srv.Files()))
+
+	require.NoError(t, os.RemoveAll(removed))
+	writeFile(t, filepath.Join(kept, "c.txt"), "x")
+
+	assert.EventuallyWithT(t, func(c *assert.CollectT) {
+		assert.Equal(c, []string{"kept/b.txt", "kept/c.txt"}, relPaths(srv.Files()))
+	}, 3*time.Second, 20*time.Millisecond)
 }
 
 type sseEvent struct {

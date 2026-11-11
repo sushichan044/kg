@@ -123,6 +123,13 @@ func parseArgs(args []string) (options, error) {
 		roots = []string{"."}
 	}
 	opts.roots = absPaths(roots, baseDir)
+	// Reject a typo before it is forwarded to a server, where it would be
+	// persisted as a root that never resolves.
+	for _, root := range opts.roots {
+		if _, err = os.Stat(root); err != nil {
+			return options{}, fmt.Errorf("invalid path: %w", err)
+		}
+	}
 
 	return opts, nil
 }

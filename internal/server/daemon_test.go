@@ -43,6 +43,29 @@ func TestHandler_AddRootsExtendsCatalog(t *testing.T) {
 	assert.Equal(t, []string{"b.txt"}, relPaths(srv.Files()))
 }
 
+func TestHandler_AddRootsIgnoresNonexistentPath(t *testing.T) {
+	t.Parallel()
+
+	empty := t.TempDir()
+	added := t.TempDir()
+	writeFile(t, filepath.Join(added, "b.txt"), "x")
+	missing := filepath.Join(t.TempDir(), "typo.txt")
+	srv := server.New(discardLogger())
+	w, err := server.NewWatcher(srv, []string{empty}, added, discardLogger())
+	require.NoError(t, err)
+	srv.AttachRoots(w)
+	body := `{"paths":["` + missing + `","` + added + `"]}`
+	req := newLocalRequest(http.MethodPost, "/_/api/roots", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	srv.Handler(dummySPA(), testPort).ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusAccepted, rec.Code)
+	assert.Equal(t, []string{empty, added}, w.Roots())
+	assert.Equal(t, []string{"b.txt"}, relPaths(srv.Files()))
+}
+
 func TestHandler_StatusReportsVersionRootsAndFileCount(t *testing.T) {
 	t.Parallel()
 

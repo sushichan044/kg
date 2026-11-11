@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"testing"
 
@@ -148,6 +149,38 @@ func TestWatcher_SkipsGitignoredFilesAndGitDir(t *testing.T) {
 	srv := newRunningServer(t, dir, dir)
 
 	assert.Equal(t, []string{"keep.txt"}, relPaths(srv.Files()))
+}
+
+func TestWatcher_MissingRootDoesNotHideOtherRoots(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "a.txt"), "x")
+	missing := filepath.Join(t.TempDir(), "gone")
+
+	srv := newRunningServer(t, dir, missing, dir)
+
+	assert.Equal(t, []string{"a.txt"}, relPaths(srv.Files()))
+}
+
+func TestWatcher_UnreadableSubdirectoryDoesNotHideOtherFiles(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("directory permissions are not enforced on this platform or for root")
+	}
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "a.txt"), "x")
+	locked := filepath.Join(dir, "locked")
+	require.NoError(t, os.MkdirAll(locked, 0o755))
+	writeFile(t, filepath.Join(locked, "hidden.txt"), "x")
+	require.NoError(t, os.Chmod(locked, 0o000))
+	// Restore access so TempDir cleanup can remove it.
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o755) })
+
+	srv := newRunningServer(t, dir, dir)
+
+	assert.Equal(t, []string{"a.txt"}, relPaths(srv.Files()))
 }
 
 // newRunningServer builds a Server, starts its watcher for the lifetime of the

@@ -1,10 +1,11 @@
 package server
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -51,7 +52,11 @@ func newFile(absPath, baseDir string) File {
 // discover expands the given roots into the sorted set of .txt files to serve
 // and the directories that must be watched for changes. Directory roots are
 // scanned recursively; a file root is included only when it is a .txt file.
-func discover(roots []string, baseDir string) ([]File, []string, error) {
+//
+// A root or entry that cannot be read is logged and skipped rather than failing
+// the whole scan: one deleted folder or unreadable subdirectory must not freeze
+// the catalog for every other root.
+func discover(ctx context.Context, roots []string, baseDir string, logger *slog.Logger) ([]File, []string) {
 	files := map[string]File{}
 	dirs := map[string]struct{}{}
 
@@ -60,13 +65,13 @@ func discover(roots []string, baseDir string) ([]File, []string, error) {
 
 		info, err := os.Stat(root)
 		if err != nil {
-			return nil, nil, fmt.Errorf("stat %q: %w", root, err)
+			logger.WarnContext(ctx, "skip unreadable root", "root", root, "error", err)
+
+			continue
 		}
 
 		if info.IsDir() {
-			if walkErr := walkTxt(root, baseDir, files, dirs, matcher); walkErr != nil {
-				return nil, nil, walkErr
-			}
+			walkTxt(ctx, root, baseDir, files, dirs, matcher, logger)
 
 			continue
 		}
@@ -78,13 +83,26 @@ func discover(roots []string, baseDir string) ([]File, []string, error) {
 		}
 	}
 
-	return sortedFiles(files), sortedKeys(dirs), nil
+	return sortedFiles(files), sortedKeys(dirs)
 }
 
-func walkTxt(root, baseDir string, files map[string]File, dirs map[string]struct{}, matcher *ignoreMatcher) error {
-	walkErr := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+func walkTxt(
+	ctx context.Context,
+	root, baseDir string,
+	files map[string]File,
+	dirs map[string]struct{},
+	matcher *ignoreMatcher,
+	logger *slog.Logger,
+) {
+	// The callback never returns a non-skip error, so WalkDir cannot fail.
+	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			logger.WarnContext(ctx, "skip unreadable path", "path", path, "error", err)
+			if d != nil && d.IsDir() {
+				return fs.SkipDir
+			}
+
+			return nil
 		}
 
 		if d.IsDir() {
@@ -108,11 +126,6 @@ func walkTxt(root, baseDir string, files map[string]File, dirs map[string]struct
 
 		return nil
 	})
-	if walkErr != nil {
-		return fmt.Errorf("walk %q: %w", root, walkErr)
-	}
-
-	return nil
 }
 
 func isTxt(path string) bool {
