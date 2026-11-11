@@ -59,6 +59,11 @@ export async function loadWorkspace(
   try {
     return { files, selected, source: await fetchContent(selected.id), status };
   } catch {
-    return failed("本文の取得に失敗しました");
+    // 一覧は取得できているので新しいものを返し、本文は直前に表示していたものを残す
+    const shown =
+      previous?.selected == null
+        ? { selected, source: "" }
+        : { selected: previous.selected, source: previous.source };
+    return { files, ...shown, status: "本文の取得に失敗しました" };
   }
 }

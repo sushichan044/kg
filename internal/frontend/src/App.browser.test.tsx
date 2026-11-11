@@ -358,6 +358,86 @@ test("keeps the newest catalog when an older request finishes last", async ({ re
   expect(new URL(window.location.href).searchParams.get("file")).toBe("共有 原稿.txt");
 });
 
+test("keeps the file list after the first content request fails and opens another file", async ({
+  renderApp,
+}) => {
+  await page.viewport(1280, 800);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = input instanceof Request ? input.url : input.toString();
+      if (url.endsWith("/_/api/files")) {
+        return new Response(JSON.stringify(files), {
+          headers: { "content-type": "application/json" },
+        });
+      }
+
+      if (!url.includes("/_/api/")) return nativeFetch(input);
+      if (url.includes("/shared/")) return new Response("共有本文");
+      return new Response("unavailable", { status: 503 });
+    }),
+  );
+
+  const screen = await renderApp();
+
+  await expect.element(screen.getByText("本文の取得に失敗しました")).toBeVisible();
+  const sidebar = screen.getByRole("complementary", { name: "ワークスペース" });
+  await sidebar.getByRole("button", { name: "共有 原稿.txt", exact: true }).click();
+
+  await waitFor(() => {
+    const label = screen.container.querySelector(".toolbar-label");
+    expect.assert(label !== null, "toolbar label did not render");
+    expect(label.textContent).toBe("共有 原稿.txt");
+    const text = screen.container.querySelector(".kgv-visually-hidden");
+    expect.assert(text !== null, "accessible viewer text did not render");
+    expect(text.textContent.trim()).toBe("共有本文");
+  });
+});
+
+test("keeps the shown content and refreshes the file list when switching to a file fails", async ({
+  renderApp,
+}) => {
+  await page.viewport(1280, 800);
+  const added = { id: "added", path: "追加.txt" };
+  const catalog = { current: files };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = input instanceof Request ? input.url : input.toString();
+      if (url.endsWith("/_/api/files")) {
+        return new Response(JSON.stringify(catalog.current), {
+          headers: { "content-type": "application/json" },
+        });
+      }
+
+      if (!url.includes("/_/api/")) return nativeFetch(input);
+      if (url.includes("/shared/")) return new Response("unavailable", { status: 503 });
+      return new Response("本文");
+    }),
+  );
+  const screen = await renderApp();
+  const sidebar = screen.getByRole("complementary", { name: "ワークスペース" });
+  await waitFor(() => {
+    const text = screen.container.querySelector(".kgv-visually-hidden");
+    expect.assert(text !== null, "accessible viewer text did not render");
+    expect(text.textContent.trim()).toBe("本文");
+  });
+  catalog.current = [...files, added];
+
+  await sidebar.getByRole("button", { name: "共有 原稿.txt", exact: true }).click();
+
+  await expect.element(screen.getByText("本文の取得に失敗しました")).toBeVisible();
+  await expect
+    .element(sidebar.getByRole("button", { name: "追加.txt", exact: true }))
+    .toBeVisible();
+  const label = screen.container.querySelector(".toolbar-label");
+  expect.assert(label !== null, "toolbar label did not render");
+  expect(label.textContent).toBe("testdata/novel.txt");
+  const text = screen.container.querySelector(".kgv-visually-hidden");
+  expect.assert(text !== null, "accessible viewer text did not render");
+  expect(text.textContent.trim()).toBe("本文");
+});
+
 test("renders pixiv notation after the initial load and a file reload", async ({
   novelSource,
   renderApp,
