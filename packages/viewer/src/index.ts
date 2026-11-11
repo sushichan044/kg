@@ -10,4 +10,4 @@ export type {
 
 export { useTypography } from "./use-typography";
 export type { TypographyState } from "./use-typography";
-export { TypographyStatus } from "./TypographyStatus";
+export { TypographyProvider } from "./TypographyProvider";

@@ -10,6 +10,7 @@ import { render } from "vitest-browser-react";
 
 import { NovelViewer } from "./NovelViewer";
 import type { NovelViewHandle } from "./NovelViewer";
+import { TypographyProvider } from "./TypographyProvider";
 
 import "./styles.css";
 
@@ -148,4 +149,18 @@ test("offers retry when font setup rejects and recovers after retry", async ({ f
   expect(fontRequest.calls).toBe(2);
   await screen.unmount();
   expect(document.fonts.size).toBe(before);
+});
+
+test("shares fonts loaded by an enclosing TypographyProvider", async ({ fontRequest }) => {
+  const screen = await render(
+    <TypographyProvider>
+      <NovelViewer composed={composed("office")} ariaLabel="1つ目" />
+      <NovelViewer composed={composed("water")} ariaLabel="2つ目" />
+    </TypographyProvider>,
+  );
+
+  await expect.element(screen.getByLabelText("1つ目"), { timeout: 10000 }).toBeVisible();
+  await expect.element(screen.getByLabelText("2つ目")).toBeVisible();
+
+  expect(fontRequest.calls).toBe(1);
 });
