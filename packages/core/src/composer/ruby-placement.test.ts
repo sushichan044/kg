@@ -10,6 +10,12 @@ import { createNovelComposer, novelComposer } from "./novel-composer";
 import { PositionedInlineItem } from "./positioned-inline-item";
 import { logicalRunMeasurer } from "./run-measurer";
 
+function present<T>(value: T | undefined): T {
+  expect.assert(value !== undefined, "expected a value");
+
+  return value;
+}
+
 function composeRuby(
   text: string,
   readings: ReadonlyArray<Readonly<{ start: number; length: number; reading: RubyReading }>>,
@@ -95,7 +101,7 @@ describe("contextual ruby placement", () => {
     ]);
     const base = glyphs[1];
     const dot = glyphs[2];
-    const last = ruby[0]?.readingItems.at(-1);
+    const last = present(ruby[0]).readingItems.at(-1);
     expect.assert(base !== undefined && dot !== undefined && last !== undefined);
 
     expect(base.layoutSpan).toEqual({ offsetEm: 1, advanceEm: 1.25 });
@@ -108,8 +114,8 @@ describe("contextual ruby placement", () => {
       { start: 1, length: 1, reading: { kind: "mono", segments: ["かんじよ"] } },
     ]);
     const base = glyphs[1];
-    const first = ruby[0]?.readingItems[0];
-    const last = ruby[0]?.readingItems.at(-1);
+    const first = present(ruby[0]).readingItems[0];
+    const last = present(ruby[0]).readingItems.at(-1);
     expect.assert(base !== undefined && first !== undefined && last !== undefined);
 
     expect(base.layoutSpan).toEqual({ offsetEm: 1, advanceEm: 1 });
@@ -132,8 +138,8 @@ describe("contextual ruby placement", () => {
       { start: 1, length: 1, reading: { kind: "mono", segments: ["かんじよ"] } },
     ]);
     const base = glyphs[1];
-    const first = ruby[0]?.readingItems[0];
-    const last = ruby[0]?.readingItems.at(-1);
+    const first = present(ruby[0]).readingItems[0];
+    const last = present(ruby[0]).readingItems.at(-1);
     expect.assert(base !== undefined && first !== undefined && last !== undefined);
 
     expect(base.layoutSpan).toEqual({ offsetEm: 1, advanceEm: 1 });
@@ -146,7 +152,7 @@ describe("contextual ruby placement", () => {
       { start: 1, length: 1, reading: { kind: "mono", segments: ["かんじよ"] } },
     ]);
     const base = glyphs[1];
-    const first = ruby[0]?.readingItems[0];
+    const first = present(ruby[0]).readingItems[0];
     expect.assert(base !== undefined && first !== undefined);
 
     expect(base.layoutSpan.advanceEm).toBe(2);
@@ -160,8 +166,8 @@ describe("contextual ruby placement", () => {
     ]);
     const line = lines[0];
     const base = glyphs.find((glyph) => glyph.value === "漢");
-    const first = ruby[0]?.readingItems[0];
-    const last = ruby[0]?.readingItems.at(-1);
+    const first = present(ruby[0]).readingItems[0];
+    const last = present(ruby[0]).readingItems.at(-1);
     expect.assert(
       line !== undefined && base !== undefined && first !== undefined && last !== undefined,
     );
@@ -177,8 +183,8 @@ describe("contextual ruby placement", () => {
     const { ruby } = composeRuby("漢字", [
       { start: 0, length: 2, reading: { kind: "mono", segments: ["か", "むずかし"] } },
     ]);
-    const first = ruby[0]?.readingItems[0];
-    const second = ruby[0]?.readingItems[1];
+    const first = present(ruby[0]).readingItems[0];
+    const second = present(ruby[0]).readingItems[1];
     expect.assert(first !== undefined && second !== undefined);
 
     expect(first.placement.inlineSpan.offsetEm).toBe(0.25);
@@ -190,8 +196,8 @@ describe("contextual ruby placement", () => {
       { start: 1, length: 1, reading: { kind: "mono", segments: ["かんじよ"] } },
       { start: 3, length: 1, reading: { kind: "mono", segments: ["じのよみ"] } },
     ]);
-    const left = ruby[0]?.readingItems.at(-1);
-    const right = ruby[1]?.readingItems[0];
+    const left = present(ruby[0]).readingItems.at(-1);
+    const right = present(ruby[1]).readingItems[0];
     const line = lines[0];
     expect.assert(left !== undefined && right !== undefined && line !== undefined);
 
@@ -206,15 +212,15 @@ describe("contextual ruby placement", () => {
     const { glyphs, ruby } = composeRuby("あ漢字あ", [
       { start: 1, length: 2, reading: { kind: "group", text: "かんじのよみ" } },
     ]);
-    const first = ruby[0]?.readingItems[0];
-    const last = ruby[0]?.readingItems.at(-1);
+    const first = present(ruby[0]).readingItems[0];
+    const last = present(ruby[0]).readingItems.at(-1);
     expect.assert(first !== undefined && last !== undefined);
 
     expect(glyphs.map((glyph) => glyph.layoutSpan.advanceEm)).toEqual([1, 1, 1, 1]);
     expect(first.placement.inlineSpan.offsetEm).toBe(0.5);
     expect(last.placement.inlineSpan.offsetEm + last.placement.inlineSpan.advanceEm).toBe(3.5);
     expect(ruby).toHaveLength(1);
-    expect(ruby[0]?.fragmentRange.graphemes).toEqual({ start: 1, end: 3 });
+    expect(present(ruby[0]).fragmentRange.graphemes).toEqual({ start: 1, end: 3 });
   });
 
   test("uses the punctuation space before a ruby instead of widening its base", () => {
@@ -222,7 +228,7 @@ describe("contextual ruby placement", () => {
       { start: 1, length: 1, reading: { kind: "mono", segments: ["かんじよ"] } },
     ]);
     const base = glyphs[1];
-    const reading = ruby[0]?.readingItems[0];
+    const reading = present(ruby[0]).readingItems[0];
     expect.assert(base !== undefined && reading !== undefined);
 
     expect(base.layoutSpan).toEqual({ offsetEm: 1, advanceEm: 1 });
@@ -347,7 +353,7 @@ describe("joint jukugo placement", () => {
     const { glyphs, ruby } = composeRuby("漢字あ", [
       { start: 0, length: 2, reading: { kind: "jukugo", segments: ["かんじ", "じご"] } },
     ]);
-    const last = ruby[0]?.readingItems.at(-1);
+    const last = present(ruby[0]).readingItems.at(-1);
     expect.assert(last !== undefined);
 
     expect(glyphs.map((glyph) => glyph.layoutSpan.advanceEm)).toEqual([1, 1, 1]);
@@ -358,13 +364,13 @@ describe("joint jukugo placement", () => {
     const { lines, glyphs, ruby } = composeRuby("漢字", [
       { start: 0, length: 2, reading: { kind: "jukugo", segments: ["かんじ", "じゅく"] } },
     ]);
-    const first = ruby[0]?.readingItems[0];
-    const second = ruby[0]?.readingItems[3];
+    const first = present(ruby[0]).readingItems[0];
+    const second = present(ruby[0]).readingItems[3];
     expect.assert(first !== undefined && second !== undefined);
 
     expect(glyphs.map((glyph) => glyph.layoutSpan.advanceEm)).toEqual([1, 1]);
     expect(glyphs.map((glyph) => glyph.layoutSpan.offsetEm)).toEqual([0, 2]);
-    expect(lines[0]?.inlineSizeEm).toBe(3);
+    expect(present(lines[0]).inlineSizeEm).toBe(3);
     expect(first.placement.inlineSpan.offsetEm).toBe(0);
     expect(second.placement.inlineSpan.offsetEm).toBe(1.5);
   });
@@ -377,7 +383,7 @@ describe("joint jukugo placement", () => {
     expect(lines).toHaveLength(2);
     expect(ruby.map((fragment) => fragment.reading)).toEqual(["きょう", "と"]);
     expect(ruby.map((fragment) => fragment.continuation)).toEqual(["start", "end"]);
-    expect(ruby[1]?.readingItems[0]?.placement.inlineSpan.offsetEm).toBe(0);
+    expect(present(present(ruby[1]).readingItems[0]).placement.inlineSpan.offsetEm).toBe(0);
   });
 
   test("uses solid shoulder readings before unannotated text", () => {
@@ -385,9 +391,9 @@ describe("joint jukugo placement", () => {
       { start: 0, length: 2, reading: { kind: "jukugo", segments: ["か", "じご"] } },
     ]);
 
-    expect(ruby[0]?.readingItems.map((item) => item.placement.inlineSpan.offsetEm)).toEqual([
-      0, 1, 1.5,
-    ]);
+    expect(present(ruby[0]).readingItems.map((item) => item.placement.inlineSpan.offsetEm)).toEqual(
+      [0, 1, 1.5],
+    );
   });
 
   test("distributes excess around both long bases between unrelated kanji", () => {
@@ -396,9 +402,9 @@ describe("joint jukugo placement", () => {
     ]);
 
     expect(glyphs.map((glyph) => glyph.layoutSpan.offsetEm)).toEqual([0, 1.25, 2.75, 4]);
-    expect(ruby[0]?.readingItems.map((item) => item.placement.inlineSpan.offsetEm)).toEqual([
-      1, 1.5, 2, 2.5, 3, 3.5,
-    ]);
+    expect(present(ruby[0]).readingItems.map((item) => item.placement.inlineSpan.offsetEm)).toEqual(
+      [1, 1.5, 2, 2.5, 3, 3.5],
+    );
   });
 
   test("uses compound overhang before borrowing from outer kana", () => {
@@ -406,9 +412,9 @@ describe("joint jukugo placement", () => {
       { start: 1, length: 2, reading: { kind: "jukugo", segments: ["か", "じゅく"] } },
     ]);
 
-    expect(ruby[0]?.readingItems.map((item) => item.placement.inlineSpan.offsetEm)).toEqual([
-      1, 1.5, 2, 2.5,
-    ]);
+    expect(present(ruby[0]).readingItems.map((item) => item.placement.inlineSpan.offsetEm)).toEqual(
+      [1, 1.5, 2, 2.5],
+    );
   });
 
   test("shares spacing in proportion to unequal reading widths", () => {
@@ -423,7 +429,7 @@ describe("joint jukugo placement", () => {
     expect(first.layoutSpan.offsetEm).toBeCloseTo(1 + 9 / 28);
     expect(second.layoutSpan.offsetEm).toBeCloseTo(2 + 9 / 28 + 3 / 4);
     expect(last.layoutSpan.offsetEm).toBeCloseTo(4.5);
-    expect(ruby[0]?.reading).toBe("かんじじゅくご");
+    expect(present(ruby[0]).reading).toBe("かんじじゅくご");
   });
 
   test("keeps an oversized single-base fragment inside its line span", () => {
@@ -431,10 +437,10 @@ describe("joint jukugo placement", () => {
       { start: 0, length: 1, reading: { kind: "jukugo", segments: ["かんじよ"] } },
     ]);
 
-    expect(lines[0]?.inlineSizeEm).toBe(2);
-    expect(ruby[0]?.readingItems.map((item) => item.placement.inlineSpan.offsetEm)).toEqual([
-      0, 0.5, 1, 1.5,
-    ]);
+    expect(present(lines[0]).inlineSizeEm).toBe(2);
+    expect(present(ruby[0]).readingItems.map((item) => item.placement.inlineSpan.offsetEm)).toEqual(
+      [0, 0.5, 1, 1.5],
+    );
   });
 
   test("retains indivisible measured reading clusters during distribution", () => {
@@ -461,9 +467,9 @@ describe("joint jukugo placement", () => {
       composer,
     );
 
-    expect(ruby[0]?.readingItems.map((item) => item.value)).toEqual(["かんじ", "じゅくご"]);
-    expect(glyphs[1]?.layoutSpan.offsetEm).toBeCloseTo(1 + 9 / 28);
-    expect(glyphs[3]?.layoutSpan.offsetEm).toBeCloseTo(4.5);
+    expect(present(ruby[0]).readingItems.map((item) => item.value)).toEqual(["かんじ", "じゅくご"]);
+    expect(present(glyphs[1]).layoutSpan.offsetEm).toBeCloseTo(1 + 9 / 28);
+    expect(present(glyphs[3]).layoutSpan.offsetEm).toBeCloseTo(4.5);
   });
 
   test.each([
@@ -475,10 +481,9 @@ describe("joint jukugo placement", () => {
     const { lines, glyphs, ruby } = composeRuby(text, [
       { start: 1, length: 2, reading: { kind: "jukugo", segments: ["かんじ", "じゅく"] } },
     ]);
-    const items = ruby[0]?.readingItems;
-    expect.assert(items !== undefined);
+    const items = present(ruby[0]).readingItems;
 
-    expect(lines[0]?.inlineSizeEm).toBeCloseTo(widthEm);
+    expect(present(lines[0]).inlineSizeEm).toBeCloseTo(widthEm);
     expect(glyphs.map((glyph) => glyph.layoutSpan.advanceEm)).toEqual([1, 1, 1, 1]);
     expect(glyphs.map((glyph) => glyph.value).join("")).toBe(text);
     for (let index = 1; index < items.length; index += 1) {

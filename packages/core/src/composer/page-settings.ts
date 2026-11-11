@@ -23,7 +23,8 @@ export const ManuscriptPageSettings = {
   defaults: A5_PAGE_FORMAT.page,
 
   /**
-   * Centre a non-A5 text grid using half-cell line gaps and two-cell stage gaps.
+   * Centre a text grid for paper sizes without a fixed format (not A5 or A6) using half-cell line
+   * gaps and two-cell stage gaps.
    */
   centered: (
     flow: NovelFlowSettings,

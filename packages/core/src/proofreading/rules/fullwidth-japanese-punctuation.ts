@@ -48,14 +48,24 @@ const CHECKS: readonly PunctuationCheck[] = [
   },
 ];
 
-function isBesideJapanese(text: string, index: number): boolean {
-  const before = text[index - 1];
-  const after = text[index + 1];
+function isBesideJapanese(text: string, start: number, end: number): boolean {
+  const before = codePointBefore(text, start);
+  const after = text.codePointAt(end);
 
   return (
     (before !== undefined && JAPANESE_CHARACTER.test(before)) ||
-    (after !== undefined && JAPANESE_CHARACTER.test(after))
+    (after !== undefined && JAPANESE_CHARACTER.test(String.fromCodePoint(after)))
   );
+}
+
+function codePointBefore(text: string, index: number): string | undefined {
+  if (index <= 0) return undefined;
+
+  const low = text.charCodeAt(index - 1);
+  const high = index >= 2 ? text.charCodeAt(index - 2) : 0;
+  const isPair = low >= 0xdc00 && low <= 0xdfff && high >= 0xd800 && high <= 0xdbff;
+
+  return text.slice(isPair ? index - 2 : index - 1, index);
 }
 
 /**
@@ -89,7 +99,11 @@ export const fullwidthJapanesePunctuationRule = (): ParsedProofreadingRule => ({
     for (const line of splitDisplayLines(manuscript.displayText)) {
       for (const { pattern, messageId, severity, requiresJapanese } of CHECKS) {
         for (const match of line.text.matchAll(pattern)) {
-          if (requiresJapanese && !isBesideJapanese(line.text, match.index)) continue;
+          if (
+            requiresJapanese &&
+            !isBesideJapanese(line.text, match.index, match.index + match[0].length)
+          )
+            continue;
           if (isEllipsisSubstitute(line.text, match.index)) continue;
 
           const start = line.start + match.index;

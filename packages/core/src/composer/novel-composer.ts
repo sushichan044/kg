@@ -57,7 +57,6 @@ type Atom = Readonly<{
   runIndex: number;
   renderGroup: number;
   characterClass: JapaneseCharacterClass;
-  intrinsicBoxAdvanceEm: number;
   boxAdvanceEm: number;
   renderAdvanceEm: number;
   renderOffsetEm: number;
@@ -198,7 +197,6 @@ function measureSourceLine(
             runIndex,
             renderGroup,
             characterClass,
-            intrinsicBoxAdvanceEm: metrics.advanceEm,
             boxAdvanceEm: metrics.advanceEm,
             renderAdvanceEm,
             renderOffsetEm:
@@ -796,7 +794,6 @@ function wrapSourceLine(
         if (first === undefined || last === undefined) return undefined;
         const firstRun = first.combineRun ? sourceLine.runs[first.runIndex] : undefined;
         const lastRun = last.combineRun ? sourceLine.runs[last.runIndex] : undefined;
-        const globalStart = sourceLine.atoms[0]?.grapheme.range.graphemes.start ?? 0;
         assigned.push({
           ...physical,
           start:

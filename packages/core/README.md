@@ -407,10 +407,6 @@ Diagnostics do not modify the source and do not contain automatic fixes.
 The package targets browser features that are Baseline Widely Available. It
 does not include polyfills.
 
-## License
-
-MIT
-
 ## Sentence-ending symbols
 
 `♡`, `♪`, and `☆` follow the same line-breaking and separator-space rules as
@@ -449,3 +445,7 @@ Font profiles declare ordered text transforms, measurement policy and OpenType
 features. Add a profile and its browser assets to support another built-in font;
 parsers remain independent of font selection. Browser shaping is provided by
 `@sushichan044/kg-viewer/typography`; core remains synchronous and DOM independent.
+
+## License
+
+MIT

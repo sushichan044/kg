@@ -406,6 +406,18 @@ describe("fullwidthJapanesePunctuationRule", () => {
     });
   });
 
+  test.each([
+    ["before", "　𠮷!"],
+    ["after", "　!𠮷"],
+  ])("recognises an astral kanji %s a halfwidth mark as Japanese", (_position, source) => {
+    const diagnostics = diagnose(source, fullwidthJapanesePunctuationRule());
+
+    expect(only(diagnostics)).toMatchObject({
+      severity: "error",
+      message: "半角の「!」があります。日本語の句読点・括弧・感嘆符・疑問符は全角にしてください",
+    });
+  });
+
   test("leaves halfwidth marks in Latin text alone", () => {
     const diagnostics = diagnose("　Hello! Why?", fullwidthJapanesePunctuationRule());
 

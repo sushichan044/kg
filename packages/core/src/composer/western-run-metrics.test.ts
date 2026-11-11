@@ -8,6 +8,12 @@ import { createNovelComposer } from "./novel-composer";
 import type { RunMeasurer } from "./run-measurer";
 import { logicalRunMeasurer } from "./run-measurer";
 
+function present<T>(value: T | undefined): T {
+  expect.assert(value !== undefined, "expected a value");
+
+  return value;
+}
+
 /**
  * Nonuniform advances expose source-position errors when a measured run is split.
  */
@@ -106,13 +112,19 @@ describe("Western run metrics", () => {
     const wide = compose(text, metricsProvider(2.9));
 
     expect(
-      narrow[0]?.items.some((item) => item.kind === "combined-glyph" && item.value === "water"),
+      present(narrow[0]).items.some(
+        (item) => item.kind === "combined-glyph" && item.value === "water",
+      ),
     ).toBe(true);
     expect(
-      wide[0]?.items.some((item) => item.kind === "combined-glyph" && item.value === "water"),
+      present(wide[0]).items.some(
+        (item) => item.kind === "combined-glyph" && item.value === "water",
+      ),
     ).toBe(false);
     expect(
-      wide[1]?.items.some((item) => item.kind === "combined-glyph" && item.value === "water"),
+      present(wide[1]).items.some(
+        (item) => item.kind === "combined-glyph" && item.value === "water",
+      ),
     ).toBe(true);
   });
 
@@ -134,7 +146,7 @@ describe("Western run metrics", () => {
     expect(glyphs).toHaveLength(5);
     expect.assert(ruby?.kind === "ruby");
     expect(ruby.fragmentRange.graphemes).toEqual({ start: 0, end: 1 });
-    expect(ruby.readingItems[0]?.placement.inlineSpan.offsetEm).toBeCloseTo(0.1);
+    expect(present(ruby.readingItems[0]).placement.inlineSpan.offsetEm).toBeCloseTo(0.1);
   });
 
   test("retains per-grapheme rendering for aggregate logical measurements", () => {
