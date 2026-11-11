@@ -1,36 +1,31 @@
 import type { FontPresetId } from "@sushichan044/kg-core";
-import { Suspense, useEffect, useTransition } from "react";
+import { Suspense, useTransition } from "react";
 import { expect, test as base, vi } from "vite-plus/test";
 import { render } from "vitest-browser-react";
 
-import type { ReadyTypography } from "./typography";
-import { TypographyProvider } from "./TypographyProvider";
-import { useTypography } from "./use-typography";
+import { resetFontMeasurers, useFontMeasurer } from "./use-font-measurer";
 
 type FontRequest = {
   failed: boolean;
   calls: number;
-  adds: number;
+  fonts: number;
   gate: Promise<void> | undefined;
   release: () => void;
 };
+
 const test = base.extend<{ fontRequest: FontRequest }>({
   fontRequest: async ({}, use) => {
     const nativeFetch = globalThis.fetch;
     const request: FontRequest = {
       failed: false,
       calls: 0,
-      adds: 0,
+      fonts: 0,
       gate: undefined,
       release: () => {},
     };
-    const nativeAdd = document.fonts.add.bind(document.fonts);
-    const add = vi.spyOn(document.fonts, "add").mockImplementation((face) => {
-      request.adds += 1;
-      return nativeAdd(face);
-    });
     vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith(".ttf")) request.fonts += 1;
       if (url.includes("RinMincho-Regular")) {
         request.calls += 1;
         await request.gate;
@@ -38,12 +33,13 @@ const test = base.extend<{ fontRequest: FontRequest }>({
       }
       return nativeFetch(input, init);
     });
+    resetFontMeasurers();
     try {
       await use(request);
     } finally {
       request.release();
-      add.mockRestore();
       vi.unstubAllGlobals();
+      resetFontMeasurers();
     }
   },
 });
@@ -54,22 +50,10 @@ function hold(request: FontRequest) {
   });
 }
 
-function Probe({
-  fontPreset,
-  label,
-  onReady,
-}: Readonly<{
-  fontPreset: FontPresetId;
-  label: string;
-  onReady?: (typography: ReadyTypography) => void;
-}>) {
-  const state = useTypography(fontPreset);
-  const typography = state.kind === "ready" ? state.typography : undefined;
+function Probe({ fontPreset, label }: Readonly<{ fontPreset: FontPresetId; label: string }>) {
+  const state = useFontMeasurer(fontPreset);
   // retry の中の startTransition はこの遷移にまとまるので、aria-busy が false に戻るのは再試行の結果が描画されたとき
   const [retrying, startRetry] = useTransition();
-  useEffect(() => {
-    if (typography !== undefined) onReady?.(typography);
-  }, [onReady, typography]);
   if (state.kind === "failed")
     return (
       <div role="alert">
@@ -87,7 +71,7 @@ function Probe({
         </button>
       </div>
     );
-  return <p data-testid={label}>{state.typography.fontPreset}</p>;
+  return <p data-testid={label}>{state.measurer.fontPreset}</p>;
 }
 
 function Slot(props: Parameters<typeof Probe>[0]) {
@@ -98,13 +82,9 @@ function Slot(props: Parameters<typeof Probe>[0]) {
   );
 }
 
-test("suspends with the loading fallback until the font is ready", async ({ fontRequest }) => {
+test("suspends with the fallback until the measurer is ready", async ({ fontRequest }) => {
   hold(fontRequest);
-  const screen = await render(
-    <TypographyProvider>
-      <Slot fontPreset="mincho" label="first" />
-    </TypographyProvider>,
-  );
+  const screen = await render(<Slot fontPreset="mincho" label="first" />);
 
   await expect.element(screen.getByRole("status")).toHaveTextContent("loading");
   expect(screen.getByTestId("first").query()).toBeNull();
@@ -115,13 +95,9 @@ test("suspends with the loading fallback until the font is ready", async ({ font
   expect(screen.getByRole("status").query()).toBeNull();
 });
 
-test("shows a retry control after a failure and loads again on retry", async ({ fontRequest }) => {
+test("shows the failure and loads again on retry", async ({ fontRequest }) => {
   fontRequest.failed = true;
-  const screen = await render(
-    <TypographyProvider>
-      <Slot fontPreset="mincho" label="first" />
-    </TypographyProvider>,
-  );
+  const screen = await render(<Slot fontPreset="mincho" label="first" />);
   await expect.element(screen.getByRole("alert")).toHaveTextContent("font-loadretry");
 
   fontRequest.failed = false;
@@ -136,14 +112,14 @@ test("loads again when a second consumer retries after another consumer's retry 
 }) => {
   fontRequest.failed = true;
   const screen = await render(
-    <TypographyProvider>
+    <>
       <div data-testid="first-slot">
         <Slot fontPreset="mincho" label="first" />
       </div>
       <div data-testid="second-slot">
         <Slot fontPreset="mincho" label="second" />
       </div>
-    </TypographyProvider>,
+    </>,
   );
   const first = screen.getByTestId("first-slot");
   const second = screen.getByTestId("second-slot");
@@ -164,21 +140,15 @@ test("loads again when a second consumer retries after another consumer's retry 
   expect(fontRequest.calls).toBe(3);
 });
 
-test("serves an already loaded preset without showing the fallback again", async ({
-  fontRequest,
-}) => {
-  const screen = await render(
-    <TypographyProvider>
-      <Slot fontPreset="mincho" label="first" />
-    </TypographyProvider>,
-  );
+test("serves an already loaded preset without suspending again", async ({ fontRequest }) => {
+  const screen = await render(<Slot fontPreset="mincho" label="first" />);
   await expect.element(screen.getByTestId("first"), { timeout: 10000 }).toBeVisible();
 
   await screen.rerender(
-    <TypographyProvider>
+    <>
       <Slot fontPreset="mincho" label="first" />
       <Slot fontPreset="mincho" label="second" />
-    </TypographyProvider>,
+    </>,
   );
 
   expect(screen.getByRole("status").query()).toBeNull();
@@ -186,52 +156,22 @@ test("serves an already loaded preset without showing the fallback again", async
   expect(fontRequest.calls).toBe(1);
 });
 
-test("disposes loaded fonts when the provider unmounts", async ({ fontRequest }) => {
-  const before = document.fonts.size;
-  let loaded: ReadyTypography | undefined;
-  const screen = await render(
-    <TypographyProvider>
-      <Slot
-        fontPreset="mincho"
-        label="first"
-        onReady={(typography) => {
-          loaded = typography;
-        }}
-      />
-    </TypographyProvider>,
-  );
-  await expect.element(screen.getByTestId("first"), { timeout: 10000 }).toBeVisible();
-  await expect.poll(() => loaded).toBeDefined();
-  expect.assert(loaded !== undefined);
-  const typography = loaded;
-  expect(document.fonts.size).toBeGreaterThan(before);
-  await expect(fetch(typography.fontFaces[0]?.src ?? "")).resolves.toBeInstanceOf(Response);
+test("keeps a loaded preset across unmounting every consumer", async ({ fontRequest }) => {
+  const first = await render(<Slot fontPreset="mincho" label="first" />);
+  await expect.element(first.getByTestId("first"), { timeout: 10000 }).toBeVisible();
+  await first.unmount();
 
-  await screen.unmount();
+  const second = await render(<Slot fontPreset="mincho" label="again" />);
 
-  await expect.poll(() => document.fonts.size).toBe(before);
-  const [face] = typography.fontFaces;
-  expect.assert(face !== undefined);
-  await expect(fetch(face.src)).rejects.toBeInstanceOf(TypeError);
+  expect(second.getByRole("status").query()).toBeNull();
+  expect(second.getByTestId("again").query()?.textContent).toBe("mincho");
   expect(fontRequest.calls).toBe(1);
 });
 
-test("disposes a font that finishes loading after the provider unmounts", async ({
-  fontRequest,
-}) => {
-  hold(fontRequest);
-  const before = document.fonts.size;
-  const screen = await render(
-    <TypographyProvider>
-      <Slot fontPreset="mincho" label="first" />
-    </TypographyProvider>,
-  );
-  await expect.element(screen.getByRole("status")).toBeVisible();
+test("resolves the logical preset without fetching or suspending", async ({ fontRequest }) => {
+  const screen = await render(<Slot fontPreset="gothic" label="gothic" />);
 
-  await screen.unmount();
-  fontRequest.release();
-
-  await expect
-    .poll(() => fontRequest.adds > 0 && document.fonts.size === before, { timeout: 10000 })
-    .toBe(true);
+  expect(screen.getByRole("status").query()).toBeNull();
+  expect(screen.getByTestId("gothic").query()?.textContent).toBe("gothic");
+  expect(fontRequest.fonts).toBe(0);
 });

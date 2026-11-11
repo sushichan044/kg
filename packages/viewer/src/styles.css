@@ -1,5 +1,6 @@
-/* まとめて読み込むためのバンドル。structural.css の規則と既定のテーマを含む。
-   ビューアーのスタイルを一から付けるときは、./structural.css だけを読み込む。 */
+/* まとめて読み込むためのバンドル。同梱の書体、structural.css の規則と既定のテーマを含む。
+   ビューアーのスタイルを一から付けるときは、./structural.css と、必要なら ./fonts.css を読み込む。 */
 
+@import "./fonts.css";
 @import "./structural.css";
 @import "./theme.css";

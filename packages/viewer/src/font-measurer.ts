@@ -20,7 +20,6 @@ import type {
 } from "@sushichan044/kg-core/plugin";
 import type * as HarfBuzz from "harfbuzzjs";
 
-import type { TypographyLoadError } from "./typography";
 import { typographyFonts } from "./typography-fonts";
 import { readVerticalAdvances } from "./vertical-metrics";
 
@@ -34,6 +33,10 @@ export type FontMeasurer = Readonly<{
   prepare: (parsed: ParsedManuscript) => PreparedFontManuscript;
   composer: ManuscriptComposer<NovelCompositionSettings, NovelComposedManuscript["layout"]>;
   measurer: RunMeasurer;
+}>;
+
+export type FontMeasurerLoadError = Readonly<{
+  kind: "font-load" | "font-integrity" | "shaper-load";
 }>;
 
 export type FontMeasurerFaces = Readonly<Partial<Record<400 | 700, ArrayBuffer | Uint8Array>>>;
@@ -205,21 +208,9 @@ function createMeasurer(
 export async function createFontMeasurer({
   fontPreset,
   faces,
-}: CreateFontMeasurerOptions): Promise<ManuscriptResult<FontMeasurer, TypographyLoadError>> {
-  const prepare = (parsed: ParsedManuscript) => prepareManuscriptForFont(parsed, fontPreset);
-  if (FontPreset.of(fontPreset).measurement === "logical") {
-    const measurer: RunMeasurer = (request) => {
-      if (request.fontPreset !== fontPreset)
-        throw new Error("Typography font does not match the composition settings");
-      return logicalRunMeasurer(request);
-    };
-    return ManuscriptResult.succeed({
-      fontPreset,
-      prepare,
-      composer: createNovelComposer({ measurer }),
-      measurer,
-    });
-  }
+}: CreateFontMeasurerOptions): Promise<ManuscriptResult<FontMeasurer, FontMeasurerLoadError>> {
+  if (FontPreset.of(fontPreset).measurement === "logical")
+    return ManuscriptResult.succeed(logicalFontMeasurer(fontPreset));
   const shaper = loadShaper();
   const assets = typographyFonts[fontPreset];
   const verified = await Promise.all(
@@ -237,21 +228,34 @@ export async function createFontMeasurer({
 }
 
 /**
- * 呼び出し側の始めた読み込みと並行させられるよう、HarfBuzz の読み込みを別にしている
+ * フォントを読まずに測る測定器を作る
+ *
+ * 論理的な測定のプリセットに使う
  */
-export function loadShaper(): Promise<ManuscriptResult<typeof HarfBuzz, TypographyLoadError>> {
+export function logicalFontMeasurer(fontPreset: FontPresetId): FontMeasurer {
+  const measurer: RunMeasurer = (request) => {
+    if (request.fontPreset !== fontPreset)
+      throw new Error("Typography font does not match the composition settings");
+    return logicalRunMeasurer(request);
+  };
+  return {
+    fontPreset,
+    prepare: (parsed: ParsedManuscript) => prepareManuscriptForFont(parsed, fontPreset),
+    composer: createNovelComposer({ measurer }),
+    measurer,
+  };
+}
+
+function loadShaper(): Promise<ManuscriptResult<typeof HarfBuzz, FontMeasurerLoadError>> {
   return import("harfbuzzjs").then(
-    (module): ManuscriptResult<typeof HarfBuzz, TypographyLoadError> =>
+    (module): ManuscriptResult<typeof HarfBuzz, FontMeasurerLoadError> =>
       ManuscriptResult.succeed(module),
-    (): ManuscriptResult<typeof HarfBuzz, TypographyLoadError> =>
+    (): ManuscriptResult<typeof HarfBuzz, FontMeasurerLoadError> =>
       ManuscriptResult.fail({ kind: "shaper-load" }),
   );
 }
 
-/**
- * SHA-256 を確かめ終えたバイト列から測定器を作る
- */
-export function fontMeasurerFromVerifiedFaces(
+function fontMeasurerFromVerifiedFaces(
   hb: typeof HarfBuzz,
   fontPreset: FontPresetId,
   faces: FontMeasurerFaces,
@@ -276,7 +280,7 @@ export function fontMeasurerFromVerifiedFaces(
 export async function loadFontMeasurer({
   fontPreset,
   fontUrls,
-}: LoadFontMeasurerOptions): Promise<ManuscriptResult<FontMeasurer, TypographyLoadError>> {
+}: LoadFontMeasurerOptions): Promise<ManuscriptResult<FontMeasurer, FontMeasurerLoadError>> {
   const fetched = await Promise.all(
     typographyFonts[fontPreset].map(async (asset) => {
       try {

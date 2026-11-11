@@ -1,6 +1,5 @@
 import {
   NovelCompositionSettings,
-  FontPreset,
   ManuscriptDiagnostic,
   composeManuscript,
   kakuyomuParser,
@@ -29,6 +28,7 @@ import { render } from "vitest-browser-react";
 import { fitZoom } from "./fit-zoom";
 import { NovelViewer } from "./NovelViewer";
 import type { NovelViewerProps } from "./NovelViewer";
+import { loadBundledFonts } from "./test-fonts";
 
 import "./styles.css";
 
@@ -72,32 +72,19 @@ async function renderViewer(options: ViewerFixtureOptions, props: ViewerFixtureP
 
   const found = [...parsed.warnings, ...proofread.value];
   const diagnostics = options.reportedAs?.(found) ?? found;
-  const typography: NovelViewerProps["typography"] = {
-    fontFaces: [],
-    fontPreset: composed.value.settings.appearance.fontPreset,
-    prepare: (parsed) => ({ parsed, mapRange: (range) => range }),
-    fontFamily: FontPreset.of(composed.value.settings.appearance.fontPreset).family,
-    composer: options.composer ?? novelComposer,
-    measurer: logicalRunMeasurer,
-    dispose: () => {},
-  };
   const screen = await render(
-    <NovelViewer
-      composed={composed.value}
-      diagnostics={diagnostics}
-      typography={typography}
-      {...props}
-    />,
+    <NovelViewer composed={composed.value} diagnostics={diagnostics} {...props} />,
   );
   await expect
     .poll(() => screen.container.querySelector(".kgv-viewer") !== null, { timeout: 10000 })
     .toBe(true);
 
-  return { composed: composed.value, diagnostics, screen, typography };
+  return { composed: composed.value, diagnostics, screen };
 }
 
 const test = base.extend<{ renderViewer: typeof renderViewer }>({
   renderViewer: async ({}, use) => {
+    await loadBundledFonts();
     await use(renderViewer);
   },
 });
@@ -896,7 +883,7 @@ for (const startPageSide of ["right", "left"] as const) {
   test(`arranges spreads from the ${startPageSide} side and restores single pages`, async ({
     renderViewer,
   }) => {
-    const { screen, composed, typography } = await renderViewer(
+    const { screen, composed } = await renderViewer(
       { text: "あ".repeat(27 * 23 * 2 * 3 + 1) },
       { spread: true, startPageSide },
     );
@@ -917,7 +904,7 @@ for (const startPageSide of ["right", "left"] as const) {
     expect(pairRight.left).toBeCloseTo(pairLeft.right, 1);
     expect(nextRow.top).toBeGreaterThan(pairLeft.bottom);
 
-    await screen.rerender(<NovelViewer composed={composed} typography={typography} />);
+    await screen.rerender(<NovelViewer composed={composed} />);
 
     const [singleFirst, singleSecond] = bounds();
     expect.assert(singleFirst !== undefined && singleSecond !== undefined);
@@ -930,7 +917,7 @@ for (const startPageSide of ["right", "left"] as const) {
 test("fits the full spread when switching from single pages", async ({ renderViewer }) => {
   let singleZoom = 0;
   let spreadZoom = 0;
-  const { screen, composed, typography } = await renderViewer(
+  const { screen, composed } = await renderViewer(
     { text: "あ" },
     {
       fit: true,
@@ -973,7 +960,6 @@ test("fits the full spread when switching from single pages", async ({ renderVie
   await screen.rerender(
     <NovelViewer
       composed={composed}
-      typography={typography}
       fit
       spread
       zoom={{

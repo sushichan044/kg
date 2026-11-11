@@ -1,0 +1,26 @@
+/* 同梱の書体。測定器は同じファイルを別に読むので、ここで差し替えると測った幅と描く字形がずれる
+   font-display: block にするのは、代替の書体で描いた幅が一瞬でも測った幅と食い違わないようにするため */
+
+@font-face {
+  font-family: "KGRinMincho100";
+  src: url("../assets/RinMincho-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "KGRinMincho100";
+  src: url("../assets/RinMincho-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "KGGenEiKoburi61";
+  src: url("../assets/GenEiKoburiMin6-R.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}

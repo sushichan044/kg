@@ -1,4 +1,4 @@
-import { composeManuscript, FontPreset, ManuscriptRange } from "@sushichan044/kg-core";
+import { FontPreset, ManuscriptRange } from "@sushichan044/kg-core";
 import type {
   SingleGlyphUnit,
   AnnotationPlacement,
@@ -11,25 +11,13 @@ import type {
   PresentationKind,
 } from "@sushichan044/kg-core";
 import { GlyphOrientation } from "@sushichan044/kg-core/plugin";
-import {
-  Suspense,
-  use,
-  useEffect,
-  useEffectEvent,
-  useImperativeHandle,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useEffectEvent, useImperativeHandle, useRef, useState } from "react";
 import type { CSSProperties, Ref, RefCallback, RefObject, ReactNode } from "react";
 
 import { DiagnosticHover } from "./DiagnosticHover";
 import { DiagnosticMarker } from "./DiagnosticMarker";
 import { fitZoom } from "./fit-zoom";
-import type { ReadyTypography } from "./typography";
 import { cssFontFeatures } from "./typography-profile";
-import { TypographyContext, TypographyProvider } from "./TypographyProvider";
-import { TypographyLoading, TypographyStatus } from "./TypographyStatus";
-import { useTypography } from "./use-typography";
 
 const NO_DIAGNOSTICS: readonly ManuscriptDiagnostic[] = [];
 const DEFAULT_ZOOM = { value: 100, min: 1, max: Number.MAX_SAFE_INTEGER, step: 1 } satisfies Omit<
@@ -39,7 +27,6 @@ const DEFAULT_ZOOM = { value: 100, min: 1, max: Number.MAX_SAFE_INTEGER, step: 1
 
 export type NovelViewerProps = Readonly<{
   composed: NovelComposedManuscript;
-  typography?: ReadyTypography;
   diagnostics?: readonly ManuscriptDiagnostic[];
   activeDiagnosticId?: string | null;
   zoom?: NovelViewerZoom;
@@ -651,10 +638,9 @@ function NovelPage({
   );
 }
 
-function NovelViewerRenderer({
+export function NovelViewer({
   ref,
   composed,
-  typography,
   diagnostics = NO_DIAGNOSTICS,
   activeDiagnosticId = null,
   zoom,
@@ -679,8 +665,6 @@ function NovelViewerRenderer({
   const value = zoom?.value ?? uncontrolledZoom;
   const onChange = zoom?.onChange ?? setUncontrolledZoom;
   const selectedFont = FontPreset.of(composed.settings.appearance.fontPreset);
-  const usesTypography = typography !== undefined;
-  const fontFamily = usesTypography ? typography.fontFamily : selectedFont.family;
   const onFitChange = useEffectEvent((percent: number) => {
     onChange(percent);
   });
@@ -793,7 +777,7 @@ function NovelViewerRenderer({
     "--kgv-margin-bottom": `${geometry.bottomMm * (value / 100)}mm`,
     "--kgv-margin-inner": `${geometry.innerMm * (value / 100)}mm`,
     "--kgv-margin-outer": `${geometry.outerMm * (value / 100)}mm`,
-    "--kgv-manuscript-font": fontFamily,
+    "--kgv-manuscript-font": selectedFont.family,
     "--kgv-font-features": cssFontFeatures(selectedFont),
     "--kgv-western-kerning": selectedFont.rendering.westernKerning,
     "--kgv-font-synthesis": selectedFont.rendering.synthesis,
@@ -817,7 +801,7 @@ function NovelViewerRenderer({
       className={joinClassNames("kgv-viewer", className)}
       aria-label={ariaLabel}
       lang="ja"
-      data-typography={usesTypography ? selectedFont.id : undefined}
+      data-typography={selectedFont.id}
     >
       <div ref={viewportRef} className="kgv-viewport">
         <div className="kgv-stack" data-spread={spread ? "" : undefined} style={style}>
@@ -854,75 +838,4 @@ function NovelViewerRenderer({
       </div>
     </div>
   );
-}
-
-// 診断だけが変わったときに組版をやり直さないよう、フックの戻り値として診断の変換と別のスコープに分ける
-function useMeasuredComposition(
-  parsed: NovelComposedManuscript["parsed"],
-  settings: NovelComposedManuscript["settings"],
-  typography: ReadyTypography,
-) {
-  "use memo";
-  const prepared = typography.prepare(parsed);
-  const composed = composeManuscript(prepared.parsed, {
-    composer: typography.composer,
-    settings,
-  });
-  return { prepared, composed };
-}
-
-function MeasuredNovelViewer(props: NovelViewerProps) {
-  const state = useTypography(props.composed.settings.appearance.fontPreset);
-  if (state.kind === "failed") return <TypographyStatus state={state} />;
-  return <ComposedNovelViewer {...props} typography={state.typography} />;
-}
-
-function ComposedNovelViewer({
-  typography,
-  ...props
-}: NovelViewerProps & Readonly<{ typography: ReadyTypography }>) {
-  const { prepared, composed } = useMeasuredComposition(
-    props.composed.parsed,
-    props.composed.settings,
-    typography,
-  );
-  if (!composed.ok) return <p role="alert">原稿を組版できませんでした。</p>;
-  const diagnostics = props.diagnostics?.map((diagnostic) => ({
-    ...diagnostic,
-    range: prepared.mapRange(diagnostic.range),
-  }));
-  return (
-    <NovelViewerRenderer
-      {...props}
-      composed={composed.value}
-      typography={typography}
-      diagnostics={diagnostics}
-    />
-  );
-}
-
-function AutomaticNovelViewer(props: NovelViewerProps) {
-  const cache = use(TypographyContext);
-  const viewer = (
-    <Suspense fallback={<TypographyLoading />}>
-      <MeasuredNovelViewer {...props} />
-    </Suspense>
-  );
-  // 自前のキャッシュは書体を切り替えたときに作り直し、使わなくなった書体をすぐ解放する
-  return cache === null ? (
-    <TypographyProvider key={props.composed.settings.appearance.fontPreset}>
-      {viewer}
-    </TypographyProvider>
-  ) : (
-    viewer
-  );
-}
-
-export function NovelViewer(props: NovelViewerProps) {
-  const fontPreset = props.composed.settings.appearance.fontPreset;
-  if (props.typography !== undefined && props.typography.fontPreset !== fontPreset)
-    return <p role="alert">書体と組版設定が一致しません。</p>;
-  if (props.typography !== undefined || FontPreset.of(fontPreset).measurement === "logical")
-    return <NovelViewerRenderer {...props} />;
-  return <AutomaticNovelViewer {...props} />;
 }

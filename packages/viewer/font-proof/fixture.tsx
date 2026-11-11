@@ -13,8 +13,8 @@ import { commands, page, server } from "vite-plus/test/browser";
 import { render } from "vitest-browser-react";
 
 import geneiFontUrl from "../assets/GenEiKoburiMin6-R.ttf?url";
+import { loadFontMeasurer } from "../src/font-measurer";
 import { NovelViewer } from "../src/NovelViewer";
-import { loadTypography } from "../src/typography";
 
 import "../src/styles.css";
 
@@ -67,12 +67,12 @@ async function loadFonts() {
     }),
   );
   await document.fonts.ready;
-  const loaded = await loadTypography({
+  const loaded = await loadFontMeasurer({
     fontPreset: "genei-koburi",
     fontUrls: { 400: geneiFontUrl },
   });
   expect.assert(loaded.ok);
-  return { fixture, faces, typography: loaded.value };
+  return { fixture, faces, measurer: loaded.value };
 }
 
 type LoadedFonts = Awaited<ReturnType<typeof loadFonts>>;
@@ -93,7 +93,7 @@ function measurement(
 
 function provider(fonts: LoadedFonts, options: ProofOptions): RunMeasurer {
   if (options.font !== "source-serif" && options.kern !== false && options.liga !== false)
-    return fonts.typography.measurer;
+    return fonts.measurer.measurer;
   return (request) => {
     expect(request.presentation).not.toBe("tate-chu-yoko");
     const sideways = request.presentation === "sideways";
@@ -164,15 +164,6 @@ async function renderProof(fonts: LoadedFonts, text: string, options: ProofOptio
       `}</style>
       <div className="native-references" aria-label="Native font references" />
       <NovelViewer
-        typography={
-          options.font !== "source-serif" && options.kern !== false && options.liga !== false
-            ? fonts.typography
-            : {
-                ...fonts.typography,
-                composer: createNovelComposer({ measurer: provider(fonts, options) }),
-                measurer: provider(fonts, options),
-              }
-        }
         composed={composed.value}
         diagnostics={options.diagnostics}
         onDiagnosticSelect={options.onDiagnosticSelect}
@@ -300,7 +291,6 @@ export const test = base.extend<{
     try {
       await use(fonts);
     } finally {
-      fonts.typography.dispose();
       for (const face of fonts.faces) document.fonts.delete(face);
     }
   },

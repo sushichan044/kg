@@ -43,6 +43,10 @@
       "types": "./dist/index.d.mts",
       "import": "./dist/index.mjs"
     },
+    "./fonts.css": {
+      "types": "./styles.d.ts",
+      "default": "./src/fonts.css"
+    },
     "./structural.css": {
       "types": "./styles.d.ts",
       "default": "./src/structural.css"
@@ -56,10 +60,6 @@
       "default": "./src/theme.css"
     },
     "./package.json": "./package.json",
-    "./typography": {
-      "types": "./dist/typography.d.mts",
-      "import": "./dist/typography.mjs"
-    },
     "./measure": {
       "types": "./dist/measure.d.mts",
       "import": "./dist/measure.mjs"

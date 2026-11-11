@@ -9,9 +9,10 @@ import { expect, test as base } from "vite-plus/test";
 import { server } from "vite-plus/test/browser";
 import { render } from "vitest-browser-react";
 
+import { loadFontMeasurer } from "./font-measurer";
+import type { FontMeasurer } from "./font-measurer";
 import { NovelViewer } from "./NovelViewer";
-import { loadTypography } from "./typography";
-import type { ReadyTypography } from "./typography";
+import { loadBundledFonts } from "./test-fonts";
 
 import "./styles.css";
 
@@ -43,23 +44,19 @@ const UNDERDRAWN: Record<"mincho" | "genei-koburi", Underdrawn> =
       }
     : { mincho: NOT_UNDERDRAWN, "genei-koburi": NOT_UNDERDRAWN };
 
-const test = base.extend<{ typographies: Record<"mincho" | "genei-koburi", ReadyTypography> }>({
+const test = base.extend<{ typographies: Record<"mincho" | "genei-koburi", FontMeasurer> }>({
   typographies: async ({}, use) => {
     const [mincho, genei] = await Promise.all([
-      loadTypography({ fontPreset: "mincho" }),
-      loadTypography({ fontPreset: "genei-koburi" }),
+      loadFontMeasurer({ fontPreset: "mincho" }),
+      loadFontMeasurer({ fontPreset: "genei-koburi" }),
     ]);
     expect.assert(mincho.ok && genei.ok);
-    try {
-      await use({ mincho: mincho.value, "genei-koburi": genei.value });
-    } finally {
-      mincho.value.dispose();
-      genei.value.dispose();
-    }
+    await loadBundledFonts();
+    await use({ mincho: mincho.value, "genei-koburi": genei.value });
   },
 });
 
-function compose(typography: ReadyTypography, source: string) {
+function compose(typography: FontMeasurer, source: string) {
   const parsed = parseManuscript(source, { parser: kakuyomuParser });
   expect.assert(parsed.ok);
   const prepared = typography.prepare(parsed.value);
@@ -104,7 +101,7 @@ test.for(["mincho", "genei-koburi"] as const)(
     // 〱〲 は Rin にだけあり、vmtx が 2 em になっている
     const composed = compose(typography, fontPreset === "mincho" ? `${CORPUS}〱〲` : CORPUS);
 
-    const screen = await render(<NovelViewer composed={composed} typography={typography} />);
+    const screen = await render(<NovelViewer composed={composed} />);
 
     expect(screen.container.querySelectorAll(".kgv-cell").length).toBeGreaterThan(80);
     const mismatches = cellMismatches(screen.container);
@@ -120,7 +117,7 @@ test.for(["mincho", "genei-koburi"] as const)(
     const typography = typographies[fontPreset];
     const composed = compose(typography, CORPUS);
 
-    const screen = await render(<NovelViewer composed={composed} typography={typography} />);
+    const screen = await render(<NovelViewer composed={composed} />);
 
     const mixed = [...screen.container.querySelectorAll<HTMLElement>(".kgv-glyph")].filter(
       (glyph) =>
@@ -137,7 +134,7 @@ test.for(["mincho", "genei-koburi"] as const)(
     const typography = typographies[fontPreset];
     const composed = compose(typography, "あ“い”う%え｢お");
 
-    const screen = await render(<NovelViewer composed={composed} typography={typography} />);
+    const screen = await render(<NovelViewer composed={composed} />);
 
     const orientations = Object.fromEntries(
       [...screen.container.querySelectorAll<HTMLElement>(".kgv-glyph")].map((glyph) => [
@@ -162,7 +159,7 @@ test.for(["mincho", "genei-koburi"] as const)(
     const reading = "かんA%“ー〜";
     const composed = compose(typography, `｜漢字《${reading}》`);
 
-    const screen = await render(<NovelViewer composed={composed} typography={typography} />);
+    const screen = await render(<NovelViewer composed={composed} />);
 
     const characters = [...screen.container.querySelectorAll<HTMLElement>(".kgv-ruby-character")];
     expect(characters.map((character) => character.textContent).join("")).toBe(reading);
@@ -204,7 +201,7 @@ test.for([
     });
     expect.assert(logical.ok);
 
-    const screen = await render(<NovelViewer composed={composed} typography={typography} />);
+    const screen = await render(<NovelViewer composed={composed} />);
 
     const cells = [...screen.container.querySelectorAll<HTMLElement>(".kgv-cell")].map((cell) => [
       cell.textContent,

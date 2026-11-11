@@ -86,7 +86,8 @@ the styling contract.
 | ---------------------------------------- | ---------------------------------------------------------- | -------- |
 | `@sushichan044/kg-viewer/structural.css` | Vertical layout and positioned text. No colors.            | Yes      |
 | `@sushichan044/kg-viewer/theme.css`      | Default colors, ruling, shadows, and diagnostic treatment. | No       |
-| `@sushichan044/kg-viewer/styles.css`     | Both stylesheets.                                          | —        |
+| `@sushichan044/kg-viewer/fonts.css`      | `@font-face` rules for the bundled fonts.                  | No       |
+| `@sushichan044/kg-viewer/styles.css`     | The fonts and both stylesheets.                            | —        |
 
 Both sheets are unlayered and selected by package class. This protects layout
 from low-specificity host resets. Import the package stylesheet before the
@@ -173,7 +174,7 @@ State is exposed through these attributes:
 | `data-diagnostic-continued` | continuation diagnostic bands      | present on continuations                        |
 | `data-diagnostic-origin`    | `.kgv-diagnostics > li`            | origin kind of the item                         |
 | `data-spread`               | `.kgv-stack`                       | present in spread layout                        |
-| `data-typography`           | `.kgv-viewer`                      | selected typography font ID                     |
+| `data-typography`           | `.kgv-viewer`                      | font preset ID                                  |
 
 `DiagnosticList` renders `ol.kgv-diagnostics > li` with selectable paragraphs
 inside `.kgv-diagnostic-message`. When `onSelect` is supplied, a separate
@@ -215,34 +216,21 @@ selects GenEi Koburi Mincho Regular; `gothic` uses logical system-font metrics.
 Existing `mincho` preferences keep their ID. Font files are unmodified and ship
 with their OFL notices in `assets`.
 
-`NovelViewer` prepares the selected browser font automatically when no `typography`
-resource is supplied. Applications displaying page counts or proofreading outside
-the viewer should load a resource first and share its prepared composition:
+A manuscript is composed with the measurer for its font preset, then rendered.
+`NovelViewer` only renders `composed`; it never loads fonts. The browser draws
+the bundled fonts from `fonts.css` (included in `styles.css`), whose
+`@font-face` rules point at the same files the measurer reads. Applications that
+import only `structural.css` import `fonts.css` as well.
 
 ```tsx
-import { composeManuscript, NovelCompositionSettings } from "@sushichan044/kg-core";
-import { loadTypography } from "@sushichan044/kg-viewer/typography";
-
-const loaded = await loadTypography({ fontPreset: "mincho" });
-if (!loaded.ok) return;
-const typography = loaded.value;
-const prepared = typography.prepare(parsed);
-const composed = composeManuscript(prepared.parsed, {
-  composer: typography.composer,
-  settings: NovelCompositionSettings.defaults,
-});
-// Run proofreading on composed.value and map parser warnings with prepared.mapRange.
-// Pass the same typography to NovelViewer; dispose it when the owner unmounts.
-```
-
-React consumers load fonts through `TypographyProvider` and `useTypography(fontPreset)`:
-
-```tsx
-import { NovelViewer, TypographyProvider, useTypography } from "@sushichan044/kg-viewer";
+import { composeManuscript } from "@sushichan044/kg-core";
+import { NovelViewer, useFontMeasurer } from "@sushichan044/kg-viewer";
 import { Suspense } from "react";
 
-function Preview({ composed }) {
-  const state = useTypography(composed.settings.appearance.fontPreset);
+import "@sushichan044/kg-viewer/styles.css";
+
+function Preview({ parsed, settings }) {
+  const state = useFontMeasurer(settings.appearance.fontPreset);
   if (state.kind === "failed")
     return (
       <div role="alert">
@@ -252,52 +240,74 @@ function Preview({ composed }) {
         </button>
       </div>
     );
-  return <NovelViewer composed={composed} typography={state.typography} />;
+  const prepared = state.measurer.prepare(parsed);
+  const composed = composeManuscript(prepared.parsed, {
+    composer: state.measurer.composer,
+    settings,
+  });
+  if (!composed.ok) return null;
+  // Map parser warnings and proofreading ranges with prepared.mapRange.
+  return <NovelViewer composed={composed.value} />;
 }
 
-<TypographyProvider>
-  <Suspense fallback={<p role="status">Loading font…</p>}>
-    <Preview composed={composed} />
-  </Suspense>
-</TypographyProvider>;
+<Suspense fallback={<p role="status">Loading font…</p>}>
+  <Preview parsed={parsed} settings={settings} />
+</Suspense>;
 ```
 
-The package ships no status components: the consumer renders the Suspense
-fallback and the failure UI from `state.error` and `state.retry`.
+`useFontMeasurer(fontPreset)` suspends until the measurer is ready, then returns
+`{ kind: "ready", measurer }` or `{ kind: "failed", error, retry }`. The package
+ships no status components. Loaded measurers are shared by every component for
+the lifetime of the page, so a preset that was loaded before is returned without
+suspending, and changing the preset inside a transition (for example with
+`useDeferredValue`) keeps the previous preview on screen until the new font is
+ready. `retry` reloads a failed preset in a transition; after a `shaper-load`
+failure it reloads the page. `resetFontMeasurers()` drops the shared measurers;
+tests call it to keep font requests independent, and applications can call it to
+release fonts they no longer use. `gothic` resolves immediately and fetches
+nothing.
 
-`useTypography` suspends until the font is ready, then returns
-`{ kind: "ready", typography }` or `{ kind: "failed", error, retry }`. It throws
-when no `TypographyProvider` is above it. Place the provider above the Suspense
-boundary; a provider inside the boundary loses its cache each time it suspends.
-The provider caches every loaded preset and disposes all of them when it unmounts,
-including loads that finish later. A preset that was loaded before is returned
-without suspending, so changing the preset inside a transition (for example with
-`useDeferredValue`) keeps the previous preview on screen until the new font is ready.
-`retry` reloads a failed preset in a transition; after a `shaper-load` failure it
-reloads the page.
+The measurer reads the font files with HarfBuzz and needs no DOM, so it also runs
+in Node or a worker through `@sushichan044/kg-viewer/measure`:
 
-Without a `typography` prop, `NovelViewer` suspends inside its own boundary and
-shows built-in Japanese messages: a loading message while the font loads and a
-retry control when it fails. It uses an enclosing `TypographyProvider` when one
-exists; otherwise it owns a cache that it replaces when the font preset changes.
-A supplied resource whose ID differs from the composition settings is rejected.
+```ts
+import { readFile } from "node:fs/promises";
 
-The loader shares OpenType features and actual face weights between HarfBuzz
-Western shaping, native vertical measurement and drawing. Measurements use Q
-(1Q = 0.25mm). Font files are checksum verified; loading, integrity and shaper
-failures have separate Result error kinds. `fontUrls` can override the URLs by
-weight without changing the expected bytes. Vite consumers exclude `@sushichan044/kg-viewer` and `harfbuzzjs`
-from dependency prebundling so font and WASM URLs resolve to deployable assets.
+import { createFontMeasurer } from "@sushichan044/kg-viewer/measure";
 
-`ReadyTypography.fontFaces` exposes blob URLs for the verified font bytes, with
-family, weight and style. Pass these to a capture library's explicit font input
-(for example SnapDOM's `localFonts`) to embed the same faces in exported images.
-These URLs are valid until `dispose()`; do not retain them after disposal.
+const font = (file: string) =>
+  readFile(new URL(import.meta.resolve(`@sushichan044/kg-viewer/fonts/${file}`)));
+const loaded = await createFontMeasurer({
+  fontPreset: "mincho",
+  faces: { 400: await font("RinMincho-Regular.ttf"), 700: await font("RinMincho-Bold.ttf") },
+});
+```
 
-Callers migrating from the GenEi draft API use
-`loadTypography({ fontPreset: "genei-koburi", fontUrls: { 400: fontUrl } })`,
-prepare the parsed manuscript, and retain the existing composer/measurer/dispose
-workflow. Settings must select the same `genei-koburi` ID.
+`loadFontMeasurer({ fontPreset, fontUrls? })` fetches the bundled files instead.
+Font bytes are checksum verified; loading, integrity and shaper failures have
+separate Result error kinds (`FontMeasurerLoadError`). `fontUrls` can override the
+URLs by weight without changing the expected bytes. Vite consumers exclude
+`@sushichan044/kg-viewer` and `harfbuzzjs` from dependency prebundling so font and
+WASM URLs resolve to deployable assets.
+
+Glyphs a font lacks are measured with the logical width rules and drawn by the
+browser's fallback font, which may overflow the measured box. Capture libraries
+that embed fonts (for example SnapDOM's `localFonts`) can use the font file URLs
+exported as `@sushichan044/kg-viewer/fonts/*.ttf`.
+
+### Migrating from 0.x typography resources
+
+- Replace `TypographyProvider` and `useTypography` with `useFontMeasurer`. The
+  ready state carries `measurer` instead of `typography`; there is nothing to
+  dispose and no provider.
+- Remove the `typography` prop from `NovelViewer` and compose with
+  `measurer.composer` before rendering. `NovelViewer` no longer loads fonts for a
+  bare `composed`, and no longer renders loading or mismatch messages.
+- Replace `loadTypography` from `@sushichan044/kg-viewer/typography` with
+  `loadFontMeasurer` or `createFontMeasurer` from `@sushichan044/kg-viewer/measure`.
+  `TypographyLoadError` is now `FontMeasurerLoadError`.
+- Import `fonts.css` (or `styles.css`) for the bundled fonts. `fontFaces` blob URLs
+  are gone; use the `fonts/*.ttf` exports.
 
 The independent font proof runs with `vp run test:font-proof`. It compares browser
 geometry with Python HarfBuzz metrics for GenEi and both Rin faces, including

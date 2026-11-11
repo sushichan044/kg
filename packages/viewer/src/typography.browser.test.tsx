@@ -3,27 +3,27 @@ import {
   NovelCompositionSettings,
   parseManuscript,
   pixivParser,
-  novelComposer,
 } from "@sushichan044/kg-core";
 import { expect, test as base } from "vite-plus/test";
 import { render } from "vitest-browser-react";
 
 import fontUrl from "../assets/GenEiKoburiMin6-R.ttf?url";
+import { loadFontMeasurer } from "./font-measurer";
+import type { FontMeasurer } from "./font-measurer";
 import { NovelViewer } from "./NovelViewer";
-import { loadTypography } from "./typography";
-import type { ReadyTypography } from "./typography";
+import { loadBundledFonts } from "./test-fonts";
 
 import "./styles.css";
 
-const test = base.extend<{ typography: ReadyTypography }>({
+const test = base.extend<{ typography: FontMeasurer }>({
   typography: async ({}, use) => {
-    const loaded = await loadTypography({ fontPreset: "genei-koburi", fontUrls: { 400: fontUrl } });
+    const loaded = await loadFontMeasurer({
+      fontPreset: "genei-koburi",
+      fontUrls: { 400: fontUrl },
+    });
     expect.assert(loaded.ok);
-    try {
-      await use(loaded.value);
-    } finally {
-      loaded.value.dispose();
-    }
+    await loadBundledFonts();
+    await use(loaded.value);
   },
 });
 
@@ -46,7 +46,7 @@ test.for([9, 12])(
     });
     expect.assert(composed.ok);
 
-    const screen = await render(<NovelViewer composed={composed.value} typography={typography} />);
+    const screen = await render(<NovelViewer composed={composed.value} />);
 
     const units = composed.value.layout.pages.flatMap(({ stages }) =>
       stages.flatMap(({ lines }) => lines.flatMap(({ items }) => items)),
@@ -90,7 +90,7 @@ test("preserves upright abbreviations, tate-chu-yoko, combining marks and fallba
   });
   expect.assert(composed.ok);
 
-  const screen = await render(<NovelViewer composed={composed.value} typography={typography} />);
+  const screen = await render(<NovelViewer composed={composed.value} />);
 
   const tcy = screen.container.querySelector<HTMLElement>(".kgv-glyph-tate-chu-yoko");
   expect.assert(tcy !== null);
@@ -156,7 +156,7 @@ test("reshapes around partial bold and italic without crossing their boundaries"
   });
   expect.assert(composed.ok);
 
-  const screen = await render(<NovelViewer composed={composed.value} typography={typography} />);
+  const screen = await render(<NovelViewer composed={composed.value} />);
 
   const bold = screen.container.querySelector<HTMLElement>('[data-annotation="bold"]');
   const italic = screen.container.querySelector<HTMLElement>('[data-annotation="italic"]');
@@ -169,44 +169,4 @@ test("reshapes around partial bold and italic without crossing their boundaries"
   expect(units.some((item) => item.kind === "combined-glyph" && item.value === "office")).toBe(
     false,
   );
-});
-
-test("refuses substituted font bytes before installing a face", async () => {
-  const result = await loadTypography({
-    fontPreset: "genei-koburi",
-    fontUrls: { 400: "data:application/octet-stream;base64,YWJj" },
-  });
-
-  expect(result).toEqual({ ok: false, error: { kind: "font-integrity" } });
-});
-
-test("rejects a resource for another font and prevents measurement after disposal", async () => {
-  const loaded = await loadTypography({ fontPreset: "gothic" });
-  expect.assert(loaded.ok);
-  const parsed = parseManuscript("あ");
-  expect.assert(parsed.ok);
-  const composed = composeManuscript(parsed.value, {
-    composer: novelComposer,
-    settings: NovelCompositionSettings.defaults,
-  });
-  expect.assert(composed.ok);
-
-  const screen = await render(<NovelViewer composed={composed.value} typography={loaded.value} />);
-
-  await expect
-    .element(screen.getByRole("alert"))
-    .toHaveTextContent("書体と組版設定が一致しません。");
-  expect(screen.container.querySelector(".kgv-page")).toBeNull();
-  const request = {
-    text: "あ",
-    kind: "base",
-    presentation: "mixed",
-    fontPreset: "mincho",
-    fontSizeQ: 12.7,
-    scale: 1,
-    writingMode: "vertical-rl",
-  } as const;
-  expect(() => loaded.value.measurer(request)).toThrow("Typography font does not match");
-  loaded.value.dispose();
-  expect(() => loaded.value.measurer({ ...request, fontPreset: "gothic" })).toThrow("disposed");
 });

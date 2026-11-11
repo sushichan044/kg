@@ -1,13 +1,6 @@
 export * from "./DiagnosticList";
 export * from "./NovelViewer";
 
-export type {
-  ReadyTypography,
-  TypographyLoadError,
-  TypographyOptions,
-  TypographyFontFace,
-} from "./typography";
-
-export { useTypography } from "./use-typography";
-export type { TypographyState } from "./use-typography";
-export { TypographyProvider } from "./TypographyProvider";
+export { useFontMeasurer, resetFontMeasurers } from "./use-font-measurer";
+export type { FontMeasurerState } from "./use-font-measurer";
+export type { FontMeasurer, FontMeasurerLoadError } from "./font-measurer";
