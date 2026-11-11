@@ -110,6 +110,7 @@ select {
 }
 
 .file-list__item {
+  display: block;
   inline-size: 100%;
   padding: 0.35rem 0.5rem;
   border: 0;
@@ -118,6 +119,7 @@ select {
   background: transparent;
   color: inherit;
   text-align: start;
+  text-decoration: none;
   cursor: pointer;
 }
 
@@ -141,6 +143,11 @@ select {
 
 .preview__loading {
   place-self: center;
+}
+
+.preview[data-pending] > .kgv-viewer {
+  opacity: 0.6;
+  transition: opacity 150ms ease-out;
 }
 
 .toolbar-container {

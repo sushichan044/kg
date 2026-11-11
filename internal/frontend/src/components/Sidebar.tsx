@@ -1,25 +1,29 @@
 import type { ReactNode } from "react";
+import { Link, useSearchParams } from "react-router";
 
 import type { FileEntry } from "../lib/api";
+import { searchWithFile } from "../workspace";
 
 export type FilePanelProps = Readonly<{
   files: readonly FileEntry[];
-  selectedId: string | null;
+  selectedPath: string | null;
   onSelect: (path: string) => void;
 }>;
 
-export function FilePanel({ files, selectedId, onSelect }: FilePanelProps) {
+export function FilePanel({ files, selectedPath, onSelect }: FilePanelProps) {
+  const [searchParams] = useSearchParams();
   return (
     <nav className="files" aria-label="ファイル">
       <ul className="file-list">
         {files.map((file) => (
           <li key={file.id}>
-            <button
-              type="button"
+            <Link
+              replace
+              to={{ search: searchWithFile(searchParams, file.path) }}
               className="file-list__item"
               aria-label={file.path}
               title={file.path}
-              aria-current={file.id === selectedId ? "page" : undefined}
+              aria-current={file.path === selectedPath ? "page" : undefined}
               onClick={() => {
                 onSelect(file.path);
               }}
@@ -30,7 +34,7 @@ export function FilePanel({ files, selectedId, onSelect }: FilePanelProps) {
                   {file.path.slice(0, file.path.lastIndexOf("/"))}
                 </span>
               ) : null}
-            </button>
+            </Link>
           </li>
         ))}
       </ul>
@@ -43,7 +47,7 @@ export type SidebarProps = FilePanelProps &
     children?: ReactNode;
   }>;
 
-export function Sidebar({ files, selectedId, onSelect, children }: SidebarProps) {
+export function Sidebar({ files, selectedPath, onSelect, children }: SidebarProps) {
   return (
     <aside className="sidebar" id="workspace-sidebar" aria-label="ワークスペース">
       <div className="brand">
@@ -53,7 +57,7 @@ export function Sidebar({ files, selectedId, onSelect, children }: SidebarProps)
         <summary>
           ファイル <span>{files.length}</span>
         </summary>
-        <FilePanel files={files} selectedId={selectedId} onSelect={onSelect} />
+        <FilePanel files={files} selectedPath={selectedPath} onSelect={onSelect} />
       </details>
       {children}
     </aside>

@@ -1,3 +1,4 @@
+import { startTransition } from "react";
 import { createBrowserRouter, Outlet, useRevalidator, useRouteLoaderData } from "react-router";
 
 import { App } from "./App";
@@ -13,10 +14,10 @@ function WorkspaceEvents() {
 
   useServerEvents({
     onCatalogChanged: () => {
-      void revalidator.revalidate();
+      startTransition(() => revalidator.revalidate());
     },
     onFileChanged: (id) => {
-      if (id === selectedId) void revalidator.revalidate();
+      if (id === selectedId) startTransition(() => revalidator.revalidate());
     },
   });
 
@@ -40,7 +41,7 @@ function WorkspaceError() {
         <button
           type="button"
           onClick={() => {
-            void revalidator.revalidate();
+            startTransition(() => revalidator.revalidate());
           }}
         >
           再読み込み

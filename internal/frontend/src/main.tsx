@@ -11,7 +11,7 @@ const root = document.querySelector("#root");
 if (root !== null) {
   createRoot(root).render(
     <StrictMode>
-      <RouterProvider router={createAppRouter()} />
+      <RouterProvider router={createAppRouter()} useTransitions />
     </StrictMode>,
   );
 }
