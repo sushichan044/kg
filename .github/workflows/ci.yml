@@ -29,7 +29,7 @@ jobs:
       - name: Install golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
-          version: v2.12.2
+          version: v2.13.2
           install-only: true
 
       - name: Verify Go install
@@ -37,9 +37,8 @@ jobs:
         env:
           GOBIN: ${{ runner.temp }}/bin
 
-      - run: |
-          go mod verify
-          git diff --exit-code go.mod go.sum
+      - name: Check go.mod and go.sum are tidy
+        run: go mod tidy -diff
 
       - name: Go checks
         run: vp run lint

@@ -1,6 +1,6 @@
 # ADR 0002: 特殊記法を方言別パーサーで正規化する
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-08-04
 - Issue: [#23](https://github.com/sushichan044/kg/issues/23)
 
