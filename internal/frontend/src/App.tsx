@@ -329,7 +329,7 @@ export function App() {
       <a className="skip-link visually-hidden" href="#preview">
         プレビューへスキップ
       </a>
-      <Sidebar files={files} selectedId={selectedId} onSelect={onSelect} status={status}>
+      <Sidebar files={files} selectedId={selectedId} onSelect={onSelect}>
         {renderSettings("desktop-")}
       </Sidebar>
 

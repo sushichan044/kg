@@ -1,9 +1,7 @@
 :root {
   --surface: #fff;
   --sidebar: #fff;
-  --paper: #fff;
   --text: #000;
-  --grid: rgb(0 174 204 / 30%);
   --accent: #000;
   --focus: #738299;
 
@@ -135,7 +133,6 @@ select {
   overflow: clip;
 }
 
-.preview__empty,
 .preview__loading {
   place-self: center;
 }
