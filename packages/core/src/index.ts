@@ -1,6 +1,6 @@
-// What a caller needs to run the pipeline, and what a renderer needs to draw its result.
-// Writing a parser, composer or measurer is `@sushichan044/kg-core/plugin`; proofreading is
-// `@sushichan044/kg-core/lint`.
+// パイプラインを実行する呼び出し側と、その結果を描画するレンダラーが必要とするもの。
+// パーサー、コンポーザー、測定器を書く場合は `@sushichan044/kg-core/plugin`、
+// 校正ルールを書く場合は `@sushichan044/kg-core/lint` を使う。
 
 export { ManuscriptResult } from "./result/manuscript-result";
 

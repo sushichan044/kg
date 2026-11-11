@@ -4,7 +4,7 @@ import type { NamespacedId } from "../namespaced-id";
 import type { ValidationIssue } from "../result/validation-issue";
 
 /**
- * Everything that can go wrong while running a set of rules over a manuscript.
+ * 原稿に対して一組のルールを実行する間に起こりうるすべての失敗。
  */
 export type ProofreadError =
   | Readonly<{ kind: "InvalidRuleId"; ruleId: string }>
@@ -20,7 +20,7 @@ export type ProofreadError =
 
 export const ProofreadError = {
   /**
-   * Human-readable rendering. Branch on `kind` instead when the caller needs to react.
+   * 人が読める形の文字列。呼び出し側が処理を分けたい場合は、代わりに `kind` で分岐する。
    */
   describe: (error: ProofreadError): string => {
     switch (error.kind) {

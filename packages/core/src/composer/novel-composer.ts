@@ -57,7 +57,6 @@ type Atom = Readonly<{
   runIndex: number;
   renderGroup: number;
   characterClass: JapaneseCharacterClass;
-  intrinsicBoxAdvanceEm: number;
   boxAdvanceEm: number;
   renderAdvanceEm: number;
   renderOffsetEm: number;
@@ -133,7 +132,7 @@ function styleGroups(run: CompositionRun, annotations: readonly ManuscriptAnnota
 }
 
 /**
- * Preserve shaped advances while keeping partial annotations on their own bases.
+ * シェーピング後の送り幅を保ちつつ、部分的な注釈をそれぞれの親文字に留める。
  */
 function measureSourceLine(
   sourceLine: readonly ParsedGrapheme[],
@@ -198,7 +197,6 @@ function measureSourceLine(
             runIndex,
             renderGroup,
             characterClass,
-            intrinsicBoxAdvanceEm: metrics.advanceEm,
             boxAdvanceEm: metrics.advanceEm,
             renderAdvanceEm,
             renderOffsetEm:
@@ -570,9 +568,10 @@ function positionedLine(
 
     const atom = atoms[index];
     if (atom === undefined) continue;
-    // The ideographic space a `！` or `？` takes after it, and the western word space, which JLReq
-    // states as an アキ rather than a character with a box. Both carry no ink and come from the source,
-    // so both leave the line as source glue; only the word space is resized by line adjustment.
+    // `！` や `？` の後ろに置く和字間隔と、欧文間隔。欧文間隔は、
+    // JLReq がボックスを持つ文字ではなくアキとして定めている。
+    // どちらも字面を持たずソースに由来するので、どちらもソースのグルーとして行に残す。
+    // 行の調整処理で幅を変えるのは欧文間隔だけだ。
     const characterSpacing = characterSpacings.get(index);
     if (sourceGapIndexes.has(index) || characterSpacing !== undefined) {
       const naturalWidthEm = characterSpacing?.naturalWidthEm ?? atom.boxAdvanceEm;
@@ -796,7 +795,6 @@ function wrapSourceLine(
         if (first === undefined || last === undefined) return undefined;
         const firstRun = first.combineRun ? sourceLine.runs[first.runIndex] : undefined;
         const lastRun = last.combineRun ? sourceLine.runs[last.runIndex] : undefined;
-        const globalStart = sourceLine.atoms[0]?.grapheme.range.graphemes.start ?? 0;
         assigned.push({
           ...physical,
           start:

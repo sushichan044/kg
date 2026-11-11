@@ -2,9 +2,9 @@ import type { ParsedProofreadingRule } from "../proofreading-rule";
 import { defineMatchRule } from "./internal/define-rule";
 
 /**
- * A repeated full stop or comma (句読点 — JLReq 句点類 cl-06 and 読点類 cl-07). Each ends its clause once,
- * so a run of them is not punctuation at all: it is a sentence trailing off, which Japanese prose
- * writes with `…`.
+ * 句点または読点の連続（句読点。JLReq の句点類 cl-06 と読点類 cl-07）。
+ * それぞれ節を 1 度だけ終えるものなので、連なりは句読点ではなく、言葉が尾を引く表現である。
+ * 日本語の文章はこれを `…` で書く。
  */
 export const noConsecutivePunctuationRule = (): ParsedProofreadingRule =>
   defineMatchRule({

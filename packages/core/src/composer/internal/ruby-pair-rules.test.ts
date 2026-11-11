@@ -3,9 +3,9 @@ import { describe, expect, test } from "vite-plus/test";
 import { defaultJapaneseTypesettingProfile as profile } from "./japanese-typesetting-profile";
 import type { JapaneseCharacterClass } from "./japanese-typesetting-rules";
 
-// JLReq 2020 appendix B table 1, D table 3, E table 6. Each row gives
-// natural, reducible, and expandable amounts with the ruby before/after its neighbor.
-// Membership-dependent cells are tested separately through BoundaryRule.
+// JLReq 2020 附属書 B の表1、D の表3、E の表6。
+// 各行は、ルビが隣接文字の前または後ろにある場合の、通常の量・詰められる量・空けられる量を示す。
+// 所属に依存する小間は、BoundaryRule を通して別に検証する。
 // https://www.w3.org/TR/2020/NOTE-jlreq-20200811/#spacing_between_characters
 const neighbors = [
   ["cl-01", 0.5, 0, 0.5, 0, 0, 0, false, false],

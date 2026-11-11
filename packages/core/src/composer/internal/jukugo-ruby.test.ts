@@ -3,6 +3,12 @@ import { describe, expect, test } from "vite-plus/test";
 import { JukugoRuby } from "./jukugo-ruby";
 import type { JukugoReading } from "./jukugo-ruby";
 
+function present<T>(value: T | undefined): T {
+  expect.assert(value !== undefined, "expected a value");
+
+  return value;
+}
+
 function readings(lengths: readonly number[]): JukugoReading[] {
   return lengths.map((length, index) => ({
     baseOffsetEm: index,
@@ -21,10 +27,10 @@ describe("appendix F jukugo distribution", () => {
     const result = JukugoRuby.resolve(readings([1.5, 2]), { head: false, tail: false });
 
     expect.assert(result.kind === "needs-spacing");
-    expect(result.spacings[0]?.beforeEm).toBeCloseTo(9 / 28);
-    expect(result.spacings[0]?.afterEm).toBeCloseTo(9 / 28);
-    expect(result.spacings[1]?.beforeEm).toBeCloseTo(3 / 7);
-    expect(result.spacings[1]?.afterEm).toBeCloseTo(3 / 7);
+    expect(present(result.spacings[0]).beforeEm).toBeCloseTo(9 / 28);
+    expect(present(result.spacings[0]).afterEm).toBeCloseTo(9 / 28);
+    expect(present(result.spacings[1]).beforeEm).toBeCloseTo(3 / 7);
+    expect(present(result.spacings[1]).afterEm).toBeCloseTo(3 / 7);
     expect(
       result.spacings.reduce((sum, spacing) => sum + spacing.beforeEm + spacing.afterEm, 0),
     ).toBeCloseTo(1.5);
@@ -52,12 +58,12 @@ describe("appendix F jukugo distribution", () => {
   });
 
   test("uses physical width rather than the number of provider clusters", () => {
-    // These widths can each be reported as a single cluster by a provider.
+    // これらの幅は、それぞれプロバイダが一つのクラスタとして報告することがある。
     const result = JukugoRuby.resolve(readings([1.25, 1.75]), { head: false, tail: false });
 
     expect.assert(result.kind === "needs-spacing");
-    expect(result.spacings[0]?.beforeEm).toBeCloseTo(5 / 24);
-    expect(result.spacings[1]?.beforeEm).toBeCloseTo(7 / 24);
+    expect(present(result.spacings[0]).beforeEm).toBeCloseTo(5 / 24);
+    expect(present(result.spacings[1]).beforeEm).toBeCloseTo(7 / 24);
   });
 
   test("retains shoulder placement when short readings need no expansion", () => {

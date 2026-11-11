@@ -12,7 +12,7 @@ const ManuscriptRangeSchema = readonlyObject({
 });
 
 /**
- * The same span expressed in all three coordinate systems the pipeline maps between.
+ * 同じ範囲を、パイプラインが相互に対応づける 3 つの座標系すべてで表したもの。
  */
 export type ManuscriptRange = v.InferOutput<typeof ManuscriptRangeSchema>;
 
@@ -28,8 +28,9 @@ export const ManuscriptRange = {
   schema: ManuscriptRangeSchema,
 
   /**
-   * Brands a span core computed itself. Throws rather than returning a failure: the inputs come
-   * from core's own arithmetic, so a violated bound is a bug here, not bad data from a caller.
+   * Core 自身が計算した範囲にブランドを付ける。失敗を返さず例外を投げる。
+   * 入力は core 自身の算術から来るので、境界違反は呼び出し側の不正なデータではなく、
+   * ここのバグだからである。
    */
   of: (input: ManuscriptRangeInput): ManuscriptRange => v.parse(ManuscriptRangeSchema, input),
 

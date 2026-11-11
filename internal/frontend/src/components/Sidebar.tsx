@@ -41,10 +41,9 @@ export function FilePanel({ files, selectedId, onSelect }: FilePanelProps) {
 export type SidebarProps = FilePanelProps &
   Readonly<{
     children?: ReactNode;
-    status?: string;
   }>;
 
-export function Sidebar({ files, selectedId, onSelect, status, children }: SidebarProps) {
+export function Sidebar({ files, selectedId, onSelect, children }: SidebarProps) {
   return (
     <aside className="sidebar" id="workspace-sidebar" aria-label="ワークスペース">
       <div className="brand">
@@ -57,11 +56,6 @@ export function Sidebar({ files, selectedId, onSelect, status, children }: Sideb
         <FilePanel files={files} selectedId={selectedId} onSelect={onSelect} />
       </details>
       {children}
-      {children === null && status && (
-        <p className="status" role="status">
-          {status}
-        </p>
-      )}
     </aside>
   );
 }

@@ -20,15 +20,16 @@ function scoreFor(
     forced: mode === "forced" ? 1 : 0,
     stretched: mode === "stretched" ? 1 : 0,
     hanging: mode === "hanging" ? 1 : 0,
-    // `deformationCost` is the sum of `used * costPerEm`, so a shrunk line spending
-    // only free capacity costs nothing and reads as tightly as a natural one.
+    // `deformationCost` は `used * costPerEm` の合計なので、
+    // コストのかからない調整可能量だけを使って詰めた行はコストが0になり、
+    // 自然な行と同じ詰まり具合に見える。
     shrunk: mode === "shrunk" && line.deformationCost > EPSILON ? 1 : 0,
   };
   return {
     score: [
       modeCounts.forced,
-      // JLReq 3.8.4's final expansion follows the bounded stages. Its cubic badness
-      // favors bounded layouts first, then spreads unavoidable excess across the paragraph.
+      // JLReq 3.8.4 の最終段階の空ける処理は、上限のある段階の後に行う。3乗のバッドネスによって、
+      // まず上限内に収まるレイアウトを優先し、避けられない超過分は段落全体に分散させる。
       line.finalExpansionBadness,
       modeCounts.stretched,
       modeCounts.hanging,

@@ -9,7 +9,7 @@ const SourcePositionSchema = readonlyObject({
 });
 
 /**
- * A point in the source text as a UTF-16 offset plus the 1-based line and column it lands on.
+ * ソーステキスト上の 1 点。UTF-16 オフセットと、それが位置する 1 始まりの行・列で表す。
  */
 export type SourcePosition = v.InferOutput<typeof SourcePositionSchema>;
 
@@ -17,7 +17,7 @@ export const SourcePosition = {
   schema: SourcePositionSchema,
 
   /**
-   * Counts CRLF, CR and LF as one line break each; column is UTF-16 code units from line start.
+   * CRLF、CR、LF をそれぞれ 1 つの改行として数える。列は行頭からの UTF-16 コード単位数。
    */
   at: (source: string, offset: number): SourcePosition => {
     let line = 1;

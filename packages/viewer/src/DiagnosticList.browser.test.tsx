@@ -42,9 +42,10 @@ test("renders diagnostic text outside the navigation button for native selection
   const items = diagnostics();
   const first = items[0];
   expect.assert(first !== undefined);
-  const screen = await render(<DiagnosticList diagnostics={items} />);
+  const screen = await render(<DiagnosticList diagnostics={items} onSelect={() => {}} />);
   const description = screen.container.querySelector(".kgv-diagnostic-description");
   expect.assert(description !== null);
+  expect.assert(screen.container.querySelector("button.kgv-diagnostic-jump") !== null);
   const selection = window.getSelection();
   expect.assert(selection !== null);
   const range = document.createRange();

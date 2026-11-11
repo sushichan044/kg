@@ -122,6 +122,6 @@ export function savePage(path: string, page: number): void {
   try {
     sessionStorage.setItem(PAGE_KEY_PREFIX + path, String(result.output));
   } catch {
-    // Page restoration is best-effort session state.
+    // ページの復元は、できる範囲で行うセッション状態として扱う。
   }
 }

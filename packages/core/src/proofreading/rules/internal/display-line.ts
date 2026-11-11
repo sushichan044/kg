@@ -1,10 +1,10 @@
 /**
- * A line of display text with the offset it starts at, so findings can be mapped back.
+ * 表示用テキストの 1 行と、その行が始まるオフセット。指摘を元の位置へ対応づけられるようにする。
  */
 export type DisplayLine = Readonly<{ text: string; start: number }>;
 
 /**
- * Splits on CRLF, CR and LF. The text after the last break is always emitted, even when empty.
+ * CRLF、CR、LF で分割する。最後の改行の後のテキストは、空であっても必ず出力する。
  */
 export function splitDisplayLines(text: string): DisplayLine[] {
   const lines: DisplayLine[] = [];

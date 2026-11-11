@@ -17,15 +17,16 @@ const KanjiOpeningPairSchema = v.pipe(
     closed: v.pipe(v.string(), v.nonEmpty()),
     opened: v.pipe(v.string(), v.nonEmpty()),
   }),
-  // Identical spellings are not a pair: the rule would find one for the other and always warn.
+  // 同じ表記は組にならない。
+  // ルールが一方に対してもう一方を見つけてしまい、常に警告することになるからである。
   v.check(({ closed, opened }) => closed !== opened, "a pair must hold two different spellings"),
 );
 
 /**
- * One word in both of its spellings — `出来る` against `できる`. Japanese editing names the two choices
- * rather than the two forms: writing a word in kanji is 閉じる and writing it in kana is 開く, which is
- * where the field names come from. Which one a work prefers is its own house style; using both
- * within one work is 表記ゆれ.
+ * 1 つの語の 2 通りの表記。`出来る` と `できる` など。日本語の編集では、
+ * 2 つの形ではなく 2 つの選択に名前を付ける。語を漢字で書くのが閉じる、かなで書くのが開くであり、
+ * フィールド名はここに由来する。どちらを好むかは作品ごとのハウススタイルだが、
+ * 1 つの作品の中で両方を使うのは表記ゆれである。
  */
 export type KanjiOpeningPair = v.InferOutput<typeof KanjiOpeningPairSchema>;
 
@@ -47,8 +48,8 @@ const DEFAULT_PAIRS: readonly KanjiOpeningPair[] = [
 export type ConsistentKanjiOpeningOptions = Readonly<{ pairs?: readonly KanjiOpeningPair[] }>;
 
 /**
- * Reports the first kanji occurrence of every pair the manuscript also writes in kana. Whether the
- * two spellings are a deliberate distinction is the author's call, so the finding is a warning.
+ * 原稿がかなでも書いている組すべてについて、漢字表記の最初の出現を報告する。
+ * 2 つの表記が意図した使い分けかどうかは作者が判断することなので、指摘は警告とする。
  */
 function build(pairs: readonly KanjiOpeningPair[]): ParsedProofreadingRule {
   return defineParsedRule(RULE_ID, MESSAGE, (manuscript, report) => {

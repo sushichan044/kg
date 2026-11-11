@@ -42,7 +42,8 @@ export function composeManuscript<TSettings, TLayout>(
     });
   }
 
-  // A third-party composer may throw; that must surface as a typed error, not escape the stage.
+  // サードパーティのコンポーザーは例外を投げることがある。それはステージの外に漏らさず、
+  // 型付きのエラーとして表に出す。
   let raw: unknown;
   try {
     raw = composer.compose(manuscript.output, settings.output);

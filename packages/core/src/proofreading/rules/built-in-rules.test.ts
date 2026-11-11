@@ -352,7 +352,8 @@ describe("createDashRule", () => {
   });
 
   test("rejects a character that is not a supported dash", () => {
-    // JavaScript callers are not protected by DashOptions, so the runtime boundary must reject it.
+    // JavaScript の呼び出し側は DashOptions では守られない。
+    // そのため、実行時の境界で拒否しなければならない。
     const result = createDashRule({ preferred: "ー" as never });
 
     expect.assert(result.ok === false, "expected createDashRule to reject");
@@ -399,6 +400,18 @@ describe("fullwidthJapanesePunctuationRule", () => {
 
   test("reports a halfwidth exclamation mark beside Japanese", () => {
     const diagnostics = diagnose("　すごい!", fullwidthJapanesePunctuationRule());
+
+    expect(only(diagnostics)).toMatchObject({
+      severity: "error",
+      message: "半角の「!」があります。日本語の句読点・括弧・感嘆符・疑問符は全角にしてください",
+    });
+  });
+
+  test.each([
+    ["before", "　𠮷!"],
+    ["after", "　!𠮷"],
+  ])("recognises an astral kanji %s a halfwidth mark as Japanese", (_position, source) => {
+    const diagnostics = diagnose(source, fullwidthJapanesePunctuationRule());
 
     expect(only(diagnostics)).toMatchObject({
       severity: "error",

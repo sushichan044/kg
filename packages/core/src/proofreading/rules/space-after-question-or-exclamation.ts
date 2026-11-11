@@ -19,10 +19,10 @@ const MESSAGES = {
 } as const;
 
 /**
- * The gap that follows every run of ！ or ？ (区切り約物, JLReq 3.1.6). A dividing punctuation mark ends a
- * sentence without a full stop, so a full em of white stands in for the one a 句点 would have
- * carried. A run at the end of a line or right before a closing bracket is already separated from
- * what follows and needs no gap; anywhere else it takes exactly one ideographic space.
+ * ！や？の連なりそれぞれの後に続くアキ（区切り約物、JLReq 3.1.6）。
+ * 区切り約物は句点なしで文を終えるので、句点があれば担っていたはずのアキの代わりに、
+ * 全角分の空白を置く。行末や終わり括弧類の直前にある連なりは、
+ * すでに後続と区切られているのでアキが不要である。それ以外の位置では、全角空白をちょうど 1 つ取る。
  */
 const build = (additionalSentenceEndingMarks = ""): ParsedProofreadingRule => ({
   kind: "parsed",

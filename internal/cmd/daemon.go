@@ -22,7 +22,6 @@ func spawnDaemon(exe string, port int, restorePath string, logFile *os.File) err
 		"--restore", restorePath,
 		"-p", strconv.Itoa(port),
 	)
-	proc.Env = append(os.Environ(), "KG_DAEMON=1")
 	proc.Stdout = logFile
 	proc.Stderr = logFile
 	configureDaemonProc(proc)

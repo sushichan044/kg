@@ -1,7 +1,7 @@
 import type { ProofreadingReport } from "./proofreading-report";
 
 /**
- * Handed to a rule for the duration of one check; the only way a rule emits findings.
+ * 1 回のチェックの間だけルールに渡される。ルールが指摘を出す唯一の手段である。
  */
 export type ProofreadingRuleContext = Readonly<{
   report: (report: ProofreadingReport) => void;

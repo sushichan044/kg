@@ -10,10 +10,9 @@ const EmphasisAnnotationSchema = readonlyObject({
 });
 
 /**
- * Emphasis dots (圏点, JLReq 3.3.9): a mark repeated beside every character of the base run, which is
- * how Japanese text emphasises a phrase in place of italics. `mark` is the character to repeat:
- * some notations fix it, others let the source name one, so the parser records what was written
- * rather than normalising it.
+ * 圏点（JLReq 3.3.9）。親文字の連なりのすべての文字の脇に、同じ記号を繰り返す。日本語の文章が、
+ * イタリックの代わりに語句を強調する方法である。`mark` は繰り返す文字。記法によっては固定され、
+ * ソースに指定させるものもあるので、パーサーは正規化せず、書かれたとおりに記録する。
  */
 export type EmphasisAnnotation = v.InferOutput<typeof EmphasisAnnotationSchema>;
 

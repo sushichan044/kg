@@ -25,8 +25,8 @@ export const viewerTestProjects = [
         enabled: true,
         provider: playwright(),
         headless: true,
-        // WebKit as well as Chromium: this package lives on vertical writing, ruby, and
-        // text-emphasis, which is exactly where engines diverge.
+        // Chromium に加えて WebKit も使う。このパッケージは縦組、ルビ、
+        // text-emphasis に依存しており、エンジンごとの差が出やすいのがまさにそこだからだ。
         instances: [{ browser: "chromium" }, { browser: "webkit" }],
       },
     },
@@ -42,9 +42,9 @@ export default defineConfig({
       dts: {
         generator: "tsgo",
       },
-      // The stylesheets ship as plain assets straight from src (see package.json
-      // exports): pack merges every CSS entry into one file, which cannot express
-      // the structural/theme split, and these sheets need no transpiling.
+      // スタイルシートは src からそのまま素のアセットとして配布する（package.json の exports を
+      // 参照）。pack は CSS のエントリーをすべて 1 つのファイルにまとめるので、
+      // structural と theme の分割を表せず、これらのシートにはトランスパイルも要らない。
       entry: ["src/index.ts", "src/typography.ts"],
       fixedExtension: true,
       format: "esm",
@@ -58,8 +58,7 @@ export default defineConfig({
             target: "18",
             panicThreshold: "critical_errors",
           },
-          // Only needed when `dts: true`: prevent the plugin from
-          // transforming the generated .d.ts files
+          // `dts: true` のときだけ必要。プラグインが生成された .d.ts ファイルを変換しないようにする
           exclude: [/node_modules/, /\.d\.ts$/],
         }),
       ],
@@ -98,8 +97,8 @@ export default defineConfig({
     },
   },
   test: {
-    // Most of this package can only be tested in a browser, so a filtered `--project` run may
-    // legitimately match nothing.
+    // このパッケージの大半はブラウザーでしかテストできない。
+    // そのため、`--project` で絞り込んだ実行では、該当するテストが 1 つもなくても正常である。
     passWithNoTests: true,
     projects: viewerTestProjects,
   },

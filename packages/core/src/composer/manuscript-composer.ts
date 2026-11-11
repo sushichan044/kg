@@ -5,11 +5,11 @@ import type { ManuscriptResult } from "../result/manuscript-result";
 import type { Rejection } from "../result/rejection";
 
 /**
- * The contract every composer implements. The two schemas let core check a plugin's settings and
- * layout at runtime; core never inspects either shape itself.
+ * すべてのコンポーザーが実装する契約。二つのスキーマにより、
+ * core はプラグインの設定とレイアウトを実行時に検査できる。core 自身はどちらの形も調べない。
  *
- * A composer returns only a layout: the settings it ran under are the ones core already validated,
- * so there is no way for the two to disagree.
+ * コンポーザーが返すのはレイアウトだけだ。実行時の設定は core がすでに検証したものなので、
+ * 両者が食い違うことはない。
  */
 export type ManuscriptComposer<TSettings, TLayout> = Readonly<{
   id: string;

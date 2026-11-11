@@ -5,9 +5,9 @@ import { defineMatchRule } from "./internal/define-rule";
 const PATTERN = new RegExp(`[。、]+(?=[${characterClass(CLOSING_BRACKETS)}])`, "gu");
 
 /**
- * A full stop or comma immediately before a closing bracket (終わり括弧類). The bracket already closes
- * the quotation, and both characters are set on a half em, so the pair reads as a gap in the line
- * rather than as punctuation. Japanese practice drops the punctuation and keeps the bracket.
+ * 終わり括弧類の直前にある句点または読点。括弧がすでに引用を閉じており、
+ * どちらの文字も二分で組まれるので、この対は約物ではなく行の中の空きのように読める。
+ * 日本語の慣行では、約物を落として括弧を残す。
  */
 export const punctuationBeforeClosingQuoteRule = (): ParsedProofreadingRule =>
   defineMatchRule({

@@ -3,11 +3,15 @@ package server_test
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,6 +19,17 @@ import (
 
 	"github.com/sushichan044/kg/internal/server"
 )
+
+// testPort is the port handlers under test believe they listen on. Requests
+// built by newLocalRequest name it in Host, as a browser on kg's page would.
+const testPort = 7777
+
+func newLocalRequest(method, target string, body io.Reader) *http.Request {
+	req := httptest.NewRequest(method, target, body)
+	req.Host = net.JoinHostPort("127.0.0.1", strconv.Itoa(testPort))
+
+	return req
+}
 
 func discardLogger() *slog.Logger {
 	return slog.New(slog.DiscardHandler)
@@ -64,9 +79,9 @@ func TestHandler_FileContentReturnsRawText(t *testing.T) {
 	srv := newRunningServer(t, dir, dir)
 	id := server.FileID(filepath.Join(dir, "a.txt"))
 
-	req := httptest.NewRequest(http.MethodGet, "/_/api/files/"+id+"/content", nil)
+	req := newLocalRequest(http.MethodGet, "/_/api/files/"+id+"/content", nil)
 	rec := httptest.NewRecorder()
-	srv.Handler(dummySPA()).ServeHTTP(rec, req)
+	srv.Handler(dummySPA(), testPort).ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Equal(t, "こんにちは\n世界", rec.Body.String())
@@ -78,9 +93,9 @@ func TestHandler_FileContentUnknownIDReturns404(t *testing.T) {
 
 	srv := server.New(discardLogger())
 
-	req := httptest.NewRequest(http.MethodGet, "/_/api/files/deadbeef/content", nil)
+	req := newLocalRequest(http.MethodGet, "/_/api/files/deadbeef/content", nil)
 	rec := httptest.NewRecorder()
-	srv.Handler(dummySPA()).ServeHTTP(rec, req)
+	srv.Handler(dummySPA(), testPort).ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusNotFound, rec.Code)
 }
@@ -90,9 +105,9 @@ func TestHandler_UnknownRouteFallsBackToSPA(t *testing.T) {
 
 	srv := server.New(discardLogger())
 
-	req := httptest.NewRequest(http.MethodGet, "/some/client/route", nil)
+	req := newLocalRequest(http.MethodGet, "/some/client/route", nil)
 	rec := httptest.NewRecorder()
-	srv.Handler(dummySPA()).ServeHTTP(rec, req)
+	srv.Handler(dummySPA(), testPort).ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Equal(t, "spa", rec.Body.String())
@@ -136,6 +151,38 @@ func TestWatcher_SkipsGitignoredFilesAndGitDir(t *testing.T) {
 	assert.Equal(t, []string{"keep.txt"}, relPaths(srv.Files()))
 }
 
+func TestWatcher_MissingRootDoesNotHideOtherRoots(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "a.txt"), "x")
+	missing := filepath.Join(t.TempDir(), "gone")
+
+	srv := newRunningServer(t, dir, missing, dir)
+
+	assert.Equal(t, []string{"a.txt"}, relPaths(srv.Files()))
+}
+
+func TestWatcher_UnreadableSubdirectoryDoesNotHideOtherFiles(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("directory permissions are not enforced on this platform or for root")
+	}
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "a.txt"), "x")
+	locked := filepath.Join(dir, "locked")
+	require.NoError(t, os.MkdirAll(locked, 0o755))
+	writeFile(t, filepath.Join(locked, "hidden.txt"), "x")
+	require.NoError(t, os.Chmod(locked, 0o000))
+	// Restore access so TempDir cleanup can remove it.
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o755) })
+
+	srv := newRunningServer(t, dir, dir)
+
+	assert.Equal(t, []string{"a.txt"}, relPaths(srv.Files()))
+}
+
 // newRunningServer builds a Server, starts its watcher for the lifetime of the
 // test, and returns it. baseDir is the directory relative paths are shown
 // against.
@@ -156,9 +203,9 @@ func newRunningServer(t *testing.T, baseDir string, roots ...string) *server.Ser
 func getJSON(t *testing.T, srv *server.Server, path string) []byte {
 	t.Helper()
 
-	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req := newLocalRequest(http.MethodGet, path, nil)
 	rec := httptest.NewRecorder()
-	srv.Handler(dummySPA()).ServeHTTP(rec, req)
+	srv.Handler(dummySPA(), testPort).ServeHTTP(rec, req)
 	require.Equal(t, http.StatusOK, rec.Code)
 
 	return rec.Body.Bytes()

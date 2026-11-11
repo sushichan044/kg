@@ -11,7 +11,7 @@ type FitZoomOptions = Readonly<{
 }>;
 
 /**
- * Returns the largest configured zoom level at which the complete page fits its viewport.
+ * ページ全体がビューポートに収まる、設定済みの倍率のうち最大のものを返す。
  */
 export function fitZoom({
   viewportWidthPx,

@@ -13,7 +13,7 @@ const ParsedManuscriptSchema = readonlyObject({
 });
 
 /**
- * Source text with service-specific notation normalised away, plus the mapping back to it.
+ * サービス固有の記法を取り除いたソーステキストと、ソースへの対応付け。
  */
 export type ParsedManuscript = v.InferOutput<typeof ParsedManuscriptSchema>;
 
@@ -66,8 +66,9 @@ export const ParsedManuscript = {
   schema: ParsedManuscriptSchema,
 
   /**
-   * The parser contract as a schema: shape, plus the cross-field invariants that make the three
-   * coordinate systems line up. Annotations come out in a stable order regardless of parser.
+   * パーサーの契約をスキーマとして表したもの。
+   * 形に加え、3 つの座標系を整合させるフィールド間の不変条件も含む。
+   * 注釈は、パーサーによらず安定した順序で出力される。
    */
   contractFor: (source: string): v.GenericSchema<unknown, ParsedManuscript> =>
     v.pipe(

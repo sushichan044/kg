@@ -25,9 +25,9 @@ export type JapaneseTypesettingProfile = Readonly<{
   ) => TypographicBoxMetrics;
   pairSpacing: (left: JapaneseBoundaryClass, right: JapaneseBoundaryClass) => PairSpacing;
   /**
-   * The アキ a character _is_, rather than the box it sets in, or `null` for every class that sets as
-   * a glyph. 欧文間隔 (cl-26) is the only class JLReq treats this way: it carries no ink, its width is
-   * stated by rule rather than measured, and the line adjustment resizes it before anything else.
+   * 文字が組まれるボックスではなく、その文字自体が表すアキ。
+   * グリフとして組むクラスでは `null` になる。JLReq がこう扱うクラスは欧文間隔（cl-26）だけだ。
+   * 字面を持たず、幅は測定ではなく規則で決まり、行の調整処理はほかの何よりも先にその幅を変える。
    */
   spacingCharacter: (
     characterClass: JapaneseCharacterClass,
@@ -37,14 +37,14 @@ export type JapaneseTypesettingProfile = Readonly<{
   lineEndSpacing: (last: JapaneseBoundaryClass) => LineEndSpacing | null;
   finalStretchCostPerEm: number;
   /**
-   * Whether the pair participates in JLReq 3.8.4's final expansion stage. This is independent of
-   * line-breaking permission: 表6 admits some mid-line gaps that a kinsoku rule would not admit as a
-   * break boundary.
+   * その組合せが JLReq 3.8.4 の最終段階の空ける処理に加わるかどうか。
+   * これは行の分割の可否とは独立している。
+   * 表6 は、禁則では分割位置として認めない行中の字間の一部も、空ける処理の対象にしている。
    */
   canExpandAtFinalStage: (left: JapaneseBoundaryClass, right: JapaneseBoundaryClass) => boolean;
   /**
-   * `null` where a break between two classes is prohibited, otherwise a cost a caller may weigh.
-   * The composer only tests for `null` today, so every permitted break is priced at zero.
+   * 二つのクラスの間での分割が禁止される場合は `null`、そうでなければ呼び出し側が考慮できるコスト。
+   * 現在のコンポーザーは `null` かどうかしか見ないので、許される分割はすべてコスト0とする。
    */
   breakPenalty: (left: JapaneseBoundaryClass, right: JapaneseBoundaryClass) => number | null;
   canHang: (characterClass: JapaneseBoundaryClass) => boolean;

@@ -146,15 +146,15 @@ at the application boundary without changing core or viewer ownership.
 Application selection and manuscript preferences use separate keys:
 
 - `kg.app.state.v1` stores the selected path.
-- `kg.manuscript.preferences.v6` stores composition settings, grid visibility,
-  zoom, and presets.
+- `kg.manuscript.preferences.v7` stores the notation, composition settings,
+  grid visibility, spread layout, zoom, and fit mode.
 - per-document visible-page state uses best-effort session storage.
 
 The frontend validates current payloads with Valibot and falls back to defaults
-for malformed or incompatible values. Versions 3 through 5 are migrated to the
-novel flow settings; version 5's former grid dimensions become line length,
-lines per stage, and stages per page. Migrated preferences show the ruling by
-default.
+for malformed or incompatible values. Keys from earlier versions are not read,
+so preferences saved before version 7 reset to the defaults. The only
+migration happens inside version 7: an A5 payload with the former margins
+(top 12 mm, bottom 16.55 mm) has the two margins swapped.
 
 ## Server boundary
 

@@ -9,7 +9,7 @@ const DiagnosticOriginSchema = v.variant("kind", [
 ]);
 
 /**
- * Which stage produced a diagnostic, so consumers can filter parser noise from rule findings.
+ * 診断を生成したステージ。利用側が、パーサー由来のノイズとルールの指摘とを区別できるようにする。
  */
 export type DiagnosticOrigin = v.InferOutput<typeof DiagnosticOriginSchema>;
 

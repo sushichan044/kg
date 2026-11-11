@@ -11,7 +11,7 @@ export type TypographyState =
   | Readonly<{ kind: "failed"; error: TypographyLoadError }>;
 
 /**
- * Own a font resource until the selection changes or the component unmounts.
+ * 選択が変わるか、コンポーネントがアンマウントされるまで、フォントリソースを保持する。
  */
 export function useTypography(
   fontPreset: FontPresetId,

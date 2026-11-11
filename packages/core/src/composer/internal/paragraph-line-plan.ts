@@ -18,7 +18,8 @@ export type ParagraphLinePlan = Readonly<{
   suppressedIndexes: readonly number[];
   pairSpacings: readonly ResolvedPairSpacing[];
   /**
-   * The atoms of this line the profile sets as an アキ instead of a box, at their resolved width.
+   * この行のアトムのうち、プロファイルがボックスではなくアキとして組むもの。
+   * 幅は解決済みの値を持つ。
    */
   characterSpacings: readonly ResolvedCharacterSpacing[];
   inlineSizeEm: number;

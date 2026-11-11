@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"slices"
 	"sync"
 	"time"
@@ -50,11 +51,7 @@ func NewWatcher(srv *Server, roots []string, baseDir string, logger *slog.Logger
 		watched: map[string]struct{}{},
 	}
 
-	if rescanErr := w.rescan(context.Background()); rescanErr != nil {
-		_ = fsw.Close()
-
-		return nil, rescanErr
-	}
+	w.rescan(context.Background())
 
 	return w, nil
 }
@@ -95,26 +92,30 @@ func (w *Watcher) handleEvent(ctx context.Context, ev fsnotify.Event) {
 
 	// Create, remove, and rename may change the catalog or the directory set.
 	if ev.Op.Has(fsnotify.Create) || ev.Op.Has(fsnotify.Remove) || ev.Op.Has(fsnotify.Rename) {
-		if err := w.rescan(ctx); err != nil {
-			w.logger.WarnContext(ctx, "rescan", "error", err)
-		}
+		w.rescan(ctx)
 	}
 }
 
 // AddRoots extends the watched roots and rescans. It lets a second kg invocation
-// forward new paths to an already-running server.
+// forward new paths to an already-running server. A path that does not exist is
+// logged and ignored so it never reaches the roots exported for a restart.
 func (w *Watcher) AddRoots(paths []string) {
+	ctx := context.Background()
+
 	w.mu.Lock()
 	for _, p := range paths {
+		if _, err := os.Stat(p); err != nil {
+			w.logger.WarnContext(ctx, "ignore root", "root", p, "error", err)
+
+			continue
+		}
 		if !slices.Contains(w.roots, p) {
 			w.roots = append(w.roots, p)
 		}
 	}
 	w.mu.Unlock()
 
-	if err := w.rescan(context.Background()); err != nil {
-		w.logger.WarnContext(context.Background(), "rescan after add roots", "error", err)
-	}
+	w.rescan(ctx)
 }
 
 // Roots returns a snapshot of the watched roots, used when exporting state for a
@@ -129,14 +130,14 @@ func (w *Watcher) Roots() []string {
 // rescan re-discovers files, updates the catalog, reconciles directory watches,
 // and notifies clients when the catalog changed. It holds the mutex for its full
 // duration so concurrent rescans (event loop vs. AddRoots) do not interleave.
-func (w *Watcher) rescan(ctx context.Context) error {
+//
+// A root that is missing stays in the root list: discover skips it, and it is
+// listed again once it reappears and a later rescan or restart picks it up.
+func (w *Watcher) rescan(ctx context.Context) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	files, dirs, err := discover(w.roots, w.baseDir)
-	if err != nil {
-		return err
-	}
+	files, dirs := discover(ctx, w.roots, w.baseDir, w.logger)
 
 	changed := w.srv.SetFiles(files)
 	w.reconcileWatches(ctx, dirs)
@@ -144,8 +145,6 @@ func (w *Watcher) rescan(ctx context.Context) error {
 	if changed {
 		w.srv.notifyCatalog()
 	}
-
-	return nil
 }
 
 func (w *Watcher) reconcileWatches(ctx context.Context, dirs []string) {

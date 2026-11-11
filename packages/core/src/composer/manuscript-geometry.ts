@@ -19,7 +19,7 @@ const ManuscriptGeometrySchema = readonlyObject({
 });
 
 /**
- * Physical page dimensions. The renderer mirrors inner and outer margins on alternate pages.
+ * 物理的なページの寸法。レンダラーは、のど側と小口側の余白を左右のページで入れ替える。
  */
 export type ManuscriptGeometry = v.InferOutput<typeof ManuscriptGeometrySchema>;
 

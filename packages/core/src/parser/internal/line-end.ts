@@ -1,5 +1,5 @@
 /**
- * Returns the first line terminator at or after start. Both halves of CRLF remain outside the line.
+ * `start` 以降で最初の改行文字を返す。CRLF は両方の文字とも行に含めない。
  */
 export function lineEnd(source: string, start: number): number {
   const lf = source.indexOf("\n", start);

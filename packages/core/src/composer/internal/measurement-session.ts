@@ -72,7 +72,7 @@ export const MeasurementSession = {
         }
         const segments = [...graphemeSegmenter.segment(text)];
         if (kind === "base" && presentation === "tate-chu-yoko") {
-          // A tate-chu-yoko run is one cell: its members share the whole run's advance equally.
+          // 縦中横のランは全角1字分として扱い、構成要素はラン全体の送り幅を均等に分け合う。
           const advanceEm = full.advanceEm / segments.length;
           return segments.map(({ segment, index }, position) => {
             const span = { offsetEm: position * advanceEm, advanceEm };

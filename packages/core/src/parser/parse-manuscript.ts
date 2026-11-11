@@ -23,7 +23,8 @@ export function parseManuscript(
     return ManuscriptResult.fail({ kind: "InvalidParserId", parserId: parser.id });
   }
 
-  // A third-party parser may throw; that must surface as a typed error, not escape the stage.
+  // サードパーティ製のパーサーは例外を投げることがある。それはステージの外へ漏らさず、
+  // 型付きのエラーとして表に出さなければならない。
   let raw: unknown;
   try {
     raw = parser.parse(source);

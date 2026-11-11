@@ -21,9 +21,9 @@ import type {
 import type { ProofreadingRuleContext } from "./proofreading-rule-context";
 
 /**
- * `TRule` is deliberately unconstrained: a rule written for one composer's manuscript is not a
- * `ProofreadingRule`, because accepting a narrower manuscript makes it a narrower function. The
- * overloads below pin down which rules each call actually accepts.
+ * `TRule` にはあえて制約を付けない。あるコンポーザーの原稿向けに書かれたルールは
+ * `ProofreadingRule` ではない。より狭い原稿を受け取るということは、より狭い関数になるからである。
+ * 各呼び出しが実際にどのルールを受け付けるかは、下のオーバーロードで定める。
  */
 export type ProofreadOptions<TRule> = Readonly<{
   rules: readonly TRule[];
@@ -33,7 +33,7 @@ type Diagnostics = readonly ManuscriptDiagnostic[];
 type ProofreadOutcome = ManuscriptResult<Diagnostics, ProofreadError>;
 
 /**
- * A rule whose metadata has been validated, carrying the branded ID the runner will attribute to.
+ * メタデータを検証済みのルール。ランナーが指摘の帰属先とする、ブランド付きの ID を持つ。
  */
 type PreparedRule = Readonly<{
   id: NamespacedId;
@@ -75,8 +75,9 @@ function prepareRules(
 }
 
 /**
- * Runs one rule and returns what it reported. A composed-only rule against a parsed manuscript is
- * simply skipped: the caller asked for a stage this rule cannot see.
+ * ルールを単体で実行し、報告された内容を返す。
+ * コンポーズ済み専用のルールをパース済みの原稿に対して実行した場合は、単にスキップする。
+ * 呼び出し側が、このルールには見えないステージを要求したためである。
  */
 function collectReports(
   { id, rule }: PreparedRule,
@@ -90,7 +91,8 @@ function collectReports(
     },
   };
 
-  // A third-party rule may throw; that must surface as a typed error, not escape the stage.
+  // サードパーティ製のルールは例外を投げることがある。それはステージの外へ漏らさず、
+  // 型付きのエラーとして表に出さなければならない。
   try {
     switch (rule.kind) {
       case "parsed": {
@@ -177,8 +179,8 @@ export function proofreadManuscript(
   options: ProofreadOptions<ParsedProofreadingRule>,
 ): ProofreadOutcome;
 /**
- * Rules are typed against the exact composed manuscript being checked, so a grid-specific rule
- * cannot be handed a manuscript from a different composer.
+ * ルールは、チェック対象のコンポーズ済み原稿そのものに対して型付けされる。
+ * したがって、グリッド専用のルールに別のコンポーザーの原稿を渡すことはできない。
  */
 export function proofreadManuscript<TComposed extends ComposedManuscript>(
   manuscript: TComposed,

@@ -3,8 +3,8 @@ import type { Rejection } from "../result/rejection";
 import type { ParsedManuscript } from "./parsed-manuscript";
 
 /**
- * The contract every parser implements. `id` is plain text here because it arrives from outside;
- * core validates it into a {@link NamespacedId} before using it.
+ * すべてのパーサーが実装する契約。`id` は外部から渡されるのでここでは単なる文字列であり、
+ * core が使う前に {@link NamespacedId} へ検証して変換する。
  */
 export type ManuscriptParser = Readonly<{
   id: string;

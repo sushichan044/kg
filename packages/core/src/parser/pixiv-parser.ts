@@ -9,8 +9,8 @@ import type { ManuscriptParser } from "./manuscript-parser";
 const PARSER_ID = NamespacedId.of("kg/pixiv");
 
 /**
- * Understands Pixiv's ruby, bold, italic and emphasis-mark notation. Anything bracket-shaped that
- * does not parse is kept as literal text and reported as a warning rather than dropped.
+ * Pixiv のルビ、太字、斜体、圏点の記法を解釈する。括弧の形をしていても解釈できないものは、
+ * 削除せずそのままの文字として残し、警告として報告する。
  */
 export const pixivParser: ManuscriptParser = {
   id: PARSER_ID,

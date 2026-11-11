@@ -140,7 +140,9 @@ test("opens diagnostics over the manuscript without resizing the preview", async
   await waitFor(() => {
     const active = screen.container.querySelectorAll(".kgv-cell[data-diagnostic-active]");
     expect(active).toHaveLength(1);
-    expect(active[0]?.textContent).toBe("2026");
+    const [cell] = active;
+    expect.assert(cell !== undefined);
+    expect(cell.textContent).toBe("2026");
     expect(
       screen.container.querySelectorAll(".kgv-diagnostic-band[data-diagnostic-active]"),
     ).toHaveLength(1);
@@ -148,8 +150,8 @@ test("opens diagnostics over the manuscript without resizing the preview", async
   expect(screen.container.querySelector("iframe")).toBeNull();
 });
 
-// The mobile toolbar only becomes visible below the 52rem (832px) breakpoint;
-// a narrower viewport is required so the click lands on a real, on-screen control.
+// モバイル用ツールバーは、52rem（832px）のブレークポイントを下回ったときだけ表示される。
+// クリックが画面上に実在するコントロールに当たるよう、これより狭いビューポートが要る。
 test("opens compact file, settings, and diagnostics sheets", async () => {
   await page.viewport(600, 900);
   const screen = await render(<App />);
@@ -284,7 +286,7 @@ test("synchronizes the URL after a failed initial catalog load is refreshed", as
 
 test("keeps the newest catalog when an older request finishes last", async () => {
   let catalogRequests = 0;
-  let resolveInitialCatalog!: (response: Response) => void;
+  let resolveInitialCatalog: ((response: Response) => void) | undefined;
   vi.stubGlobal(
     "fetch",
     vi.fn((input: RequestInfo | URL) => {
@@ -323,6 +325,7 @@ test("keeps the newest catalog when an older request finishes last", async () =>
     expect(label.textContent).toBe("共有 原稿.txt");
   });
 
+  expect.assert(resolveInitialCatalog !== undefined, "initial catalog request was not issued");
   resolveInitialCatalog(
     new Response(JSON.stringify([files[0]]), {
       headers: { "content-type": "application/json" },
@@ -690,7 +693,6 @@ test("keeps settings folded and restores the sidebar after hiding it", async () 
     .element(screen.getByRole("button", { name: "サイドバー", exact: true }))
     .toBeVisible();
   expect(screen.container.querySelector(".sidebar .settings-section[open]")).toBeNull();
-  expect(screen.container.querySelector('[placeholder="プリセット名"]')).toBeNull();
   const preview = screen.container.querySelector<HTMLElement>(".preview");
   expect.assert(preview !== null);
   const initialWidth = preview.clientWidth;

@@ -6,6 +6,12 @@ import { NovelCompositionSettings } from "./composition-settings";
 import { CompositionRun } from "./internal/composition-run";
 import { novelComposer } from "./novel-composer";
 
+function present<T>(value: T | null | undefined): T {
+  expect.assert(value !== undefined && value !== null, "expected a value");
+
+  return value;
+}
+
 function compose(source: string, marks: string) {
   const parsed = parseManuscript(source);
   expect.assert(parsed.ok);
@@ -32,7 +38,7 @@ test("separates configured ASCII marks from western words", () => {
     "+",
     "on",
   ]);
-  expect(runs[1]?.presentation).toBe("mixed");
+  expect(present(runs[1]).presentation).toBe("mixed");
 });
 
 test.each(["✧", "+", "❤️"])("gives configured %s a full-em cell", (mark) => {
@@ -48,8 +54,8 @@ test.each(["✧", "+", "❤️"])("gives configured %s a full-em cell", (mark) =
 test("allows a break after a configured ASCII mark", () => {
   const lines = compose(`${"a".repeat(18)}+on`, "+");
 
-  expect(lines[0]?.range?.display.end).toBe(19);
-  expect(lines[1]?.range?.display.start).toBe(19);
+  expect(present(present(lines[0]).range).display.end).toBe(19);
+  expect(present(present(lines[1]).range).display.start).toBe(19);
 });
 
 test("suppresses the separator after a variation-selector mark at a line edge", () => {

@@ -1,8 +1,9 @@
 import type { ValidationIssue } from "../result/validation-issue";
 
 /**
- * A built-in rule factory was given options it cannot honour. Distinct from {@link ProofreadError}
- * because it happens while configuring rules, long before any manuscript is checked.
+ * 組み込みルールのファクトリーに、受け付けられないオプションが渡された。
+ * {@link ProofreadError} と別にするのは、これが原稿をチェックするよりずっと前、
+ * ルールを構成する時点で起こるためである。
  */
 export type InvalidRuleOptions = Readonly<{
   kind: "InvalidRuleOptions";

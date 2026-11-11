@@ -161,9 +161,9 @@ function wrapAnnotations(
         );
       }
       case "emphasis": {
-        // The marks themselves are placed by the layer below, not drawn from here: text-emphasis
-        // reserves their room inside the character's own box, and engines disagree about where in
-        // that box, which moves the character off its cell.
+        // 圏点そのものは、ここではなく下のレイヤーが配置する。
+        // text-emphasis は圏点の空きを文字自身のボックスの内側に確保し、
+        // そのボックスのどこに置くかはエンジンごとに異なる。そのため文字がこまからずれてしまう。
         return (
           <span key={annotationKey(annotation)} data-annotation="emphasis">
             {wrapped}

@@ -25,7 +25,7 @@ function closingIndex(source: string, start: number, closing: string): number | 
 }
 
 /**
- * Tag bodies hold literal text only; a nested bracket means this is not a well-formed tag.
+ * タグの本体はリテラルのテキストだけを持つ。括弧が入れ子になっていれば、整形式のタグではない。
  */
 function isFlatContent(text: string): boolean {
   return text.length > 0 && !text.includes("[") && !text.includes("]");
@@ -95,7 +95,7 @@ export function parsePixivTag(source: string, start: number): PixivTag | undefin
 }
 
 /**
- * How far an unrecognised `[` run extends before it can be handed back to the reader as text.
+ * 認識できない `[` の連なりが、テキストとして読み取り側へ戻せるようになるまでどこまで及ぶか。
  */
 export function literalEnd(source: string, start: number): number {
   const endOfLine = lineEnd(source, start);

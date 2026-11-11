@@ -1,9 +1,7 @@
 :root {
   --surface: #fff;
   --sidebar: #fff;
-  --paper: #fff;
   --text: #000;
-  --grid: rgb(0 174 204 / 30%);
   --accent: #000;
   --focus: #738299;
 
@@ -135,7 +133,6 @@ select {
   overflow: clip;
 }
 
-.preview__empty,
 .preview__loading {
   place-self: center;
 }
@@ -529,7 +526,7 @@ select {
   }
 }
 
-/* Keep the manuscript canvas distinct from the controls without tinting the paper. */
+/* 紙面に色を付けずに、原稿のキャンバスをコントロールと見分けられるようにする。 */
 .preview > .kgv-viewer {
   --kgv-surface: #f2f3f4;
   --kgv-padding: 1.5rem;

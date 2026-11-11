@@ -4,7 +4,7 @@ import type { NamespacedId } from "../namespaced-id";
 import type { ValidationIssue } from "../result/validation-issue";
 
 /**
- * Everything that can go wrong while placing a parsed manuscript onto pages.
+ * パース済みの原稿をページに配置する間に起こりうる失敗のすべて。
  */
 export type ComposeError =
   | Readonly<{ kind: "InvalidComposerId"; composerId: string }>
@@ -24,7 +24,7 @@ export type ComposeError =
 
 export const ComposeError = {
   /**
-   * Human-readable rendering. Branch on `kind` instead when the caller needs to react.
+   * 人が読むための表現。呼び出し側が失敗に応じて処理を分けるときは、代わりに `kind` で分岐する。
    */
   describe: (error: ComposeError): string => {
     switch (error.kind) {

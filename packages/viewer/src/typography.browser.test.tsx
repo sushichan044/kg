@@ -126,6 +126,22 @@ test("preserves upright abbreviations, tate-chu-yoko, combining marks and fallba
   ).toBeCloseTo(0.5, 10);
 });
 
+test("measures a three-mark tate-chu-yoko run as the one em it is drawn in", ({ typography }) => {
+  const request = {
+    text: "！？！",
+    kind: "base",
+    presentation: "tate-chu-yoko",
+    fontPreset: "genei-koburi",
+    fontSizeQ: 12.7,
+    scale: 1,
+    writingMode: "vertical-rl",
+  } as const;
+
+  const measurement = typography.measurer(request);
+
+  expect(measurement.advanceEm).toBe(1);
+});
+
 test("reshapes around partial bold and italic without crossing their boundaries", async ({
   typography,
 }) => {

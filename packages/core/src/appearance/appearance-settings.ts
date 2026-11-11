@@ -13,7 +13,7 @@ const ManuscriptAppearanceSettingsSchema = readonlyObject({
 });
 
 /**
- * Page dimensions and the typography profile used to prepare and measure text.
+ * ページの寸法と、テキストの準備と測定に使うタイポグラフィのプロファイル。
  */
 export type ManuscriptAppearanceSettings = v.InferOutput<typeof ManuscriptAppearanceSettingsSchema>;
 

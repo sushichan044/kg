@@ -1,5 +1,5 @@
-/* Convenience bundle: the structural rules plus the default theme.
-   Import ./structural.css alone to style the viewer from scratch. */
+/* まとめて読み込むためのバンドル。structural.css の規則と既定のテーマを含む。
+   ビューアーのスタイルを一から付けるときは、./structural.css だけを読み込む。 */
 
 @import "./structural.css";
 @import "./theme.css";

@@ -6,6 +6,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -127,8 +128,9 @@ func (s *Server) notifyFileChanged(id string) {
 }
 
 // Handler builds the HTTP handler. spa serves the embedded frontend for all
-// non-API routes.
-func (s *Server) Handler(spa http.Handler) http.Handler {
+// non-API routes. port must be the port the server actually listens on: every
+// request must name it in Host (see loopbackGuard).
+func (s *Server) Handler(spa http.Handler, port int) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /_/api/files", s.handleListFiles)
 	mux.HandleFunc("GET /_/api/files/{id}/content", s.handleFileContent)
@@ -139,14 +141,20 @@ func (s *Server) Handler(spa http.Handler) http.Handler {
 	mux.HandleFunc("GET /_/events", s.handleSSE)
 	mux.Handle("GET /", spa)
 
-	return mux
+	return loopbackGuard(port, mux)
 }
 
 func (s *Server) handleAddRoots(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Paths []string `json:"paths"`
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
+			http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+
+			return
+		}
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 
 		return

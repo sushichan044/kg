@@ -8,7 +8,7 @@ import type { ProofreadingRuleContext } from "./proofreading-rule-context";
 const ProofreadingRuleMessagesSchema = v.pipe(v.record(v.string(), v.string()), v.readonly());
 
 /**
- * Message templates the rule can name in a report, keyed by message ID.
+ * ルールが報告で名前を挙げられるメッセージテンプレート。メッセージ ID をキーとする。
  */
 export type ProofreadingRuleMessages = v.InferOutput<typeof ProofreadingRuleMessagesSchema>;
 
@@ -25,8 +25,8 @@ export const ProofreadingRuleMeta = {
 } as const;
 
 /**
- * A rule that only needs the parsed manuscript. The `kind` sits on the rule itself, not inside
- * `meta`, so the runner narrows to the right `check` signature without a cast.
+ * パース済みの原稿だけを必要とするルール。`kind` は `meta` の中ではなくルール自体に置く。
+ * これにより、ランナーはキャストなしで正しい `check` のシグネチャに絞り込める。
  */
 export type ParsedProofreadingRule = Readonly<{
   kind: "parsed";
@@ -35,7 +35,7 @@ export type ParsedProofreadingRule = Readonly<{
 }>;
 
 /**
- * A rule that needs the composed manuscript, for findings that depend on placement.
+ * コンポーズ済みの原稿を必要とするルール。配置に依存する指摘のためのものである。
  */
 export type ComposedProofreadingRule<TComposed extends ComposedManuscript = ComposedManuscript> =
   Readonly<{

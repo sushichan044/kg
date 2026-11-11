@@ -180,7 +180,8 @@ export const RubyLineLayout = {
       };
     };
     let line = resolve();
-    // Each pass adds only missing width. The final pass verifies fitting and ink clearance.
+    // 各パスは不足している幅だけを足す。最後のパスで、
+    // 収まっていることと字面同士が離れていることを確かめる。
     for (let pass = 0; pass <= selected.length * 2 + 2; pass += 1) {
       const { offsets, gaps } = positions(bases, line);
       const placements: RubyLinePlacement[] = [];

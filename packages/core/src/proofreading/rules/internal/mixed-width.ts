@@ -6,16 +6,16 @@ export type MixedWidthRuleOptions = Readonly<{
   id: string;
   message: string;
   /**
-   * Both patterns must be non-global: the rule only ever asks for a first occurrence.
+   * 両方のパターンは非グローバルでなければならない。ルールが求めるのは最初の出現だけだからである。
    */
   halfwidth: RegExp;
   fullwidth: RegExp;
 }>;
 
 /**
- * Builds a rule that fires when a manuscript uses both widths of one character class. Which width
- * is right is the author's decision, so the finding is a warning, and one finding at the first
- * halfwidth occurrence says everything a list of every mixed character would.
+ * 1 つの文字クラスの両方の幅を、原稿が使っているときに指摘するルールを作る。
+ * どちらの幅が正しいかは作者が決めることなので、指摘は警告とする。
+ * 最初の半角の出現に対する 1 件の指摘で、混在した文字をすべて列挙した一覧と同じことが伝わる。
  */
 export function defineMixedWidthRule({
   id,

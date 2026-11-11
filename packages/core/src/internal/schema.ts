@@ -1,8 +1,8 @@
 import * as v from "valibot";
 
 /**
- * Every DTO in this package is a closed, frozen object: unknown keys are rejected, output is
- * readonly.
+ * このパッケージの DTO はすべて、閉じたフリーズ済みのオブジェクトである。未知のキーは拒否し、
+ * 出力は読み取り専用にする。
  */
 export const readonlyObject = <const TEntries extends v.ObjectEntries>(entries: TEntries) =>
   v.pipe(v.strictObject(entries), v.readonly());

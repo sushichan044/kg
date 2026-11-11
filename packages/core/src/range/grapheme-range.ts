@@ -5,9 +5,9 @@ import { TextRange } from "./text-range";
 const GraphemeRangeSchema = v.pipe(TextRange.schema, v.brand("GraphemeRange"));
 
 /**
- * Indices into the display grapheme array, not offsets into any string. A grapheme (書記素) is what a
- * reader counts as one character and what the composer sets on one em, so a base character and its
- * combining marks — or an emoji built from several code points — index as one.
+ * 表示用書記素配列へのインデックスであり、どの文字列へのオフセットでもない。
+ * 書記素は、読み手が 1 文字と数えるものであり、コンポーザーが全角 1 つ分に組むものである。
+ * したがって、基底文字とその結合文字、あるいは複数の符号位置から成る絵文字は、1 つとして数える。
  */
 export type GraphemeRange = v.InferOutput<typeof GraphemeRangeSchema>;
 

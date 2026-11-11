@@ -6,8 +6,8 @@ import type { ParsedGrapheme } from "../parsed-grapheme";
 import { ParsedManuscript } from "../parsed-manuscript";
 
 /**
- * Drafts are the schemas' _input_ types: the same shape as the DTOs but mutable and unbranded, so a
- * parser can grow them in place and let `build` brand the whole tree in one parse.
+ * ドラフトはスキーマの_入力_型である。DTO と同じ形だが、可変でブランドが付かない。
+ * パーサーがその場で値を伸ばしていき、`build` が一度のパースで木全体にブランドを付けられる。
  */
 type GraphemeDraft = v.InferInput<typeof ParsedGrapheme.schema>;
 type AnnotationDraft = v.InferInput<typeof ManuscriptAnnotation.schema>;
@@ -15,7 +15,7 @@ export type RangeDraft = GraphemeDraft["range"];
 
 export type ManuscriptDraft = Readonly<{
   /**
-   * Appends display text that came from `sourceStart`, returning the range it now occupies.
+   * `sourceStart` に由来する表示用テキストを追加し、それが占める範囲を返す。
    */
   append: (text: string, sourceStart: number) => RangeDraft;
   annotate: (annotation: AnnotationDraft) => void;
@@ -23,8 +23,8 @@ export type ManuscriptDraft = Readonly<{
 }>;
 
 /**
- * Text appended in separate calls can still form one grapheme (a base character followed by a
- * combining mark). When that happens the trailing part is folded into the previous grapheme.
+ * 別々の呼び出しで追加したテキストが、1 つの書記素になることもある（基底文字に結合文字が続く
+ * 場合など）。その場合は、後ろの部分を直前の書記素に畳み込む。
  */
 function joinedPrefixLength(previous: string, text: string): number {
   const [first] = graphemeSegmenter.segment(previous + text);

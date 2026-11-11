@@ -65,7 +65,7 @@ const NovelCompositionSettingsSchema = v.pipe(
 );
 
 /**
- * Every value that changes placement or physical size. Zoom and UI selection live in the app.
+ * 配置や物理的なサイズを変えるすべての値。拡大率や UI 上の選択はアプリ側で持つ。
  */
 export type NovelCompositionSettings = v.InferOutput<typeof NovelCompositionSettingsSchema>;
 
@@ -80,7 +80,7 @@ export const NovelCompositionSettings = {
   } as const satisfies NovelCompositionSettings,
 
   /**
-   * Select the fixed A5 or A6 format, or centre the current grid on another paper size.
+   * 決まった判型の A5 判か A6 判を選ぶか、それ以外の用紙サイズに現在のグリッドを中央そろえで置く。
    */
   forPaper: (
     paperSize: PaperSizeId,

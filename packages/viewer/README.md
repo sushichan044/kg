@@ -115,9 +115,10 @@ div.kgv-viewer
                         ├── span.kgv-line-emphasis         ← present when the line carries emphasis
                         │   └── span.kgv-emphasis
                         │       └── span.kgv-emphasis-mark
-                        └── span.kgv-line-diagnostics
-                            ├── span.kgv-diagnostic-band
-                            └── button.kgv-diagnostic-trigger
+                        └── span.kgv-line-diagnostics   ← present when the line has diagnostic bands
+                            └── span                    ← one wrapper per band
+                                ├── span.kgv-diagnostic-band
+                                └── button.kgv-diagnostic-trigger   ← only where the diagnostic starts
 ```
 
 The ruling, text, ruby, emphasis, and diagnostics are independent
@@ -153,20 +154,25 @@ its diagnostic toolbar button.
 
 State is exposed through these attributes:
 
-| Attribute                   | On                                 | Values                    |
-| --------------------------- | ---------------------------------- | ------------------------- |
-| `data-page-index`           | `.kgv-page`                        | zero-based page number    |
-| `data-grid`                 | `.kgv-page`                        | `visible`, `hidden`       |
-| `data-page-side`            | `.kgv-page`                        | `left`, `right`           |
-| `data-offscreen`            | `.kgv-page`                        | present on later pages    |
-| `data-disposition`          | `.kgv-cell`                        | `placed`, `hanging`       |
-| `data-side`                 | ruby characters and emphasis marks | `before`, `after`         |
-| `data-annotation`           | annotation elements                | annotation kind           |
-| `data-ruby-fit`             | `.kgv-ruby-fragment`               | `group`, `mono`, `jukugo` |
-| `data-diagnostic-active`    | cells and diagnostic bands         | present when selected     |
-| `data-diagnostic-severity`  | cells, bands, and diagnostic items | `warning`, `error`        |
-| `data-diagnostic-id`        | `.kgv-diagnostic-band`             | diagnostic ID             |
-| `data-diagnostic-continued` | continuation diagnostic bands      | present on continuations  |
+| Attribute                   | On                                 | Values                                          |
+| --------------------------- | ---------------------------------- | ----------------------------------------------- |
+| `data-page-index`           | `.kgv-page`                        | zero-based page number                          |
+| `data-grid`                 | `.kgv-page`                        | `visible`, `hidden`                             |
+| `data-page-side`            | `.kgv-page`                        | `left`, `right`                                 |
+| `data-offscreen`            | `.kgv-page`                        | present on later pages                          |
+| `data-disposition`          | `.kgv-cell`                        | `placed`, `hanging`                             |
+| `data-presentation`         | `.kgv-cell`                        | `mixed`, `upright`, `sideways`, `tate-chu-yoko` |
+| `data-diagnostic`           | `.kgv-cell`                        | present on diagnosed cells                      |
+| `data-side`                 | ruby characters and emphasis marks | `before`, `after`                               |
+| `data-annotation`           | annotation elements                | annotation kind                                 |
+| `data-ruby-fit`             | `.kgv-ruby-fragment`               | `group`, `mono`, `jukugo`                       |
+| `data-diagnostic-active`    | cells and diagnostic bands         | present when selected                           |
+| `data-diagnostic-severity`  | cells, bands, and diagnostic items | `warning`, `error`                              |
+| `data-diagnostic-id`        | `.kgv-diagnostic-band`             | diagnostic ID                                   |
+| `data-diagnostic-continued` | continuation diagnostic bands      | present on continuations                        |
+| `data-diagnostic-origin`    | `.kgv-diagnostics > li`            | origin kind of the item                         |
+| `data-spread`               | `.kgv-stack`                       | present in spread layout                        |
+| `data-typography`           | `.kgv-viewer`                      | selected typography font ID                     |
 
 `DiagnosticList` renders `ol.kgv-diagnostics > li` with selectable paragraphs
 inside `.kgv-diagnostic-message`. When `onSelect` is supplied, a separate
@@ -177,8 +183,12 @@ inside `.kgv-diagnostic-message`. When `onSelect` is supplied, a separate
 
 `NovelViewer` sets `--kgv-cell-size`, `--kgv-line-gap`, `--kgv-stage-gap`,
 `--kgv-line-length`, `--kgv-page-width`, `--kgv-page-height`, `--kgv-margin-top`,
-`--kgv-margin-bottom`, `--kgv-margin-inner`, `--kgv-margin-outer`, and
-`--kgv-manuscript-font` on `.kgv-stack`. Read them to align custom decorations;
+`--kgv-margin-bottom`, `--kgv-margin-inner`, `--kgv-margin-outer`,
+`--kgv-manuscript-font`, `--kgv-font-features`, `--kgv-western-kerning`,
+`--kgv-font-synthesis`, and `--kgv-folio-top` on `.kgv-stack`. Cells and
+diagnostic bands also carry per-element `--kgv-item-offset`, `--kgv-item-advance`,
+`--kgv-band-lane`, `--kgv-band-lanes`, `--kgv-band-length`, and `--kgv-band-offset`.
+Read the stack-level properties to align custom decorations;
 do not replace them because fit zoom and positioned text depend on them.
 
 The optional theme exposes `--kgv-surface`, `--kgv-paper`, `--kgv-text`,

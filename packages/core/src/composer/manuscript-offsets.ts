@@ -16,9 +16,9 @@ const ManuscriptOffsetsSchema = readonlyObject({
 });
 
 /**
- * Blank lines held back at document, page and stage scope before any text is placed. This is how a
- * novel reserves the opening pages and keeps the top and bottom of each block of text clear, in
- * whole lines rather than in millimetres, so the grid stays intact.
+ * 文字を配置する前に、文書・ページ・段の単位で確保しておく空き行。小説が冒頭のページを空けたり、
+ * 各段の天地を空けたりするのはこの仕組みによる。ミリメートルではなく行単位で確保するので、
+ * グリッドが崩れない。
  */
 export type ManuscriptOffsets = v.InferOutput<typeof ManuscriptOffsetsSchema>;
 
@@ -32,12 +32,13 @@ export const ManuscriptOffsets = {
   } as const satisfies ManuscriptOffsets,
 
   /**
-   * Stage offsets must leave at least one usable line in the stage.
+   * 段のオフセットは、段内に使える行を少なくとも1行残さなければならない。
    */
   maxStageTotal: (flow: NovelFlowSettings): number => Math.max(0, flow.linesPerStage - 1),
 
   /**
-   * Page offsets must leave at least one usable line on the page, after stage offsets apply.
+   * ページのオフセットは、段のオフセットを適用した後で、
+   * ページに使える行を少なくとも1行残さなければならない。
    */
   maxPageTotal: (flow: NovelFlowSettings, stage: LineOffset): number =>
     Math.max(0, (flow.linesPerStage - LineOffset.total(stage)) * flow.stagesPerPage - 1),

@@ -48,10 +48,10 @@ export const CandidateLine = {
       boxesSizeEm + pairValues.reduce((total, value) => total + value.spacing.naturalWidthEm, 0);
     const overflow = naturalSizeEm - lineLengthEm;
     const underflow = lineLengthEm - naturalSizeEm;
-    // A line is either over or under, so only one direction's units is ever wanted. Building both
-    // would double the work of the inner loop of the paragraph optimizer for nothing.
+    // 行ははみ出すか足りないかのどちらかなので、必要な調整単位は常に一方向だけだ。
+    // 両方を作ると、段落の最適化処理の内側のループの作業が無駄に倍になる。
     const units = unitsFor(overflow > 0 ? "shrink" : "stretch");
-    // Coupled units own their complete capacity and cost, including parts taken from other slots.
+    // 連結した調整単位は、ほかのスロットから取る分も含めて、調整可能量とコストのすべてを持つ。
     const capacity = units.reduce((total, unit) => total + AdjustmentUnit.capacity(unit), 0);
     const freeShrinkCapacity = units.reduce(
       (total, unit) => total + (unit.costPerEm === 0 ? AdjustmentUnit.capacity(unit) : 0),
@@ -94,7 +94,7 @@ export const CandidateLine = {
       };
     }
 
-    // Discrete units can leave a remainder even when the total capacity exceeds the overflow.
+    // 離散的な調整単位では、調整可能量の合計がはみ出し量を上回っていても余りが出ることがある。
     const shrunk =
       overflow > 0 && overflow <= capacity + EPSILON
         ? resolveSpacings(pairValues, units, "shrink", overflow, finalExpansion)
@@ -140,7 +140,7 @@ export const CandidateLine = {
       };
     }
 
-    // Final expansion spends the remainder only on the separately resolved eligible slots.
+    // 最終段階の空ける処理は、別に解決した対象のスロットだけに余りを配る。
     const stretched =
       !terminal && underflow > EPSILON && (underflow <= capacity + EPSILON || hasFinalStretch)
         ? resolveSpacings(pairValues, units, "stretch", underflow, finalExpansion)

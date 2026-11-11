@@ -39,29 +39,28 @@ const SuppressedItemSchema = readonlyObject({
 });
 
 /**
- * An inter-character space (アキ) the line adjustment was allowed to resize. `naturalWidthEm` is what
- * the pair called for and `widthEm` what the chosen break settled on, with `adjustment` naming
- * which of the two happened. `origin: "source"` marks a space that was written in the manuscript
- * rather than derived from a character-class pair.
+ * 行の調整処理で幅を変えてよい字間のアキ。`naturalWidthEm` は文字の組合せが求める幅、
+ * `widthEm` は選んだ分割位置で決まった幅で、`adjustment` はそのどちらになったかを示す。
+ * `origin: "source"` は、文字クラスの組合せから導いたアキではなく、
+ * 原稿に書かれていたアキであることを示す。
  */
 export type ComposedGlue = v.InferOutput<
   typeof GeneratedGlueItemSchema | typeof SourceGlueItemSchema
 >;
 
 /**
- * A fixed space (詰め) that line adjustment never touches. It is negative between two half-em
- * characters, such as a run of brackets, where their advances would otherwise leave a full em of
- * white; it is zero between two inseparable characters, which must butt together with no gap at
- * all.
+ * 行の調整処理が一切変えない固定のアキ（詰め）。
+ * 括弧の連続のような二分の文字同士の間では負の値になる。
+ * そうしないと、送り幅によって全角1字分の空白が残ってしまう。分離禁止の文字同士の間では0で、
+ * 隙間なく密着させる。
  */
 export type ComposedKern = v.InferOutput<typeof KernItemSchema>;
 
 /**
- * A character present in the source but not set on this line. The one reason today is the
- * ideographic space a manuscript writes after `！` or `？` to satisfy JLReq 3.1.6: the gap exists to
- * separate the mark from what follows, so it is dropped once a line break already separates them.
- * The character is reported rather than deleted, so a line still maps back to its whole source
- * span.
+ * ソースにはあるが、この行には組まない文字。現在の理由は一つだけで、
+ * JLReq 3.1.6 を満たすために原稿が `！` や `？` の後ろに書く和字間隔だ。
+ * このアキは記号と後続の文字を離すためのものなので、行の分割ですでに離れている場合は取り除く。
+ * 文字は削除せずに報告するので、行は引き続きソース上の範囲全体に対応づく。
  */
 export type SuppressedInlineItem = v.InferOutput<typeof SuppressedItemSchema>;
 

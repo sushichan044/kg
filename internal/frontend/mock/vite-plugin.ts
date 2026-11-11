@@ -88,7 +88,7 @@ export function mockFrontend(directory = join(import.meta.dirname, "manuscripts"
           next();
           return;
         }
-        // oxlint-disable-next-line promise/no-callback-in-promise -- Connect handles async errors through next.
+        // oxlint-disable-next-line promise/no-callback-in-promise -- 非同期のエラーは Connect が next を通じて処理する。
         void respond(request, response, pathname).catch(next);
       });
     },

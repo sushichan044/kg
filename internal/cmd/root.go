@@ -123,6 +123,13 @@ func parseArgs(args []string) (options, error) {
 		roots = []string{"."}
 	}
 	opts.roots = absPaths(roots, baseDir)
+	// Reject a typo before it is forwarded to a server, where it would be
+	// persisted as a root that never resolves.
+	for _, root := range opts.roots {
+		if _, err = os.Stat(root); err != nil {
+			return options{}, fmt.Errorf("invalid path: %w", err)
+		}
+	}
 
 	return opts, nil
 }
@@ -221,10 +228,10 @@ func serveForeground(opts options, logger *slog.Logger) error {
 		return fmt.Errorf("listen on %s: %w", addr, err)
 	}
 
-	httpSrv := &http.Server{Handler: srv.Handler(spa), ReadHeaderTimeout: readHeaderTimeout}
+	httpSrv := &http.Server{Handler: srv.Handler(spa, opts.port), ReadHeaderTimeout: readHeaderTimeout}
 	httpSrv.RegisterOnShutdown(srv.CloseSubscribers)
 
-	url := fmt.Sprintf("http://localhost:%d", opts.port)
+	url := baseURL(opts.port)
 	logger.InfoContext(ctx, "kg is running", "url", url, "files", len(srv.Files()))
 	if !opts.noOpen {
 		if openErr := browser.OpenURL(url); openErr != nil {

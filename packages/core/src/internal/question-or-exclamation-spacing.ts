@@ -12,7 +12,8 @@ export type QuestionOrExclamationSpacing =
   | Readonly<{ kind: "before-closing-bracket"; marks: TextRange; gap: TextRange }>;
 
 /**
- * Runs, not single marks: `！？` is one mark and takes one gap, so the gap belongs after the run.
+ * 個々の約物ではなく連なりで扱う。`！？` は 1 つの約物でありアキも 1 つ取るので、
+ * アキは連なりの後に置く。
  */
 
 function analyzeMatch(
@@ -38,9 +39,8 @@ function analyzeMatch(
 }
 
 /**
- * Classifies the spacing after each run of Japanese question or exclamation marks in one display
- * line. Runs at the end of the line or immediately before a closing bracket need no gap and are
- * omitted from the result.
+ * 表示行 1 行の中で、和文の疑問符・感嘆符の連なりそれぞれの直後のアキを分類する。
+ * 行末や終わり括弧類の直前にある連なりはアキが不要なので、結果から除く。
  */
 export function questionOrExclamationSpacings(
   line: string,

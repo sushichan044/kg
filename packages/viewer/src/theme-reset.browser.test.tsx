@@ -15,8 +15,9 @@ import { NovelViewer } from "./NovelViewer";
 import "./styles.css";
 
 /**
- * The Tailwind Preflight rules that touch this package's DOM, left unlayered so the same fixture
- * also represents classic reset stylesheets with stronger cascade precedence.
+ * このパッケージの DOM に影響する Tailwind Preflight の規則。レイヤーに入れずに置くことで、
+ * 同じフィクスチャーが、カスケードの優先度がより高い従来型のリセットスタイルシートも
+ * 表せるようにする。
  */
 const commonReset = `
   *,

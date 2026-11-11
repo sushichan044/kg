@@ -113,15 +113,15 @@ function splitBySlot(
 }
 
 /**
- * The same spaces at their resolved natural width, for a line no adjustment reaches.
+ * 同じアキを、解決済みの自然な幅で返す。行の調整処理が及ばない行に使う。
  */
 export function naturalSpacings(values: readonly SpacingOpportunity[]): ResolvedSpacings {
   return splitBySlot(values, (_slot, spacing) => spacing.naturalWidthEm);
 }
 
 /**
- * The same, minus the アキ the line end would have taken: a hanging character sits outside the text
- * area and the space that would have followed it goes with it.
+ * 同じアキから、行末が取るはずだったアキを除いたもの。ぶら下げた文字は版面の外に出るので、
+ * その後ろに続くはずだったアキも一緒に外に出る。
  */
 export function hangingSpacings(
   values: readonly SpacingOpportunity[],

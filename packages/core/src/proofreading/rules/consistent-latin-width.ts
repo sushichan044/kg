@@ -2,10 +2,10 @@ import type { ParsedProofreadingRule } from "../proofreading-rule";
 import { defineMixedWidthRule } from "./internal/mixed-width";
 
 /**
- * Halfwidth and fullwidth Latin letters (半角英字 and 全角英字) in one work. In vertical writing the two
- * are set differently — a fullwidth letter stands upright on its own em, a halfwidth one joins a
- * run that may turn sideways — so mixing them is 表記ゆれ the reader can see. Which one a work uses is
- * its own choice, hence a warning.
+ * 同一の作品の中の半角英字と全角英字。縦組では両者の組み方が異なる。
+ * 全角の英字は自分の全角の枠に正立し、半角の英字は横倒しになることがある連なりに加わる。
+ * そのため、混在は読み手に見える表記ゆれになる。どちらを使うかは作品ごとの選択であるため、
+ * 警告とする。
  */
 export const consistentLatinWidthRule = (): ParsedProofreadingRule =>
   defineMixedWidthRule({

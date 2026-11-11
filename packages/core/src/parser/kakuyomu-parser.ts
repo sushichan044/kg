@@ -85,8 +85,9 @@ function invalidNotationEnd(source: string, start: number): number {
 }
 
 /**
- * Understands Kakuyomu's ruby and emphasis-mark notation. Invalid notation stays literal so source
- * ranges remain inspectable, while clear notation candidates receive a parser warning.
+ * Kakuyomu のルビと圏点の記法を解釈する。
+ * 不正な記法はそのまま残してソースの範囲を検査できるようにし、
+ * 記法と見なせることが明らかな候補にはパーサーの警告を出す。
  */
 export const kakuyomuParser: ManuscriptParser = {
   id: PARSER_ID,

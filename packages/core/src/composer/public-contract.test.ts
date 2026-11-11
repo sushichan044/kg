@@ -13,6 +13,12 @@ import { NovelLine } from "./novel-line";
 import type { RunMeasurer } from "./run-measurer";
 import { logicalRunMeasurer } from "./run-measurer";
 
+function present<T>(value: T | undefined): T {
+  expect.assert(value !== undefined, "expected a value");
+
+  return value;
+}
+
 function compose(source: string, measurer?: RunMeasurer) {
   const parsed = parseManuscript(source, { parser: kakuyomuParser });
   expect.assert(parsed.ok, "fixture did not parse");
@@ -147,7 +153,7 @@ describe("public render units", () => {
         },
       ],
     });
-    expect(units[0]?.renderSpan.advanceEm).toBeCloseTo(1.45, 10);
+    expect(present(units[0]).renderSpan.advanceEm).toBeCloseTo(1.45, 10);
     expect(requests).not.toContain("f");
     expect(requests).not.toContain("i");
   });
@@ -179,7 +185,7 @@ describe("public render units", () => {
     expect(units.map((unit) => unit.layoutSpan.advanceEm)).toEqual(
       Array.from({ length: 6 }, () => 0.75),
     );
-    expect(lines[0]?.inlineSizeEm).toBe(4.5);
+    expect(present(lines[0]).inlineSizeEm).toBe(4.5);
   });
 
   test("keeps a clustered reading authoritative through annotation placement", () => {
@@ -370,7 +376,7 @@ describe("public render units", () => {
   });
 
   test("emits one positioned emphasis mark for a combined unit", () => {
-    // pixiv emphasis can be supplied semantically without changing plain source identity.
+    // pixiv 形式の圏点は、プレーンなソースの同一性を変えずに、意味として与えられる。
     const parsed = parseManuscript("12");
     expect.assert(parsed.ok);
     const range = parsed.value.graphemes[0]?.range;

@@ -42,10 +42,9 @@ export {
 } from "./proofreading/rules/paragraph-opening";
 export type { ParagraphOpeningOptions } from "./proofreading/rules/paragraph-opening";
 export { punctuationBeforeClosingQuoteRule } from "./proofreading/rules/punctuation-before-closing-quote";
-export { spaceAfterQuestionOrExclamationRule } from "./proofreading/rules/space-after-question-or-exclamation";
-export { variantCharacterRule } from "./proofreading/rules/variant-character";
-
 export {
   createSpaceAfterQuestionOrExclamationRule,
-  type SpaceAfterQuestionOrExclamationOptions,
+  spaceAfterQuestionOrExclamationRule,
 } from "./proofreading/rules/space-after-question-or-exclamation";
+export type { SpaceAfterQuestionOrExclamationOptions } from "./proofreading/rules/space-after-question-or-exclamation";
+export { variantCharacterRule } from "./proofreading/rules/variant-character";

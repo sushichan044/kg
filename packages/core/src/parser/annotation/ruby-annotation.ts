@@ -30,19 +30,19 @@ const RubyAnnotationSchema = readonlyObject({
 });
 
 /**
- * How a reading is associated with the base text it annotates (ルビ, JLReq 3.3).
+ * ルビ文字を親文字にどう対応づけるか（ルビ、JLReq 3.3）。
  *
- * `group` is グループルビ (3.3.6): one reading spread over the whole base, with no correspondence between
- * individual characters. `mono` is モノルビ (3.3.5): one reading segment per base character, each set
- * over its own character. `jukugo` is 熟語ルビ (3.3.7): a compound whose segments stay associated with
- * their base characters, so it is set like モノルビ when it fits and like グループルビ when a reading would
- * otherwise collide with its neighbour.
+ * `group` はグループルビ（3.3.6）で、1 つのルビ文字を親文字全体に振り、
+ * 個々の文字との対応を持たない。`mono` はモノルビ（3.3.5）で、
+ * 親文字 1 文字ごとにルビ文字の区切りが 1 つあり、それぞれ対応する文字に振る。
+ * `jukugo` は熟語ルビ（3.3.7）で、熟語の中で各区切りが親文字との対応を保つ。
+ * 収まるときはモノルビのように、ルビ文字が隣と衝突するときはグループルビのように組む。
  */
 export type RubyKind = v.InferOutput<typeof RubyKindSchema>;
 
 /**
- * The reading itself. `mono` and `jukugo` carry one segment per base grapheme, and a count that
- * disagrees with the base makes the parsed manuscript invalid rather than being padded or trimmed.
+ * ルビ文字そのもの。`mono` と `jukugo` は、親文字の書記素 1 つにつき区切りを 1 つ持つ。
+ * 個数が親文字と食い違う場合は、補ったり削ったりせず、パース結果を不正とする。
  */
 export type RubyReading = v.InferOutput<typeof RubyReadingSchema>;
 

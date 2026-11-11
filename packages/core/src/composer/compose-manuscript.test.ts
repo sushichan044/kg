@@ -87,7 +87,7 @@ describe("composeManuscript", () => {
     "keeps A6 sentences compact with $mark at width scale $advanceScale",
     ({ mark, advanceScale }) => {
       const source = `　だがしかし${mark}今日の私の心はまるで芽吹きを迎えた若葉のよう。華金だから？　それはもちろんそうだ。私とて管理職である以前に社会人なのだから、大切な人と過ごす休日のために働いていると言っても過言ではない。仕事のきりがいいから？　これは大いにその通り。`;
-      // Browser font metrics can differ slightly from the logical one-em advance.
+      // ブラウザのフォントメトリクスは、論理上の全角の送り幅とわずかに異なることがある。
       const composer = createNovelComposer({
         measurer: (request) => {
           const measured = logicalRunMeasurer(request);
@@ -729,8 +729,7 @@ describe("composeManuscript", () => {
   });
 
   test("drops the invisible line-end half-em before squeezing visible punctuation space", () => {
-    // Ten and a half em of text in a ten em line, with a half em to give at the mid-line comma and
-    // another at the line end.
+    // 字詰め10字の行に10字半の文字列を置く。行中の読点で二分、行末でもう二分を詰められる。
     const result = composeManuscript(parsed("ああ、ああああああ。」"), {
       composer: novelComposer,
       settings: settings(),
@@ -749,7 +748,7 @@ describe("composeManuscript", () => {
           : [],
       ),
     ).toEqual([
-      // The half em after the comma keeps its width; the invisible one at the line end goes instead.
+      // 読点の後ろの二分は幅を保ち、代わりに行末の見えない二分がなくなる。
       { widthEm: 0.5, adjustment: "natural" },
       { widthEm: 0, adjustment: "shrunk" },
     ]);
@@ -757,8 +756,8 @@ describe("composeManuscript", () => {
   });
 
   test("opens up only the pairs 表6 admits when a line falls short", () => {
-    // The 2倍リーダ cannot be split and cannot open the second line on its own, so the only legal
-    // break leaves the first line an em short.
+    // 2倍リーダは分割できず、単独で2行目の行頭にも置けない。そのため許される分割位置は一つだけで、
+    // 1行目は全角1字分足りなくなる。
     const result = composeManuscript(parsed("「あああああああ、……"), {
       composer: novelComposer,
       settings: settings(),
@@ -775,8 +774,8 @@ describe("composeManuscript", () => {
         ? [{ naturalWidthEm: item.naturalWidthEm, adjustment: item.adjustment }]
         : [],
     );
-    // The half em at the line head and the one the comma takes at the line end keep their width;
-    // JLReq expands neither, so the em of shortfall goes into the kana pairs alone.
+    // 行頭の二分と、行末で読点が取る二分は幅を保つ。JLReq はどちらも空けないので、
+    // 全角1字分の不足は仮名同士の字間だけで埋める。
     expect(glues.filter(({ naturalWidthEm }) => naturalWidthEm === 0.5)).toEqual([
       { naturalWidthEm: 0.5, adjustment: "natural" },
       { naturalWidthEm: 0.5, adjustment: "natural" },
@@ -805,13 +804,13 @@ describe("composeManuscript", () => {
           : [],
       ),
     ).toEqual([{ value: " ", widthEm: 1 / 3, adjustment: "natural" }]);
-    // A kanji, a quarter em, six sideways letters, the word space, four more letters, a quarter and
-    // a kanji. The word space carries no box of its own.
+    // 漢字、四分、横倒しの欧字6字、欧文間隔、さらに欧字4字、四分、漢字の順に並ぶ。
+    // 欧文間隔は自身のボックスを持たない。
     expect(line.inlineSizeEm).toBe(1 + 0.25 + 3 + 1 / 3 + 2 + 0.25 + 1);
   });
 
   test("takes a western word space at the line end to nothing", () => {
-    // 表1 注13 gives 行頭 and 行末 の欧文間隔 no width: the white would fall outside the text area.
+    // 表1 注13 により、行頭と行末の欧文間隔は幅を持たない。そのアキは版面の外に出てしまうからだ。
     const result = composeManuscript(parsed("ああああああああab cd"), {
       composer: novelComposer,
       settings: settings(),
@@ -819,7 +818,7 @@ describe("composeManuscript", () => {
 
     expect.assert(result.ok, "expected composition to succeed");
     const lines = contentLines(result.value);
-    // The space stays on the line it ends, and it is still reported — set to nothing, not dropped.
+    // 欧文間隔はそれで終わる行に残り、取り除かずに幅0として報告する。
     expect(lines.map(lineText)).toEqual(["ああああああああab ", "cd"]);
     const firstLine = lines[0];
     expect.assert(firstLine !== undefined, "layout has no first content line");
@@ -832,9 +831,10 @@ describe("composeManuscript", () => {
   });
 
   test("opens a western word space to its half em before any other stage", () => {
-    // JLReq 3.8.4 a puts the word space first. This line falls short by more than any one stage can
-    // absorb, so stage 1 opens the word space from 三分アキ to its 二分アキ limit, stage 2 opens the quarter
-    // em against the western letters to a half, and only the leftovers reach the kana pairs.
+    // JLReq 3.8.4 a は欧文間隔を最初に空ける。
+    // この行の不足はどの段階でも単独では吸収しきれないので、
+    // 第1段階で欧文間隔を三分アキから上限の二分アキまで空け、
+    // 第2段階で欧字との間の四分を二分まで空け、その残りだけが仮名同士の字間に回る。
     const result = composeManuscript(parsed("あああああab cdい……"), {
       composer: novelComposer,
       settings: settings(),
@@ -857,8 +857,8 @@ describe("composeManuscript", () => {
           ? [item.widthEm]
           : [],
       ),
-      // Four kana pairs left part-way at an eighth, and both mixed-text quarter ems spent out at
-      // the half JLReq 3.8.4 b stops them at.
+      // 仮名同士の4か所は八分の途中で止まり、和欧混植の四分2か所は、
+      // JLReq 3.8.4 b が上限とする二分まで使い切る。
     ).toEqual([
       expect.closeTo(0.125, 10),
       expect.closeTo(0.125, 10),
@@ -870,13 +870,13 @@ describe("composeManuscript", () => {
   });
 
   test("keeps a line-end half em whole and squeezes the comma instead", () => {
-    // Ten and a quarter em in a ten em line. JLReq 3.1.9 admits the half em after a line-end full
-    // stop or ベタ組 and nothing between, so it cannot give the quarter em this line is over by. The
-    // comma's half em, which JLReq does reduce continuously, gives it instead.
+    // 字詰め10字の行に10字と四分。JLReq 3.1.9 は行末の句点の後ろを二分アキかベタ組のどちらかとし、
+    // その中間を認めないので、この行がはみ出す四分をそこから詰めることはできない。
+    // 代わりに、JLReq が連続的に詰めることを認める読点の二分から詰める。
     //
-    // "ab" is a sideways western word (cl-27, two letters at half an em each), matching the em width
-    // and the mixed-text quarter em an upright single letter would have carried before 3.2.4 moved
-    // upright Latin to cl-19.
+    // "ab" は横倒しの欧文の単語（cl-27、1字二分で2字）だ。これは、
+    // 3.2.4 によって正立の欧字が cl-19 に移る前に、
+    // 正立の欧字1字が持っていた全角の幅と和欧混植の四分に合わせたものだ。
     const result = composeManuscript(parsed("ああああab、あああ。"), {
       composer: novelComposer,
       settings: settings(),
@@ -903,10 +903,9 @@ describe("composeManuscript", () => {
   });
 
   test("takes the quarter em before and after a line-end middle dot together or not at all", () => {
-    // The same line ending in a middle dot instead. 表3 注5 makes its quarter em before and its
-    // quarter em after one amount, and half an em is more than this line is over by, so neither
-    // moves and the comma pays again. Reducing only the trailing quarter would leave the middle dot
-    // lopsided.
+    // 同じ行で、行末を中点にしたもの。表3 注5 は中点の前の四分と後ろの四分を一つの量として扱い、
+    // その二分はこの行のはみ出し量より大きいので、どちらも動かず、ここでも読点が詰める。
+    // 後ろの四分だけを詰めると、中点が片寄ってしまう。
     const result = composeManuscript(parsed("ああああab、あああ・"), {
       composer: novelComposer,
       settings: settings(),
@@ -921,15 +920,14 @@ describe("composeManuscript", () => {
       line.items.flatMap((item) =>
         item.kind === "glue" && item.naturalWidthEm > 0 ? [item.widthEm] : [],
       ),
-      // The quarter em against the western character, the comma's half em down to a quarter, and
-      // the middle dot's two quarters left whole.
+      // 欧字との間の四分、四分まで詰めた読点の二分、そのまま残る中点の二つの四分。
     ).toEqual([0.25, 0.25, 0.25, 0.25]);
   });
 
   test("spreads a shortfall evenly over the pairs of one stage", () => {
-    // The same paragraph as above. Six kana pairs can open up by a quarter em each, and the line
-    // falls an em short, so JLReq 3.8.4 c puts a sixth of an em into every one of the six rather
-    // than a quarter into the first four.
+    // 上と同じ段落。仮名同士の6か所はそれぞれ四分まで空けられ、行は全角1字分足りない。
+    // そのため JLReq 3.8.4 c は、最初の4か所に四分ずつ入れるのではなく、
+    // 6か所すべてに全角の6分の1ずつを入れる。
     const result = composeManuscript(parsed("「あああああああ、……"), {
       composer: novelComposer,
       settings: settings(),
@@ -948,9 +946,9 @@ describe("composeManuscript", () => {
   });
 
   test("breaks a line rather than squeezing a full stop or a line-head bracket", () => {
-    // JLReq 3.8.3 keeps the half em after a mid-line full stop out of line adjustment, and 表3
-    // excludes the line head from it altogether. Shrinking those two is what pulled a line-head
-    // bracket flush against the edge in #94, so this paragraph has to break instead.
+    // JLReq 3.8.3 は行中の句点の後ろの二分を行の調整処理の対象から外し、
+    // 表3 は行頭をそもそも対象から外す。#94 で行頭の括弧が版面の端に密着したのは、
+    // この二つを詰めたためだ。そのため、この段落は詰めずに分割しなければならない。
     const result = composeManuscript(parsed("「あ。あああああああ、"), {
       composer: novelComposer,
       settings: settings(),
@@ -970,8 +968,8 @@ describe("composeManuscript", () => {
   });
 
   test("sets an opening bracket flush against the edge on a turned-over line", () => {
-    // JLReq 3.1.5 ③: 改行行頭 takes a half em before an opening bracket, 折返し行頭 takes none. The only
-    // legal break here falls before the bracket, so the second line is a turned-over one.
+    // JLReq 3.1.5 の③では、始め括弧の前を改行行頭では二分アキ、折返し行頭ではアキなしとする。
+    // ここで許される分割位置は括弧の前だけなので、2行目は折返し行になる。
     const result = composeManuscript(parsed(`${"あ".repeat(9)}「ああ`), {
       composer: novelComposer,
       settings: settings(),
@@ -987,7 +985,7 @@ describe("composeManuscript", () => {
     expect.assert(openingBracket !== undefined, "turned-over line has no opening bracket");
 
     expect(openingBracket.layoutSpan.offsetEm).toBe(0);
-    // Half an em narrower than the same line would be at the head of a paragraph.
+    // 同じ行が段落の先頭にある場合より二分狭い。
     expect(turnedOver.inlineSizeEm).toBe(2.5);
   });
 
@@ -998,12 +996,12 @@ describe("composeManuscript", () => {
     ["あ、」い", 3.5],
     ["「『あ", 2.5],
     ["あ・い", 3],
-    // A single upright letter or digit classifies as cl-19 (3.2.4) and sets solid against kana, the
-    // same as any other kanji-class neighbour.
+    // 正立の欧字または数字1字は cl-19 に分類され（3.2.4）、
+    // ほかの漢字等と同じく仮名とはベタ組になる。
     ["あAい", 3],
     ["あ1い", 3],
-    // A sideways western word (cl-27) keeps 3.2.6's quarter em on either side; "abc" does not match
-    // the upright abbreviation pattern, so it renders sideways at half an em per letter.
+    // 横倒しの欧文の単語（cl-27）は、3.2.6 の四分を両側に保つ。
+    // "abc" は正立にする略語のパターンに当たらないので、1字二分で横倒しに表示する。
     ["あabcい", 4],
   ] as const)("sets %s in %s em, as 表1 prescribes", (source, inlineSizeEm) => {
     const result = composeManuscript(parsed(source), {
@@ -1021,9 +1019,9 @@ describe("composeManuscript", () => {
   });
 
   test("sets an upright western run solid against surrounding kana, as JLReq 3.2.4 prescribes", () => {
-    // "QR" is a two-letter all-caps abbreviation, which the composer sets upright rather than
-    // sideways. JLReq 3.2.4 classes an upright Latin letter with kanji (cl-19) rather than with a
-    // horizontal Western run (cl-27), so none of 3.2.6's quarter em applies here.
+    // "QR" は大文字2字の略語なので、コンポーザーは横倒しではなく正立で組む。
+    // JLReq 3.2.4 は正立の欧字を横向きの欧文のラン（cl-27）ではなく漢字（cl-19）と同じクラスに
+    // 分類するので、3.2.6 の四分はここには適用しない。
     const result = composeManuscript(parsed("あQRい"), {
       composer: novelComposer,
       settings: settings({ lineLengthEm: 40 }),
@@ -1051,7 +1049,7 @@ describe("composeManuscript", () => {
     const middleDot = lineGlyphs(line).find(({ value }) => value === "・");
     expect.assert(middleDot !== undefined, "layout has no middle dot");
     expect(middleDot.layoutSpan).toEqual({ offsetEm: 1.25, advanceEm: 0.5 });
-    // The ink stays a full em wide and is centred on the half-em box it now advances by.
+    // 字面は全角の幅のまま、新しい送り幅である二分のボックスの中央に置く。
     expect(middleDot.renderSpan).toEqual({ offsetEm: 1, advanceEm: 1 });
     expect(
       line.items.flatMap((item) =>
@@ -1107,8 +1105,9 @@ describe("composeManuscript", () => {
     expect.assert(base !== undefined, "line has no base glyph");
     expect.assert(ruby !== undefined, "line has no ruby fragment");
 
-    // The seven-grapheme reading measures three and a half em over a one em base, so the base box
-    // grows to the reading and the surplus falls either side of the character rather than after it.
+    // 7書記素のルビ文字は、全角1字の親文字に対して3字半の長さになる。
+    // そのため親文字のボックスをルビ文字の長さまで広げ、
+    // 余りは親文字の後ろではなく両側に振り分ける。
     expect(base.layoutSpan.advanceEm).toBe(3.5);
     expect(base.renderSpan.offsetEm - base.layoutSpan.offsetEm).toBeCloseTo(
       base.layoutSpan.offsetEm +
@@ -1177,8 +1176,8 @@ describe("composeManuscript", () => {
     const [unwidened, widened] = lineGlyphs(line);
     expect.assert(unwidened !== undefined && widened !== undefined, "line has no base characters");
 
-    // A two-grapheme reading fits its base exactly; the four-grapheme one asks for two em, and
-    // JLReq 3.3.5 sets that reading 中付き rather than pushing its base to the top of the box.
+    // 2書記素のルビ文字は親文字にちょうど収まる。4書記素のルビ文字は全角2字分を必要とし、
+    // JLReq 3.3.5 はそのルビを、親文字をボックスの先頭に寄せるのではなく中付きにする。
     expect(unwidened.renderSpan.offsetEm).toBe(unwidened.layoutSpan.offsetEm);
     expect(widened.layoutSpan.advanceEm).toBe(2);
     expect(widened.renderSpan.offsetEm - widened.layoutSpan.offsetEm).toBeCloseTo(0.5, 10);
@@ -1280,7 +1279,7 @@ describe("composeManuscript", () => {
   });
 
   test("splits an oversized group reading in proportion to measured base advances", () => {
-    // The sideways run and the kanji share one group-ruby complex.
+    // 横倒しのランと漢字は、一つのグループルビのまとまりを共有する。
     const base = `ab${"漢".repeat(10)}`;
     const reading = "あ".repeat(9);
     const parseResult = parseManuscript(`｜${base}《${reading}》`, { parser: kakuyomuParser });
@@ -1301,8 +1300,8 @@ describe("composeManuscript", () => {
     const rubyFragments = contentLines(result.value).flatMap(({ annotations }) =>
       annotations.filter((annotation) => annotation.kind === "ruby"),
     );
-    // B.2 note 10 excludes ordinary mixed-text spacing inside the group. Nine em
-    // of Latin plus one kanji fit on the first line: round(9 * 10 / 19) = 5 readings.
+    // B.2 注10 は、グループ内では通常の和欧混植のアキを除外する。
+    // 欧文9字分と漢字1字が1行目に収まり、ルビ文字は round(9 * 10 / 19) = 5 字になる。
     expect(contentLines(result.value).map(lineText)).toEqual([`ab漢`, "漢".repeat(9)]);
     expect(rubyFragments.map(({ reading }) => reading)).toEqual(["あ".repeat(5), "あ".repeat(4)]);
   });
