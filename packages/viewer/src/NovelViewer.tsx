@@ -7,19 +7,11 @@ import type {
   ManuscriptDiagnostic,
   NovelComposedManuscript,
   NovelLine,
-  NovelPage,
+  NovelPage as ComposedNovelPage,
   PresentationKind,
 } from "@sushichan044/kg-core";
-import {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import type { CSSProperties, ForwardedRef, ReactNode } from "react";
+import { useEffect, useEffectEvent, useImperativeHandle, useRef, useState } from "react";
+import type { CSSProperties, Ref, RefCallback, RefObject, ReactNode } from "react";
 
 import { DiagnosticHover } from "./DiagnosticHover";
 import { DiagnosticMarker } from "./DiagnosticMarker";
@@ -49,6 +41,7 @@ export type NovelViewerProps = Readonly<{
   className?: string;
   onViewEvent?: (event: NovelViewEvent) => void;
   onDiagnosticSelect?: (diagnostic: ManuscriptDiagnostic) => void;
+  ref?: Ref<NovelViewHandle>;
 }>;
 
 export type NovelViewerZoom = Readonly<{
@@ -97,7 +90,7 @@ type BandStyle = CSSProperties & {
   "--kgv-band-offset": number;
 };
 
-function pageText(page: NovelPage): string {
+function pageText(page: ComposedNovelPage): string {
   return page.stages
     .flatMap(({ lines }) =>
       lines.map(({ items }) =>
@@ -299,6 +292,8 @@ function lineDiagnostics(
       cell: { diagnostics: ManuscriptDiagnostic[] } | undefined;
     }>
   > = [];
+  let spanStart = Number.POSITIVE_INFINITY;
+  let spanEnd = Number.NEGATIVE_INFINITY;
   for (const item of line.items) {
     if (item.kind === "glyph" || item.kind === "combined-glyph") {
       const cell = {
@@ -311,14 +306,22 @@ function lineDiagnostics(
         diagnostics: [] as ManuscriptDiagnostic[],
       } satisfies RenderedCell;
       cells.push(cell);
-      for (const source of item.sources)
+      for (const source of item.sources) {
+        const ranges = source.kind === "exact" ? [source.range] : source.ranges;
+        for (const { graphemes } of ranges) {
+          spanStart = Math.min(spanStart, graphemes.start);
+          spanEnd = Math.max(spanEnd, graphemes.end);
+        }
         anchors.push({
-          ranges: source.kind === "exact" ? [source.range] : source.ranges,
+          ranges,
           offsetEm: source.layoutSpan.offsetEm,
           advanceEm: source.layoutSpan.advanceEm,
           cell,
         });
+      }
     } else if (item.kind === "glue" && item.origin === "source") {
+      spanStart = Math.min(spanStart, item.range.graphemes.start);
+      spanEnd = Math.max(spanEnd, item.range.graphemes.end);
       anchors.push({
         ranges: [item.range],
         offsetEm: item.offsetEm,
@@ -328,6 +331,10 @@ function lineDiagnostics(
     }
   }
   const placed = diagnostics.flatMap((diagnostic): PlacedBand[] => {
+    // 行のどのアンカーとも重なりえない診断は、アンカーを調べるまでもなく除く。
+    // ManuscriptRange.overlaps と同じ graphemes 座標で比べるので、結果は変わらない。
+    if (!(diagnostic.range.graphemes.start < spanEnd && diagnostic.range.graphemes.end > spanStart))
+      return [];
     const covered = anchors.filter(({ ranges }) =>
       ranges.some((range) => ManuscriptRange.overlaps(range, diagnostic.range)),
     );
@@ -383,24 +390,263 @@ function renderRuby(annotation: Extract<ComposedAnnotationFragment, { kind: "rub
   );
 }
 
-function NovelViewerComponent(
-  {
-    composed,
-    typography,
-    diagnostics = NO_DIAGNOSTICS,
-    activeDiagnosticId = null,
-    zoom,
-    fit = false,
-    showGrid = true,
-    spread = false,
-    startPageSide = "right",
-    ariaLabel = "小説プレビュー",
-    className,
-    onViewEvent,
-    onDiagnosticSelect,
-  }: NovelViewerProps,
-  ref: ForwardedRef<NovelViewHandle>,
+function renderPages(
+  pages: NovelComposedManuscript["layout"]["pages"],
+  diagnostics: readonly ManuscriptDiagnostic[],
 ) {
+  return pages.map((page, pageIndex) => {
+    const diagnosticIds = new Set<string>();
+    const stages = page.stages.map((stage, stageIndex) => ({
+      id: `page:${pageIndex}:stage:${stageIndex}`,
+      lines: stage.lines.map((line, lineIndex) => {
+        const { bands, cells } = lineDiagnostics(line, diagnostics);
+        for (const { diagnostic } of bands) diagnosticIds.add(diagnostic.id);
+        return {
+          id: `page:${pageIndex}:stage:${stageIndex}:line:${lineIndex}`,
+          bands,
+          cells,
+          marks: emphasisMarks(line),
+          line,
+        };
+      }),
+    }));
+    return { id: `page:${pageIndex}`, page, pageIndex, diagnosticIds, stages };
+  });
+}
+
+type RenderedPage = ReturnType<typeof renderPages>[number];
+
+// React Compiler はフックの戻り値を変更されない値として扱う。フックを通さないと、
+// ページの一覧を作る処理が描画のスコープにまとめられ、拡大率や選択中の診断が変わるたびに作り直される。
+function useRenderedPages(
+  pages: NovelComposedManuscript["layout"]["pages"],
+  diagnostics: readonly ManuscriptDiagnostic[],
+) {
+  // フックを呼ばないフックは、指示しないとコンパイルの対象にならない。
+  "use memo";
+  return renderPages(pages, diagnostics);
+}
+
+// 指定されたページへ移動する。ページの要素がまだ無ければ、描画されるまで保留する。
+function scrollPageIntoView(
+  index: number,
+  pageCount: number,
+  refs: Readonly<{
+    pages: RefObject<Array<HTMLElement | null>>;
+    pending: RefObject<number | null>;
+    visible: RefObject<number>;
+  }>,
+): void {
+  const target = Math.min(Math.max(Math.trunc(index), 0), pageCount - 1);
+  refs.visible.current = target;
+  const page = refs.pages.current[target];
+  if (page === null || page === undefined) refs.pending.current = target;
+  else {
+    refs.pending.current = null;
+    page.scrollIntoView({ block: "start" });
+  }
+}
+
+type NovelPageProps = Readonly<{
+  renderedPage: RenderedPage;
+  pageCount: number;
+  pageSide: "left" | "right";
+  gridRow: number | undefined;
+  showGrid: boolean;
+  ruleCellCount: number;
+  activeDiagnosticId: string | null;
+  container: RefObject<HTMLDivElement | null>;
+  registerPage: (pageIndex: number, element: HTMLElement | null) => void;
+  registerDiagnostic: (id: string, element: HTMLButtonElement | null) => void;
+  onDiagnosticSelect: ((diagnostic: ManuscriptDiagnostic) => void) | undefined;
+}>;
+
+function NovelPage({
+  renderedPage: { page, pageIndex, stages },
+  pageCount,
+  pageSide,
+  gridRow,
+  showGrid,
+  ruleCellCount,
+  activeDiagnosticId,
+  container,
+  registerPage,
+  registerDiagnostic,
+  onDiagnosticSelect,
+}: NovelPageProps) {
+  const text = pageText(page);
+  const ruleCells = Array.from({ length: ruleCellCount }, (_, index) => (
+    <span key={index} className="kgv-rule-cell" />
+  ));
+
+  const renderBand = ({
+    diagnostic,
+    offsetEm,
+    advanceEm,
+    lane,
+    lanes,
+    startsHere,
+  }: DiagnosticBand) => {
+    const bandStyle: BandStyle = {
+      "--kgv-band-lane": lane,
+      "--kgv-band-lanes": lanes,
+      "--kgv-band-length": advanceEm,
+      "--kgv-band-offset": offsetEm,
+    };
+    const active = diagnostic.id === activeDiagnosticId;
+    const register: RefCallback<HTMLButtonElement> = (element) => {
+      registerDiagnostic(diagnostic.id, element);
+    };
+
+    return (
+      <span key={diagnostic.id}>
+        <span
+          className="kgv-diagnostic-band"
+          data-diagnostic-id={diagnostic.id}
+          data-diagnostic-severity={diagnostic.severity}
+          data-diagnostic-active={active ? "" : undefined}
+          data-diagnostic-continued={startsHere ? undefined : ""}
+          style={bandStyle}
+          aria-hidden="true"
+        />
+        {startsHere ? (
+          <DiagnosticMarker
+            diagnostic={diagnostic}
+            container={container}
+            style={bandStyle}
+            register={register}
+            onSelect={onDiagnosticSelect}
+          />
+        ) : null}
+      </span>
+    );
+  };
+
+  return (
+    <section
+      ref={(element) => {
+        registerPage(pageIndex, element);
+      }}
+      data-page-index={pageIndex}
+      data-page-side={pageSide}
+      style={gridRow === undefined ? undefined : { gridRow }}
+      data-grid={showGrid ? "visible" : "hidden"}
+      className="kgv-page"
+      aria-label={`${pageIndex + 1}ページ目、全${pageCount}ページ`}
+      data-offscreen={pageIndex > 0 ? "" : undefined}
+    >
+      <p className="kgv-visually-hidden">{text}</p>
+      <span className="kgv-folio" aria-hidden="true">
+        {pageIndex + 1}
+      </span>
+      <div className="kgv-page-grid">
+        {stages.map((stage) => (
+          <div key={stage.id} className="kgv-stage">
+            {stage.lines.map(({ id: lineId, bands, cells, marks, line }) => {
+              return (
+                <div key={lineId} className="kgv-line">
+                  {showGrid ? (
+                    <span className="kgv-line-rules" aria-hidden="true">
+                      {ruleCells}
+                    </span>
+                  ) : null}
+                  <span className="kgv-line-text" aria-hidden="true">
+                    {cells.map((cell) => {
+                      const found = cell.diagnostics;
+                      const active = found.some(({ id }) => id === activeDiagnosticId);
+                      const content = (
+                        <span
+                          key={cell.range.graphemes.start}
+                          className="kgv-cell"
+                          data-disposition={cell.disposition}
+                          data-presentation={cell.presentation}
+                          data-diagnostic={found.length > 0 ? "" : undefined}
+                          data-diagnostic-active={active ? "" : undefined}
+                          data-diagnostic-severity={graphemeSeverity(found)}
+                          style={
+                            {
+                              "--kgv-item-offset": cell.offsetEm,
+                              "--kgv-item-advance": cell.advanceEm,
+                            } as PositionedStyle
+                          }
+                        >
+                          {wrapAnnotations(
+                            annotationsForRange(line, cell.range),
+                            <span
+                              lang={cell.presentation === "sideways" ? "en" : "ja"}
+                              className={joinClassNames(
+                                "kgv-glyph",
+                                presentationClass(cell.presentation),
+                              )}
+                            >
+                              {cell.value}
+                            </span>,
+                          )}
+                        </span>
+                      );
+                      return found.length > 0 ? (
+                        <DiagnosticHover
+                          key={cell.range.graphemes.start}
+                          diagnostics={found}
+                          container={container}
+                        >
+                          {content}
+                        </DiagnosticHover>
+                      ) : (
+                        content
+                      );
+                    })}
+                  </span>
+                  <span className="kgv-line-ruby" aria-hidden="true">
+                    {line.annotations
+                      .filter((annotation) => annotation.kind === "ruby")
+                      .map(renderRuby)}
+                  </span>
+                  {marks.length > 0 ? (
+                    <span className="kgv-line-emphasis" aria-hidden="true">
+                      <span className="kgv-emphasis">
+                        {marks.map(({ key, mark, placement }) => (
+                          <span
+                            key={key}
+                            className="kgv-emphasis-mark"
+                            data-side={placement.side}
+                            style={decorationStyle(placement)}
+                          >
+                            {mark}
+                          </span>
+                        ))}
+                      </span>
+                    </span>
+                  ) : null}
+                  {bands.length > 0 ? (
+                    <span className="kgv-line-diagnostics">{bands.map(renderBand)}</span>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function NovelViewerRenderer({
+  ref,
+  composed,
+  typography,
+  diagnostics = NO_DIAGNOSTICS,
+  activeDiagnosticId = null,
+  zoom,
+  fit = false,
+  showGrid = true,
+  spread = false,
+  startPageSide = "right",
+  ariaLabel = "小説プレビュー",
+  className,
+  onViewEvent,
+  onDiagnosticSelect,
+}: NovelViewerProps) {
   const { pages, geometry } = composed.layout;
   const rootRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -415,32 +661,29 @@ function NovelViewerComponent(
   const selectedFont = FontPreset.of(composed.settings.appearance.fontPreset);
   const usesTypography = typography !== undefined;
   const fontFamily = usesTypography ? typography.fontFamily : selectedFont.family;
-
-  const scrollToPage = useCallback(
-    (index: number) => {
-      const target = Math.min(Math.max(Math.trunc(index), 0), pages.length - 1);
-      visiblePageRef.current = target;
-      const page = pageRefs.current[target];
-      if (page === null || page === undefined) pendingPageRef.current = target;
-      else {
-        pendingPageRef.current = null;
-        page.scrollIntoView({ block: "start" });
-      }
-    },
-    [pages.length],
-  );
-  const scrollToDiagnostic = useCallback((id: string) => {
-    diagnosticRefs.current.get(id)?.scrollIntoView({ block: "center", inline: "center" });
-  }, []);
+  const onFitChange = useEffectEvent((percent: number) => {
+    onChange(percent);
+  });
+  const emitViewEvent = useEffectEvent((event: NovelViewEvent) => {
+    onViewEvent?.(event);
+  });
 
   useImperativeHandle(
     ref,
     () => ({
-      scrollToPage,
-      scrollToDiagnostic,
+      scrollToPage: (index: number) => {
+        scrollPageIntoView(index, pages.length, {
+          pages: pageRefs,
+          pending: pendingPageRef,
+          visible: visiblePageRef,
+        });
+      },
+      scrollToDiagnostic: (id: string) => {
+        diagnosticRefs.current.get(id)?.scrollIntoView({ block: "center", inline: "center" });
+      },
       getVisiblePage: () => visiblePageRef.current,
     }),
-    [scrollToDiagnostic, scrollToPage],
+    [pages.length],
   );
 
   useEffect(() => {
@@ -457,7 +700,7 @@ function NovelViewerComponent(
         viewport.clientHeight -
         Number.parseFloat(viewportStyle.paddingBlockStart) -
         Number.parseFloat(viewportStyle.paddingBlockEnd);
-      onChange(
+      onFitChange(
         fitZoom({
           viewportWidthPx: width,
           viewportHeightPx: height,
@@ -475,24 +718,35 @@ function NovelViewerComponent(
     return () => {
       observer.disconnect();
     };
-  }, [fit, geometry.paperHeightMm, geometry.paperWidthMm, max, min, onChange, spread, step]);
+  }, [fit, geometry.paperHeightMm, geometry.paperWidthMm, max, min, spread, step]);
 
   useEffect(() => {
-    if (pendingPageRef.current !== null) scrollToPage(pendingPageRef.current);
-  }, [pages, scrollToPage]);
+    const pending = pendingPageRef.current;
+    if (pending === null) return;
+    scrollPageIntoView(pending, pages.length, {
+      pages: pageRefs,
+      pending: pendingPageRef,
+      visible: visiblePageRef,
+    });
+  }, [pages]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
     if (viewport === null) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
+        let visible: IntersectionObserverEntry | undefined;
+        for (const entry of entries) {
+          if (
+            entry.isIntersecting &&
+            (visible === undefined || entry.intersectionRatio > visible.intersectionRatio)
+          )
+            visible = entry;
+        }
         if (visible !== undefined) {
           const page = Number(visible.target.getAttribute("data-page-index"));
           visiblePageRef.current = page;
-          onViewEvent?.({ kind: "visible-page.change", page });
+          emitViewEvent({ kind: "visible-page.change", page });
         }
       },
       { root: viewport, threshold: [0.25, 0.5, 0.75] },
@@ -501,96 +755,40 @@ function NovelViewerComponent(
     return () => {
       observer.disconnect();
     };
-  }, [onViewEvent, pages]);
+  }, [pages]);
 
   useEffect(() => {
-    if (activeDiagnosticId !== null) scrollToDiagnostic(activeDiagnosticId);
-  }, [activeDiagnosticId, pages, scrollToDiagnostic]);
+    if (activeDiagnosticId === null) return;
+    diagnosticRefs.current
+      .get(activeDiagnosticId)
+      ?.scrollIntoView({ block: "center", inline: "center" });
+  }, [activeDiagnosticId, pages]);
 
-  const style: NovelStyle = useMemo(
-    () => ({
-      "--kgv-cell-size": `${geometry.cellSizeMm * (value / 100)}mm`,
-      "--kgv-line-gap": `${geometry.lineGapMm * (value / 100)}mm`,
-      "--kgv-line-length": composed.settings.flow.lineLengthEm,
-      "--kgv-stage-gap": `${geometry.stageGapMm * (value / 100)}mm`,
-      "--kgv-margin-top": `${geometry.topMm * (value / 100)}mm`,
-      "--kgv-margin-bottom": `${geometry.bottomMm * (value / 100)}mm`,
-      "--kgv-margin-inner": `${geometry.innerMm * (value / 100)}mm`,
-      "--kgv-margin-outer": `${geometry.outerMm * (value / 100)}mm`,
-      "--kgv-manuscript-font": fontFamily,
-      "--kgv-font-features": cssFontFeatures(selectedFont),
-      "--kgv-western-kerning": selectedFont.rendering.westernKerning,
-      "--kgv-font-synthesis": selectedFont.rendering.synthesis,
-      "--kgv-page-height": `${geometry.paperHeightMm * (value / 100)}mm`,
-      "--kgv-page-width": `${geometry.paperWidthMm * (value / 100)}mm`,
-      "--kgv-folio-top": `${10 * (value / 100)}mm`,
-    }),
-    [composed.settings.flow.lineLengthEm, geometry, fontFamily, selectedFont, value],
-  );
-  const renderedPages = useMemo(
-    () =>
-      pages.map((page, pageIndex) => ({
-        id: `page:${pageIndex}`,
-        page,
-        pageIndex,
-        stages: page.stages.map((stage, stageIndex) => ({
-          id: `page:${pageIndex}:stage:${stageIndex}`,
-          lines: stage.lines.map((line, lineIndex) => {
-            const { bands, cells } = lineDiagnostics(line, diagnostics);
-            return {
-              id: `page:${pageIndex}:stage:${stageIndex}:line:${lineIndex}`,
-              bands,
-              cells,
-              marks: emphasisMarks(line),
-              line,
-            };
-          }),
-        })),
-      })),
-    [diagnostics, pages],
-  );
-
-  const renderBand = ({
-    diagnostic,
-    offsetEm,
-    advanceEm,
-    lane,
-    lanes,
-    startsHere,
-  }: DiagnosticBand) => {
-    const bandStyle: BandStyle = {
-      "--kgv-band-lane": lane,
-      "--kgv-band-lanes": lanes,
-      "--kgv-band-length": advanceEm,
-      "--kgv-band-offset": offsetEm,
-    };
-    const active = diagnostic.id === activeDiagnosticId;
-
-    return (
-      <span key={diagnostic.id}>
-        <span
-          className="kgv-diagnostic-band"
-          data-diagnostic-id={diagnostic.id}
-          data-diagnostic-severity={diagnostic.severity}
-          data-diagnostic-active={active ? "" : undefined}
-          data-diagnostic-continued={startsHere ? undefined : ""}
-          style={bandStyle}
-          aria-hidden="true"
-        />
-        {startsHere && (
-          <DiagnosticMarker
-            diagnostic={diagnostic}
-            container={rootRef}
-            style={bandStyle}
-            register={(element) => {
-              if (element === null) diagnosticRefs.current.delete(diagnostic.id);
-              else diagnosticRefs.current.set(diagnostic.id, element);
-            }}
-            onSelect={onDiagnosticSelect}
-          />
-        )}
-      </span>
-    );
+  const style: NovelStyle = {
+    "--kgv-cell-size": `${geometry.cellSizeMm * (value / 100)}mm`,
+    "--kgv-line-gap": `${geometry.lineGapMm * (value / 100)}mm`,
+    "--kgv-line-length": composed.settings.flow.lineLengthEm,
+    "--kgv-stage-gap": `${geometry.stageGapMm * (value / 100)}mm`,
+    "--kgv-margin-top": `${geometry.topMm * (value / 100)}mm`,
+    "--kgv-margin-bottom": `${geometry.bottomMm * (value / 100)}mm`,
+    "--kgv-margin-inner": `${geometry.innerMm * (value / 100)}mm`,
+    "--kgv-margin-outer": `${geometry.outerMm * (value / 100)}mm`,
+    "--kgv-manuscript-font": fontFamily,
+    "--kgv-font-features": cssFontFeatures(selectedFont),
+    "--kgv-western-kerning": selectedFont.rendering.westernKerning,
+    "--kgv-font-synthesis": selectedFont.rendering.synthesis,
+    "--kgv-page-height": `${geometry.paperHeightMm * (value / 100)}mm`,
+    "--kgv-page-width": `${geometry.paperWidthMm * (value / 100)}mm`,
+    "--kgv-folio-top": `${10 * (value / 100)}mm`,
+  };
+  const renderedPages = useRenderedPages(pages, diagnostics);
+  const ruleCellCount = Math.ceil(composed.settings.flow.lineLengthEm);
+  const registerPage = (pageIndex: number, element: HTMLElement | null) => {
+    pageRefs.current[pageIndex] = element;
+  };
+  const registerDiagnostic = (id: string, element: HTMLButtonElement | null) => {
+    if (element === null) diagnosticRefs.current.delete(id);
+    else diagnosticRefs.current.set(id, element);
   };
 
   return (
@@ -603,187 +801,77 @@ function NovelViewerComponent(
     >
       <div ref={viewportRef} className="kgv-viewport">
         <div className="kgv-stack" data-spread={spread ? "" : undefined} style={style}>
-          {renderedPages.map(({ id, page, pageIndex, stages }) => (
-            <section
-              key={id}
-              ref={(element) => {
-                pageRefs.current[pageIndex] = element;
-              }}
-              data-page-index={pageIndex}
-              data-page-side={
-                pageIndex % 2 === 0 ? startPageSide : startPageSide === "right" ? "left" : "right"
-              }
-              style={
-                spread
-                  ? {
-                      gridRow: Math.floor((pageIndex + (startPageSide === "left" ? 1 : 0)) / 2) + 1,
-                    }
-                  : undefined
-              }
-              data-grid={showGrid ? "visible" : "hidden"}
-              className="kgv-page"
-              aria-label={`${pageIndex + 1}ページ目、全${pages.length}ページ`}
-              data-offscreen={pageIndex > 0 ? "" : undefined}
-            >
-              <p className="kgv-visually-hidden">{pageText(page)}</p>
-              <span className="kgv-folio" aria-hidden="true">
-                {pageIndex + 1}
-              </span>
-              <div className="kgv-page-grid">
-                {stages.map((stage) => (
-                  <div key={stage.id} className="kgv-stage">
-                    {stage.lines.map(({ id: lineId, bands, cells, marks, line }) => {
-                      return (
-                        <div key={lineId} className="kgv-line">
-                          {showGrid && (
-                            <span className="kgv-line-rules" aria-hidden="true">
-                              {Array.from(
-                                { length: Math.ceil(composed.settings.flow.lineLengthEm) },
-                                (_, index) => (
-                                  <span key={index} className="kgv-rule-cell" />
-                                ),
-                              )}
-                            </span>
-                          )}
-                          <span className="kgv-line-text" aria-hidden="true">
-                            {cells.map((cell) => {
-                              const found = cell.diagnostics;
-                              const active = found.some(({ id }) => id === activeDiagnosticId);
-                              const content = (
-                                <span
-                                  key={cell.range.graphemes.start}
-                                  className="kgv-cell"
-                                  data-disposition={cell.disposition}
-                                  data-presentation={cell.presentation}
-                                  data-diagnostic={found.length > 0 ? "" : undefined}
-                                  data-diagnostic-active={active ? "" : undefined}
-                                  data-diagnostic-severity={graphemeSeverity(found)}
-                                  style={
-                                    {
-                                      "--kgv-item-offset": cell.offsetEm,
-                                      "--kgv-item-advance": cell.advanceEm,
-                                    } as PositionedStyle
-                                  }
-                                >
-                                  {wrapAnnotations(
-                                    annotationsForRange(line, cell.range),
-                                    <span
-                                      lang={cell.presentation === "sideways" ? "en" : "ja"}
-                                      className={joinClassNames(
-                                        "kgv-glyph",
-                                        presentationClass(cell.presentation),
-                                      )}
-                                    >
-                                      {cell.value}
-                                    </span>,
-                                  )}
-                                </span>
-                              );
-                              return found.length > 0 ? (
-                                <DiagnosticHover
-                                  key={cell.range.graphemes.start}
-                                  diagnostics={found}
-                                  container={rootRef}
-                                >
-                                  {content}
-                                </DiagnosticHover>
-                              ) : (
-                                content
-                              );
-                            })}
-                          </span>
-                          <span className="kgv-line-ruby" aria-hidden="true">
-                            {line.annotations
-                              .filter((annotation) => annotation.kind === "ruby")
-                              .map(renderRuby)}
-                          </span>
-                          {marks.length > 0 && (
-                            <span className="kgv-line-emphasis" aria-hidden="true">
-                              <span className="kgv-emphasis">
-                                {marks.map(({ key, mark, placement }) => (
-                                  <span
-                                    key={key}
-                                    className="kgv-emphasis-mark"
-                                    data-side={placement.side}
-                                    style={decorationStyle(placement)}
-                                  >
-                                    {mark}
-                                  </span>
-                                ))}
-                              </span>
-                            </span>
-                          )}
-                          {bands.length > 0 && (
-                            <span className="kgv-line-diagnostics">{bands.map(renderBand)}</span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </section>
-          ))}
+          {renderedPages.map((renderedPage) => {
+            const { id, pageIndex, diagnosticIds } = renderedPage;
+            return (
+              <NovelPage
+                key={id}
+                renderedPage={renderedPage}
+                pageCount={pages.length}
+                pageSide={
+                  pageIndex % 2 === 0 ? startPageSide : startPageSide === "right" ? "left" : "right"
+                }
+                gridRow={
+                  spread
+                    ? Math.floor((pageIndex + (startPageSide === "left" ? 1 : 0)) / 2) + 1
+                    : undefined
+                }
+                showGrid={showGrid}
+                ruleCellCount={ruleCellCount}
+                activeDiagnosticId={
+                  activeDiagnosticId !== null && diagnosticIds.has(activeDiagnosticId)
+                    ? activeDiagnosticId
+                    : null
+                }
+                container={rootRef}
+                registerPage={registerPage}
+                registerDiagnostic={registerDiagnostic}
+                onDiagnosticSelect={onDiagnosticSelect}
+              />
+            );
+          })}
         </div>
       </div>
     </div>
   );
 }
 
-const NovelViewerRenderer = forwardRef(NovelViewerComponent);
-
-const AutomaticNovelViewer = forwardRef(function AutomaticNovelViewer(
-  props: NovelViewerProps,
-  ref: ForwardedRef<NovelViewHandle>,
-) {
+function AutomaticNovelViewer(props: NovelViewerProps) {
   const state = useTypography(props.composed.settings.appearance.fontPreset);
   const typography = state.kind === "ready" ? state.typography : undefined;
-  const prepared = useMemo(
-    () => typography?.prepare(props.composed.parsed),
-    [props.composed.parsed, typography],
-  );
-  const composed = useMemo(
-    () =>
-      typography !== undefined && prepared !== undefined
-        ? composeManuscript(prepared.parsed, {
-            composer: typography.composer,
-            settings: props.composed.settings,
-          })
-        : undefined,
-    [prepared, props.composed.settings, typography],
-  );
-  const diagnostics = useMemo(
-    () =>
-      prepared === undefined
-        ? props.diagnostics
-        : props.diagnostics?.map((diagnostic) => ({
-            ...diagnostic,
-            range: prepared.mapRange(diagnostic.range),
-          })),
-    [prepared, props.diagnostics],
-  );
+  const prepared = typography?.prepare(props.composed.parsed);
+  const composed =
+    typography !== undefined && prepared !== undefined
+      ? composeManuscript(prepared.parsed, {
+          composer: typography.composer,
+          settings: props.composed.settings,
+        })
+      : undefined;
+  const diagnostics =
+    prepared === undefined
+      ? props.diagnostics
+      : props.diagnostics?.map((diagnostic) => ({
+          ...diagnostic,
+          range: prepared.mapRange(diagnostic.range),
+        }));
   if (state.kind !== "ready") return <TypographyStatus state={state} />;
   if (composed === undefined || !composed.ok || prepared === undefined)
     return <p role="alert">原稿を組版できませんでした。</p>;
   return (
     <NovelViewerRenderer
       {...props}
-      ref={ref}
       composed={composed.value}
       typography={state.typography}
       diagnostics={diagnostics}
     />
   );
-});
+}
 
-export const NovelViewer = forwardRef(function NovelViewer(
-  props: NovelViewerProps,
-  ref: ForwardedRef<NovelViewHandle>,
-) {
+export function NovelViewer(props: NovelViewerProps) {
   const fontPreset = props.composed.settings.appearance.fontPreset;
   if (props.typography !== undefined && props.typography.fontPreset !== fontPreset)
     return <p role="alert">書体と組版設定が一致しません。</p>;
   if (props.typography !== undefined || FontPreset.of(fontPreset).measurement === "logical")
-    return <NovelViewerRenderer {...props} ref={ref} />;
-  return <AutomaticNovelViewer key={fontPreset} {...props} ref={ref} />;
-});
+    return <NovelViewerRenderer {...props} />;
+  return <AutomaticNovelViewer key={fontPreset} {...props} />;
+}
