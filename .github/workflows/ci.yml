@@ -74,10 +74,27 @@ jobs:
       - name: Unit tests
         run: vp run --filter @sushichan044/kg-core --filter @sushichan044/kg-viewer --filter kg-frontend test --project '*-unit'
 
+  playwright-version:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Get Playwright version
+        id: version
+        run: echo "version=$(yq '.catalogs.dev.playwright' pnpm-workspace.yaml)" >> "$GITHUB_OUTPUT"
+
   browser-test:
     name: Run browser tests
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    needs: playwright-version
+    container:
+      image: mcr.microsoft.com/playwright:v${{ needs.playwright-version.outputs.version }}-noble
+      options: --init --ipc=host
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -86,27 +103,8 @@ jobs:
 
       - uses: ./.github/actions/setup
 
-      - name: Get installed Playwright version
-        id: playwright-version
-        run: echo "version=$(pnpm --filter kg-frontend exec playwright --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Playwright Browser
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: "${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-chromium-headless-shell-webkit"
-
       # The viewer is tested in WebKit too: vertical writing, ruby, and text-emphasis are where
       # engines differ most, and a Chromium-only run has already let a broken reading through.
-      - name: Install Playwright Browser
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: pnpm --filter kg-frontend exec playwright install --with-deps --only-shell chromium webkit
-
-      - name: Install Playwright system dependencies
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: pnpm --filter kg-frontend exec playwright install-deps chromium-headless-shell webkit
-
       - name: Browser tests
         run: vp run --filter @sushichan044/kg-viewer --filter kg-frontend test --project '*-browser'
 
