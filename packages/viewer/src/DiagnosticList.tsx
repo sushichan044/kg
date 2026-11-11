@@ -35,7 +35,7 @@ export function DiagnosticList({
           data-diagnostic-severity={item.severity}
         >
           <DiagnosticMessage diagnostic={item} />
-          {onSelect !== undefined && (
+          {onSelect !== undefined ? (
             <button
               type="button"
               className="kgv-diagnostic-jump"
@@ -47,7 +47,7 @@ export function DiagnosticList({
             >
               本文へ移動
             </button>
-          )}
+          ) : null}
         </li>
       ))}
     </ol>
