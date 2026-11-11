@@ -21,7 +21,7 @@ export function IconButton({ label, shortcut, children, className, ...props }: I
         <Tooltip.Positioner className="toolbar-tooltip-positioner" sideOffset={6}>
           <Tooltip.Popup className="toolbar-tooltip" role="tooltip">
             {label}
-            {shortcut && <kbd>{shortcut}</kbd>}
+            {shortcut ? <kbd>{shortcut}</kbd> : null}
           </Tooltip.Popup>
         </Tooltip.Positioner>
       </Tooltip.Portal>

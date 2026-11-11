@@ -1,7 +1,7 @@
 import type { NovelComposedManuscript } from "@sushichan044/kg-core";
 import { NovelViewer } from "@sushichan044/kg-viewer";
 import type { ReadyTypography } from "@sushichan044/kg-viewer";
-import { useEffect, useRef } from "react";
+import { useEffect, useEffectEvent, useRef } from "react";
 
 export type ExportRequest = Readonly<{
   composed: NovelComposedManuscript;
@@ -15,14 +15,20 @@ type ExportJobProps = Readonly<{
   onFinish: (error: string | null) => void;
 }>;
 
+// React Compiler は import() 式を扱えないので、コンポーネントの外に置く
+const loadExportPages = () => import("../lib/export-pages");
+
 export function ExportJob({ request, onFinish }: ExportJobProps) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const finish = useEffectEvent((error: string | null) => {
+    onFinish(error);
+  });
 
   useEffect(() => {
     const host = hostRef.current;
     if (host === null) return;
     const controller = new AbortController();
-    void import("../lib/export-pages")
+    void loadExportPages()
       .then(({ exportPages }) => {
         controller.signal.throwIfAborted();
         return exportPages(
@@ -34,16 +40,16 @@ export function ExportJob({ request, onFinish }: ExportJobProps) {
         );
       })
       .then(() => {
-        if (!controller.signal.aborted) onFinish(null);
+        if (!controller.signal.aborted) finish(null);
       })
       .catch((error: unknown) => {
         if (!controller.signal.aborted)
-          onFinish(error instanceof Error ? error.message : "画像を生成できませんでした");
+          finish(error instanceof Error ? error.message : "画像を生成できませんでした");
       });
     return () => {
       controller.abort();
     };
-  }, [request, onFinish]);
+  }, [request]);
 
   return (
     <div ref={hostRef} className="export-pages" aria-hidden="true">

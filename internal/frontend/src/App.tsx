@@ -1,13 +1,13 @@
 import { Dialog } from "@base-ui/react/dialog";
-import type { ManuscriptDiagnostic } from "@sushichan044/kg-core";
+import type { ManuscriptDiagnostic, NovelCompositionSettings } from "@sushichan044/kg-core";
 import {
   DiagnosticList,
   NovelViewer,
   useTypography,
   TypographyStatus,
 } from "@sushichan044/kg-viewer";
-import type { NovelViewEvent, NovelViewHandle } from "@sushichan044/kg-viewer";
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import type { NovelViewEvent, NovelViewHandle, ReadyTypography } from "@sushichan044/kg-viewer";
+import { useDeferredValue, useEffect, useReducer, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   useLoaderData,
@@ -35,6 +35,7 @@ import {
   saveManuscriptPreferences,
   savePage,
 } from "./lib/storage";
+import type { ManuscriptNotation } from "./lib/storage";
 import { manuscriptReducer, ProcessManuscriptError, processManuscript } from "./manuscript";
 import type { ManuscriptAction, ManuscriptState } from "./manuscript";
 import { FILE_QUERY_PARAM } from "./workspace";
@@ -73,6 +74,21 @@ function initialManuscriptState(): ManuscriptState {
   };
 }
 
+// コンポーネントで直接呼ぶと、React Compiler が診断の選択と同じキャッシュにまとめ、診断を選ぶたびに組版をやり直す
+// フックの戻り値は独立してキャッシュされるので、組版の入力が変わったときだけ呼び直される
+function useProcessedManuscript(
+  source: string | null,
+  composition: NovelCompositionSettings,
+  notation: ManuscriptNotation,
+  typography: ReadyTypography | undefined,
+) {
+  // ほかのフックを呼ばないフックは、この指示が無いとコンパイルされない
+  "use memo";
+  return typography === undefined || source === null
+    ? null
+    : processManuscript(source, composition, notation, typography.composer);
+}
+
 export function App() {
   const workspace = useLoaderData<Workspace>();
   const navigation = useNavigation();
@@ -87,19 +103,18 @@ export function App() {
   // SSE による再検証では navigation は idle のままなので、ファイルの切り替えだけが読み込み中になる
   const switching = navigation.state === "loading";
   const [manuscript, dispatch] = useReducer(manuscriptReducer, undefined, initialManuscriptState);
-  const typographyState = useTypography(manuscript.preferences.composition.appearance.fontPreset);
+  // 書体と組版結果は同じ遅延値から作る
+  // 片方だけ新しい設定になると、NovelViewer は書体と組版設定の食い違いとしてエラーを表示する
+  const composition = useDeferredValue(manuscript.preferences.composition);
+  // 遅延値が追いつくまでの組版結果は古い設定のものなので、PNG に出力しない
+  const compositionPending = composition !== manuscript.preferences.composition;
+  const typographyState = useTypography(composition.appearance.fontPreset);
   const typography = typographyState.kind === "ready" ? typographyState.typography : undefined;
-  const processed = useMemo(
-    () =>
-      typography === undefined || source === null
-        ? null
-        : processManuscript(
-            source,
-            manuscript.preferences.composition,
-            manuscript.preferences.notation,
-            typography.composer,
-          ),
-    [manuscript.preferences.composition, manuscript.preferences.notation, source, typography],
+  const processed = useProcessedManuscript(
+    source,
+    composition,
+    manuscript.preferences.notation,
+    typography,
   );
   const diagnostics = processed?.ok ? processed.value.diagnostics : [];
   const activeDiagnosticId = diagnostics.some(({ id }) => id === manuscript.activeDiagnosticId)
@@ -116,11 +131,6 @@ export function App() {
   const [diagnosticDrawerOpen, setDiagnosticDrawerOpen] = useState(false);
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
   const viewRef = useRef<NovelViewHandle>(null);
-  const manuscriptRef = useRef(manuscript);
-
-  useEffect(() => {
-    manuscriptRef.current = manuscript;
-  }, [manuscript]);
 
   const startExport = () => {
     if (
@@ -128,7 +138,8 @@ export function App() {
       !processed?.ok ||
       typography === undefined ||
       selectedFile === null ||
-      switching
+      switching ||
+      compositionPending
     )
       return;
     setExportError("");
@@ -140,18 +151,17 @@ export function App() {
     });
   };
 
-  const finishExport = useCallback((error: string | null) => {
+  const finishExport = (error: string | null) => {
     setExportRequest(null);
     if (error !== null) setExportError(`PNG の出力に失敗しました: ${error}`);
-  }, []);
+  };
 
-  const commitPreferenceAction = useCallback((action: ManuscriptAction) => {
-    const next = manuscriptReducer(manuscriptRef.current, action);
-    manuscriptRef.current = next;
+  const commitPreferenceAction = (action: ManuscriptAction) => {
+    const next = manuscriptReducer(manuscript, action);
     dispatch(action);
     if (!saveManuscriptPreferences(next.preferences))
       setPreferenceStatus("設定を保存できませんでした");
-  }, []);
+  };
 
   // 依存の source は、本文が読み込み直されたことを知るために入れている
   // workspace 全体に依存させると、SSE で一覧だけを取得し直したときにも表示位置が動く
@@ -160,47 +170,34 @@ export function App() {
     viewRef.current?.scrollToPage(loadPage(selectedPath));
   }, [selectedPath, source]);
 
-  const onSelect = useCallback(
-    (path: string) => {
-      dispatch({ kind: "diagnostic.select", id: null });
-      const params = new URLSearchParams(location.search);
-      params.set(FILE_QUERY_PARAM, path);
-      void navigate({ search: `?${params.toString()}`, hash: location.hash }, { replace: true });
-    },
-    [location, navigate],
-  );
+  const onSelect = (path: string) => {
+    dispatch({ kind: "diagnostic.select", id: null });
+    const params = new URLSearchParams(location.search);
+    params.set(FILE_QUERY_PARAM, path);
+    void navigate({ search: `?${params.toString()}`, hash: location.hash }, { replace: true });
+  };
 
-  const onViewEvent = useCallback(
-    (event: NovelViewEvent) => {
-      if (selectedPath !== null) savePage(selectedPath, event.page);
-    },
-    [selectedPath],
-  );
+  const onViewEvent = (event: NovelViewEvent) => {
+    if (selectedPath !== null) savePage(selectedPath, event.page);
+  };
 
-  const setFitZoom = useCallback((value: number) => {
+  const changeZoom = (value: number) => {
     setZoom(value);
-  }, []);
+    commitPreferenceAction({ kind: "zoom.replace", zoom: value, fit: false });
+  };
 
-  const changeZoom = useCallback(
-    (value: number) => {
-      setZoom(value);
-      commitPreferenceAction({ kind: "zoom.replace", zoom: value, fit: false });
-    },
-    [commitPreferenceAction],
-  );
-
-  const enableFit = useCallback(() => {
+  const enableFit = () => {
     commitPreferenceAction({
       kind: "zoom.replace",
-      zoom: manuscriptRef.current.preferences.zoom,
+      zoom: manuscript.preferences.zoom,
       fit: true,
     });
-  }, [commitPreferenceAction]);
+  };
 
-  const selectDiagnostic = useCallback((diagnostic: ManuscriptDiagnostic) => {
+  const selectDiagnostic = (diagnostic: ManuscriptDiagnostic) => {
     dispatch({ kind: "diagnostic.select", id: diagnostic.id });
     viewRef.current?.scrollToDiagnostic(diagnostic.id);
-  }, []);
+  };
 
   const renderSettings = (idPrefix: string) => (
     <SettingsPanel
@@ -271,7 +268,7 @@ export function App() {
                 setFileSwitcherOpen(true);
               }}
               onExport={startExport}
-              exporting={exporting || switching}
+              exporting={exporting || switching || compositionPending}
               documentLabel={selectedFile.path}
               composed={processed?.ok ? processed.value.composed : null}
               diagnosticCount={diagnostics.length}
@@ -294,16 +291,22 @@ export function App() {
               </IconButton>
               <div className="mobile-document">
                 <strong title={selectedFile.path}>{selectedFile.path.split("/").at(-1)}</strong>
-                {processed?.ok && (
+                {processed?.ok ? (
                   <small>
                     {processed.value.composed.layout.stats.chars}字・
                     {processed.value.composed.layout.stats.pages}ページ
                   </small>
-                )}
+                ) : null}
               </div>
               <IconButton
                 label="PNGをZIPで出力"
-                disabled={exporting || !processed?.ok || typography === undefined || switching}
+                disabled={
+                  exporting ||
+                  !processed?.ok ||
+                  typography === undefined ||
+                  switching ||
+                  compositionPending
+                }
                 onClick={startExport}
               >
                 <DownloadIcon aria-hidden="true" />
@@ -326,7 +329,7 @@ export function App() {
                 <SettingsIcon aria-hidden="true" />
               </IconButton>
             </header>
-            {exportError !== "" && <p role="alert">{exportError}</p>}
+            {exportError !== "" ? <p role="alert">{exportError}</p> : null}
             {switching ? (
               <p className="preview__loading">読み込み中…</p>
             ) : typographyState.kind !== "ready" ? (
@@ -338,7 +341,7 @@ export function App() {
                 typography={typography}
                 diagnostics={diagnostics}
                 activeDiagnosticId={activeDiagnosticId}
-                zoom={{ value: zoom, ...ZOOM, onChange: setFitZoom }}
+                zoom={{ value: zoom, ...ZOOM, onChange: setZoom }}
                 fit={manuscript.preferences.fit}
                 spread={manuscript.preferences.spread}
                 startPageSide={manuscript.preferences.startPageSide}
@@ -362,9 +365,11 @@ export function App() {
         )}
       </main>
 
-      {exportRequest !== null && <ExportJob request={exportRequest} onFinish={finishExport} />}
+      {exportRequest !== null ? (
+        <ExportJob request={exportRequest} onFinish={finishExport} />
+      ) : null}
 
-      {diagnosticDrawerOpen && (
+      {diagnosticDrawerOpen ? (
         <aside className="diagnostic-drawer" aria-label="診断">
           <header>
             <h2>診断</h2>
@@ -383,7 +388,7 @@ export function App() {
             onSelect={selectDiagnostic}
           />
         </aside>
-      )}
+      ) : null}
 
       <FileSwitcher
         open={fileSwitcherOpen}
@@ -399,12 +404,12 @@ export function App() {
           setSettingsSheetOpen(false);
         }}
       >
-        {processed?.ok && (
+        {processed?.ok ? (
           <p className="mobile-summary">
             {processed.value.composed.layout.stats.chars}字・
             {processed.value.composed.layout.stats.pages}ページ
           </p>
-        )}
+        ) : null}
         <ZoomControls
           className="mobile-zoom"
           zoom={zoom}

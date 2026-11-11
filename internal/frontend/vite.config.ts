@@ -10,6 +10,10 @@ import { mockFrontend } from "./mock/vite-plugin";
 // Vite はこのフロントエンドのルートの外側にあるパスを監視してはならない。
 const GO_SERVER = "http://localhost:6280";
 
+// ブラウザーのテストでもコンパイル後のコードを動かすため、ビルドと同じ設定を使う
+// プラグインはサーバー側の変換ではコンパイラーを動かさないので、Node で動く単体テストには付けない
+const reactPlugin = () => react({ compiler: { panicThreshold: "all_errors" } });
+
 const iconPlugin = () =>
   Icons({ compiler: "jsx", jsx: "react", collectionsNodeResolvePath: import.meta.dirname });
 
@@ -25,7 +29,7 @@ export const frontendTestProjects = [
   }),
   defineProject({
     root: import.meta.dirname,
-    plugins: [iconPlugin()],
+    plugins: [reactPlugin(), iconPlugin()],
     test: {
       name: "frontend-browser",
       include: ["src/**/*.browser.test.ts", "src/**/*.browser.test.tsx"],
@@ -89,7 +93,7 @@ export default defineConfig(({ mode }) => ({
     projects: frontendTestProjects,
   },
 
-  plugins: [react({ compiler: true }), iconPlugin(), mode === "mock" && mockFrontend()],
+  plugins: [reactPlugin(), iconPlugin(), mode === "mock" && mockFrontend()],
   build: {
     // Go の embed.FS の元になるディレクトリへ直接ビルドする。
     outDir: "../static/dist",
