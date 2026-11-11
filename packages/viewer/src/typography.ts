@@ -78,6 +78,14 @@ export async function loadTypography({
       },
     });
   }
+  // フェイスの取得と並行して読み込む。フェイスの失敗で先に返しても未処理の rejection を残さないよう、
+  // 結果への変換はここで付けておく。
+  const shaper = import("harfbuzzjs").then(
+    (module): ManuscriptResult<typeof HarfBuzz, TypographyLoadError> =>
+      ManuscriptResult.succeed(module),
+    (): ManuscriptResult<typeof HarfBuzz, TypographyLoadError> =>
+      ManuscriptResult.fail({ kind: "shaper-load" }),
+  );
   const faces = await Promise.all(
     typographyFonts[fontPreset].map(
       async (
@@ -113,16 +121,16 @@ export async function loadTypography({
     if (!result.ok) return result;
     loaded.push(result.value);
   }
-  let hb: typeof HarfBuzz;
-  try {
-    hb = await import("harfbuzzjs");
-  } catch {
-    return ManuscriptResult.fail({ kind: "shaper-load" });
-  }
-  let shapedFaces = loaded.map(({ weight, data }) => {
-    const face = new hb.Face(new hb.Blob(data));
-    return { weight, face, font: new hb.Font(face) };
-  });
+  const loadedShaper = await shaper;
+  if (!loadedShaper.ok) return loadedShaper;
+  const hb = loadedShaper.value;
+  const shapedFaces = new Map(
+    loaded.map(({ weight, data }) => {
+      const face = new hb.Face(new hb.Blob(data));
+      return [weight, { face, font: new hb.Font(face) }] as const;
+    }),
+  );
+  let [fallbackFace] = shapedFaces.values();
   let buffer: HarfBuzz.Buffer | undefined = new hb.Buffer();
   let features = Object.entries({
     ...profile.rendering.features,
@@ -167,9 +175,7 @@ export async function loadTypography({
     if (currentBuffer === undefined) throw new Error("Typography resource has been disposed");
     let result: RunMeasurement;
     if (request.kind === "base" && request.presentation === "sideways") {
-      const shaped =
-        shapedFaces.find(({ weight }) => weight === (request.style?.weight ?? 400)) ??
-        shapedFaces[0];
+      const shaped = shapedFaces.get(request.style?.weight ?? 400) ?? fallbackFace;
       if (shaped === undefined) throw new Error("Typography has no font face");
       currentBuffer.reset();
       currentBuffer.addText(request.text);
@@ -242,7 +248,8 @@ export async function loadTypography({
       loaded.length = 0;
       for (const { src } of fontFaces) URL.revokeObjectURL(src);
       cache.clear();
-      shapedFaces = [];
+      shapedFaces.clear();
+      fallbackFace = undefined;
       features = [];
       buffer = undefined;
     },
