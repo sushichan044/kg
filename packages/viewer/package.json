@@ -84,8 +84,7 @@
   "dependencies": {
     "@base-ui/react": "1.9.0",
     "@sushichan044/kg-core": "workspace:*",
-    "harfbuzzjs": "1.6.3",
-    "react-compiler-runtime": "catalog:prod"
+    "harfbuzzjs": "1.6.3"
   },
   "devDependencies": {
     "@arethetypeswrong/core": "catalog:dev",
@@ -105,8 +104,8 @@
     "vitest-browser-react": "catalog:dev"
   },
   "peerDependencies": {
-    "react": "^18.3.1 || ^19.0.0",
-    "react-dom": "^18.3.1 || ^19.0.0"
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
   },
   "engines": {
     "node": ">=22.12.0"

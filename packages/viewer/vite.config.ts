@@ -2,6 +2,20 @@ import react from "@vitejs/plugin-react";
 import { defineConfig, defineProject } from "vite-plus";
 import { playwright } from "vite-plus/test/browser-playwright";
 
+// ブラウザーのテストでもコンパイル後のコードを動かすため、pack と同じ設定を使う。
+// プラグインはサーバー側の変換ではコンパイラーを動かさないので、Node で動く単体テストには付けない。
+function reactPlugin() {
+  return react({
+    // SEE: https://tsdown.dev/recipes/react-support#native-oxc-support-experimental
+    compiler: {
+      target: "19",
+      panicThreshold: "all_errors",
+    },
+    // `dts: true` のときだけ必要。プラグインが生成された .d.ts ファイルを変換しないようにする
+    exclude: [/node_modules/, /\.d\.ts$/],
+  });
+}
+
 export const viewerTestProjects = [
   defineProject({
     root: import.meta.dirname,
@@ -14,6 +28,7 @@ export const viewerTestProjects = [
   }),
   defineProject({
     root: import.meta.dirname,
+    plugins: [reactPlugin()],
     optimizeDeps: {
       exclude: ["harfbuzzjs"],
       include: ["vite-plus/test/browser", "@base-ui/react/tooltip"],
@@ -51,22 +66,12 @@ export default defineConfig({
       fromVite: true,
       minify: "dce-only",
       nodeProtocol: true,
-      plugins: [
-        react({
-          // SEE: https://tsdown.dev/recipes/react-support#native-oxc-support-experimental
-          compiler: {
-            target: "18",
-            panicThreshold: "critical_errors",
-          },
-          // `dts: true` のときだけ必要。プラグインが生成された .d.ts ファイルを変換しないようにする
-          exclude: [/node_modules/, /\.d\.ts$/],
-        }),
-      ],
+      plugins: [reactPlugin()],
       publint: true,
       sourcemap: false,
       treeshake: true,
       unused: {
-        ignore: ["react-compiler-runtime", "react-dom"],
+        ignore: ["react-dom"],
       },
     },
   ],
