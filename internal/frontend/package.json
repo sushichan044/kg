@@ -15,7 +15,7 @@
     "valibot": "catalog:prod"
   },
   "devDependencies": {
-    "@iconify-json/lucide": "1.2.150",
+    "@iconify-json/lucide": "1.2.151",
     "@svgr/core": "8.1.0",
     "@svgr/plugin-jsx": "8.1.0",
     "@types/react": "catalog:dev",

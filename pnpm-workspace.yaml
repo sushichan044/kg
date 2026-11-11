@@ -5,16 +5,16 @@ catalogs:
     "@arethetypeswrong/core": 0.18.5
     "@types/react": 19.3.0
     "@types/react-dom": 19.3.0
-    "@vitejs/plugin-react": 6.1.2
-    "@vitest/browser-playwright": 5.0.3
-    playwright: 1.64.0
+    "@vitejs/plugin-react": 6.2.1
+    "@vitest/browser-playwright": 5.1.0
+    playwright: 1.64.1
     publint: 0.3.25
     typescript: 7.0.2
     unplugin-unused: 0.6.0
     vitest-browser-react: 2.3.0
-    vite-plus: 1.1.0
+    vite-plus: 1.5.0
   prod:
-    oxc-transform-react: 0.153.0
+    oxc-transform-react: 0.157.0
     react: 19.3.0
     react-dom: 19.3.0
     valibot: 1.5.0
@@ -22,7 +22,7 @@ catalogs:
 minimumReleaseAge: 10080
 
 overrides:
-  vite: "npm:@voidzero-dev/vite-plus-core@1.1.0"
+  vite: "npm:@voidzero-dev/vite-plus-core@1.5.0"
 
 packages:
   - "internal/frontend"

@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "devDependencies": {
-    "pkg-pr-new": "0.0.91",
+    "pkg-pr-new": "0.0.93",
     "vite-plus": "catalog:dev"
   },
   "packageManager": "pnpm@12.10.1"
