@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.11.0](https://github.com/sushichan044/kg/compare/v0.10.2...v0.11.0) (2026-11-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **viewer:** useTypography requires a TypographyProvider and a Suspense boundary above it. TypographyState no longer has a "loading" kind, and retry exists only on the failed state. TypographyStatus is no longer exported; render the Suspense fallback and the retry control in the consumer.
+* **viewer:** @sushichan044/kg-viewer now requires react and react-dom ^19.2.0.
+
+### Features
+
+* **frontend:** run file and font switches as transitions ([3f82e7d](https://github.com/sushichan044/kg/commit/3f82e7d142cfb8c504d438adb6d764e81d845c9f))
+* **viewer:** require React 19.2 or later ([80affd2](https://github.com/sushichan044/kg/commit/80affd2472611b2bfb5068f92214c6ba7408f232))
+* **viewer:** suspend in useTypography while the font loads ([ae9900e](https://github.com/sushichan044/kg/commit/ae9900e6b82a4a91d626fb35384662bd3b2fd3da))
+
+
+### Bug Fixes
+
+* **core:** detect halfwidth punctuation beside astral kanji ([401d92c](https://github.com/sushichan044/kg/commit/401d92c53516479ce151bcbdfc2d9beefd76266b))
+* **frontend:** keep the fetched catalog when the manuscript fails to load ([ed42bd5](https://github.com/sushichan044/kg/commit/ed42bd5e09d8d741f5ddbc5824b57307964aa41a))
+* **frontend:** restore the saved page when the viewer appears after a font retry ([e07bb3b](https://github.com/sushichan044/kg/commit/e07bb3b6e1f6c2e59e6c9f6efa394eae60a5c2b0))
+* **frontend:** show load failures instead of a stale or empty manuscript ([555f953](https://github.com/sushichan044/kg/commit/555f953e8b4e3a1bb556a2761ee02c73297fd004))
+* harden the local server and clean up audit findings ([a36c90e](https://github.com/sushichan044/kg/commit/a36c90e8bdffb42f95262a0c290497daab58451d))
+* **server:** keep listing files when a root is missing or unreadable ([a29a15a](https://github.com/sushichan044/kg/commit/a29a15ae4e5b03a812bd81c2dff0aed4ec495a66))
+* **server:** reject requests that do not target the loopback origin ([d1d683e](https://github.com/sushichan044/kg/commit/d1d683e81c446f2f5edaa06d1fa7a75694fbbfc4))
+* **viewer:** let any consumer of a shared font cache retry a failed load ([f893bc5](https://github.com/sushichan044/kg/commit/f893bc58750e91022937474156b25de530f3488c))
+* **viewer:** type the font asset exports and correct the DOM contract docs ([f0aea46](https://github.com/sushichan044/kg/commit/f0aea4606b067e0936369aae66ae9eab996817a4))
+
+
+### Performance Improvements
+
+* **frontend:** defer composition changes and leave memoization to the React Compiler ([7e613eb](https://github.com/sushichan044/kg/commit/7e613eb5188cc671560a5bef4c1ecdfcef49165a))
+* **frontend:** defer composition changes and leave memoization to the React Compiler ([8630ec8](https://github.com/sushichan044/kg/commit/8630ec81052b2026920a8f14cc5d4f9502c3b761))
+* **viewer:** load the shaper while fonts download ([95b952c](https://github.com/sushichan044/kg/commit/95b952c42f15114887d0da3801019866e3d3aaa0))
+* **viewer:** stop rebuilding every page on zoom and diagnostic selection ([af1be4c](https://github.com/sushichan044/kg/commit/af1be4c056e9fc85f865f5cec2b3ce26894ad452))
+
 ## [0.10.2](https://github.com/sushichan044/kg/compare/v0.10.1...v0.10.2) (2026-11-03)
 
 
