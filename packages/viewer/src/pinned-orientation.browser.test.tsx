@@ -6,6 +6,7 @@ import {
   parseManuscript,
 } from "@sushichan044/kg-core";
 import { expect, test as base } from "vite-plus/test";
+import { server } from "vite-plus/test/browser";
 import { render } from "vitest-browser-react";
 
 import { NovelViewer } from "./NovelViewer";
@@ -27,6 +28,20 @@ const CORPUS = [
   "あ゙ん゙ア゚",
   "AとQRと12とofficeとwater",
 ].join("");
+
+type Underdrawn = Readonly<{ base: readonly string[]; ruby: readonly string[] }>;
+
+const NOT_UNDERDRAWN: Underdrawn = { base: [], ruby: [] };
+
+// Linux の WebKit は vmtx を読まず、正立の字形を横の送り幅の高さで描く
+// 測定はフォントの値のままなので、枠より小さく描かれる文字をここに固定し、増減したら気づけるようにする
+const UNDERDRAWN: Record<"mincho" | "genei-koburi", Underdrawn> =
+  server.browser === "webkit" && server.platform === "linux"
+    ? {
+        mincho: { base: ["™", "“", "”", "‘", "’", "A", "Q", "R", "〱", "〲"], ruby: ["A", "“"] },
+        "genei-koburi": { base: ["ア゚"], ruby: [] },
+      }
+    : { mincho: NOT_UNDERDRAWN, "genei-koburi": NOT_UNDERDRAWN };
 
 const test = base.extend<{ typographies: Record<"mincho" | "genei-koburi", ReadyTypography> }>({
   typographies: async ({}, use) => {
@@ -92,7 +107,10 @@ test.for(["mincho", "genei-koburi"] as const)(
     const screen = await render(<NovelViewer composed={composed} typography={typography} />);
 
     expect(screen.container.querySelectorAll(".kgv-cell").length).toBeGreaterThan(80);
-    expect(cellMismatches(screen.container)).toEqual([]);
+    const mismatches = cellMismatches(screen.container);
+    const underdrawn = UNDERDRAWN[fontPreset].base;
+    expect(mismatches.filter(({ text }) => !underdrawn.includes(text))).toEqual([]);
+    expect(mismatches.map(({ text }) => text)).toEqual(underdrawn);
   },
 );
 
@@ -166,7 +184,9 @@ test.for(["mincho", "genei-koburi"] as const)(
         ? []
         : [{ text: character.textContent, drawnPx, measuredPx: measured * fontPx }];
     });
-    expect(mismatches).toEqual([]);
+    const underdrawn = UNDERDRAWN[fontPreset].ruby;
+    expect(mismatches.filter(({ text }) => !underdrawn.includes(text))).toEqual([]);
+    expect(mismatches.map(({ text }) => text)).toEqual(underdrawn);
   },
 );
 
