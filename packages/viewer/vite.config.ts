@@ -60,7 +60,7 @@ export default defineConfig({
       // スタイルシートは src からそのまま素のアセットとして配布する（package.json の exports を
       // 参照）。pack は CSS のエントリーをすべて 1 つのファイルにまとめるので、
       // structural と theme の分割を表せず、これらのシートにはトランスパイルも要らない。
-      entry: ["src/index.ts", "src/typography.ts"],
+      entry: ["src/index.ts", "src/typography.ts", "src/measure.ts"],
       fixedExtension: true,
       format: "esm",
       fromVite: true,

@@ -60,6 +60,10 @@
       "types": "./dist/typography.d.mts",
       "import": "./dist/typography.mjs"
     },
+    "./measure": {
+      "types": "./dist/measure.d.mts",
+      "import": "./dist/measure.mjs"
+    },
     "./fonts/GenEiKoburiMin6-R.ttf": {
       "types": "./font-asset.d.ts",
       "default": "./assets/GenEiKoburiMin6-R.ttf"
