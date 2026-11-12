@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vite-plus/test";
 
 import { JukugoRuby } from "./jukugo-ruby";
-import type { JukugoReading } from "./jukugo-ruby";
+type JukugoReading = Parameters<typeof JukugoRuby.resolve>[0][number];
 
 function present<T>(value: T | undefined): T {
   expect.assert(value !== undefined, "expected a value");

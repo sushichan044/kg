@@ -2,7 +2,11 @@
   "name": "@repo/root",
   "private": true,
   "type": "module",
+  "scripts": {
+    "knip": "knip && knip --strict"
+  },
   "devDependencies": {
+    "knip": "^6.44.1",
     "pkg-pr-new": "0.0.93",
     "vite-plus": "catalog:dev"
   },

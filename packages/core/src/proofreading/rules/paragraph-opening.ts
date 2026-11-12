@@ -20,7 +20,7 @@ const MESSAGES = {
 
 const OpeningBracketsSchema = v.pipe(v.string(), v.nonEmpty());
 
-export type ParagraphOpeningOptions = Readonly<{ openingBrackets?: string }>;
+type ParagraphOpeningOptions = Readonly<{ openingBrackets?: string }>;
 
 /**
  * 段落の字下げ（JLReq 3.5.1）。日本語の文章は、段落を全角空白（和字間隔）ちょうど 1 つで始める。
@@ -63,6 +63,9 @@ function build(openingBrackets: string): ParsedProofreadingRule {
 
 export const paragraphOpeningRule = (): ParsedProofreadingRule => build(OPENING_BRACKETS);
 
+/**
+ * @internal
+ */
 export function createParagraphOpeningRule(
   options: ParagraphOpeningOptions = {},
 ): ManuscriptResult<ParsedProofreadingRule, InvalidRuleOptions> {

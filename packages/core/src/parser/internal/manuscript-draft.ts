@@ -11,9 +11,9 @@ import { ParsedManuscript } from "../parsed-manuscript";
  */
 type GraphemeDraft = v.InferInput<typeof ParsedGrapheme.schema>;
 type AnnotationDraft = v.InferInput<typeof ManuscriptAnnotation.schema>;
-export type RangeDraft = GraphemeDraft["range"];
+type RangeDraft = GraphemeDraft["range"];
 
-export type ManuscriptDraft = Readonly<{
+type ManuscriptDraft = Readonly<{
   /**
    * `sourceStart` に由来する表示用テキストを追加し、それが占める範囲を返す。
    */

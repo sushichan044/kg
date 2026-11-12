@@ -77,7 +77,7 @@ function useProcessedManuscript(
     : processManuscript(source, composition, notation, typography.composer);
 }
 
-export type ManuscriptViewProps = Readonly<{
+type ManuscriptViewProps = Readonly<{
   file: FileEntry;
   source: string;
   manuscript: ManuscriptState;

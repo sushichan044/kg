@@ -18,7 +18,7 @@ export type ManuscriptRange = v.InferOutput<typeof ManuscriptRangeSchema>;
 
 type Bounds = Readonly<{ start: number; end: number }>;
 
-export type ManuscriptRangeInput = Readonly<{
+type ManuscriptRangeInput = Readonly<{
   source: Bounds;
   display: Bounds;
   graphemes: Bounds;

@@ -2,7 +2,7 @@ import { describe, expect, test } from "vite-plus/test";
 
 import { BoundaryRule } from "./boundary-rule";
 import { JapaneseParagraph } from "./japanese-paragraph";
-import type { JapaneseParagraphCharacter } from "./japanese-paragraph";
+type JapaneseParagraphCharacter = Parameters<typeof JapaneseParagraph.of>[0][number];
 import { defaultJapaneseTypesettingProfile } from "./japanese-typesetting-profile";
 import type { JapaneseTypesettingProfile } from "./japanese-typesetting-profile";
 import { layoutParagraph as optimizeParagraph } from "./paragraph-layout";

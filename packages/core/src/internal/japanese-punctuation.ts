@@ -2,7 +2,7 @@
  * JLReq の cl-04（区切り約物）は全角を占める。
  * Unicode の East Asian Width が neutral である複合約物も含む。
  */
-export const DIVIDING_PUNCTUATION = "！？‼⁇⁈⁉";
+const DIVIDING_PUNCTUATION = "！？‼⁇⁈⁉";
 
 /**
  * 短い連なりを 1 つの縦中横のこまとして組む約物。`！？` は `⁉` として読む。

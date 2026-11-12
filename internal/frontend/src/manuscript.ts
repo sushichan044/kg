@@ -89,7 +89,7 @@ export function manuscriptReducer(
   }
 }
 
-export type ProcessedManuscript = Readonly<{
+type ProcessedManuscript = Readonly<{
   composed: NovelComposedManuscript;
   diagnostics: readonly ManuscriptDiagnostic[];
 }>;

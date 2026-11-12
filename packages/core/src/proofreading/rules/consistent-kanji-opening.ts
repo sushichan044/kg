@@ -28,7 +28,7 @@ const KanjiOpeningPairSchema = v.pipe(
  * フィールド名はここに由来する。どちらを好むかは作品ごとのハウススタイルだが、
  * 1 つの作品の中で両方を使うのは表記ゆれである。
  */
-export type KanjiOpeningPair = v.InferOutput<typeof KanjiOpeningPairSchema>;
+type KanjiOpeningPair = v.InferOutput<typeof KanjiOpeningPairSchema>;
 
 const PairsSchema = v.pipe(v.array(KanjiOpeningPairSchema), v.nonEmpty(), v.readonly());
 
@@ -45,7 +45,7 @@ const DEFAULT_PAIRS: readonly KanjiOpeningPair[] = [
   { closed: "方が", opened: "ほうが" },
 ];
 
-export type ConsistentKanjiOpeningOptions = Readonly<{ pairs?: readonly KanjiOpeningPair[] }>;
+type ConsistentKanjiOpeningOptions = Readonly<{ pairs?: readonly KanjiOpeningPair[] }>;
 
 /**
  * 原稿がかなでも書いている組すべてについて、漢字表記の最初の出現を報告する。
@@ -69,6 +69,9 @@ function build(pairs: readonly KanjiOpeningPair[]): ParsedProofreadingRule {
 
 export const consistentKanjiOpeningRule = (): ParsedProofreadingRule => build(DEFAULT_PAIRS);
 
+/**
+ * @internal
+ */
 export function createConsistentKanjiOpeningRule(
   options: ConsistentKanjiOpeningOptions = {},
 ): ManuscriptResult<ParsedProofreadingRule, InvalidRuleOptions> {

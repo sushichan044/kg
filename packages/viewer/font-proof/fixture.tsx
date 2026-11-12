@@ -33,7 +33,7 @@ const fixtureSchema = v.object({
   measurements: v.record(v.string(), v.object({ measurement: RunMeasurement.schema })),
 });
 
-export type ProofFont = "genei" | "source-serif";
+type ProofFont = "genei" | "source-serif";
 type ProofOptions = Readonly<{
   font?: ProofFont;
   kern?: boolean;

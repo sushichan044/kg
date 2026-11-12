@@ -20,7 +20,7 @@ const ManuscriptDiagnosticSchema = readonlyObject({
  */
 export type ManuscriptDiagnostic = v.InferOutput<typeof ManuscriptDiagnosticSchema>;
 
-export type ManuscriptDiagnosticInput = Readonly<{
+type ManuscriptDiagnosticInput = Readonly<{
   source: string;
   origin: DiagnosticOrigin;
   severity: DiagnosticSeverity;

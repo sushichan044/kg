@@ -2,7 +2,7 @@ import type { JapaneseTypesettingProfile } from "./japanese-typesetting-profile"
 import type { JapaneseBoundaryClass } from "./japanese-typesetting-rules";
 import type { PairSpacing } from "./spacing";
 
-export type BreakConstraint =
+type BreakConstraint =
   | Readonly<{ kind: "allowed"; penalty: number }>
   | Readonly<{
       kind: "prohibited";
@@ -15,7 +15,7 @@ export type BoundaryRule = Readonly<{
   finalStretch: boolean;
 }>;
 
-export type BoundaryContext = Readonly<{
+type BoundaryContext = Readonly<{
   runInterior: boolean;
   rubyInterior: boolean;
   rubySpacingInterior: boolean;

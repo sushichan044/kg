@@ -1,6 +1,6 @@
 const EPSILON = 1e-9;
 
-export type JukugoReading = Readonly<{
+type JukugoReading = Readonly<{
   baseOffsetEm: number;
   baseAdvanceEm: number;
   intrinsicBaseAdvanceEm: number;
@@ -11,8 +11,8 @@ export type JukugoReading = Readonly<{
   afterSpacingEm: number;
 }>;
 
-export type JukugoEdges = Readonly<{ head: boolean; tail: boolean }>;
-export type JukugoSpacing = Readonly<{ beforeEm: number; afterEm: number }>;
+type JukugoEdges = Readonly<{ head: boolean; tail: boolean }>;
+type JukugoSpacing = Readonly<{ beforeEm: number; afterEm: number }>;
 export type JukugoRuby =
   | Readonly<{ kind: "placed"; offsetsEm: readonly number[] }>
   | Readonly<{ kind: "needs-spacing"; spacings: readonly JukugoSpacing[] }>
