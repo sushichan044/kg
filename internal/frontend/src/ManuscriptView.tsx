@@ -1,8 +1,8 @@
 import { Dialog } from "@base-ui/react/dialog";
 import type { ManuscriptDiagnostic, NovelCompositionSettings } from "@sushichan044/kg-core";
 import { DiagnosticList, NovelViewer, useTypography } from "@sushichan044/kg-viewer";
-import type { NovelViewEvent, NovelViewHandle, ReadyTypography } from "@sushichan044/kg-viewer";
-import { useEffect, useRef, useState } from "react";
+import type { NovelViewEvent, NovelViewHandle } from "@sushichan044/kg-viewer";
+import { use, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import DownloadIcon from "~icons/lucide/download";
 import FilesIcon from "~icons/lucide/files";
@@ -16,9 +16,12 @@ import { IconButton } from "./components/IconButton";
 import { Modal } from "./components/Modal";
 import { ViewerToolbar, ZoomControls, ZOOM } from "./components/ViewerControls";
 import type { FileEntry } from "./lib/api";
+import { assertNever } from "./lib/assert-never";
+import { processManuscript } from "./lib/processing";
+import type { ProcessedManuscript, ProofreadingResult } from "./lib/processing";
 import { loadPage, savePage } from "./lib/storage";
 import type { ManuscriptNotation } from "./lib/storage";
-import { ProcessManuscriptError, processManuscript } from "./manuscript";
+import { ProcessManuscriptError } from "./manuscript";
 import type { ManuscriptAction, ManuscriptState } from "./manuscript";
 
 type SheetProps = Readonly<{
@@ -62,19 +65,27 @@ function TypographyFailure({ onRetry }: Readonly<{ onRetry: () => void }>) {
   );
 }
 
-// コンポーネントで直接呼ぶと、React Compiler が診断の選択と同じキャッシュにまとめ、診断を選ぶたびに組版をやり直す
-// フックの戻り値は独立してキャッシュされるので、組版の入力が変わったときだけ呼び直される
-function useProcessedManuscript(
-  source: string,
-  composition: NovelCompositionSettings,
-  notation: ManuscriptNotation,
-  typography: ReadyTypography | undefined,
-) {
-  // ほかのフックを呼ばないフックは、この指示が無いとコンパイルされない
-  "use memo";
-  return typography === undefined
-    ? null
-    : processManuscript(source, composition, notation, typography.composer);
+function describeFailure(
+  composedSource: ProcessedManuscript["composedSource"] | null,
+  proofreading: ProofreadingResult | null,
+): string | null {
+  if (composedSource === null) return "原稿を処理できませんでした。";
+  if (!composedSource.ok) return ProcessManuscriptError.describe(composedSource.error);
+  if (proofreading === null) return null;
+  switch (proofreading.kind) {
+    case "rule-failed": {
+      return ProcessManuscriptError.describe({ stage: "proofread", error: proofreading.error });
+    }
+    case "crashed": {
+      return `校正を実行できませんでした: ${proofreading.message}`;
+    }
+    case "done": {
+      return null;
+    }
+    default: {
+      return assertNever(proofreading);
+    }
+  }
 }
 
 type ManuscriptViewProps = Readonly<{
@@ -108,9 +119,20 @@ export function ManuscriptView({
 }: ManuscriptViewProps) {
   const typographyState = useTypography(composition.appearance.fontPreset);
   const typography = typographyState.kind === "ready" ? typographyState.typography : undefined;
-  const processed = useProcessedManuscript(source, composition, notation, typography);
-  const viewerShown = processed?.ok === true;
-  const diagnostics = processed?.ok ? processed.value.diagnostics : [];
+  // 組版は同期、校正は Worker で行う。校正が終わるまでは Suspense で待ち、
+  // 遅延値による更新では、新しい結果が揃うまで前の画面を残す
+  const processed =
+    typography === undefined
+      ? null
+      : processManuscript({ source, composition, notation, typography });
+  const composedSource = processed?.composedSource ?? null;
+  const proofreading = processed?.proofreading ? use(processed.proofreading) : null;
+  const failure = describeFailure(composedSource, proofreading);
+  const composed = failure === null && composedSource?.ok ? composedSource.value.composed : null;
+  const viewerShown = composed !== null;
+  const warnings = composedSource?.ok ? composedSource.value.warnings : [];
+  const diagnostics =
+    proofreading?.kind === "done" ? [...warnings, ...proofreading.diagnostics] : warnings;
   const activeDiagnosticId = diagnostics.some(({ id }) => id === manuscript.activeDiagnosticId)
     ? manuscript.activeDiagnosticId
     : null;
@@ -123,10 +145,10 @@ export function ManuscriptView({
   const viewRef = useRef<NovelViewHandle>(null);
 
   const startExport = () => {
-    if (exporting || pending || !processed?.ok || typography === undefined) return;
+    if (exporting || pending || composed === null || typography === undefined) return;
     setExportError("");
     setExportRequest({
-      composed: processed.value.composed,
+      composed,
       typography,
       startPageSide: manuscript.preferences.startPageSide,
       filename: file.path.split("/").at(-1) ?? "pages",
@@ -177,7 +199,7 @@ export function ManuscriptView({
         onExport={startExport}
         exporting={exporting || pending}
         documentLabel={file.path}
-        composed={processed?.ok ? processed.value.composed : null}
+        composed={composed}
         diagnosticCount={diagnostics.length}
         zoom={zoom}
         fit={manuscript.preferences.fit}
@@ -193,16 +215,15 @@ export function ManuscriptView({
         </IconButton>
         <div className="mobile-document">
           <strong title={file.path}>{file.path.split("/").at(-1)}</strong>
-          {processed?.ok ? (
+          {composed === null ? null : (
             <small>
-              {processed.value.composed.layout.stats.chars}字・
-              {processed.value.composed.layout.stats.pages}ページ
+              {composed.layout.stats.chars}字・{composed.layout.stats.pages}ページ
             </small>
-          ) : null}
+          )}
         </div>
         <IconButton
           label="PNGをZIPで出力"
-          disabled={exporting || pending || !processed?.ok || typography === undefined}
+          disabled={exporting || pending || composed === null || typography === undefined}
           onClick={startExport}
         >
           <DownloadIcon aria-hidden="true" />
@@ -228,10 +249,15 @@ export function ManuscriptView({
       {exportError !== "" ? <p role="alert">{exportError}</p> : null}
       {typographyState.kind === "failed" ? (
         <TypographyFailure onRetry={typographyState.retry} />
-      ) : processed?.ok ? (
+      ) : composed === null ? (
+        <div className="preview__failure" role="alert">
+          <strong>原稿を処理できませんでした</strong>
+          <p>{failure ?? "原稿を処理できませんでした。"}</p>
+        </div>
+      ) : (
         <NovelViewer
           ref={viewRef}
-          composed={processed.value.composed}
+          composed={composed}
           typography={typography}
           diagnostics={diagnostics}
           activeDiagnosticId={activeDiagnosticId}
@@ -245,15 +271,6 @@ export function ManuscriptView({
             onDiagnosticSelect(diagnostic.id);
           }}
         />
-      ) : (
-        <div className="preview__failure" role="alert">
-          <strong>原稿を処理できませんでした</strong>
-          <p>
-            {processed === null
-              ? "原稿を処理できませんでした。"
-              : ProcessManuscriptError.describe(processed.error)}
-          </p>
-        </div>
       )}
 
       {exportRequest !== null ? (
@@ -288,12 +305,11 @@ export function ManuscriptView({
           setSettingsSheetOpen(false);
         }}
       >
-        {processed?.ok ? (
+        {composed === null ? null : (
           <p className="mobile-summary">
-            {processed.value.composed.layout.stats.chars}字・
-            {processed.value.composed.layout.stats.pages}ページ
+            {composed.layout.stats.chars}字・{composed.layout.stats.pages}ページ
           </p>
-        ) : null}
+        )}
         <ZoomControls
           className="mobile-zoom"
           zoom={zoom}

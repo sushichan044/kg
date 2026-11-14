@@ -8,12 +8,28 @@
       "project": ["mock/**/*.{ts,tsx}", "src/**/*.{ts,tsx}!", "!src/**/*.test.{ts,tsx}!"]
     },
     "packages/core": {
-      "entry": ["src/index.ts!", "src/lint.ts!", "src/plugin.ts!"],
-      "ignoreDependencies": ["@arethetypeswrong/core", "publint", "unplugin-unused"]
+      "entry": ["src/index.ts!", "src/lint.ts!", "src/plugin.ts!", "src/worker-proofread.ts!"],
+      "ignoreDependencies": [
+        "@arethetypeswrong/core",
+        "publint",
+        "unplugin-unused",
+        "@sushichan044/kg-worker-rpc"
+      ]
     },
     "packages/viewer": {
-      "ignoreDependencies": ["@arethetypeswrong/core", "publint", "unplugin-unused"],
-      "project": ["font-proof/**/*.{ts,tsx}", "src/**/*.{ts,tsx}!", "!src/**/*.test.{ts,tsx}!"]
+      "ignoreDependencies": [
+        "@arethetypeswrong/core",
+        "publint",
+        "unplugin-unused",
+        "@sushichan044/kg-worker-rpc"
+      ],
+      "project": [
+        "font-proof/**/*.{ts,tsx}",
+        "src/**/*.{ts,tsx}!",
+        "!src/**/*.test.{ts,tsx}!",
+        "!src/export/test-encoder.worker.ts!"
+      ],
+      "entry": ["src/index.ts!", "src/export/index.ts!", "src/export/worker.ts!"]
     }
   },
   "treatConfigHintsAsErrors": true,

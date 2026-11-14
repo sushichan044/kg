@@ -52,6 +52,8 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     dedupe: ["react", "react-dom"],
   },
+  // Worker も ES module としてビルドする（new Worker(..., { type: "module" }) で読み込むため）
+  worker: { format: "es" },
   run: {
     tasks: {
       build: {

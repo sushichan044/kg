@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "knip": "knip && knip --strict"
+    "knip": "knip --no-config-hints && knip --strict"
   },
   "devDependencies": {
     "knip": "^6.44.1",

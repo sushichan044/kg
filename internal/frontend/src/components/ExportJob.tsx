@@ -3,6 +3,9 @@ import { NovelViewer } from "@sushichan044/kg-viewer";
 import type { ReadyTypography } from "@sushichan044/kg-viewer";
 import { useEffect, useEffectEvent, useRef } from "react";
 
+import { downloadZip } from "../lib/download";
+import { createExportWorker } from "../lib/workers";
+
 export type ExportRequest = Readonly<{
   composed: NovelComposedManuscript;
   typography: ReadyTypography;
@@ -16,7 +19,7 @@ type ExportJobProps = Readonly<{
 }>;
 
 // React Compiler は import() 式を扱えないので、コンポーネントの外に置く
-const loadExportPages = () => import("../lib/export-pages");
+const loadExportPages = () => import("@sushichan044/kg-viewer/worker/export");
 
 export function ExportJob({ request, onFinish }: ExportJobProps) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -31,16 +34,18 @@ export function ExportJob({ request, onFinish }: ExportJobProps) {
     void loadExportPages()
       .then(({ exportPages }) => {
         controller.signal.throwIfAborted();
-        return exportPages(
+        return exportPages({
           host,
-          request.composed,
-          request.typography,
-          request.filename,
-          controller.signal,
-        );
+          composed: request.composed,
+          typography: request.typography,
+          createWorker: createExportWorker,
+          signal: controller.signal,
+        });
       })
-      .then(() => {
-        if (!controller.signal.aborted) finish(null);
+      .then((zip) => {
+        if (controller.signal.aborted) return;
+        downloadZip(zip, request.filename);
+        finish(null);
       })
       .catch((error: unknown) => {
         if (!controller.signal.aborted)
