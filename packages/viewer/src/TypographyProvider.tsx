@@ -11,29 +11,48 @@ type TypographyResult = ManuscriptResult<ReadyTypography, TypographyLoadError>;
 type CacheEntry = {
   readonly promise: Promise<TypographyResult>;
   readonly attempt: number;
+  start: () => void;
   failed: boolean;
 };
 
 class TypographyCache {
   readonly #entries = new Map<FontPresetId, CacheEntry>();
   #retainers = 0;
+  readonly #listeners = new Set<() => void>();
 
+  subscribe = (listener: () => void): (() => void) => {
+    this.#listeners.add(listener);
+    return () => {
+      this.#listeners.delete(listener);
+    };
+  };
+  // 描画中には Promise だけを用意し、所有者が Effect を開始してから資源を取得する。
+  // これにより、コミットされなかった描画が解放できない資源を作らない。
   // use() は同じ Promise を受け取らないと中断し直すので、書体ごとに 1 つだけ作る
   // attempt は書体ごとの読み込みの通し番号で、失敗した読み込みより新しい回のときだけ読み込み直す
   load(fontPreset: FontPresetId, attempt: number): Promise<TypographyResult> {
     const found = this.#entries.get(fontPreset);
     if (found !== undefined && !(found.failed && found.attempt < attempt)) return found.promise;
+    let resolveResult: (result: TypographyResult) => void = () => {};
+    const promise = new Promise<TypographyResult>((resolve) => {
+      resolveResult = resolve;
+    });
     const entry: CacheEntry = {
-      promise: loadTypography({ fontPreset })
-        .catch(() => ManuscriptResult.fail({ kind: "font-load" as const }))
-        .then((result) => {
-          if (!result.ok) entry.failed = true;
-          return result;
-        }),
+      promise,
       attempt,
       failed: false,
+      start: () => {
+        entry.start = () => {};
+        void loadTypography({ fontPreset })
+          .catch(() => ManuscriptResult.fail({ kind: "font-load" as const }))
+          .then((result) => {
+            if (!result.ok) entry.failed = true;
+            resolveResult(result);
+          });
+      },
     };
     this.#entries.set(fontPreset, entry);
+    if (this.#retainers > 0) entry.start();
     return entry.promise;
   }
 
@@ -47,6 +66,7 @@ class TypographyCache {
 
   retain(): void {
     this.#retainers += 1;
+    for (const entry of this.#entries.values()) entry.start();
   }
 
   // StrictMode はアンマウントとマウントを同期的にやり直すので、解放を後に回して再マウントで取り消せるようにする
@@ -59,6 +79,7 @@ class TypographyCache {
           if (result.ok) result.value.dispose();
         });
       this.#entries.clear();
+      for (const listener of this.#listeners) listener();
     });
   }
 }

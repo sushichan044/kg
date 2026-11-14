@@ -4,7 +4,7 @@ import {
   NovelCompositionSettings,
   parseManuscript,
 } from "@sushichan044/kg-core";
-import { createRef, StrictMode } from "react";
+import { Activity, createRef, StrictMode } from "react";
 import { expect, test as base, vi } from "vite-plus/test";
 import { render } from "vitest-browser-react";
 
@@ -163,4 +163,25 @@ test("shares fonts loaded by an enclosing TypographyProvider", async ({ fontRequ
   await expect.element(screen.getByLabelText("2つ目")).toBeVisible();
 
   expect(fontRequest.calls).toBe(1);
+});
+
+test("recomposes after its automatic typography is released and the view is restored", async () => {
+  const view = (mode: "visible" | "hidden", text: string) => (
+    <Activity mode={mode}>
+      <NovelViewer composed={composed(text)} />
+    </Activity>
+  );
+  const screen = await render(view("visible", "本文"));
+  await expect
+    .poll(() => screen.container.querySelector(".kgv-line-text")?.textContent, { timeout: 10000 })
+    .toContain("本文");
+
+  await screen.rerender(view("hidden", "本文"));
+  await screen.rerender(view("hidden", "編集後"));
+  await screen.rerender(view("visible", "編集後"));
+
+  await expect
+    .poll(() => screen.container.querySelector(".kgv-line-text")?.textContent, { timeout: 10000 })
+    .toContain("編集後");
+  expect(screen.getByRole("alert").query()).toBeNull();
 });
