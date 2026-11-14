@@ -18,7 +18,6 @@ type CacheEntry = {
 class TypographyCache {
   readonly #entries = new Map<FontPresetId, CacheEntry>();
   #retainers = 0;
-  #revision = 0;
   readonly #listeners = new Set<() => void>();
 
   subscribe = (listener: () => void): (() => void) => {
@@ -27,16 +26,11 @@ class TypographyCache {
       this.#listeners.delete(listener);
     };
   };
-
-  getSnapshot = (): number => this.#revision;
-
   // 描画中には Promise だけを用意し、所有者が Effect を開始してから資源を取得する。
   // これにより、コミットされなかった描画が解放できない資源を作らない。
   // use() は同じ Promise を受け取らないと中断し直すので、書体ごとに 1 つだけ作る
   // attempt は書体ごとの読み込みの通し番号で、失敗した読み込みより新しい回のときだけ読み込み直す
-  load(fontPreset: FontPresetId, attempt: number, revision: number): Promise<TypographyResult> {
-    // キャッシュの無効化を購読側のレンダー依存に含め、古い Promise の再利用を防ぐ。
-    if (revision !== this.#revision) return this.load(fontPreset, attempt, this.#revision);
+  load(fontPreset: FontPresetId, attempt: number): Promise<TypographyResult> {
     const found = this.#entries.get(fontPreset);
     if (found !== undefined && !(found.failed && found.attempt < attempt)) return found.promise;
     let resolveResult: (result: TypographyResult) => void = () => {};
@@ -85,7 +79,6 @@ class TypographyCache {
           if (result.ok) result.value.dispose();
         });
       this.#entries.clear();
-      this.#revision += 1;
       for (const listener of this.#listeners) listener();
     });
   }

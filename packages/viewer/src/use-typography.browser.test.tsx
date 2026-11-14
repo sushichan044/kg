@@ -316,3 +316,25 @@ test("starts loading when a previously uncommitted provider becomes active", asy
   await expect.element(screen.getByTestId("first"), { timeout: 10000 }).toBeVisible();
   expect(fontRequest.calls).toBe(1);
 });
+
+test("keeps a shared resource available while one consumer is hidden", async ({ fontRequest }) => {
+  const view = (mode: "visible" | "hidden") => (
+    <TypographyProvider>
+      <Slot fontPreset="mincho" label="always-visible" />
+      <Activity mode={mode}>
+        <Slot fontPreset="mincho" label="other" />
+      </Activity>
+    </TypographyProvider>
+  );
+  const screen = await render(view("visible"));
+  await expect.element(screen.getByTestId("always-visible"), { timeout: 10000 }).toBeVisible();
+  await expect.element(screen.getByTestId("other")).toBeVisible();
+
+  await screen.rerender(view("hidden"));
+  await screen.rerender(view("visible"));
+
+  await expect.element(screen.getByTestId("always-visible")).toBeVisible();
+  await expect.element(screen.getByTestId("other")).toBeVisible();
+  expect(fontRequest.calls).toBe(1);
+  expect(screen.getByRole("status").query()).toBeNull();
+});

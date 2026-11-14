@@ -1,5 +1,5 @@
 import type { FontPresetId } from "@sushichan044/kg-core";
-import { startTransition, use, useState, useSyncExternalStore } from "react";
+import { startTransition, use, useCallback, useState, useSyncExternalStore } from "react";
 
 import type { ReadyTypography, TypographyLoadError } from "./typography";
 import { TypographyContext } from "./TypographyProvider";
@@ -14,9 +14,13 @@ export type TypographyState =
 export function useTypography(fontPreset: FontPresetId): TypographyState {
   const cache = use(TypographyContext);
   if (cache === null) throw new Error("useTypography must be used within a TypographyProvider");
-  const revision = useSyncExternalStore(cache.subscribe, cache.getSnapshot, cache.getSnapshot);
   const [attempt, setAttempt] = useState(0);
-  const result = use(cache.load(fontPreset, attempt, revision));
+  const getSnapshot = useCallback(
+    () => cache.load(fontPreset, attempt),
+    [cache, fontPreset, attempt],
+  );
+  const promise = useSyncExternalStore(cache.subscribe, getSnapshot, getSnapshot);
+  const result = use(promise);
   if (result.ok) return { kind: "ready", typography: result.value };
   const { error } = result;
   return {
