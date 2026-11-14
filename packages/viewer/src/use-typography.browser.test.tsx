@@ -1,5 +1,5 @@
 import type { FontPresetId } from "@sushichan044/kg-core";
-import { Suspense, useEffect, useTransition } from "react";
+import { Activity, Suspense, useEffect, useTransition } from "react";
 import { expect, test as base, vi } from "vite-plus/test";
 import { render } from "vitest-browser-react";
 
@@ -234,4 +234,85 @@ test("disposes a font that finishes loading after the provider unmounts", async 
   await expect
     .poll(() => fontRequest.adds > 0 && document.fonts.size === before, { timeout: 10000 })
     .toBe(true);
+});
+
+test("keeps typography usable when an Activity is hidden and its content changes", async () => {
+  function Measured({ text }: Readonly<{ text: string }>) {
+    const state = useTypography("mincho");
+    if (state.kind === "failed") return <p role="alert">failed</p>;
+    try {
+      state.typography.measurer({
+        text,
+        kind: "base",
+        presentation: "mixed",
+        fontPreset: "mincho",
+        fontSizeQ: 12.7,
+        scale: 1,
+        writingMode: "vertical-rl",
+      });
+    } catch {
+      return <p role="alert">measurement failed</p>;
+    }
+    return <p>{text}</p>;
+  }
+  const view = (mode: "visible" | "hidden", text: string) => (
+    <Activity mode={mode}>
+      <TypographyProvider>
+        <Suspense fallback={<p role="status">loading</p>}>
+          <Measured text={text} />
+        </Suspense>
+      </TypographyProvider>
+    </Activity>
+  );
+  const screen = await render(view("visible", "本文"));
+  await expect.element(screen.getByText("本文"), { timeout: 10000 }).toBeVisible();
+
+  await screen.rerender(view("hidden", "本文"));
+  await screen.rerender(view("hidden", "編集後"));
+  await screen.rerender(view("visible", "編集後"));
+
+  await expect.element(screen.getByText("編集後"), { timeout: 10000 }).toBeVisible();
+  expect(screen.getByRole("alert").query()).toBeNull();
+});
+
+test("does not load fonts for an uncommitted provider", async ({ fontRequest }) => {
+  const screen = await render(
+    <Activity mode="hidden">
+      <span data-testid="hidden-rendered" />
+      <TypographyProvider>
+        <Slot fontPreset="mincho" label="first" />
+      </TypographyProvider>
+    </Activity>,
+  );
+
+  await expect
+    .poll(() => screen.container.querySelector('[data-testid="hidden-rendered"]'))
+    .not.toBeNull();
+  await screen.unmount();
+
+  expect(fontRequest.calls).toBe(0);
+  expect(fontRequest.adds).toBe(0);
+});
+
+test("starts loading when a previously uncommitted provider becomes active", async ({
+  fontRequest,
+}) => {
+  const view = (mode: "visible" | "hidden") => (
+    <Activity mode={mode}>
+      <span data-testid="hidden-rendered" />
+      <TypographyProvider>
+        <Slot fontPreset="mincho" label="first" />
+      </TypographyProvider>
+    </Activity>
+  );
+  const screen = await render(view("hidden"));
+  await expect
+    .poll(() => screen.container.querySelector('[data-testid="hidden-rendered"]'))
+    .not.toBeNull();
+  expect(fontRequest.calls).toBe(0);
+
+  await screen.rerender(view("visible"));
+
+  await expect.element(screen.getByTestId("first"), { timeout: 10000 }).toBeVisible();
+  expect(fontRequest.calls).toBe(1);
 });
