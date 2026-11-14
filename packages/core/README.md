@@ -1,34 +1,12 @@
 # @sushichan044/kg-core
 
-Framework-independent parsing, composition, and proofreading for Japanese
-manuscripts.
-
-The package exposes plain readonly data transfer objects and pure processing
-functions. It does not own application state, persistence, React components,
-or DOM behavior.
-
-## Install
+Parse, compose, and proofread Japanese manuscripts without a browser or React.
 
 ```sh
 pnpm add @sushichan044/kg-core
 ```
 
-## Entry points
-
-The package is split by what you are doing, so an application only ever sees the
-surface it needs.
-
-| Entry                                    | For                                                                                             |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `@sushichan044/kg-core`                  | Running the pipeline and reading what comes out: parse, compose, settings, results, diagnostics |
-| `@sushichan044/kg-core/lint`             | Proofreading — running the rules, and writing your own                                          |
-| `@sushichan044/kg-core/worker/proofread` | Running proofreading in a Web Worker, with typed results                                        |
-| `@sushichan044/kg-core/plugin`           | Supplying an implementation to core: a parser, a composer, or a measurer                        |
-
-A name is exported only when one of those three needs to write it. Helpers core
-keeps for itself are not part of the API.
-
-## Processing pipeline
+## Parse, compose, and proofread
 
 ```ts
 import {
@@ -39,7 +17,6 @@ import {
   ParseError,
   parseManuscript,
   kakuyomuParser,
-  pixivParser,
 } from "@sushichan044/kg-core";
 import {
   createDefaultProofreadingRules,
@@ -47,6 +24,7 @@ import {
   proofreadManuscript,
 } from "@sushichan044/kg-core/lint";
 
+const source = "吾輩は猫である。";
 const parsed = parseManuscript(source, { parser: kakuyomuParser });
 if (!parsed.ok) throw new Error(ParseError.describe(parsed.error));
 
@@ -64,344 +42,23 @@ if (!proofread.ok) throw new Error(ProofreadError.describe(proofread.error));
 const diagnostics = [...parsed.warnings, ...proofread.value];
 ```
 
-`parseManuscript` uses `plainTextParser` when no parser is supplied. The built-in
-`pixivParser` normalizes ruby, bold, italic, and emphasis notation; `kakuyomuParser`
-normalizes Kakuyomu ruby and emphasis marks. Malformed or unknown notation remains
-visible and produces a parser warning.
+`parseManuscript` defaults to plain text; choose `pixivParser` or
+`kakuyomuParser` for platform notation. The resulting layout uses logical font
+metrics. For browser font measurements and React previews, use
+[`@sushichan044/kg-viewer`](https://github.com/sushichan044/kg/blob/main/packages/viewer/README.md).
 
-`composeManuscript` requires a composer. The built-in `novelComposer` produces
-a self-contained snapshot containing the parsed manuscript, accepted settings,
-geometry, statistics, and a page/stage/line hierarchy. Lines contain positioned
-inline items and annotation fragments. `glyph` items distinguish their typographic
-`layoutSpan` from their visual `renderSpan`; `glue`, `kern`, and `suppressed` items
-preserve every spacing decision. Each line also records its `inlineSizeEm` and
-whether it ended naturally, by shrinking, stretching, hanging, forcing, or reaching
-the paragraph end.
+## Entry points
 
-The composer classifies the core prose classes from JLReq, resolves pair spacing,
-and selects line breaks over the whole source paragraph. The space between two
-classes follows appendix 表1 of JLReq: a half em before an opening bracket and after
-a closing bracket, comma, or full stop, a quarter em on either side of a middle dot,
-a quarter em between Japanese and a numeral, unit symbol, or a Western character rotated
-90 degrees or mixed into horizontal text, and solid where two of those punctuation marks
-meet. JLReq 3.2.4 sets that quarter em's scope: a Western character set upright — one letter,
-an all-caps or `Xxx` abbreviation, a lone digit, or a full-width letter — classes with kanji
-instead and sits solid against the kana or kanji beside it, the same as a tate-chu-yoko run.
+- `@sushichan044/kg-core`: parsers, composition, settings, and results.
+- `@sushichan044/kg-core/lint`: proofreading with built-in rules.
+- `@sushichan044/kg-core/worker/proofread`: proofreading in a Web Worker.
+- `@sushichan044/kg-core/plugin`: composition and measurement used by the viewer.
 
-A western word space is not a character with a box but an アキ of its own: a third em
-by rule rather than by measurement, nothing at all at a line head or a line end, and
-the first _visible_ space either direction of the adjustment reaches for — only the
-line-end space, which the reader cannot see at all, is spent ahead of it. It leaves the
-composer as a `glue` item carrying the source text it came from.
+## Other uses
 
-An overflowing line is answered by reducing the space between characters, stage by
-stage, or by hanging a comma or full stop; a short line is answered by opening up space
-where JLReq 3.8.4 and appendix 表6
-allow it — the word space first, up to a half, then the Japanese-to-Western quarter em,
-also up to a half, then a solid pair between kana, kanji, and the marks that go with
-them, up to a quarter. If those stages cannot fill the line, the remaining width is
-added equally to the admitted pairs in 表6 that are solid at rest, including pairs used by
-the third stage. Intrinsic spaces keep their finite limits: a word space and a mixed
-Japanese-to-Western, numeral, or unit-symbol gap stop at a half em, while punctuation and
-explicit full-em spaces retain their own width. This keeps the unbounded stage from producing
-double space or a hole disproportionate to a horizontal Western run's own length, since an
-upright Western run classes with kanji and has no gap of its own to begin with.
-Line-head and line-end space, inseparable pairs, and source-authored full-em gaps after
-question or exclamation marks stay fixed. A line with no admitted gap is forced. The choice is made for the
-paragraph rather than line by line,
-minimizing in order the number of forced lines, then stretched, then hanging, then
-shrunk lines that spent visible space. Which space may be reduced, and in which
-order, follows JLReq 3.8.3 and appendix 表3: the space at the line end goes first and
-costs the paragraph nothing, because it is invisible once that character lands there;
-then the word space, down to a quarter em; then a middle dot's quarters, then the half
-em before an opening bracket or after a
-closing bracket or comma, then the Japanese-to-Western quarter down to an eighth. The
-half em after a mid-line full stop marks the end of a sentence and is never reduced,
-and neither is the half em that keeps a line-head opening bracket off the edge.
-
-JLReq puts the word space ahead of the line end; the composer swaps the two, because
-a stage here says how visible an adjustment is and the line end is the only space the
-reader cannot see at all.
-
-The アキ at a line end is the one exception to spending a space in part. JLReq 3.1.9
-admits the full アキ or ベタ組 and forbids anything between, so a line whose overflow is
-smaller than it leaves it whole and finds the difference elsewhere — or breaks
-elsewhere. A 中点類 at a line end gives up the quarter em before it together with the
-quarter after, as one amount.
-
-Every stage is spent 文字サイズ比で均等に, as JLReq 3.8.3 and 3.8.4 both put it: the amount
-is split across all the spaces of that stage in proportion to what each of them can
-give, rather than taken out of the earliest space until it runs dry. A stage opens
-only once every stage before it is spent out.
-
-JLReq 3.1.5 states the white before a line-head opening bracket as a pair of amounts:
-one for 改行行頭, the head of a line that starts a paragraph, and one for 折返し行頭, the
-head of a line the composer turned over. The specification lists three such pairs, and
-the composer takes the one Japanese novels are set with — scheme ③: a half em at
-改行行頭, and 天付き, flush against the edge, at 折返し行頭.
-
-The composer also owns Japanese line-start and line-end restrictions, inseparable
-punctuation, question/exclamation gap suppression, and ruby placement.
-
-The composer classifies vertical text before measuring and breaking lines. Following
-[JLReq](https://www.w3.org/TR/jlreq/#mixed_text_composition_in_vertical_writing_mode),
-upright Latin initials and abbreviations advance by one em per character, Western
-words remain unbroken and render sideways, and two ASCII digits form one
-tate-chu-yoko unit. Each render unit carries its selected `presentation` as a
-string. A `CombinedGlyphUnit` renders the two digits together; the composer owns
-that decision, so renderers do not compare source group ranges.
-
-ASCII sentences are recognized before individual words are classified. A continuous
-stretch of ASCII letters, digits, punctuation, and spaces containing a letter and
-multiple alphanumeric groups separated by spaces or punctuation renders sideways.
-Japanese characters, fullwidth spaces, and newlines end that context. Thus `I love you`,
-`This is a Web novel`, `I'm happy!`, and `STR 10` keep their initials, abbreviations,
-numbers, and punctuation sideways. Standalone `I`, `BGM`, and `Web` retain their
-upright presentation, and standalone `12` still forms a tate-chu-yoko unit.
-Standalone dotted abbreviations whose parts match the upright abbreviation rule,
-such as `U.S.` and `Ph.D.`, keep their letters upright and their periods in the
-existing mixed presentation. In a sentence such as `I live in the U.S.`, the
-abbreviation and its periods render sideways with the surrounding words.
-
-Sentences can wrap between words. Words, including attached punctuation,
-apostrophes, and hyphens, stay together; ASCII spaces retain
-their source positions and supply line-break opportunities. Ruby and inline styling
-do not interrupt sentence recognition. Non-ASCII Western text keeps the existing
-presentation rules.
-
-An upright Western character sets solid against the kana or kanji beside it rather than
-taking the quarter em 3.2.6 puts around a sideways run, following JLReq 3.2.4: it classes
-with kanji, the same way 3.2.5 classes a tate-chu-yoko run. `QR` and `URL` set upright by
-this rule read flush against their surrounding Japanese text, the way a kanji compound does.
-
-The default `logicalRunMeasurer` uses East Asian Width in a Japanese context.
-Upright ASCII advances by one em; sideways ASCII and tate-chu-yoko members
-advance by half an em. Measurement is synchronous and DOM-independent.
-
-Supply a `RunMeasurer` through the plugin entry when metrics are already available:
-
-```ts
-import { createNovelComposer, logicalRunMeasurer } from "@sushichan044/kg-core/plugin";
-
-const composer = createNovelComposer({ measurer: logicalRunMeasurer });
-```
-
-`MeasurementRequest` includes `text`, `kind` (`base` or `ruby`), `presentation`,
-`fontPreset`, body `fontSizeQ`, `writingMode`, and `scale`. A provider returns
-measurements in body em and applies `scale` once: `1` for base text, `0.5` for ruby.
-Measured widths exclude punctuation box adjustments, pair spacing, hanging, and
-ruby expansion.
-
-`RunMeasurement` has two variants:
-
-- `{ kind: "advance", advanceEm }` supplies aggregate width. The composer retains
-  per-grapheme measurement for positioning; it never divides a nonadditive run
-  width equally among its members. Complete reading widths still inform base
-  widening.
-- `{ kind: "clustered", advanceEm, clusters }` supplies authoritative cluster
-  positions. Each `MeasuredCluster` has a request-local `textRange`, `layoutSpan`,
-  and `renderSpan`. Use `MeasurementTextRange.of({ start, end })` to construct the
-  branded UTF-16 range. Clusters partition text at grapheme boundaries and layout
-  advance within `1e-9`; render spans can overlap and overhang. The composer does
-  not remeasure cluster members or break a line inside a cluster.
-
-A multi-grapheme sideways cluster, such as a shaped `ffi` ligature, is drawn in a
-combined run with shared source positions. Upright `QR` and `URL` are orientation
-choices; they do not by themselves imply a shared cluster. The combined-unit
-contract supports sideways text and tate-chu-yoko. A provider result that cannot
-be represented by that contract is refused rather than split or approximated.
-The logical provider returns `advance`; a real shaped provider and matching font
-realization remain later work.
-
-Tate-chu-yoko retains the sum of member advances, including custom widths. The
-composer does not silently rescale a custom measurement to one em. Negative or
-non-finite advances and invalid cluster mappings produce a typed composition
-failure rather than a partial layout.
-
-Ruby annotations retain one of three associations: `group` for one reading over
-the entire base, `mono` for one reading segment per base grapheme, and `jukugo`
-for a compound whose segments remain associated with each base grapheme. A
-parser result with mismatched `mono` or `jukugo` segment counts is invalid.
-
-## Extensions and validation
-
-Everything in this section comes from `@sushichan044/kg-core/plugin`, except
-proofreading rules, which are authored against `@sushichan044/kg-core/lint`
-alongside the built-in ones.
-
-Parsers implement `ManuscriptParser`. Composers implement `ManuscriptComposer`
-and provide Valibot schemas for their settings and layout. Proofreading rules
-carry `kind: "parsed"` or `kind: "composed"` to declare which manuscript they
-need, and report findings through `context.report`. A report may name a
-`severity`; omitting it means `error`.
-
-A plugin signals its own failure with a `Rejection` — a plain reason string.
-Core turns that into a variant of the stage's error union, so plugins never
-construct core's error types.
-
-Each concept lives in its own module as a type plus a companion object of the
-same name, holding its schema and operations: `ManuscriptRange.merge`,
-`PaperSize.of`, `NovelCompositionSettings.defaults`, and so on. Types are
-inferred from the schemas with `v.InferOutput`; source, display, and grapheme
-ranges are distinct branded types, and plugin IDs are branded `NamespacedId`.
-
-A companion object is exported as a value only when one of the three roles
-calls something on it. Concepts you only ever read out of a composed layout —
-`NovelPage`, `SingleGlyphUnit`, `CombinedGlyphUnit`, `LineBreakResult`, and the like — are exported as
-types alone, so their schemas are not part of the API. The settings you persist
-and re-validate keep theirs: `NovelCompositionSettings.schema`,
-`ManuscriptAppearanceSettings.schema`, `ManuscriptOffsets.schema`,
-`NovelFlowSettings.schema`, and the appearance picklists.
-
-Processing functions return `ManuscriptResult`: success carries warnings, and
-failure carries exactly one error from a discriminated union, so callers can
-`switch` on `error.kind` exhaustively. Each error variant exposes its context
-as typed fields; `describe` renders one for display. Invalid settings and
-plugin output fail explicitly; values are never clamped or partially trusted.
-
-## Physical page settings
-
-`NovelCompositionSettings` combines `flow`, `appearance`, `page`, and `offsets`.
-`appearance.fontSizeQ` specifies the body size in Q (1Q = 0.25mm).
-`ManuscriptPageSettings` specifies `lineGapMm`, `stageGapMm`, `topMm`, `bottomMm`,
-`innerMm` (binding edge), and `outerMm` (fore edge). Line gap is the space between
-body cells; line pitch is `fontSizeQ / 4 + lineGapMm`.
-
-A5 is fixed at 12.7Q, 27 characters per line, 23 lines per stage, and two stages.
-Its line gap is 1.825mm, stage gap 10mm, top margin 16.55mm, bottom margin 12mm,
-inner margin 21.825mm, and outer margin 13mm. `NovelCompositionSettings.defaults`
-contains this format. Typeface and reserved lines remain configurable.
-
-A6 is fixed at 12Q, 41 characters per line, 17 lines, and one stage. Its line
-gap is 7H (1.75mm), giving a 19H (4.75mm) line pitch, with 12.5mm
-top/bottom margins, a 16mm inner margin, and a 10mm outer margin.
-
-`NovelCompositionSettings.forPaper(paperSize, settings)` selects the fixed A5 or A6
-format or centres the current grid on another paper size. For other formats,
-`ManuscriptPageSettings.centered(flow, appearance)` computes millimetre settings
-with half-cell line gaps and two-cell stage gaps. These helpers calculate values;
-validate the result before persisting or rendering an oversized grid.
-
-Custom page settings on other paper sizes can provide explicit millimetre gaps and margins.
-The settings schema checks that text dimensions plus margins equal the paper
-size within 0.000001mm. Gaps and margins must be nonnegative, and the line gap
-must accommodate the existing half-size annotation area. A mismatch returns
-`InvalidSettings` through `composeManuscript`, including unused space:
-
-```text
-height = stages × charactersPerLine × (fontSizeQ / 4) + (stages - 1) × stageGapMm
-width  = linesPerStage × (fontSizeQ / 4) + (linesPerStage - 1) × lineGapMm
-```
-
-The public settings and measurement contracts use Q and millimetres only for
-physical sizes. Body-relative `Em` coordinates and flow counts remain logical
-units. Point-based settings and previous persisted preference versions have no
-adapter or migration.
-
-## Source mapping and render units
-
-Source and display ranges are zero-based, end-exclusive UTF-16 offsets.
-Grapheme ranges index the normalized grapheme array. Measurement text ranges are
-local to a request and have a different brand.
-
-`NovelLine.items` contains `PositionedInlineItem`: single glyphs, combined glyphs,
-glue, kern, and suppressed source text. Render units have distinct `layoutSpan`
-and `renderSpan` values plus `sources`. An `exact` source placement locates one
-parsed grapheme; a `shared` placement associates several graphemes with one span
-without inventing interior caret positions. Default tate-chu-yoko retains exact
-half-em positions for each digit. A diagnostic on a shared member highlights the
-shared span while keeping the diagnostic's original range.
-
-Hanging glyphs have zero layout advance and a nonzero render span. Authored glue
-and suppressed separators keep their source ranges, including at line edges.
-`NovelLine.range` includes all source-backed members. Generated spacing has no
-source range.
-
-Ruby fragments contain `readingItems`, each with a fragment-local `textRange`
-and `AnnotationPlacement`. Emphasis fragments contain `placements`. Inline
-positions are line-relative; block offsets start at the body's right edge and
-increase leftward. The current right-side, half-size decorations use `side:
-"before"`, `blockOffsetEm: -0.5`, and `blockSizeEm: 0.5`. The viewer consumes these
-coordinates without computing ruby or emphasis placement.
-
-Annotations retain their original logical association even on part of a combined
-unit, whose whole physical span anchors the decoration. Incompatible readings on
-members of the same unit cause a composition refusal. Bold and italic retain
-source-range fragments. Ruby overhang depends on adjacent characters, resolved
-punctuation spacing, and the candidate's line edges. Mono readings anchor to their
-own bases; jukugo readings use solid shoulder placement and joint arrangement.
-Jukugo placement tries compound-interior overhang before outside neighbours, then
-distributes required spacing around long readings in proportion to their measured
-widths. Line-edge shares go inward. A single-base fragment touching both edges
-uses head alignment and box expansion when needed. Oversized group readings are
-assigned as contiguous measurement-cluster intervals before line scoring.
-
-Emphasis placements have a half-em inline extent centered on their render unit.
-Brackets, commas, and full stops receive no marks. Ruby and nonempty emphasis
-must fit the fixed half-em right-side area without colliding. Core may choose
-another line break; an impossible combination returns `ComposerRejected` with
-a reason. Annotation placement preserves body pitch and source ranges.
-Actual font shaping, selectable sides, sidelines, and mixed sizes remain deferred.
-
-Diagnostics include one-based source line and column positions, so renderers do
-not need to search or recalculate locations.
-
-### Breaking API migration
-
-Update core and viewer together. `SingleGlyphUnit`, `CombinedGlyphUnit`, and
-`PositionedInlineItem` replace `ComposedGlyph` and `ComposedInlineItem`;
-`PresentationKind` replaces the `VerticalTextPresentation` group object. The
-plugin entry replaces `InlineMeasureRequest`, `InlineMeasurement`,
-`InlineMeasurer`, and `logicalInlineMeasurer` with the run measurement contracts
-above. `createNovelComposer({ measurer })` keeps its option name but requires the
-new request and discriminated result. Ruby `readingGraphemes` becomes
-`readingItems`; decoration positions move into core output. Parser/proofreading
-entrypoints remain unchanged. Previous persisted settings are ignored without
-migration.
-
-## Proofreading rules
-
-Proofreading has its own entry point, `@sushichan044/kg-core/lint`. Nothing in
-the root entry imports from it, so an application that only parses and composes
-never pulls the rules into its bundle.
-
-`createDefaultProofreadingRules()` returns the rules whose answer does not
-depend on the work: how a paragraph opens and how far it is indented,
-punctuation before a closing bracket, spacing after `！` and `？`, ellipsis and
-dash forms and counts, repeated punctuation and interpuncts, a minus sign that
-no number follows, halfwidth Japanese punctuation, Arabic
-numeral length, and Unicode variation sequences.
-
-Rules that depend on the work's own conventions are exported individually and
-report `warning` instead of `error`, so a caller opts into them:
-
-```ts
-import {
-  consistentKanjiOpeningRule,
-  consistentLatinWidthRule,
-  consistentNumeralWidthRule,
-  createConsistentKanjiOpeningRule,
-  createDefaultProofreadingRules,
-} from "@sushichan044/kg-core/lint";
-
-const rules = [
-  ...createDefaultProofreadingRules(),
-  consistentNumeralWidthRule(),
-  consistentLatinWidthRule(),
-  consistentKanjiOpeningRule(),
-];
-```
-
-`createConsistentKanjiOpeningRule({ pairs })` replaces the built-in kanji and
-kana pairs; like every configurable rule it returns a `ManuscriptResult` and
-fails with `InvalidRuleOptions` rather than dropping bad options.
-
-`dashRule()` prefers `―` (U+2015). Use `createDashRule({ preferred: "—" })` or
-`createDashRule({ preferred: "─" })` when a work uses U+2014 or U+2500 instead.
-The selected character must appear in even-length runs. Repeated choonpu (`ー`)
-are not treated as dashes.
-
-Diagnostics do not modify the source and do not contain automatic fixes.
+- Read `ParsedManuscript` and its annotations to process text without composing it.
+- Use `@sushichan044/kg-core/lint` to run the default proofreading rules.
+- Inspect `NovelPage` and `NovelLine` in the composed layout to implement a custom renderer.
 
 ### Proofreading in a Web Worker
 
@@ -437,50 +94,6 @@ already started keeps going. Call `client.terminate()` to stop the worker and
 reject every pending call. The client is also `Disposable`, so
 `using client = createProofreadingClient(worker)` terminates it at the end of
 the scope.
-
-## Browser support
-
-The package targets browser features that are Baseline Widely Available. It
-does not include polyfills.
-
-## Sentence-ending symbols
-
-`♡`, `♪`, and `☆` follow the same line-breaking and separator-space rules as
-Japanese question and exclamation marks. Each symbol remains a separate cell.
-Set `additionalSentenceEndingMarks` on composition settings to add Unicode symbols:
-
-```ts
-const settings = {
-  ...NovelCompositionSettings.defaults,
-  additionalSentenceEndingMarks: "★",
-};
-```
-
-For proofreading, import `createSpaceAfterQuestionOrExclamationRule` from
-`@sushichan044/kg-core/lint` and pass the same option. The factory returns a
-`ManuscriptResult`. Replace the default rule with ID
-`kg/space-after-question-or-exclamation` with the successful result's value.
-An empty string adds nothing; built-in marks remain enabled. Each Unicode code
-point is a separate symbol. Non-symbol characters are rejected.
-
-## Font preparation
-
-Parsing preserves the source independently of the selected font. Before composition,
-call `prepareManuscriptForFont(parsed, fontPreset)`. Its `parsed` value contains the
-prepared display text and annotations; `mapRange` maps existing parser diagnostics
-into its grapheme coordinates while preserving source and display UTF-16 offsets.
-Always prepare from the original parse when changing fonts.
-
-`prepareTextForFont(text, fontPreset)` applies the same rules to standalone titles
-and author names. `mincho` selects Rin Mincho and combines spacing kana voicing
-marks; `genei-koburi` and `gothic` preserve them. Existing combining marks stay intact.
-Preparation preserves notation, style and per-character ruby boundaries. The current
-built-in transforms preserve UTF-16 length and do not normalize the whole source.
-
-Font profiles declare ordered text transforms, measurement policy and OpenType
-features. Add a profile and its browser assets to support another built-in font;
-parsers remain independent of font selection. Browser shaping is provided by
-`@sushichan044/kg-viewer/typography`; core remains synchronous and DOM independent.
 
 ## License
 

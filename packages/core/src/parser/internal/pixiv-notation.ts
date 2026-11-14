@@ -3,7 +3,7 @@ import { lineEnd } from "./line-end";
 
 type TrimmedContent = Readonly<{ text: string; sourceStart: number }>;
 
-export type PixivTag = Readonly<{
+type PixivTag = Readonly<{
   end: number;
   content: TrimmedContent;
   annotation:

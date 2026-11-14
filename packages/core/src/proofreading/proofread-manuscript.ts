@@ -25,7 +25,7 @@ import type { ProofreadingRuleContext } from "./proofreading-rule-context";
  * `ProofreadingRule` ではない。より狭い原稿を受け取るということは、より狭い関数になるからである。
  * 各呼び出しが実際にどのルールを受け付けるかは、下のオーバーロードで定める。
  */
-export type ProofreadOptions<TRule> = Readonly<{
+type ProofreadOptions<TRule> = Readonly<{
   rules: readonly TRule[];
 }>;
 

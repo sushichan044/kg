@@ -7,7 +7,7 @@ import { loadAppState, saveAppState } from "./lib/storage";
 export const WORKSPACE_ROUTE_ID = "workspace";
 export const FILE_QUERY_PARAM = "file";
 
-export type WorkspaceDocument =
+type WorkspaceDocument =
   | Readonly<{ kind: "loaded"; file: FileEntry; source: string }>
   | Readonly<{ kind: "failed"; file: FileEntry }>;
 

@@ -1,10 +1,8 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import type { JapaneseCharacterClass } from "./japanese-typesetting-profile";
-import {
-  defaultJapaneseTypesettingProfile,
-  japaneseCharacterClasses,
-} from "./japanese-typesetting-profile";
+import { defaultJapaneseTypesettingProfile } from "./japanese-typesetting-profile";
+import { japaneseCharacterClasses } from "./japanese-typesetting-rules";
+import type { JapaneseCharacterClass } from "./japanese-typesetting-rules";
 
 /**
  * 附属書 表1（文字間の空き量）のうち、このプロファイルが区別するクラスの分を、

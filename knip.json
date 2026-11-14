@@ -1,0 +1,57 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignore": [".agents/**", "internal/static/dist/**"],
+  "workspaces": {
+    "internal/frontend": {
+      "ignoreDependencies": ["@svgr/plugin-jsx"],
+      "includeEntryExports": true,
+      "project": ["mock/**/*.{ts,tsx}", "src/**/*.{ts,tsx}!", "!src/**/*.test.{ts,tsx}!"]
+    },
+    "packages/core": {
+      "entry": ["src/index.ts!", "src/lint.ts!", "src/plugin.ts!", "src/worker-proofread.ts!"],
+      "ignoreDependencies": [
+        "@arethetypeswrong/core",
+        "publint",
+        "unplugin-unused",
+        "@sushichan044/kg-worker-rpc"
+      ]
+    },
+    "packages/viewer": {
+      "ignoreDependencies": [
+        "@arethetypeswrong/core",
+        "publint",
+        "unplugin-unused",
+        "@sushichan044/kg-worker-rpc"
+      ],
+      "project": [
+        "font-proof/**/*.{ts,tsx}",
+        "src/**/*.{ts,tsx}!",
+        "!src/**/*.test.{ts,tsx}!",
+        "!src/export/test-encoder.worker.ts!"
+      ],
+      "entry": ["src/index.ts!", "src/export/index.ts!", "src/export/worker.ts!"]
+    }
+  },
+  "treatConfigHintsAsErrors": true,
+  "treatTagHintsAsErrors": true,
+  "include": [
+    "files",
+    "dependencies",
+    "unlisted",
+    "binaries",
+    "unresolved",
+    "catalog",
+    "catalogReferences",
+    "exports",
+    "types",
+    "nsExports",
+    "nsTypes",
+    "enumMembers",
+    "namespaceMembers",
+    "duplicates",
+    "cycles"
+  ],
+  "rules": {
+    "cycles": "error"
+  }
+}

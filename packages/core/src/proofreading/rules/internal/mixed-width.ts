@@ -2,7 +2,7 @@ import type { ParsedProofreadingRule } from "../../proofreading-rule";
 import { defineParsedRule } from "./define-rule";
 import { displayRange } from "./rule-range";
 
-export type MixedWidthRuleOptions = Readonly<{
+type MixedWidthRuleOptions = Readonly<{
   id: string;
   message: string;
   /**

@@ -89,7 +89,7 @@ export function resolveSpacings(
   };
 }
 
-export type ResolvedSpacings = Readonly<{
+type ResolvedSpacings = Readonly<{
   pairSpacings: ResolvedPairSpacing[];
   characterSpacings: ResolvedCharacterSpacing[];
 }>;

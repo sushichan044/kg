@@ -25,7 +25,7 @@ import { cssFontFeatures } from "./typography-profile";
 export type TypographyLoadError = Readonly<{
   kind: "font-load" | "font-integrity" | "shaper-load";
 }>;
-export type TypographyFontFace = Readonly<{
+type TypographyFontFace = Readonly<{
   family: string;
   src: string;
   weight: 400 | 700;
@@ -44,7 +44,7 @@ export type ReadyTypography = Readonly<{
 
 const segmenter = new Intl.Segmenter("ja", { granularity: "grapheme" });
 
-export type TypographyOptions = Readonly<{
+type TypographyOptions = Readonly<{
   fontPreset: FontPresetId;
   fontUrls?: Readonly<Partial<Record<400 | 700, string | URL>>>;
 }>;

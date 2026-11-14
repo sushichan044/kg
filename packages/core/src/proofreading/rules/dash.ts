@@ -16,7 +16,7 @@ const DASH_LIKE_RUN = /[—–―─━﹣－-]+/gu;
 type DashCharacter = v.InferOutput<typeof DashCharacterSchema>;
 type DashMessageId = "character" | "even-count";
 
-export type DashOptions = Readonly<{ preferred?: DashCharacter }>;
+type DashOptions = Readonly<{ preferred?: DashCharacter }>;
 
 const EVEN_COUNT_MESSAGE = "連続するダッシュの数は偶数にしてください";
 
@@ -70,6 +70,9 @@ function build(preferred: DashCharacter): ParsedProofreadingRule {
 
 export const dashRule = (): ParsedProofreadingRule => build(DEFAULT_PREFERRED);
 
+/**
+ * @internal
+ */
 export function createDashRule(
   options: DashOptions = {},
 ): ManuscriptResult<ParsedProofreadingRule, InvalidRuleOptions> {

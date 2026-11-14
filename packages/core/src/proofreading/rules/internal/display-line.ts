@@ -1,7 +1,7 @@
 /**
  * 表示用テキストの 1 行と、その行が始まるオフセット。指摘を元の位置へ対応づけられるようにする。
  */
-export type DisplayLine = Readonly<{ text: string; start: number }>;
+type DisplayLine = Readonly<{ text: string; start: number }>;
 
 /**
  * CRLF、CR、LF で分割する。最後の改行の後のテキストは、空であっても必ず出力する。

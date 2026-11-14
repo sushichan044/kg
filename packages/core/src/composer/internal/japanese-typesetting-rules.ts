@@ -18,6 +18,9 @@ import type { PresentationKind } from "../presentation-kind";
  *
  * @see https://www.w3.org/TR/jlreq/#character_classes
  */
+/**
+ * @internal
+ */
 export const japaneseCharacterClasses = [
   // 始め括弧類
   "cl-01",
@@ -87,7 +90,7 @@ export type AdjustmentCategory =
   | "mixed-text"
   | "solid";
 
-export type RuleSpacingCapacity = Readonly<{
+type RuleSpacingCapacity = Readonly<{
   category: AdjustmentCategory;
   amountEm: number;
   granularity: "continuous" | "all-or-nothing";
@@ -100,10 +103,10 @@ export type RuleSpacing = Readonly<{
   stretch?: RuleSpacingCapacity;
 }>;
 
-export type RuleCharacterSpacing = RuleSpacing & Readonly<{ kind: "glue" }>;
+type RuleCharacterSpacing = RuleSpacing & Readonly<{ kind: "glue" }>;
 export type LineHeadKind = "paragraph-start" | "turned-over";
 export type LinePosition = "line-edge" | "mid-line";
-export type RuleLineEndSpacing = Readonly<{
+type RuleLineEndSpacing = Readonly<{
   spacing: RuleSpacing;
   absorbsPrecedingEm: number;
 }>;

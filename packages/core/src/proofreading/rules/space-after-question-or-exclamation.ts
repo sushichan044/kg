@@ -67,9 +67,12 @@ const build = (additionalSentenceEndingMarks = ""): ParsedProofreadingRule => ({
 });
 
 export const spaceAfterQuestionOrExclamationRule = (): ParsedProofreadingRule => build();
-export type SpaceAfterQuestionOrExclamationOptions = Readonly<{
+type SpaceAfterQuestionOrExclamationOptions = Readonly<{
   additionalSentenceEndingMarks?: string;
 }>;
+/**
+ * @internal
+ */
 export function createSpaceAfterQuestionOrExclamationRule(
   options: SpaceAfterQuestionOrExclamationOptions = {},
 ): ManuscriptResult<ParsedProofreadingRule, InvalidRuleOptions> {

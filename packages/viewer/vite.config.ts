@@ -64,7 +64,6 @@ export default defineConfig({
       // structural と theme の分割を表せず、これらのシートにはトランスパイルも要らない。
       entry: {
         index: "src/index.ts",
-        typography: "src/typography.ts",
         "worker-export": "src/export/index.ts",
         "worker-export-encoder": "src/export/worker.ts",
       },
@@ -78,7 +77,7 @@ export default defineConfig({
       sourcemap: false,
       treeshake: true,
       unused: {
-        ignore: ["react-dom"],
+        ignore: ["react-dom", "@types/react"],
       },
     },
   ],

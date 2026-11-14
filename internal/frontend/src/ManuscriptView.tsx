@@ -88,7 +88,7 @@ function describeFailure(
   }
 }
 
-export type ManuscriptViewProps = Readonly<{
+type ManuscriptViewProps = Readonly<{
   file: FileEntry;
   source: string;
   manuscript: ManuscriptState;

@@ -10,7 +10,7 @@ export type FilePanelProps = Readonly<{
   onSelect: (path: string) => void;
 }>;
 
-export function FilePanel({ files, selectedPath, onSelect }: FilePanelProps) {
+function FilePanel({ files, selectedPath, onSelect }: FilePanelProps) {
   const [searchParams] = useSearchParams();
   return (
     <nav className="files" aria-label="ファイル">
@@ -42,7 +42,7 @@ export function FilePanel({ files, selectedPath, onSelect }: FilePanelProps) {
   );
 }
 
-export type SidebarProps = FilePanelProps &
+type SidebarProps = FilePanelProps &
   Readonly<{
     children?: ReactNode;
   }>;

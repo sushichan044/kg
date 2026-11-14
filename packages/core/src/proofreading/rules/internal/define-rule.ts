@@ -10,7 +10,7 @@ const DEFAULT_MESSAGE_ID = "default";
 /**
  * 単一メッセージのルールが、報告する範囲のほかに、指摘ごとに変えられるもの。
  */
-export type ReportOptions = Pick<ProofreadingReport, "data" | "severity">;
+type ReportOptions = Pick<ProofreadingReport, "data" | "severity">;
 
 /**
  * 単一メッセージのルールを作る。本体が範囲を報告し、ラッパーがメッセージを名付ける。
@@ -34,7 +34,7 @@ export function defineParsedRule(
   };
 }
 
-export type MatchRuleOptions = Readonly<{
+type MatchRuleOptions = Readonly<{
   id: string;
   pattern: RegExp;
   message: string;

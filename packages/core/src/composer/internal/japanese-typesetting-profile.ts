@@ -13,10 +13,6 @@ import type {
 } from "./japanese-typesetting-rules";
 import type { CharacterSpacing, LineEndSpacing, PairSpacing } from "./spacing";
 
-export { japaneseCharacterClasses } from "./japanese-typesetting-rules";
-export type { JapaneseCharacterClass } from "./japanese-typesetting-rules";
-export type { PairSpacing } from "./spacing";
-
 export type JapaneseTypesettingProfile = Readonly<{
   classify: (character: JapaneseCharacter) => JapaneseCharacterClass;
   boxMetrics: (

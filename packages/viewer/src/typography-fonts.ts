@@ -1,6 +1,6 @@
 import type { FontPresetId } from "@sushichan044/kg-core";
 
-export type TypographyFace = Readonly<{
+type TypographyFace = Readonly<{
   weight: 400 | 700;
   url: URL;
   sha256: string;

@@ -11,7 +11,7 @@ const DEFAULT_MAX_DIGITS = 2;
 
 const MaxDigitsSchema = v.pipe(v.number(), v.finite(), v.integer(), v.minValue(1));
 
-export type MaxArabicNumeralDigitsOptions = Readonly<{ maxDigits?: number }>;
+type MaxArabicNumeralDigitsOptions = Readonly<{ maxDigits?: number }>;
 
 /**
  * 縦組のアラビア数字。短い連なりは縦中横（JLReq 3.2.5）として組まれ、全角の枠の中に正立するが、
@@ -30,6 +30,9 @@ function build(maxDigits: number): ParsedProofreadingRule {
 
 export const maxArabicNumeralDigitsRule = (): ParsedProofreadingRule => build(DEFAULT_MAX_DIGITS);
 
+/**
+ * @internal
+ */
 export function createMaxArabicNumeralDigitsRule(
   options: MaxArabicNumeralDigitsOptions = {},
 ): ManuscriptResult<ParsedProofreadingRule, InvalidRuleOptions> {
