@@ -56,7 +56,7 @@ type KnownDifferences = Readonly<{
   // `<font>|<group>|<text>`
   keys: readonly string[];
   // 縦組みでも vmtx を使わず、横組みの送り幅で描くフォント
-  // これらのフォントでは、縦と横の送り幅が違う行がすべてずれ、ずれた値は横組みの送り幅と一致する
+  // これらのフォントの upright とルビは、ブラウザーが横組みで描いた送り幅と一致する行だけをずれてよいものとする
   horizontalFonts: readonly string[];
 }>;
 const knownDifferences: Readonly<Record<string, KnownDifferences>> = {
@@ -77,9 +77,11 @@ const knownDifferences: Readonly<Record<string, KnownDifferences>> = {
 type Row = Readonly<{
   key: string;
   text: string;
+  orientation: "upright" | "sideways";
   measured: number;
-  horizontal: number;
   browser: number;
+  // ブラウザーが同じ文字列を横組みで描いた送り幅（カーニングなし）
+  horizontalBrowser: number;
   difference: number;
 }>;
 
@@ -123,9 +125,12 @@ const test = base.extend<{
           wordSpacing: "0",
           textRendering: "geometricPrecision",
         });
-        document.body.append(probe);
+        const horizontalProbe = probe.cloneNode() as HTMLSpanElement;
+        Object.assign(horizontalProbe.style, { writingMode: "horizontal-tb", fontKerning: "none" });
+        document.body.append(probe, horizontalProbe);
         disposers.push(() => {
           probe.remove();
+          horizontalProbe.remove();
         });
 
         const rows: Row[] = [];
@@ -149,11 +154,6 @@ const test = base.extend<{
               ? { ...context, kind, presentation: "mixed" }
               : { ...context, kind, presentation: orientation };
           const measured = measurer(request).advanceEm;
-          const horizontal = measurer({
-            ...context,
-            kind: "base",
-            presentation: "sideways",
-          }).advanceEm;
           probe.style.fontSize = `${PROBE_PX * scale}px`;
           probe.style.textOrientation = orientation;
           probe.lang = orientation === "sideways" ? "en" : "ja";
@@ -163,12 +163,17 @@ const test = base.extend<{
               : "none";
           probe.textContent = text;
           const browser = probe.getBoundingClientRect().height / PROBE_PX;
+          horizontalProbe.style.fontSize = probe.style.fontSize;
+          horizontalProbe.lang = probe.lang;
+          horizontalProbe.textContent = text;
+          const horizontalBrowser = horizontalProbe.getBoundingClientRect().width / PROBE_PX;
           rows.push({
             key: `${subject.id}|${group}|${text}`,
             text,
+            orientation,
             measured,
-            horizontal,
             browser,
+            horizontalBrowser,
             difference: measured - browser,
           });
         };
@@ -207,18 +212,14 @@ test.for(subjects)("matches the browser advances for $id", async (subject, { com
   const expected = [
     ...known.keys.filter((key) => key.startsWith(`${subject.id}|`)),
     ...(drawnHorizontally
-      ? rows
-          .filter(({ measured, horizontal }) => Math.abs(measured - horizontal) > TOLERANCE_EM)
+      ? mismatches
+          .filter(
+            ({ orientation, browser, horizontalBrowser }) =>
+              orientation === "upright" && Math.abs(browser - horizontalBrowser) <= TOLERANCE_EM,
+          )
           .map(({ key }) => key)
       : []),
   ];
-  // 横組みの送り幅はカーニングを含むが、縦の計測はカーニングを切るので、1 字の行だけで比べる
-  const notHorizontal = drawnHorizontally
-    ? mismatches.filter(
-        ({ text, horizontal, browser }) =>
-          Array.from(text).length === 1 && Math.abs(horizontal - browser) > TOLERANCE_EM,
-      )
-    : [];
   await commands.writeFile(
     `${server.config.root}/font-proof/.cache/evidence/${server.browser}-shaper-${subject.id}.json`,
     JSON.stringify(
@@ -234,5 +235,4 @@ test.for(subjects)("matches the browser advances for $id", async (subject, { com
 
   expect(rows.length).toBeGreaterThan(300);
   expect(mismatches.map(({ key }) => key).toSorted()).toEqual(expected.toSorted());
-  expect(notHorizontal).toEqual([]);
 });

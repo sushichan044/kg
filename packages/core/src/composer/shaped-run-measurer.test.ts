@@ -124,6 +124,22 @@ test("keeps a ligature as one cluster", ({ shaper, request }) => {
   expect(result.kind === "clustered" && result.clusters).toHaveLength(1);
 });
 
+test.for(["あ‌い", "あ゙い"])(
+  "merges shaped clusters that split a grapheme in %j",
+  (text, { shaper, request }) => {
+    const measurer = createShapedRunMeasurer(shaper);
+    const input = request({ text, presentation: "upright" });
+
+    const result = measurer(input);
+
+    expect(result.advanceEm).toBe(3);
+    expect(RunMeasurement.parseFor(input, result)).toEqual(result);
+    expect(
+      result.kind === "clustered" && result.clusters.map(({ textRange }) => textRange.end),
+    ).toEqual([2, 3]);
+  },
+);
+
 test("measures tate-chu-yoko as one em without shaping", ({ shaper, shaped, request }) => {
   const measurer = createShapedRunMeasurer(shaper);
 
