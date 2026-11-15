@@ -248,6 +248,9 @@ importers:
       fflate:
         specifier: 0.8.3
         version: 0.8.3
+      kg-worker-rpc:
+        specifier: workspace:*
+        version: link:../../packages/worker-rpc
       react:
         specifier: catalog:prod
         version: 19.3.0
