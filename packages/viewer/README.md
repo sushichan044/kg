@@ -75,6 +75,9 @@ function Preview({ source }: { source: string }) {
 }
 ```
 
+The worker uses top-level `await` (HarfBuzz), so bundle workers as ES modules.
+In Vite, set `worker: { format: "es" }`.
+
 Without `worker`, the same hook composes on the main thread.
 
 - While a newer input is pending, `output` keeps the previous composed
