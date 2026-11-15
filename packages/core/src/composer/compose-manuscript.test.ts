@@ -1355,6 +1355,40 @@ describe("composeManuscript", () => {
     expect(result.error).toMatchObject({ kind: "InvalidSettings", composerId: "kg/novel" });
   });
 
+  test("marks offset and page-fill lines as padding but not blank manuscript lines", () => {
+    const withOffsets: NovelCompositionSettings = {
+      ...settings(),
+      offsets: {
+        document: { leading: 1, trailing: 1 },
+        page: { leading: 0, trailing: 0 },
+        stage: { leading: 1, trailing: 1 },
+      },
+    };
+
+    const result = composeManuscript(parsed("本文\n\n"), {
+      composer: novelComposer,
+      settings: withOffsets,
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    // Worker から受け取る複製でも見分けられる
+    const [page] = globalThis.structuredClone(result.value.layout).pages;
+    expect.assert(page !== undefined);
+    const lines = page.stages.flatMap((stage) => stage.lines);
+    expect(lines.map((line) => [lineText(line), line.padding === true])).toEqual([
+      ["", true],
+      ["", true],
+      ["本文", false],
+      ["", false],
+      ["", true],
+      ["", true],
+      ["", true],
+      ["", true],
+      ["", true],
+      ["", true],
+    ]);
+  });
+
   test("uses a custom composer supplied through the options object", () => {
     const result = composeManuscript(parsed("本文"), {
       composer: labelComposer("example/count", (prefix, displayText) => ({

@@ -875,8 +875,8 @@ function wrapSourceLine(
   return ManuscriptResult.succeed(annotated);
 }
 
-function blankLines(count: number): NovelLine[] {
-  return Array.from({ length: count }, NovelLineContract.empty);
+function paddingLines(count: number): NovelLine[] {
+  return Array.from({ length: count }, NovelLineContract.padding);
 }
 
 function buildPages(
@@ -903,7 +903,7 @@ function buildPages(
         const next = contentLines[contentIndex];
 
         if (!withinStage || !withinPage || next === undefined) {
-          lines.push(NovelLineContract.empty());
+          lines.push(NovelLineContract.padding());
           continue;
         }
         lines.push(next);
@@ -952,9 +952,9 @@ function createCompose(provider: RunMeasurer) {
     }
     const pages = buildPages(
       [
-        ...blankLines(settings.offsets.document.leading),
+        ...paddingLines(settings.offsets.document.leading),
         ...manuscriptLines,
-        ...blankLines(settings.offsets.document.trailing),
+        ...paddingLines(settings.offsets.document.trailing),
       ],
       settings,
     );

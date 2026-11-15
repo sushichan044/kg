@@ -26,7 +26,6 @@ import type { CSSProperties, Ref, RefCallback, RefObject, ReactNode } from "reac
 import { DiagnosticHover } from "./DiagnosticHover";
 import { DiagnosticMarker } from "./DiagnosticMarker";
 import { fitZoom } from "./fit-zoom";
-import { paddingLines } from "./padding-lines";
 import { copyManuscriptText } from "./selection-text";
 import type { ReadyTypography, RenderTypography } from "./typography";
 import { cssFontFeatures } from "./typography-profile";
@@ -439,11 +438,10 @@ function renderRuby(annotation: Extract<ComposedAnnotationFragment, { kind: "rub
 }
 
 function renderPages(
-  composed: NovelComposedManuscript,
+  pages: NovelComposedManuscript["layout"]["pages"],
   diagnostics: readonly ManuscriptDiagnostic[],
 ) {
-  const padding = paddingLines(composed);
-  return composed.layout.pages.map((page, pageIndex) => {
+  return pages.map((page, pageIndex) => {
     const diagnosticIds = new Set<string>();
     const stages = page.stages.map((stage, stageIndex) => ({
       id: `page:${pageIndex}:stage:${stageIndex}`,
@@ -456,7 +454,6 @@ function renderPages(
           cells,
           marks: emphasisMarks(line),
           line,
-          padding: padding[pageIndex]?.[stageIndex]?.[lineIndex] ?? true,
         };
       }),
     }));
@@ -469,12 +466,12 @@ type RenderedPage = ReturnType<typeof renderPages>[number];
 // React Compiler はフックの戻り値を変更されない値として扱う。フックを通さないと、
 // ページの一覧を作る処理が描画のスコープにまとめられ、拡大率や選択中の診断が変わるたびに作り直される。
 function useRenderedPages(
-  composed: NovelComposedManuscript,
+  pages: NovelComposedManuscript["layout"]["pages"],
   diagnostics: readonly ManuscriptDiagnostic[],
 ) {
   // フックを呼ばないフックは、指示しないとコンパイルの対象にならない。
   "use memo";
-  return renderPages(composed, diagnostics);
+  return renderPages(pages, diagnostics);
 }
 
 // 指定されたページへ移動する。ページの要素がまだ無ければ、描画されるまで保留する。
@@ -590,13 +587,13 @@ function NovelPage({
       <div className="kgv-page-grid">
         {stages.map((stage) => (
           <div key={stage.id} className="kgv-stage">
-            {stage.lines.map(({ id: lineId, bands, cells, marks, line, padding }) => {
+            {stage.lines.map(({ id: lineId, bands, cells, marks, line }) => {
               return (
                 <div
                   key={lineId}
                   className="kgv-line"
                   data-break={line.break.kind}
-                  data-padding={padding ? "" : undefined}
+                  data-padding={line.padding === true ? "" : undefined}
                 >
                   {showGrid ? (
                     <span className="kgv-line-rules" aria-hidden="true">
@@ -867,7 +864,7 @@ function NovelViewerRenderer({
     "--kgv-page-width": `${geometry.paperWidthMm * (value / 100)}mm`,
     "--kgv-folio-top": `${10 * (value / 100)}mm`,
   };
-  const renderedPages = useRenderedPages(composed, diagnostics);
+  const renderedPages = useRenderedPages(pages, diagnostics);
   const ruleCellCount = Math.ceil(composed.settings.flow.lineLengthEm);
   const registerPage = (pageIndex: number, element: HTMLElement | null) => {
     pageRefs.current[pageIndex] = element;
