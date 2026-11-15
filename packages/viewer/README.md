@@ -106,7 +106,8 @@ compose (see the measurement above).
   A worker that failed to load fails the pending request instead of leaving it
   pending, and `retry()` processes the input again. With a worker factory the
   next request creates a new worker. With a `Worker` instance you own the
-  worker and must pass a new one.
+  worker and must pass a new one. Replacing the worker processes the latest
+  input again.
 - `output.proofreadFailure` is set when only proofreading failed. The composed
   manuscript and the other diagnostics are still valid.
 - The worker fetches and verifies the font (SHA-256) and shapes text with

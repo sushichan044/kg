@@ -6,12 +6,20 @@ import type { ManuscriptInput, ManuscriptOutcome } from "./manuscript-pipeline";
 import { ManuscriptSession } from "./manuscript-session";
 import type { RenderTypography } from "./typography";
 
-const typography: RenderTypography = {
-  fontPreset: "gothic",
-  fontFamily: "sans-serif",
-  fontFaces: [],
-  dispose: () => {},
-};
+type LoadedTypography = RenderTypography & Readonly<{ isDisposed: () => boolean }>;
+
+function loadTypography(): LoadedTypography {
+  let disposed = false;
+  return {
+    fontPreset: "gothic",
+    fontFamily: "sans-serif",
+    fontFaces: [],
+    dispose: () => {
+      disposed = true;
+    },
+    isDisposed: () => disposed,
+  };
+}
 
 const input = (source: string): ManuscriptInput => ({
   source,
@@ -36,6 +44,8 @@ type Pending = Readonly<{
 type Fixture = Readonly<{
   session: ManuscriptSession;
   started: Pending[];
+  loaded: LoadedTypography[];
+  createEngine: () => ManuscriptEngine;
   disconnect: () => void;
 }>;
 
@@ -43,23 +53,32 @@ const test = base.extend<Fixture>({
   started: async ({}, use) => {
     await use([]);
   },
-  session: async ({}, use) => {
+  loaded: async ({}, use) => {
+    await use([]);
+  },
+  session: async ({ loaded }, use) => {
     await use(
       new ManuscriptSession({
-        loadRenderTypography: () => Promise.resolve(ManuscriptResult.succeed(typography)),
+        loadRenderTypography: () => {
+          const typography = loadTypography();
+          loaded.push(typography);
+          return Promise.resolve(ManuscriptResult.succeed(typography));
+        },
       }),
     );
   },
+  createEngine: async ({ started }, use) => {
+    await use(() => ({
+      process: (request) =>
+        new Promise((resolve) => {
+          started.push({ input: request, resolve });
+        }),
+      dispose: () => {},
+    }));
+  },
   disconnect: [
-    async ({ session, started }, use) => {
-      const engine: ManuscriptEngine = {
-        process: (request) =>
-          new Promise((resolve) => {
-            started.push({ input: request, resolve });
-          }),
-        dispose: () => {},
-      };
-      const disconnect = session.connect(engine);
+    async ({ session, createEngine }, use) => {
+      const disconnect = session.connect(createEngine());
       await use(disconnect);
       disconnect();
     },
@@ -166,4 +185,56 @@ test("drops the result of a run that finished after disconnecting", async ({
   await settled();
 
   expect(session.getSnapshot().output).toBeNull();
+});
+
+test("reprocesses the latest input with new typography after reconnecting", async ({
+  session,
+  started,
+  loaded,
+  createEngine,
+  disconnect,
+}) => {
+  session.request(input("a"));
+  started[0]?.resolve(succeed("a"));
+  await vi.waitFor(() => {
+    expect(session.getSnapshot().output).not.toBeNull();
+  });
+
+  disconnect();
+  const reconnected = session.connect(createEngine());
+
+  expect(sources(started)).toEqual(["a", "a"]);
+  expect(session.getSnapshot().pending).toBe(true);
+  started[1]?.resolve(succeed("a"));
+  await vi.waitFor(() => {
+    expect(session.getSnapshot().pending).toBe(false);
+  });
+  const typography = session.getSnapshot().output?.typography;
+  expect.assert(typography !== undefined);
+  expect(typography).toBe(loaded[1]);
+  expect(loaded[1]?.isDisposed()).toBe(false);
+  reconnected();
+});
+
+test("reprocesses a failed input after reconnecting", async ({
+  session,
+  started,
+  createEngine,
+  disconnect,
+}) => {
+  session.request(input("a"));
+  started[0]?.resolve(ManuscriptResult.fail({ stage: "worker", message: "boom" }));
+  await vi.waitFor(() => {
+    expect(session.getSnapshot().failure).not.toBeNull();
+  });
+
+  disconnect();
+  const reconnected = session.connect(createEngine());
+  started[1]?.resolve(succeed("a"));
+
+  await vi.waitFor(() => {
+    expect(session.getSnapshot()).toMatchObject({ pending: false, failure: null });
+  });
+  expect(session.getSnapshot().output?.composed.parsed.source).toBe("a");
+  reconnected();
 });

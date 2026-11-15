@@ -59,7 +59,6 @@ export class ManuscriptSession {
   #renderFonts = new Map<FontPresetId, ReturnType<RenderFontLoader>>();
   #latest: ManuscriptInput | null = null;
   #latestKey: string | null = null;
-  #settledKey: string | null = null;
   #queued: ManuscriptInput | null = null;
   #running = false;
   // 接続し直すと、前の接続の結果を捨てるために進める
@@ -84,7 +83,12 @@ export class ManuscriptSession {
     this.#epoch += 1;
     this.#running = false;
     this.#engine = engine;
-    if (this.#latest !== null && this.#latestKey !== this.#settledKey) this.#queued = this.#latest;
+    // 処理済みの入力でも処理し直す
+    // 切断で output が使う描画用フォントは破棄済みで、failure も前の engine のものだから
+    if (this.#latest !== null) {
+      this.#queued = this.#latest;
+      if (!this.#snapshot.pending) this.#update({ pending: true });
+    }
     this.#pump();
     return () => {
       this.#connected = false;
@@ -115,7 +119,6 @@ export class ManuscriptSession {
    */
   retry(): void {
     if (this.#latest === null) return;
-    this.#settledKey = null;
     this.#queued = this.#latest;
     this.#update({ pending: true });
     this.#pump();
@@ -157,30 +160,23 @@ export class ManuscriptSession {
 
   async #run(engine: ManuscriptEngine, input: ManuscriptInput): Promise<void> {
     const epoch = this.#epoch;
-    const key = keyOf(input);
     const fonts = this.#renderFontsFor(input.settings.appearance.fontPreset);
     const outcome = await engine.process(input);
     if (epoch !== this.#epoch) return;
     const newerQueued = this.#queued !== null;
     if (!outcome.ok) {
-      if (!newerQueued) {
-        this.#settledKey = key;
-        this.#update({ pending: false, failure: outcome.error });
-      }
+      if (!newerQueued) this.#update({ pending: false, failure: outcome.error });
       return;
     }
     const typography = await fonts;
     if (epoch !== this.#epoch) return;
     if (!typography.ok) {
-      if (this.#queued === null) {
-        this.#settledKey = key;
+      if (this.#queued === null)
         this.#update({ pending: false, failure: { stage: "typography", error: typography.error } });
-      }
       return;
     }
     const { composed, diagnostics, proofreadFailure } = outcome.value;
     // 新しい入力を待たせていても、これは表示中のものより新しいので反映する
-    if (this.#queued === null) this.#settledKey = key;
     this.#update({
       output: { composed, diagnostics, proofreadFailure, typography: typography.value },
       pending: this.#queued !== null,
