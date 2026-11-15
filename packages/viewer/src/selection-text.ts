@@ -20,14 +20,15 @@ function manuscriptText(range: Range, viewer: Element): string | undefined {
   if (element.closest(LINE_TEXT) !== null) return fragment.textContent;
   if (element.closest(LINE) !== null) return lineText(fragment);
 
-  const lines = [...fragment.querySelectorAll(LINE)].map((line) => ({
-    text: lineText(line) ?? "",
-    paragraphEnd: line.getAttribute("data-break") === "paragraph-end",
-  }));
-  if (lines.length === 0) return undefined;
-  // 最後のページの余りは空の行で埋まり、原稿の空行と見分けられない
-  // 余りの行が改行としてコピーされないよう、選択の末尾の空の行は数えない
-  while (lines.length > 1 && lines.at(-1)?.text === "") lines.pop();
+  const selected = [...fragment.querySelectorAll(LINE)];
+  if (selected.length === 0) return undefined;
+  // オフセットやページの余りで空けた行は原稿に無く、改行としてコピーしない
+  const lines = selected
+    .filter((line) => !line.hasAttribute("data-padding"))
+    .map((line) => ({
+      text: lineText(line) ?? "",
+      paragraphEnd: line.getAttribute("data-break") === "paragraph-end",
+    }));
   return lines
     .map(({ text, paragraphEnd }, index) =>
       index < lines.length - 1 && paragraphEnd ? `${text}\n` : text,

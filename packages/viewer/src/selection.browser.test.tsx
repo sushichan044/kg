@@ -74,7 +74,11 @@ const cases = [
 // 選択範囲の文字列には、行の切れ目ごとに改行が入る
 const bodyOnly = (text: string) => text.replaceAll(/[\n\r]/g, "");
 
-function compose(source: string, typography: ReadyTypography) {
+function compose(
+  source: string,
+  typography: ReadyTypography,
+  overrides: Partial<Pick<NovelCompositionSettings, "flow" | "offsets">> = {},
+) {
   const parsed = parseManuscript(source, { parser: pixivParser });
   expect.assert(parsed.ok);
   const composed = composeManuscript(parsed.value, {
@@ -83,6 +87,7 @@ function compose(source: string, typography: ReadyTypography) {
       ...NovelCompositionSettings.defaults,
       appearance: { ...NovelCompositionSettings.defaults.appearance, fontPreset: "genei-koburi" },
       flow: { lineLengthEm: 10, linesPerStage: 10, stagesPerPage: 1 },
+      ...overrides,
     }),
   });
   expect.assert(composed.ok);
@@ -94,6 +99,21 @@ async function pasteClipboard(target: Locator): Promise<string> {
   await target.click();
   await userEvent.paste();
   return (target.element() as HTMLTextAreaElement).value;
+}
+
+// WebKit は貼り付けるときに末尾の改行を落とすので、コピーした文字列はクリップボードから直接読む
+async function copiedText(): Promise<string | undefined> {
+  let copied: string | undefined;
+  const capture = (event: ClipboardEvent) => {
+    copied = event.clipboardData?.getData("text/plain");
+  };
+  document.addEventListener("copy", capture);
+  try {
+    await userEvent.copy();
+  } finally {
+    document.removeEventListener("copy", capture);
+  }
+  return copied;
 }
 
 test.for(cases)("copies the manuscript text in order ($name)", async (found, { typography }) => {
@@ -182,6 +202,55 @@ test("copies only the manuscript text when the whole page is selected", async ({
   );
   expect(pasted).toBe("　組版見本を確かめる。Hello, World、25歳");
 });
+
+const paddingCases = [
+  { name: "trailing blank lines", source: "本文\n\n\n", settings: {}, expected: "本文\n\n" },
+  {
+    name: "document offsets",
+    source: "本文\n\n",
+    settings: {
+      offsets: {
+        ...NovelCompositionSettings.defaults.offsets,
+        document: { leading: 1, trailing: 1 },
+      },
+    },
+    expected: "本文\n",
+  },
+  {
+    name: "stage offsets",
+    // 各段に1行だけ組み、残りの9行を空ける
+    source: "あいうえおかきくけこさしすせそたちつてと\n",
+    settings: {
+      flow: { lineLengthEm: 10, linesPerStage: 10, stagesPerPage: 2 },
+      offsets: {
+        ...NovelCompositionSettings.defaults.offsets,
+        stage: { leading: 0, trailing: 9 },
+      },
+    },
+    expected: "あいうえおかきくけこさしすせそたちつてと",
+  },
+] as const;
+
+test.for(paddingCases)(
+  "copies blank manuscript lines but not the layout padding ($name)",
+  async (found, { typography }) => {
+    const screen = await render(
+      <NovelViewer
+        composed={compose(found.source, typography, found.settings)}
+        typography={typography}
+      />,
+    );
+    const page = screen.container.querySelector(".kgv-page");
+    expect.assert(page !== null);
+    const selection = window.getSelection();
+    expect.assert(selection !== null);
+
+    selection.selectAllChildren(page);
+    const copied = await copiedText();
+
+    expect(copied).toBe(found.expected);
+  },
+);
 
 test("keeps the page text available to assistive technology", async ({ typography }) => {
   const screen = await render(
