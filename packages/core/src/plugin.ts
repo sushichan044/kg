@@ -16,3 +16,5 @@ export { MeasurementTextRange } from "./composer/measurement-text-range";
 export { RunMeasurement } from "./composer/run-measurement";
 export { resolveGlyphOrientation } from "./composer/glyph-orientation";
 export type { GlyphOrientation } from "./composer/glyph-orientation";
+export { createShapedRunMeasurer } from "./composer/shaped-run-measurer";
+export type { ShapeDirection, ShapedCluster, ShapeRequest, Shaper } from "./composer/shaper";
