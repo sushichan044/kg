@@ -29,12 +29,20 @@ For page counts or image export that must use the same font measurements, use
 Use `NovelViewerProps` or `DiagnosticListProps` when wrapping the components.
 Import `styles.css` for layout and the default theme.
 
-## Compose and proofread in a Web Worker
+## Compose and proofread with `useManuscript`
 
 `useManuscript` runs the whole pipeline (parse, prepare, compose with the font's
 real metrics, proofread) and returns the composed manuscript and diagnostics.
-Pass a Worker to keep that work off the main thread. You create the worker, so
-the package does not depend on a bundler.
+Running it in a Web Worker is the recommended setup.
+
+### Recommended: run in a Web Worker
+
+Composing a long manuscript takes seconds, and on the main thread it blocks
+input and rendering for that time. Measured in Chromium with 42k characters and
+20 keystrokes at 50 ms intervals, the longest main-thread block was 2685 ms
+without a worker and 123 ms with one. Passing `worker` is optional, but use it
+whenever your bundler can build a worker. You create the worker, so the package
+does not depend on a bundler.
 
 Add a one-line worker file:
 
@@ -78,7 +86,14 @@ function Preview({ source }: { source: string }) {
 The worker uses top-level `await` (HarfBuzz), so bundle workers as ES modules.
 In Vite, set `worker: { format: "es" }`.
 
-Without `worker`, the same hook composes on the main thread.
+### Fallback: run on the main thread
+
+Omit `worker` when a worker cannot be used, for example when your environment
+cannot bundle one. The same hook then composes on the main thread, with the same
+result and the same options. Long manuscripts block the main thread while they
+compose (see the measurement above).
+
+### Behavior
 
 - While a newer input is pending, `output` keeps the previous composed
   manuscript and diagnostics (`pending` is `true`), so the viewer is never
