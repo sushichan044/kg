@@ -64,12 +64,15 @@ describe("resolveGlyphOrientation", () => {
       // Assert
       expect(orientation).toBe("sideways");
     });
-
-    test("rejects an empty grapheme", () => {
-      // Arrange & Act & Assert
-      expect(() => resolveGlyphOrientation("", "mixed")).toThrow(RangeError);
-    });
   });
+
+  test.for(["mixed", "upright", "sideways"] as const)(
+    "rejects an empty grapheme for %s",
+    (presentation) => {
+      // Arrange & Act & Assert
+      expect(() => resolveGlyphOrientation("", presentation)).toThrow(RangeError);
+    },
+  );
 
   test.for(["あ", "A", "😀"])("keeps upright presentation for %s", (grapheme) => {
     // Arrange & Act
