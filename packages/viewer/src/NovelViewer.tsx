@@ -10,7 +10,7 @@ import type {
   NovelPage as ComposedNovelPage,
   PresentationKind,
 } from "@sushichan044/kg-core";
-import { resolveGlyphOrientation } from "@sushichan044/kg-core/plugin";
+import { logicalGraphemeAdvanceEm, resolveGlyphOrientation } from "@sushichan044/kg-core/plugin";
 import type { GlyphOrientation } from "@sushichan044/kg-core/plugin";
 import {
   Suspense,
@@ -237,6 +237,20 @@ function presentationClass(value: string, kind: PresentationKind): string {
       return "kgv-glyph-tate-chu-yoko";
     }
   }
+}
+
+// 論理測定は半角の字に 0.5em を割り当てるが、フォントを持たない書体の欧文は字幅が比例して広い
+// 割り当てより広いまま横倒しにすると隣の字に重なるので、hwid で半角の字形に置き換える
+function halfWidthClass(
+  value: string,
+  kind: PresentationKind,
+  measurement: FontPreset["measurement"],
+): string | undefined {
+  return measurement === "logical" &&
+    glyphOrientation(value, kind) === "sideways" &&
+    logicalGraphemeAdvanceEm(value) === 0.5
+    ? "kgv-glyph-half-width"
+    : undefined;
 }
 
 function emphasisMarks(line: NovelLine): EmphasisMark[] {
@@ -467,6 +481,7 @@ type NovelPageProps = Readonly<{
   gridRow: number | undefined;
   showGrid: boolean;
   ruleCellCount: number;
+  measurement: FontPreset["measurement"];
   activeDiagnosticId: string | null;
   container: RefObject<HTMLDivElement | null>;
   registerPage: (pageIndex: number, element: HTMLElement | null) => void;
@@ -481,6 +496,7 @@ function NovelPage({
   gridRow,
   showGrid,
   ruleCellCount,
+  measurement,
   activeDiagnosticId,
   container,
   registerPage,
@@ -594,6 +610,7 @@ function NovelPage({
                               className={joinClassNames(
                                 "kgv-glyph",
                                 presentationClass(cell.value, cell.presentation),
+                                halfWidthClass(cell.value, cell.presentation, measurement),
                               )}
                             >
                               {cell.value}
@@ -835,6 +852,7 @@ function NovelViewerRenderer({
                 }
                 showGrid={showGrid}
                 ruleCellCount={ruleCellCount}
+                measurement={selectedFont.measurement}
                 activeDiagnosticId={
                   activeDiagnosticId !== null && diagnosticIds.has(activeDiagnosticId)
                     ? activeDiagnosticId
