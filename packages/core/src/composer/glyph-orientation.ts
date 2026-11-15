@@ -28,10 +28,10 @@ export function resolveGlyphOrientation(
   grapheme: string,
   presentation: Exclude<PresentationKind, "tate-chu-yoko">,
 ): GlyphOrientation {
-  if (presentation !== "mixed") return presentation;
-
   const base = grapheme.codePointAt(0);
   if (base === undefined) throw new RangeError("grapheme must not be empty");
+
+  if (presentation !== "mixed") return presentation;
 
   if (grapheme.includes(EMOJI_PRESENTATION_SELECTOR)) return "upright";
 
