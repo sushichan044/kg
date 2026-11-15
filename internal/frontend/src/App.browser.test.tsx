@@ -1237,3 +1237,66 @@ test("rejects an export when the browser returns a smaller canvas", async ({ ren
     download.mockRestore();
   }
 });
+
+test("shows a failure panel when the worker cannot be loaded", async ({ renderApp }) => {
+  await page.viewport(1280, 800);
+  const RealWorker = Worker;
+  vi.stubGlobal(
+    "Worker",
+    class extends RealWorker {
+      constructor() {
+        super("/kg-missing.worker.js", { type: "module" });
+      }
+    },
+  );
+
+  try {
+    const screen = await renderApp();
+
+    await expect
+      .element(screen.getByRole("alert").filter({ hasText: "組版ワーカーが失敗しました" }))
+      .toBeVisible();
+    expect(screen.container.querySelector(".kgv-viewport")).toBeNull();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+test("keeps the viewer and offers a retry when the worker dies after a successful composition", async ({
+  novelSource,
+  renderApp,
+}) => {
+  await page.viewport(1280, 800);
+  const RealWorker = Worker;
+  const workers: Worker[] = [];
+  vi.stubGlobal(
+    "Worker",
+    class extends RealWorker {
+      constructor(...args: ConstructorParameters<typeof Worker>) {
+        // 最初の Worker だけを動かし、作り直した Worker は読み込みに失敗させる
+        if (workers.length === 0) super(...args);
+        else super("/kg-missing.worker.js", { type: "module" });
+        workers.push(this);
+      }
+    },
+  );
+
+  try {
+    const screen = await renderApp();
+    await waitFor(() => {
+      expect(screen.container.querySelector(".kgv-viewport")).not.toBeNull();
+    });
+    workers[0]?.dispatchEvent(new ErrorEvent("error", { message: "boom" }));
+    novelSource.current = "あいう";
+    expect.assert(FakeEventSource.latest !== undefined);
+    FakeEventSource.latest.emit("file-changed", JSON.stringify({ id: "novel" }));
+
+    await expect
+      .element(screen.getByRole("alert").filter({ hasText: "組版ワーカーが失敗しました" }))
+      .toBeVisible();
+    expect(screen.container.querySelector(".kgv-viewport")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "再試行" }).first()).toBeDefined();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});

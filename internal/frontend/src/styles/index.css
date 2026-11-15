@@ -762,3 +762,22 @@ select {
   height: 1000px;
   pointer-events: none;
 }
+
+.diagnostic-drawer [data-stale] {
+  opacity: 0.55;
+}
+
+.diagnostic-drawer__failure {
+  margin-block: 0 0.75rem;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.preview__notice {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.25rem 0.75rem;
+  color: #6b7280;
+  font-size: 0.875rem;
+}

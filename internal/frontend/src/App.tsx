@@ -1,5 +1,4 @@
-import { TypographyProvider } from "@sushichan044/kg-viewer";
-import { startTransition, Suspense, useDeferredValue, useReducer, useState } from "react";
+import { startTransition, useDeferredValue, useReducer, useState } from "react";
 import {
   useLoaderData,
   useNavigate,
@@ -14,7 +13,7 @@ import { SettingsPanel } from "./components/ViewerControls";
 import { loadManuscriptPreferences, saveManuscriptPreferences } from "./lib/storage";
 import { manuscriptReducer } from "./manuscript";
 import type { ManuscriptAction, ManuscriptState } from "./manuscript";
-import { ManuscriptView, TypographyLoading } from "./ManuscriptView";
+import { ManuscriptView } from "./ManuscriptView";
 import { FILE_QUERY_PARAM, searchWithFile } from "./workspace";
 import type { Workspace } from "./workspace";
 
@@ -35,6 +34,7 @@ export function App() {
     navigation.location === undefined
       ? (workspace.document?.file.path ?? null)
       : new URLSearchParams(navigation.location.search).get(FILE_QUERY_PARAM);
+  const [manuscriptPending, setManuscriptPending] = useState(false);
   const [manuscript, dispatch] = useReducer(manuscriptReducer, undefined, initialManuscriptState);
   // 書体と組版結果は同じ遅延値から作る
   // 片方だけ新しい設定になると、NovelViewer は書体と組版設定の食い違いとしてエラーを表示する
@@ -44,7 +44,8 @@ export function App() {
   const pending =
     navigation.state === "loading" ||
     composition !== manuscript.preferences.composition ||
-    notation !== manuscript.preferences.notation;
+    notation !== manuscript.preferences.notation ||
+    manuscriptPending;
   const [preferenceStatus, setPreferenceStatus] = useState("");
   const status = workspace.status !== "" ? workspace.status : preferenceStatus;
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -97,7 +98,7 @@ export function App() {
   );
 
   return (
-    <TypographyProvider>
+    <>
       <div className="app" data-sidebar={sidebarOpen ? "open" : "closed"}>
         <a className="skip-link visually-hidden" href="#preview">
           プレビューへスキップ
@@ -135,28 +136,27 @@ export function App() {
               </button>
             </div>
           ) : (
-            <Suspense fallback={<TypographyLoading />}>
-              <ManuscriptView
-                file={workspace.document.file}
-                source={workspace.document.source}
-                manuscript={manuscript}
-                composition={composition}
-                notation={notation}
-                pending={pending}
-                sidebarOpen={sidebarOpen}
-                onSidebarToggle={() => {
-                  setSidebarOpen((open) => !open);
-                }}
-                onFilesOpen={() => {
-                  setFileSwitcherOpen(true);
-                }}
-                onDiagnosticSelect={(id) => {
-                  dispatch({ kind: "diagnostic.select", id });
-                }}
-                onPreferenceAction={commitPreferenceAction}
-                renderSettings={renderSettings}
-              />
-            </Suspense>
+            <ManuscriptView
+              file={workspace.document.file}
+              source={workspace.document.source}
+              manuscript={manuscript}
+              composition={composition}
+              notation={notation}
+              pending={pending}
+              onPendingChange={setManuscriptPending}
+              sidebarOpen={sidebarOpen}
+              onSidebarToggle={() => {
+                setSidebarOpen((open) => !open);
+              }}
+              onFilesOpen={() => {
+                setFileSwitcherOpen(true);
+              }}
+              onDiagnosticSelect={(id) => {
+                dispatch({ kind: "diagnostic.select", id });
+              }}
+              onPreferenceAction={commitPreferenceAction}
+              renderSettings={renderSettings}
+            />
           )}
         </main>
 
@@ -168,6 +168,6 @@ export function App() {
           onSelect={selectFile}
         />
       </div>
-    </TypographyProvider>
+    </>
   );
 }

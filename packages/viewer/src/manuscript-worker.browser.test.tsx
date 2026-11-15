@@ -6,6 +6,7 @@ import { renderHook } from "vitest-browser-react";
 import { createMainThreadEngine, createWorkerEngine } from "./manuscript-engine";
 import type { ManuscriptEngine } from "./manuscript-engine";
 import type { ManuscriptInput } from "./manuscript-pipeline";
+import type { ManuscriptOutput } from "./manuscript-session";
 import { ManuscriptSession } from "./manuscript-session";
 import { useManuscript } from "./use-manuscript";
 import type { UseManuscriptOptions } from "./use-manuscript";
@@ -143,6 +144,15 @@ test("computes only the first and the latest of rapid inputs in the worker", asy
   expect(session.getSnapshot().output?.composed.parsed.source).toBe("あいうえお");
 });
 
+// 診断は、同じ結果の組版から作られているので、表示中の原稿の範囲を超えない
+function expectDiagnosticsWithin(output: ManuscriptOutput | null) {
+  expect.assert(output !== null);
+  for (const { range } of output.diagnostics) {
+    expect(range.source.end).toBeLessThanOrEqual(output.composed.parsed.source.length);
+    expect(range.graphemes.end).toBeLessThanOrEqual(output.composed.parsed.graphemes.length);
+  }
+}
+
 type HookProps = UseManuscriptOptions;
 
 async function renderManuscript(initial: HookProps) {
@@ -166,9 +176,10 @@ test("keeps the previous output while the worker composes the next one", async (
   );
   const first = hook.current().output;
 
-  await hook.rerender({ ...base, source: `${samples.prose}\n追加の一行。` });
+  await hook.rerender({ ...base, source: "あ" });
 
   expect(hook.current().output).toBe(first);
+  expectDiagnosticsWithin(hook.current().output);
   expect(hook.current().pending).toBe(true);
   await vi.waitFor(
     () => {
@@ -176,7 +187,8 @@ test("keeps the previous output while the worker composes the next one", async (
     },
     { timeout: 10_000 },
   );
-  expect(hook.current().output?.composed.parsed.source).toContain("追加の一行");
+  expect(hook.current().output?.composed.parsed.source).toBe("あ");
+  expectDiagnosticsWithin(hook.current().output);
 });
 
 test("composes on the main thread without a worker", async () => {

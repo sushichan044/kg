@@ -16,8 +16,6 @@ export type ManuscriptEngine = Readonly<{
   dispose: () => void;
 }>;
 
-export type ManuscriptEngineFactory = () => ManuscriptEngine;
-
 // 利用者の Worker は、Comlink の proxy を解放すると Worker 側の待ち受けが外れて使い回せなくなる
 // そのため解放せず、同じ Worker には同じクライアントを使う
 const sharedClients = new WeakMap<Worker, WorkerClient<ManuscriptWorkerApi>>();

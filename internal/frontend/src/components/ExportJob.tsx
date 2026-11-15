@@ -1,11 +1,11 @@
 import type { NovelComposedManuscript } from "@sushichan044/kg-core";
 import { NovelViewer } from "@sushichan044/kg-viewer";
-import type { ReadyTypography } from "@sushichan044/kg-viewer";
+import type { RenderTypography } from "@sushichan044/kg-viewer";
 import { useEffect, useEffectEvent, useRef } from "react";
 
 export type ExportRequest = Readonly<{
   composed: NovelComposedManuscript;
-  typography: ReadyTypography;
+  typography: RenderTypography;
   startPageSide: "left" | "right";
   filename: string;
 }>;

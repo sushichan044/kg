@@ -112,6 +112,7 @@ export default defineConfig({
           "packages/viewer/src/selection.browser.test.tsx",
           "packages/viewer/src/manuscript-worker.browser.test.tsx",
           "packages/viewer/src/manuscript-session.test.ts",
+          "packages/viewer/src/manuscript-pipeline.test.ts",
           "packages/viewer/src/harfbuzz-shaper.test.ts",
           "packages/viewer/src/harfbuzz-shaper.browser.test.ts",
           "packages/core/src/composer/shaped-run-measurer.test.ts",

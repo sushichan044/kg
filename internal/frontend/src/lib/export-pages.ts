@@ -1,5 +1,5 @@
 import type { NovelComposedManuscript } from "@sushichan044/kg-core";
-import type { ReadyTypography } from "@sushichan044/kg-viewer";
+import type { RenderTypography } from "@sushichan044/kg-viewer";
 import { snapdom } from "@zumer/snapdom";
 import { strToU8, zlibSync, zipSync } from "fflate";
 
@@ -64,7 +64,7 @@ export function monochromePng(image: ImageData): Uint8Array {
 export async function exportPages(
   host: HTMLElement,
   composed: NovelComposedManuscript,
-  typography: ReadyTypography,
+  typography: RenderTypography,
   filename: string,
   signal: AbortSignal,
 ): Promise<void> {
