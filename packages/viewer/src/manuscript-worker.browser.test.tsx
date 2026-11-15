@@ -165,8 +165,30 @@ async function renderManuscript(initial: HookProps) {
   return { current: () => result.current, rerender: (props: HookProps) => rerender(props) };
 }
 
+// 先に登録した listener が Worker の返信を止め、release で同じ data を届け直す
+function holdReplies(worker: Worker) {
+  let held: unknown[] | null = null;
+  worker.addEventListener("message", (event) => {
+    if (held === null) return;
+    event.stopImmediatePropagation();
+    held.push(event.data);
+  });
+  return {
+    hold: () => {
+      held = [];
+    },
+    release: () => {
+      const replies = held ?? [];
+      held = null;
+      for (const data of replies) worker.dispatchEvent(new MessageEvent("message", { data }));
+    },
+  };
+}
+
 test("keeps the previous output while the worker composes the next one", async () => {
-  const base = { ...inputFor(samples.prose, "mincho"), worker: createWorker };
+  const worker = createWorker();
+  const replies = holdReplies(worker);
+  const base = { ...inputFor(samples.prose, "mincho"), worker };
   const hook = await renderManuscript(base);
   await vi.waitFor(
     () => {
@@ -175,12 +197,14 @@ test("keeps the previous output while the worker composes the next one", async (
     { timeout: 10_000 },
   );
   const first = hook.current().output;
+  replies.hold();
 
   await hook.rerender({ ...base, source: "あ" });
 
   expect(hook.current().output).toBe(first);
   expectDiagnosticsWithin(hook.current().output);
   expect(hook.current().pending).toBe(true);
+  replies.release();
   await vi.waitFor(
     () => {
       expect(hook.current().pending).toBe(false);
@@ -189,6 +213,7 @@ test("keeps the previous output while the worker composes the next one", async (
   );
   expect(hook.current().output?.composed.parsed.source).toBe("あ");
   expectDiagnosticsWithin(hook.current().output);
+  worker.terminate();
 });
 
 test("composes on the main thread without a worker", async () => {
