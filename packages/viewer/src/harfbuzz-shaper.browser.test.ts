@@ -50,19 +50,35 @@ const runs = [
 ];
 const rubyTexts = ["ふりがな", "ひらがな", "ルビ", "ゔぁ", "ruby", "ルビ・ルビ", "ー", "ABC"];
 
-// 強制した向きの計測で、ブラウザーが本文と違う描き方をする箇所（`<font>|<group>|<text>`）
-// WebKit は GenEi の半角形を縦でも 0.5 em で描き、縦の欧文には liga を適用する
-const knownDifferences: Readonly<Record<string, readonly string[]>> = {
-  chromium: [],
-  webkit: [
-    ...Array.from("ｱｲﾞﾟ｢｣､｡ｰ").map((text) => `genei-regular|upright/halfwidth|${text}`),
-    "genei-regular|upright/run|ffi fl fi",
-  ],
+// 強制した向きの計測で、ブラウザーが本文と違う描き方をする箇所
+// 同じ WebKit でも OS ごとに描き方が違うので、`<browser>/<platform>` ごとに持つ
+type KnownDifferences = Readonly<{
+  // `<font>|<group>|<text>`
+  keys: readonly string[];
+  // 縦組みでも vmtx を使わず、横組みの送り幅で描くフォント
+  // これらのフォントでは、縦と横の送り幅が違う行がすべてずれ、ずれた値は横組みの送り幅と一致する
+  horizontalFonts: readonly string[];
+}>;
+const knownDifferences: Readonly<Record<string, KnownDifferences>> = {
+  "chromium/darwin": { keys: [], horizontalFonts: [] },
+  "chromium/linux": { keys: [], horizontalFonts: [] },
+  // macOS の WebKit は GenEi の半角形を縦でも 0.5 em で描き、縦の欧文には liga を適用する
+  "webkit/darwin": {
+    keys: [
+      ...Array.from("ｱｲﾞﾟ｢｣､｡ｰ").map((text) => `genei-regular|upright/halfwidth|${text}`),
+      "genei-regular|upright/run|ffi fl fi",
+    ],
+    horizontalFonts: [],
+  },
+  // Linux の WebKit は Rin の vmtx を読まない（GenEi の vmtx は読む）
+  "webkit/linux": { keys: [], horizontalFonts: ["rin-regular", "rin-bold"] },
 };
 
 type Row = Readonly<{
   key: string;
+  text: string;
   measured: number;
+  horizontal: number;
   browser: number;
   difference: number;
 }>;
@@ -133,6 +149,11 @@ const test = base.extend<{
               ? { ...context, kind, presentation: "mixed" }
               : { ...context, kind, presentation: orientation };
           const measured = measurer(request).advanceEm;
+          const horizontal = measurer({
+            ...context,
+            kind: "base",
+            presentation: "sideways",
+          }).advanceEm;
           probe.style.fontSize = `${PROBE_PX * scale}px`;
           probe.style.textOrientation = orientation;
           probe.lang = orientation === "sideways" ? "en" : "ja";
@@ -144,7 +165,9 @@ const test = base.extend<{
           const browser = probe.getBoundingClientRect().height / PROBE_PX;
           rows.push({
             key: `${subject.id}|${group}|${text}`,
+            text,
             measured,
+            horizontal,
             browser,
             difference: measured - browser,
           });
@@ -178,9 +201,24 @@ test.for(subjects)("matches the browser advances for $id", async (subject, { com
   const rows = await compare(subject);
 
   const mismatches = rows.filter(({ difference }) => Math.abs(difference) > TOLERANCE_EM);
-  const expected = (knownDifferences[server.browser] ?? []).filter((key) =>
-    key.startsWith(subject.id),
-  );
+  const known = knownDifferences[`${server.browser}/${server.platform}`];
+  expect.assert(known, `no expectations for ${server.browser}/${server.platform}`);
+  const drawnHorizontally = known.horizontalFonts.includes(subject.id);
+  const expected = [
+    ...known.keys.filter((key) => key.startsWith(`${subject.id}|`)),
+    ...(drawnHorizontally
+      ? rows
+          .filter(({ measured, horizontal }) => Math.abs(measured - horizontal) > TOLERANCE_EM)
+          .map(({ key }) => key)
+      : []),
+  ];
+  // 横組みの送り幅はカーニングを含むが、縦の計測はカーニングを切るので、1 字の行だけで比べる
+  const notHorizontal = drawnHorizontally
+    ? mismatches.filter(
+        ({ text, horizontal, browser }) =>
+          Array.from(text).length === 1 && Math.abs(horizontal - browser) > TOLERANCE_EM,
+      )
+    : [];
   await commands.writeFile(
     `${server.config.root}/font-proof/.cache/evidence/${server.browser}-shaper-${subject.id}.json`,
     JSON.stringify(
@@ -196,4 +234,5 @@ test.for(subjects)("matches the browser advances for $id", async (subject, { com
 
   expect(rows.length).toBeGreaterThan(300);
   expect(mismatches.map(({ key }) => key).toSorted()).toEqual(expected.toSorted());
+  expect(notHorizontal).toEqual([]);
 });
