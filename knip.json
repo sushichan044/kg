@@ -11,6 +11,9 @@
       "entry": ["src/index.ts!", "src/lint.ts!", "src/plugin.ts!"],
       "ignoreDependencies": ["@arethetypeswrong/core", "publint", "unplugin-unused"]
     },
+    "packages/worker-rpc": {
+      "entry": ["src/fixtures/*.worker.ts"]
+    },
     "packages/viewer": {
       "entry": ["src/index.ts!", "src/harfbuzz-shaper.ts!"],
       "ignoreDependencies": ["@arethetypeswrong/core", "publint", "unplugin-unused"],
