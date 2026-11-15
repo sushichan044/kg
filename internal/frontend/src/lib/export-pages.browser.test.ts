@@ -1,7 +1,7 @@
 import { unzlibSync } from "fflate";
 import { expect, test } from "vite-plus/test";
 
-import { monochromePng } from "./export-pages";
+import { monochromePng } from "./png-encoder";
 
 test("encodes a 600 dpi one-bit grayscale PNG", () => {
   const image = new ImageData(3, 1);
