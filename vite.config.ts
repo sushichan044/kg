@@ -102,6 +102,7 @@ export default defineConfig({
       {
         files: [
           "internal/frontend/mock/vite-plugin.test.ts",
+          "internal/frontend/src/lib/export-encoder.browser.test.ts",
           "internal/frontend/src/lib/storage.browser.test.ts",
           "internal/frontend/src/App.browser.test.tsx",
           "packages/worker-rpc/src/worker-rpc.browser.test.ts",
