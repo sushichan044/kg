@@ -29,6 +29,7 @@ import { render } from "vitest-browser-react";
 import { fitZoom } from "./fit-zoom";
 import { NovelViewer } from "./NovelViewer";
 import type { NovelViewerProps } from "./NovelViewer";
+import type { ReadyTypography } from "./typography";
 
 import "./styles.css";
 
@@ -72,7 +73,7 @@ async function renderViewer(options: ViewerFixtureOptions, props: ViewerFixtureP
 
   const found = [...parsed.warnings, ...proofread.value];
   const diagnostics = options.reportedAs?.(found) ?? found;
-  const typography: NovelViewerProps["typography"] = {
+  const typography: ReadyTypography = {
     fontFaces: [],
     fontPreset: composed.value.settings.appearance.fontPreset,
     prepare: (parsed) => ({ parsed, mapRange: (range) => range }),

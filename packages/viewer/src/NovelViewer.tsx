@@ -26,7 +26,7 @@ import type { CSSProperties, Ref, RefCallback, RefObject, ReactNode } from "reac
 import { DiagnosticHover } from "./DiagnosticHover";
 import { DiagnosticMarker } from "./DiagnosticMarker";
 import { fitZoom } from "./fit-zoom";
-import type { ReadyTypography } from "./typography";
+import type { ReadyTypography, RenderTypography } from "./typography";
 import { cssFontFeatures } from "./typography-profile";
 import { TypographyContext, TypographyProvider } from "./TypographyProvider";
 import { TypographyLoading, TypographyStatus } from "./TypographyStatus";
@@ -40,7 +40,7 @@ const DEFAULT_ZOOM = { value: 100, min: 1, max: Number.MAX_SAFE_INTEGER, step: 1
 
 export type NovelViewerProps = Readonly<{
   composed: NovelComposedManuscript;
-  typography?: ReadyTypography;
+  typography?: RenderTypography;
   diagnostics?: readonly ManuscriptDiagnostic[];
   activeDiagnosticId?: string | null;
   zoom?: NovelViewerZoom;

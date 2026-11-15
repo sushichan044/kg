@@ -9,7 +9,9 @@ import { userEvent } from "vite-plus/test/browser";
 import { render } from "vitest-browser-react";
 
 import fontUrl from "../assets/GenEiKoburiMin6-R.ttf?url";
+import { createWorkerEngine } from "./manuscript-engine";
 import { NovelViewer } from "./NovelViewer";
+import { loadRenderTypography } from "./typography";
 import { loadTypography } from "./typography";
 import type { ReadyTypography } from "./typography";
 
@@ -80,4 +82,46 @@ test.for(cases)("copies the manuscript text in order ($name)", async (found, { t
   expect(bodyOnly(selected)).toBe(found.expected);
   expect(bodyOnly(cloned)).toBe(found.expected);
   expect(bodyOnly((target.element() as HTMLTextAreaElement).value)).toBe(found.expected);
+});
+
+test("copies the manuscript text in order when the worker composed it", async () => {
+  const engine = createWorkerEngine(
+    () => new Worker(new URL("./fixtures/kg.worker.ts", import.meta.url), { type: "module" }),
+  );
+  const settings = NovelCompositionSettings.forPaper("a4", {
+    ...NovelCompositionSettings.defaults,
+    appearance: { ...NovelCompositionSettings.defaults.appearance, fontPreset: "genei-koburi" },
+    flow: { lineLengthEm: 10, linesPerStage: 10, stagesPerPage: 1 },
+  });
+  const outcome = await engine.process({ source: body, notation: "pixiv", settings });
+  const rendering = await loadRenderTypography({
+    fontPreset: "genei-koburi",
+    fontUrls: { 400: fontUrl },
+  });
+  engine.dispose();
+  expect.assert(outcome.ok);
+  expect.assert(rendering.ok);
+  const screen = await render(
+    <>
+      <NovelViewer composed={outcome.value.composed} typography={rendering.value} />
+      <textarea aria-label="paste target" />
+    </>,
+  );
+  const glyphs = screen.container.querySelectorAll<HTMLElement>(".kgv-glyph");
+  const first = glyphs[0]?.firstChild;
+  const last = glyphs[glyphs.length - 1]?.firstChild;
+  expect.assert(first != null && last != null);
+  const selection = window.getSelection();
+  expect.assert(selection !== null);
+
+  selection.setBaseAndExtent(first, 0, last, last.textContent?.length ?? 0);
+  const selected = selection.toString();
+  await userEvent.copy();
+  const target = screen.getByLabelText("paste target");
+  await target.click();
+  await userEvent.paste();
+
+  expect(bodyOnly(selected)).toBe(body);
+  expect(bodyOnly((target.element() as HTMLTextAreaElement).value)).toBe(body);
+  rendering.value.dispose();
 });

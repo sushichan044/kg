@@ -13,13 +13,13 @@ import {
 } from "@sushichan044/kg-core/plugin";
 import type { ManuscriptComposer, RunMeasurer } from "@sushichan044/kg-core/plugin";
 
+import { loadFontFiles } from "./font-files";
+import type { FontFile, FontUrls, TypographyLoadError } from "./font-files";
 import { createHarfBuzzShaper } from "./harfbuzz-shaper";
 import type { HarfBuzzShaper } from "./harfbuzz-shaper";
-import { typographyFonts } from "./typography-fonts";
 
-export type TypographyLoadError = Readonly<{
-  kind: "font-load" | "font-integrity" | "shaper-load";
-}>;
+export type { TypographyLoadError } from "./font-files";
+
 type TypographyFontFace = Readonly<{
   family: string;
   src: string;
@@ -27,20 +27,92 @@ type TypographyFontFace = Readonly<{
   style: "normal";
 }>;
 
-export type ReadyTypography = Readonly<{
+export type RenderTypography = Readonly<{
   fontFaces: readonly TypographyFontFace[];
   fontPreset: FontPresetId;
-  prepare: (parsed: ParsedManuscript) => PreparedFontManuscript;
   fontFamily: string;
-  composer: ManuscriptComposer<NovelCompositionSettings, NovelComposedManuscript["layout"]>;
-  measurer: RunMeasurer;
   dispose: () => void;
 }>;
 
+export type ReadyTypography = RenderTypography &
+  Readonly<{
+    prepare: (parsed: ParsedManuscript) => PreparedFontManuscript;
+    composer: ManuscriptComposer<NovelCompositionSettings, NovelComposedManuscript["layout"]>;
+    measurer: RunMeasurer;
+  }>;
+
 type TypographyOptions = Readonly<{
   fontPreset: FontPresetId;
-  fontUrls?: Readonly<Partial<Record<400 | 700, string | URL>>>;
+  fontUrls?: FontUrls;
 }>;
+
+type RegisteredFonts = Readonly<{
+  fontFaces: readonly TypographyFontFace[];
+  dispose: () => void;
+}>;
+
+// FontFace の登録だけが document に触る
+async function registerFonts(
+  fontPreset: FontPresetId,
+  files: readonly FontFile[],
+): Promise<ManuscriptResult<RegisteredFonts, TypographyLoadError>> {
+  const profile = FontPreset.of(fontPreset);
+  let faces: FontFace[];
+  try {
+    faces = await Promise.all(
+      files.map(({ weight, data }) =>
+        new FontFace(profile.fontName, data, {
+          weight: String(weight),
+          style: "normal",
+        }).load(),
+      ),
+    );
+  } catch {
+    return ManuscriptResult.fail({ kind: "font-load" });
+  }
+  for (const face of faces) document.fonts.add(face);
+  const fontFaces = files.map(({ weight, data }): TypographyFontFace => ({
+    family: profile.fontName,
+    src: URL.createObjectURL(new Blob([data], { type: "font/ttf" })),
+    weight,
+    style: "normal",
+  }));
+  let disposed = false;
+  return ManuscriptResult.succeed({
+    fontFaces,
+    dispose: () => {
+      if (disposed) return;
+      disposed = true;
+      for (const face of faces) document.fonts.delete(face);
+      for (const { src } of fontFaces) URL.revokeObjectURL(src);
+    },
+  });
+}
+
+export async function loadRenderTypography({
+  fontPreset,
+  fontUrls,
+}: TypographyOptions): Promise<ManuscriptResult<RenderTypography, TypographyLoadError>> {
+  const profile = FontPreset.of(fontPreset);
+  if (profile.measurement === "logical") {
+    return ManuscriptResult.succeed({
+      fontPreset,
+      fontFaces: [],
+      fontFamily: profile.family,
+      dispose: () => {},
+    });
+  }
+  const files = await loadFontFiles(fontPreset, fontUrls);
+  if (!files.ok) return files;
+  const registered = await registerFonts(fontPreset, files.value);
+  if (!registered.ok) return registered;
+  return ManuscriptResult.succeed({
+    fontPreset,
+    fontFaces: registered.value.fontFaces,
+    fontFamily: profile.family,
+    dispose: registered.value.dispose,
+  });
+}
 
 /**
  * 宣言されたフェイスをすべて読み込んでから、それに対応する同期的なコンポーザーを公開する。
@@ -51,14 +123,17 @@ export async function loadTypography({
 }: TypographyOptions): Promise<ManuscriptResult<ReadyTypography, TypographyLoadError>> {
   const profile = FontPreset.of(fontPreset);
   const prepare = (parsed: ParsedManuscript) => prepareManuscriptForFont(parsed, fontPreset);
-  if (profile.measurement === "logical") {
-    let disposed = false;
-    const measurer: RunMeasurer = (request) => {
+  let disposed = false;
+  const guard =
+    (measure: RunMeasurer): RunMeasurer =>
+    (request) => {
       if (disposed) throw new Error("Typography resource has been disposed");
       if (request.fontPreset !== fontPreset)
         throw new Error("Typography font does not match the composition settings");
-      return logicalRunMeasurer(request);
+      return measure(request);
     };
+  if (profile.measurement === "logical") {
+    const measurer = guard(logicalRunMeasurer);
     return ManuscriptResult.succeed({
       fontPreset,
       fontFaces: [],
@@ -71,64 +146,22 @@ export async function loadTypography({
       },
     });
   }
-  const faces = await Promise.all(
-    typographyFonts[fontPreset].map(
-      async (
-        asset,
-      ): Promise<
-        ManuscriptResult<
-          Readonly<{ weight: 400 | 700; data: ArrayBuffer; face: FontFace }>,
-          TypographyLoadError
-        >
-      > => {
-        try {
-          const response = await fetch(fontUrls?.[asset.weight] ?? asset.url);
-          if (!response.ok) return ManuscriptResult.fail({ kind: "font-load" });
-          const data = await response.arrayBuffer();
-          const digest = await crypto.subtle.digest("SHA-256", data);
-          const sha = Array.from(new Uint8Array(digest), (byte) =>
-            byte.toString(16).padStart(2, "0"),
-          ).join("");
-          if (sha !== asset.sha256) return ManuscriptResult.fail({ kind: "font-integrity" });
-          const face = await new FontFace(profile.fontName, data, {
-            weight: String(asset.weight),
-            style: "normal",
-          }).load();
-          return ManuscriptResult.succeed({ weight: asset.weight, data, face });
-        } catch {
-          return ManuscriptResult.fail({ kind: "font-load" });
-        }
-      },
-    ),
-  );
-  const loaded: Array<Readonly<{ weight: 400 | 700; data: ArrayBuffer; face: FontFace }>> = [];
-  for (const result of faces) {
-    if (!result.ok) return result;
-    loaded.push(result.value);
-  }
+  const files = await loadFontFiles(fontPreset, fontUrls);
+  if (!files.ok) return files;
   let shaper: HarfBuzzShaper;
   try {
-    shaper = await createHarfBuzzShaper(loaded);
+    shaper = await createHarfBuzzShaper(files.value);
   } catch {
     return ManuscriptResult.fail({ kind: "shaper-load" });
   }
-  for (const { face } of loaded) document.fonts.add(face);
-  const shaped = createShapedRunMeasurer(shaper);
-  let disposed = false;
-  const measurer: RunMeasurer = (request) => {
-    if (disposed) throw new Error("Typography resource has been disposed");
-    if (request.fontPreset !== fontPreset)
-      throw new Error("Typography font does not match the composition settings");
-    return shaped(request);
-  };
-  const fontFaces = loaded.map(({ weight, data }): TypographyFontFace => ({
-    family: profile.fontName,
-    src: URL.createObjectURL(new Blob([data], { type: "font/ttf" })),
-    weight,
-    style: "normal",
-  }));
+  const registered = await registerFonts(fontPreset, files.value);
+  if (!registered.ok) {
+    shaper.dispose();
+    return registered;
+  }
+  const measurer = guard(createShapedRunMeasurer(shaper));
   return ManuscriptResult.succeed({
-    fontFaces,
+    fontFaces: registered.value.fontFaces,
     fontPreset,
     prepare,
     fontFamily: profile.family,
@@ -138,9 +171,7 @@ export async function loadTypography({
       if (disposed) return;
       disposed = true;
       shaper.dispose();
-      for (const { face } of loaded) document.fonts.delete(face);
-      loaded.length = 0;
-      for (const { src } of fontFaces) URL.revokeObjectURL(src);
+      registered.value.dispose();
     },
   });
 }

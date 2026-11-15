@@ -36,12 +36,17 @@
   ],
   "type": "module",
   "sideEffects": [
-    "**/*.css"
+    "**/*.css",
+    "./dist/worker.mjs"
   ],
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",
       "import": "./dist/index.mjs"
+    },
+    "./worker": {
+      "types": "./dist/worker.d.mts",
+      "import": "./dist/worker.mjs"
     },
     "./styles.css": {
       "types": "./styles.d.ts",
@@ -88,6 +93,7 @@
     "@types/react-dom": "catalog:dev",
     "@vitejs/plugin-react": "catalog:dev",
     "@vitest/browser-playwright": "catalog:dev",
+    "kg-worker-rpc": "workspace:*",
     "oxc-transform-react": "catalog:prod",
     "playwright": "catalog:dev",
     "publint": "catalog:dev",
