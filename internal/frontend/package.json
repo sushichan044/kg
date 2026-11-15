@@ -9,6 +9,7 @@
     "@zumer/snapdom": "3.7.0",
     "cmdk": "1.1.1",
     "fflate": "0.8.3",
+    "kg-worker-rpc": "workspace:*",
     "react": "catalog:prod",
     "react-dom": "catalog:prod",
     "react-router": "8.5.1",

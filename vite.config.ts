@@ -6,6 +6,7 @@ import { frontendTestProjects } from "./internal/frontend/vite.config";
 import { coreTestProjects } from "./packages/core/vite.config";
 import { fontProofProject } from "./packages/viewer/font-proof/project";
 import { viewerTestProjects } from "./packages/viewer/vite.config";
+import { workerRpcTestProjects } from "./packages/worker-rpc/vite.config";
 
 export default defineConfig({
   optimizeDeps: { exclude: ["harfbuzzjs"] },
@@ -80,6 +81,7 @@ export default defineConfig({
       {
         files: [
           "internal/frontend/**",
+          "packages/worker-rpc/**",
           "packages/viewer/src/**",
           "packages/viewer/font-proof/**/*.tsx",
         ],
@@ -100,8 +102,10 @@ export default defineConfig({
       {
         files: [
           "internal/frontend/mock/vite-plugin.test.ts",
+          "internal/frontend/src/lib/export-encoder.browser.test.ts",
           "internal/frontend/src/lib/storage.browser.test.ts",
           "internal/frontend/src/App.browser.test.tsx",
+          "packages/worker-rpc/src/worker-rpc.browser.test.ts",
           "packages/viewer/src/NovelViewer.browser.test.tsx",
           "packages/viewer/src/typography.browser.test.tsx",
           "packages/viewer/src/automatic-typography.browser.test.tsx",
@@ -128,6 +132,7 @@ export default defineConfig({
       ...coreTestProjects,
       ...viewerTestProjects,
       ...frontendTestProjects,
+      ...workerRpcTestProjects,
       ...(process.env.KG_FONT_PROOF === "1" ? [fontProofProject] : []),
     ],
   },
