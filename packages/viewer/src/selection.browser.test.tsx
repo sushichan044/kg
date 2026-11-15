@@ -5,7 +5,8 @@ import {
   pixivParser,
 } from "@sushichan044/kg-core";
 import { expect, test as base } from "vite-plus/test";
-import { userEvent } from "vite-plus/test/browser";
+import { server, userEvent } from "vite-plus/test/browser";
+import type { Locator } from "vite-plus/test/browser";
 import { render } from "vitest-browser-react";
 
 import fontUrl from "../assets/GenEiKoburiMin6-R.ttf?url";
@@ -40,13 +41,41 @@ const cases = [
     source: `吾輩は[[rb:猫>ねこ]]である。${body}`,
     expected: `吾輩は猫である。${body}`,
   },
+  {
+    name: "word spaces",
+    source: "英字はHello, Worldのように組む。記号：α β γ、±×÷も確かめる。",
+    expected: "英字はHello, Worldのように組む。記号：α β γ、±×÷も確かめる。",
+  },
+  {
+    name: "tate-chu-yoko",
+    source: "数字は25歳と60人!?と数えて組む。",
+    expected: "数字は25歳と60人!?と数えて組む。",
+    // WebKit は縦中横のテキストを選択範囲の文字列で U+FFFC に置き換える（コピーはビューアーが直す）
+    selectedInWebKit: "数字は￼歳と￼人￼と数えて組む。",
+  },
+  {
+    name: "space after a question mark",
+    source: "「待って！？　それ、本当なの……？」",
+    expected: "「待って！？　それ、本当なの……？」",
+    selectedInWebKit: "「待って￼　それ、本当なの……？」",
+  },
+  {
+    name: "paragraphs",
+    source: "あいうえおかきくけこさしすせそ\nたちつてと",
+    expected: "あいうえおかきくけこさしすせそ\nたちつてと",
+  },
+  {
+    name: "blank line",
+    source: "あいうえおかきくけこさ\n\nたちつてと",
+    expected: "あいうえおかきくけこさ\n\nたちつてと",
+  },
 ] as const;
 
-// 行の切れ目の改行はエンジン次第で入る。ルビの読みは、従来から折り返し位置によって選択範囲に混ざる
-const bodyOnly = (text: string) => text.replaceAll(/[\n\r]|ねこ/g, "");
+// 選択範囲の文字列には、行の切れ目ごとに改行が入る
+const bodyOnly = (text: string) => text.replaceAll(/[\n\r]/g, "");
 
-test.for(cases)("copies the manuscript text in order ($name)", async (found, { typography }) => {
-  const parsed = parseManuscript(found.source, { parser: pixivParser });
+function compose(source: string, typography: ReadyTypography) {
+  const parsed = parseManuscript(source, { parser: pixivParser });
   expect.assert(parsed.ok);
   const composed = composeManuscript(parsed.value, {
     composer: typography.composer,
@@ -57,9 +86,20 @@ test.for(cases)("copies the manuscript text in order ($name)", async (found, { t
     }),
   });
   expect.assert(composed.ok);
+  return composed.value;
+}
+
+async function pasteClipboard(target: Locator): Promise<string> {
+  await userEvent.copy();
+  await target.click();
+  await userEvent.paste();
+  return (target.element() as HTMLTextAreaElement).value;
+}
+
+test.for(cases)("copies the manuscript text in order ($name)", async (found, { typography }) => {
   const screen = await render(
     <>
-      <NovelViewer composed={composed.value} typography={typography} />
+      <NovelViewer composed={compose(found.source, typography)} typography={typography} />
       <textarea aria-label="paste target" />
     </>,
   );
@@ -74,14 +114,90 @@ test.for(cases)("copies the manuscript text in order ($name)", async (found, { t
   selection.setBaseAndExtent(first, 0, last, last.textContent?.length ?? 0);
   const selected = selection.toString();
   const cloned = selection.getRangeAt(0).cloneContents().textContent;
-  await userEvent.copy();
-  const target = screen.getByLabelText("paste target");
-  await target.click();
-  await userEvent.paste();
+  const pasted = await pasteClipboard(screen.getByLabelText("paste target"));
 
-  expect(bodyOnly(selected)).toBe(found.expected);
-  expect(bodyOnly(cloned)).toBe(found.expected);
-  expect(bodyOnly((target.element() as HTMLTextAreaElement).value)).toBe(found.expected);
+  const expectedSelection =
+    server.browser === "webkit" && "selectedInWebKit" in found
+      ? found.selectedInWebKit
+      : found.expected;
+  expect(bodyOnly(selected)).toBe(bodyOnly(expectedSelection));
+  expect(cloned).toBe(bodyOnly(found.expected));
+  expect(pasted).toBe(found.expected);
+});
+
+test("copies a space that the line break removed", async ({ typography }) => {
+  const source = "あいうえおかきくけ！？　こさしすせそ";
+  const composed = compose(source, typography);
+  const suppressed = composed.layout.pages
+    .flatMap(({ stages }) => stages.flatMap(({ lines }) => lines.flatMap(({ items }) => items)))
+    .filter((item) => item.kind === "suppressed");
+  expect.assert(suppressed.length === 1);
+  const screen = await render(
+    <>
+      <NovelViewer composed={composed} typography={typography} />
+      <textarea aria-label="paste target" />
+    </>,
+  );
+  const page = screen.container.querySelector(".kgv-page");
+  expect.assert(page !== null);
+  const selection = window.getSelection();
+  expect.assert(selection !== null);
+
+  selection.selectAllChildren(page);
+  const selected = selection.toString();
+  const pasted = await pasteClipboard(screen.getByLabelText("paste target"));
+
+  expect(bodyOnly(selected)).toBe(
+    server.browser === "webkit" ? "あいうえおかきくけ￼　こさしすせそ" : source,
+  );
+  expect(pasted).toBe(source);
+});
+
+test("copies only the manuscript text when the whole page is selected", async ({ typography }) => {
+  const screen = await render(
+    <>
+      <NovelViewer
+        composed={compose(
+          "　[[rb:組版見本 > くみはんみほん]]を確かめる。Hello, World、25歳",
+          typography,
+        )}
+        typography={typography}
+      />
+      <textarea aria-label="paste target" />
+    </>,
+  );
+  const page = screen.container.querySelector(".kgv-page");
+  expect.assert(page !== null);
+  const selection = window.getSelection();
+  expect.assert(selection !== null);
+
+  selection.selectAllChildren(page);
+  const selected = selection.toString();
+  const pasted = await pasteClipboard(screen.getByLabelText("paste target"));
+
+  expect(bodyOnly(selected)).toBe(
+    server.browser === "webkit"
+      ? "　組版見本を確かめる。Hello, World、￼歳"
+      : "　組版見本を確かめる。Hello, World、25歳",
+  );
+  expect(pasted).toBe("　組版見本を確かめる。Hello, World、25歳");
+});
+
+test("keeps the page text available to assistive technology", async ({ typography }) => {
+  const screen = await render(
+    <NovelViewer
+      composed={compose("[[rb:組版見本 > くみはんみほん]]、Hello, World、25歳", typography)}
+      typography={typography}
+    />,
+  );
+
+  const text = screen.container.querySelector(".kgv-page-text");
+
+  expect.assert(text !== null);
+  // 計算値は CSS の文字列で、行の切れ目の改行は `\a ` になる
+  expect(getComputedStyle(text, "::before").content.replaceAll("\\a ", "")).toBe(
+    JSON.stringify("組版見本、Hello, World、25歳"),
+  );
 });
 
 test("copies the manuscript text in order when the worker composed it", async () => {
@@ -116,12 +232,9 @@ test("copies the manuscript text in order when the worker composed it", async ()
 
   selection.setBaseAndExtent(first, 0, last, last.textContent?.length ?? 0);
   const selected = selection.toString();
-  await userEvent.copy();
-  const target = screen.getByLabelText("paste target");
-  await target.click();
-  await userEvent.paste();
+  const pasted = await pasteClipboard(screen.getByLabelText("paste target"));
 
   expect(bodyOnly(selected)).toBe(body);
-  expect(bodyOnly((target.element() as HTMLTextAreaElement).value)).toBe(body);
+  expect(pasted).toBe(body);
   rendering.value.dispose();
 });
