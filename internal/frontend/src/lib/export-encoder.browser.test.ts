@@ -118,3 +118,33 @@ test("terminates the worker and leaves no download when export is aborted", asyn
   host.remove();
   vi.restoreAllMocks();
 });
+
+test("rejects the export with a readable error when the worker stops", async () => {
+  const host = document.createElement("div");
+  const page = document.createElement("div");
+  page.className = "kgv-page";
+  page.textContent = "crash";
+  host.append(page);
+  document.body.append(host);
+  const composed = {
+    layout: { pages: [{}], geometry: { paperWidthMm: 10, paperHeightMm: 10 } },
+  } as unknown as NovelComposedManuscript;
+  const typography = { fontFaces: [] } as unknown as ReadyTypography;
+  const terminate = vi.spyOn(Worker.prototype, "terminate");
+  // 最初のページを送る代わりに、Worker が異常終了したときの error イベントを起こす
+  vi.spyOn(Worker.prototype, "postMessage").mockImplementation(function (this: Worker) {
+    this.dispatchEvent(new Event("error"));
+  });
+  const createObjectURL = vi.spyOn(URL, "createObjectURL");
+  const click = vi.spyOn(HTMLAnchorElement.prototype, "click");
+
+  const result = exportPages(host, composed, typography, "novel.txt", new AbortController().signal);
+
+  await expect(result).rejects.toThrow("画像を書き出す処理が停止しました");
+  expect(terminate).toHaveBeenCalledTimes(1);
+  expect(createObjectURL).not.toHaveBeenCalled();
+  expect(click).not.toHaveBeenCalled();
+
+  host.remove();
+  vi.restoreAllMocks();
+});
