@@ -10,6 +10,8 @@ import type {
   NovelPage as ComposedNovelPage,
   PresentationKind,
 } from "@sushichan044/kg-core";
+import { resolveGlyphOrientation } from "@sushichan044/kg-core/plugin";
+import type { GlyphOrientation } from "@sushichan044/kg-core/plugin";
 import {
   Suspense,
   use,
@@ -218,18 +220,20 @@ function decorationStyle(placement: AnnotationPlacement): DecorationStyle {
   };
 }
 
-function presentationClass(kind: PresentationKind): string | undefined {
-  switch (kind) {
-    case "mixed": {
-      return undefined;
-    }
+// mixed は CSS の text-orientation に任せず、計測と同じ resolveGlyphOrientation で字ごとに固定する
+function glyphOrientation(value: string, kind: PresentationKind): GlyphOrientation | undefined {
+  return kind === "tate-chu-yoko" ? undefined : resolveGlyphOrientation(value, kind);
+}
+
+function presentationClass(value: string, kind: PresentationKind): string {
+  switch (glyphOrientation(value, kind)) {
     case "upright": {
       return "kgv-glyph-upright";
     }
     case "sideways": {
       return "kgv-glyph-sideways";
     }
-    case "tate-chu-yoko": {
+    case undefined: {
       return "kgv-glyph-tate-chu-yoko";
     }
   }
@@ -582,10 +586,14 @@ function NovelPage({
                           {wrapAnnotations(
                             annotationsForRange(line, cell.range),
                             <span
-                              lang={cell.presentation === "sideways" ? "en" : "ja"}
+                              lang={
+                                glyphOrientation(cell.value, cell.presentation) === "sideways"
+                                  ? "en"
+                                  : "ja"
+                              }
                               className={joinClassNames(
                                 "kgv-glyph",
-                                presentationClass(cell.presentation),
+                                presentationClass(cell.value, cell.presentation),
                               )}
                             >
                               {cell.value}

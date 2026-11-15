@@ -106,6 +106,7 @@ export default defineConfig({
           "packages/viewer/src/typography.browser.test.tsx",
           "packages/viewer/src/automatic-typography.browser.test.tsx",
           "packages/viewer/src/use-typography.browser.test.tsx",
+          "packages/viewer/src/selection.browser.test.tsx",
           "packages/viewer/src/harfbuzz-shaper.test.ts",
           "packages/viewer/src/harfbuzz-shaper.browser.test.ts",
           "packages/core/src/composer/shaped-run-measurer.test.ts",

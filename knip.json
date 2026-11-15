@@ -12,7 +12,7 @@
       "ignoreDependencies": ["@arethetypeswrong/core", "publint", "unplugin-unused"]
     },
     "packages/viewer": {
-      "entry": ["src/index.ts!", "src/harfbuzz-shaper.ts!"],
+      "entry": ["src/index.ts!"],
       "ignoreDependencies": ["@arethetypeswrong/core", "publint", "unplugin-unused"],
       "project": ["font-proof/**/*.{ts,tsx}", "src/**/*.{ts,tsx}!", "!src/**/*.test.{ts,tsx}!"]
     }
