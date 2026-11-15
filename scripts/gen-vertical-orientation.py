@@ -102,7 +102,8 @@ export const UPRIGHT_RANGES: readonly number[] = [
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    summary = __doc__.splitlines()[0] if __doc__ is not None else None
+    parser = argparse.ArgumentParser(description=summary)
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--source", type=Path, help="local VerticalOrientation.txt")
     source.add_argument("--download", action="store_true", help=f"fetch {URL}")
