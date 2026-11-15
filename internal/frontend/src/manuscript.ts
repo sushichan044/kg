@@ -112,14 +112,10 @@ function describeUnknown(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }
 
-export type ComposeSourceError =
-  | Readonly<{ stage: "parse"; error: ParseError }>
-  | Readonly<{ stage: "compose"; error: ComposeError }>;
-
 // 段階でタグ付けしないと、3 つのエラーユニオンを区別できない
 export type ProcessManuscriptError =
-  | ComposeSourceError
-  | Readonly<{ stage: "proofread"; error: ProofreadFailure }>;
+  | Readonly<{ stage: "parse"; error: ParseError }>
+  | Readonly<{ stage: "compose"; error: ComposeError }>;
 
 export const ProcessManuscriptError = {
   describe: (failure: ProcessManuscriptError): string => {
@@ -129,9 +125,6 @@ export const ProcessManuscriptError = {
       }
       case "compose": {
         return ComposeError.describe(failure.error);
-      }
-      case "proofread": {
-        return ProofreadFailure.describe(failure.error);
       }
       default: {
         return assertNever(failure);
@@ -149,7 +142,7 @@ export function composeSource(
   composition: NovelCompositionSettings,
   notation: ManuscriptNotation,
   composer: typeof novelComposer = novelComposer,
-): ManuscriptResult<ComposedSource, ComposeSourceError> {
+): ManuscriptResult<ComposedSource, ProcessManuscriptError> {
   const parser = notation === "pixiv" ? pixivParser : kakuyomuParser;
   const parsed = parseManuscript(source, { parser });
   if (!parsed.ok) return ManuscriptResult.fail({ stage: "parse", error: parsed.error });

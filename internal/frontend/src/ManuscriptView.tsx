@@ -16,9 +16,10 @@ import { IconButton } from "./components/IconButton";
 import { Modal } from "./components/Modal";
 import { ViewerToolbar, ZoomControls, ZOOM } from "./components/ViewerControls";
 import type { FileEntry } from "./lib/api";
+import { assertNever } from "./lib/assert-never";
 import { loadPage, savePage } from "./lib/storage";
 import type { ManuscriptNotation } from "./lib/storage";
-import { composeSource, ProcessManuscriptError } from "./manuscript";
+import { composeSource, ProcessManuscriptError, ProofreadFailure } from "./manuscript";
 import type { ManuscriptAction, ManuscriptState } from "./manuscript";
 import { useProofreading } from "./useProofreading";
 import type { Proofreading } from "./useProofreading";
@@ -86,9 +87,20 @@ function useDiagnostics(
 ): readonly ManuscriptDiagnostic[] {
   "use memo";
   if (!composedSource?.ok) return [];
-  return proofreading.status === "ready"
-    ? [...composedSource.value.diagnostics, ...proofreading.diagnostics]
-    : composedSource.value.diagnostics;
+  switch (proofreading.status) {
+    case "ready": {
+      return [...composedSource.value.diagnostics, ...proofreading.diagnostics];
+    }
+    case "pending": {
+      return [...composedSource.value.diagnostics, ...proofreading.previous];
+    }
+    case "failed": {
+      return composedSource.value.diagnostics;
+    }
+    default: {
+      return assertNever(proofreading);
+    }
+  }
 }
 
 type ManuscriptViewProps = Readonly<{
@@ -125,11 +137,7 @@ export function ManuscriptView({
   const composedSource = useComposedSource(source, composition, notation, typography);
   const proofreading = useProofreading(composedSource?.ok ? composedSource.value.composed : null);
   const diagnostics = useDiagnostics(composedSource, proofreading);
-  // 校正の失敗は、以前と同じく原稿を処理できなかった扱いにする
-  const processed =
-    composedSource?.ok && proofreading.status === "failed"
-      ? ({ ok: false, error: { stage: "proofread", error: proofreading.error } } as const)
-      : composedSource;
+  const processed = composedSource;
   const viewerShown = processed?.ok === true;
   const activeDiagnosticId = diagnostics.some(({ id }) => id === manuscript.activeDiagnosticId)
     ? manuscript.activeDiagnosticId
@@ -294,11 +302,18 @@ export function ManuscriptView({
             </IconButton>
           </header>
           {proofreading.status === "pending" ? <p role="status">校正しています…</p> : null}
-          <DiagnosticList
-            diagnostics={diagnostics}
-            activeDiagnosticId={activeDiagnosticId}
-            onSelect={selectDiagnostic}
-          />
+          {proofreading.status === "failed" ? (
+            <p role="alert" className="diagnostic-drawer__failure">
+              校正できませんでした: {ProofreadFailure.describe(proofreading.error)}
+            </p>
+          ) : null}
+          <div data-stale={proofreading.status === "pending" ? "" : undefined}>
+            <DiagnosticList
+              diagnostics={diagnostics}
+              activeDiagnosticId={activeDiagnosticId}
+              onSelect={selectDiagnostic}
+            />
+          </div>
         </aside>
       ) : null}
 

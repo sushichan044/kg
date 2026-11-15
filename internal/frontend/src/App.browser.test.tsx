@@ -1237,3 +1237,30 @@ test("rejects an export when the browser returns a smaller canvas", async ({ ren
     download.mockRestore();
   }
 });
+
+test("keeps the viewer and shows a proofreading failure in the diagnostics drawer", async ({
+  renderApp,
+}) => {
+  await page.viewport(1280, 800);
+  const RealWorker = Worker;
+  vi.stubGlobal(
+    "Worker",
+    class extends RealWorker {
+      override postMessage() {
+        queueMicrotask(() => {
+          this.dispatchEvent(new ErrorEvent("error", { message: "boom" }));
+        });
+      }
+    },
+  );
+  const screen = await renderApp();
+
+  await screen.getByRole("button", { name: /^診断/ }).first().click();
+
+  const drawer = screen.getByRole("complementary", { name: "診断" });
+  await expect
+    .element(drawer.getByRole("alert"))
+    .toHaveTextContent("校正できませんでした: 校正ワーカーが失敗しました: boom");
+  expect(screen.container.querySelector(".kgv-viewport")).not.toBeNull();
+  expect(screen.container.querySelector(".preview__failure")).toBeNull();
+});
