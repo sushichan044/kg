@@ -14,11 +14,7 @@ import type {
   NovelCompositionSettings,
   ManuscriptDiagnostic,
 } from "@sushichan044/kg-core";
-import {
-  createDefaultProofreadingRules,
-  ProofreadError,
-  proofreadManuscript,
-} from "@sushichan044/kg-core/lint";
+import { ProofreadError } from "@sushichan044/kg-core/lint";
 
 import { assertNever } from "./lib/assert-never";
 import type { ManuscriptNotation, ManuscriptPreferences } from "./lib/storage";
@@ -89,20 +85,41 @@ export function manuscriptReducer(
   }
 }
 
-type ProcessedManuscript = Readonly<{
+/**
+ * 同期に済ませる段階（parse と compose）の成果。
+ * 校正の指摘は含まず、段階が回復した警告だけを持つ。
+ */
+export type ComposedSource = Readonly<{
   composed: NovelComposedManuscript;
   diagnostics: readonly ManuscriptDiagnostic[];
 }>;
 
 /**
- * どの段階が失敗したかを示し、その段階自身のエラーを包む。
- * 段階でタグ付けすると 3 つのエラーユニオンを区別できる。
- * 3 つを単純にまとめたユニオンでは区別できない。
+ * Worker が校正を完了できなかったこと。ルール側の失敗は `ProofreadError` で表す。
  */
-export type ProcessManuscriptError =
+type ProofreadWorkerError = Readonly<{ kind: "WorkerFailed"; cause: unknown }>;
+
+export type ProofreadFailure = ProofreadError | ProofreadWorkerError;
+
+export const ProofreadFailure = {
+  describe: (failure: ProofreadFailure): string =>
+    failure.kind === "WorkerFailed"
+      ? `校正ワーカーが失敗しました: ${describeUnknown(failure.cause)}`
+      : ProofreadError.describe(failure),
+} as const;
+
+function describeUnknown(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
+}
+
+export type ComposeSourceError =
   | Readonly<{ stage: "parse"; error: ParseError }>
-  | Readonly<{ stage: "compose"; error: ComposeError }>
-  | Readonly<{ stage: "proofread"; error: ProofreadError }>;
+  | Readonly<{ stage: "compose"; error: ComposeError }>;
+
+// 段階でタグ付けしないと、3 つのエラーユニオンを区別できない
+export type ProcessManuscriptError =
+  | ComposeSourceError
+  | Readonly<{ stage: "proofread"; error: ProofreadFailure }>;
 
 export const ProcessManuscriptError = {
   describe: (failure: ProcessManuscriptError): string => {
@@ -114,7 +131,7 @@ export const ProcessManuscriptError = {
         return ComposeError.describe(failure.error);
       }
       case "proofread": {
-        return ProofreadError.describe(failure.error);
+        return ProofreadFailure.describe(failure.error);
       }
       default: {
         return assertNever(failure);
@@ -123,12 +140,16 @@ export const ProcessManuscriptError = {
   },
 } as const;
 
-export function processManuscript(
+/**
+ * Parse と compose だけを同期で行う。compose は書体の測定に DOM を使うのでメインスレッドに残す。
+ * 校正は Worker で行い、結果は `useProofreading` が合流させる。
+ */
+export function composeSource(
   source: string,
   composition: NovelCompositionSettings,
   notation: ManuscriptNotation,
   composer: typeof novelComposer = novelComposer,
-): ManuscriptResult<ProcessedManuscript, ProcessManuscriptError> {
+): ManuscriptResult<ComposedSource, ComposeSourceError> {
   const parser = notation === "pixiv" ? pixivParser : kakuyomuParser;
   const parsed = parseManuscript(source, { parser });
   if (!parsed.ok) return ManuscriptResult.fail({ stage: "parse", error: parsed.error });
@@ -140,11 +161,6 @@ export function processManuscript(
   });
   if (!composed.ok) return ManuscriptResult.fail({ stage: "compose", error: composed.error });
 
-  const proofread = proofreadManuscript(composed.value, {
-    rules: createDefaultProofreadingRules(),
-  });
-  if (!proofread.ok) return ManuscriptResult.fail({ stage: "proofread", error: proofread.error });
-
   return ManuscriptResult.succeed({
     composed: composed.value,
     diagnostics: [
@@ -152,8 +168,6 @@ export function processManuscript(
         Object.assign({}, warning, { range: prepared.mapRange(warning.range) }),
       ),
       ...composed.warnings,
-      ...proofread.warnings,
-      ...proofread.value,
     ],
   });
 }

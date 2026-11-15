@@ -104,6 +104,7 @@ export default defineConfig({
           "internal/frontend/mock/vite-plugin.test.ts",
           "internal/frontend/src/lib/storage.browser.test.ts",
           "internal/frontend/src/App.browser.test.tsx",
+          "internal/frontend/src/proofreader.browser.test.ts",
           "packages/worker-rpc/src/worker-rpc.browser.test.ts",
           "packages/viewer/src/NovelViewer.browser.test.tsx",
           "packages/viewer/src/typography.browser.test.tsx",

@@ -18,8 +18,10 @@ import { ViewerToolbar, ZoomControls, ZOOM } from "./components/ViewerControls";
 import type { FileEntry } from "./lib/api";
 import { loadPage, savePage } from "./lib/storage";
 import type { ManuscriptNotation } from "./lib/storage";
-import { ProcessManuscriptError, processManuscript } from "./manuscript";
+import { composeSource, ProcessManuscriptError } from "./manuscript";
 import type { ManuscriptAction, ManuscriptState } from "./manuscript";
+import { useProofreading } from "./useProofreading";
+import type { Proofreading } from "./useProofreading";
 
 type SheetProps = Readonly<{
   open: boolean;
@@ -64,7 +66,7 @@ function TypographyFailure({ onRetry }: Readonly<{ onRetry: () => void }>) {
 
 // コンポーネントで直接呼ぶと、React Compiler が診断の選択と同じキャッシュにまとめ、診断を選ぶたびに組版をやり直す
 // フックの戻り値は独立してキャッシュされるので、組版の入力が変わったときだけ呼び直される
-function useProcessedManuscript(
+function useComposedSource(
   source: string,
   composition: NovelCompositionSettings,
   notation: ManuscriptNotation,
@@ -74,7 +76,19 @@ function useProcessedManuscript(
   "use memo";
   return typography === undefined
     ? null
-    : processManuscript(source, composition, notation, typography.composer);
+    : composeSource(source, composition, notation, typography.composer);
+}
+
+// 配列を毎回作り直すと、診断の選択のたびにビューアーが診断を取り込み直す
+function useDiagnostics(
+  composedSource: ReturnType<typeof composeSource> | null,
+  proofreading: Proofreading,
+): readonly ManuscriptDiagnostic[] {
+  "use memo";
+  if (!composedSource?.ok) return [];
+  return proofreading.status === "ready"
+    ? [...composedSource.value.diagnostics, ...proofreading.diagnostics]
+    : composedSource.value.diagnostics;
 }
 
 type ManuscriptViewProps = Readonly<{
@@ -108,9 +122,15 @@ export function ManuscriptView({
 }: ManuscriptViewProps) {
   const typographyState = useTypography(composition.appearance.fontPreset);
   const typography = typographyState.kind === "ready" ? typographyState.typography : undefined;
-  const processed = useProcessedManuscript(source, composition, notation, typography);
+  const composedSource = useComposedSource(source, composition, notation, typography);
+  const proofreading = useProofreading(composedSource?.ok ? composedSource.value.composed : null);
+  const diagnostics = useDiagnostics(composedSource, proofreading);
+  // 校正の失敗は、以前と同じく原稿を処理できなかった扱いにする
+  const processed =
+    composedSource?.ok && proofreading.status === "failed"
+      ? ({ ok: false, error: { stage: "proofread", error: proofreading.error } } as const)
+      : composedSource;
   const viewerShown = processed?.ok === true;
-  const diagnostics = processed?.ok ? processed.value.diagnostics : [];
   const activeDiagnosticId = diagnostics.some(({ id }) => id === manuscript.activeDiagnosticId)
     ? manuscript.activeDiagnosticId
     : null;
@@ -273,6 +293,7 @@ export function ManuscriptView({
               <CloseIcon aria-hidden="true" />
             </IconButton>
           </header>
+          {proofreading.status === "pending" ? <p role="status">校正しています…</p> : null}
           <DiagnosticList
             diagnostics={diagnostics}
             activeDiagnosticId={activeDiagnosticId}

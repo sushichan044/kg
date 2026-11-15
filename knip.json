@@ -4,6 +4,7 @@
   "workspaces": {
     "internal/frontend": {
       "ignoreDependencies": ["@svgr/plugin-jsx"],
+      "entry": ["src/*.worker.ts"],
       "includeEntryExports": true,
       "project": ["mock/**/*.{ts,tsx}", "src/**/*.{ts,tsx}!", "!src/**/*.test.{ts,tsx}!"]
     },
