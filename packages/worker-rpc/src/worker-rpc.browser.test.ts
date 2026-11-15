@@ -3,7 +3,7 @@ import { expect, test as base, vi } from "vite-plus/test";
 import type { CalcApi } from "./fixtures/calc.worker";
 const createWorker = () =>
   new Worker(new URL("./fixtures/calc.worker.ts", import.meta.url), { type: "module" });
-import { callWithAbort, connectWorker, transfer } from "./index";
+import { callWithAbort, closeWorker, connectWorker, transfer, WorkerClosedError } from "./index";
 import type { WorkerClient } from "./index";
 
 const test = base.extend<{ client: WorkerClient<CalcApi> }>({
@@ -103,4 +103,76 @@ test("keeps the worker alive when the call completes before abort", async ({ cli
 
   expect(sum).toBe(3);
   expect(await client.add(2, 2)).toBe(4);
+});
+
+test("rejects every pending call on the client when one of them is aborted", async ({ client }) => {
+  const first = new AbortController();
+  const second = new AbortController();
+  const reason = new Error("cancelled");
+  const aborted = callWithAbort(client, first.signal, (remote) => remote.neverResolves());
+  const other = callWithAbort(client, second.signal, (remote) => remote.neverResolves());
+
+  first.abort(reason);
+
+  await expect(aborted).rejects.toBe(reason);
+  await expect(other).rejects.toBeInstanceOf(WorkerClosedError);
+});
+
+test("rejects a pending call when the client is disposed", async ({ client }) => {
+  const pending = callWithAbort(client, new AbortController().signal, (remote) =>
+    remote.neverResolves(),
+  );
+
+  client[Symbol.dispose]();
+
+  await expect(pending).rejects.toThrow(WorkerClosedError);
+});
+
+test("rejects a call on a client that is already disposed", async ({ client }) => {
+  client[Symbol.dispose]();
+
+  const result = callWithAbort(client, new AbortController().signal, (remote) => remote.add(1, 1));
+
+  await expect(result).rejects.toThrow(WorkerClosedError);
+});
+
+test("rejects a pending call when the worker throws at top level", async () => {
+  const worker = new Worker(new URL("./fixtures/crash.worker.ts", import.meta.url), {
+    type: "module",
+  });
+  const terminate = vi.spyOn(worker, "terminate");
+  using client = connectWorker<CalcApi>(worker);
+
+  const result = callWithAbort(client, new AbortController().signal, (remote) =>
+    remote.neverResolves(),
+  );
+
+  await expect(result).rejects.toThrow(WorkerClosedError);
+  expect(terminate).toHaveBeenCalledTimes(1);
+});
+
+test("rejects a pending call when the worker script fails to load", async () => {
+  const worker = new Worker(new URL("./fixtures/missing.worker.js", import.meta.url), {
+    type: "module",
+  });
+  using client = connectWorker<CalcApi>(worker);
+
+  const result = callWithAbort(client, new AbortController().signal, (remote) => remote.add(1, 1));
+
+  await expect(result).rejects.toThrow(WorkerClosedError);
+});
+
+test("terminates the worker and rejects pending calls with closeWorker", async () => {
+  const worker = createWorker();
+  const terminate = vi.spyOn(worker, "terminate");
+  const client = connectWorker<CalcApi>(worker);
+  const pending = callWithAbort(client, new AbortController().signal, (remote) =>
+    remote.neverResolves(),
+  );
+
+  closeWorker(client);
+  client[Symbol.dispose]();
+
+  await expect(pending).rejects.toThrow(WorkerClosedError);
+  expect(terminate).toHaveBeenCalledTimes(1);
 });
