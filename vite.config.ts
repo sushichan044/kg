@@ -110,6 +110,7 @@ export default defineConfig({
           "packages/viewer/src/automatic-typography.browser.test.tsx",
           "packages/viewer/src/use-typography.browser.test.tsx",
           "packages/viewer/src/selection.browser.test.tsx",
+          "packages/viewer/src/tate-chu-yoko.browser.test.tsx",
           "packages/viewer/src/manuscript-worker.browser.test.tsx",
           "packages/viewer/src/manuscript-session.test.ts",
           "packages/viewer/src/manuscript-pipeline.test.ts",

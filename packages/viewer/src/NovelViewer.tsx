@@ -10,7 +10,7 @@ import type {
   NovelPage as ComposedNovelPage,
   PresentationKind,
 } from "@sushichan044/kg-core";
-import { resolveGlyphOrientation } from "@sushichan044/kg-core/plugin";
+import { logicalGraphemeAdvanceEm, resolveGlyphOrientation } from "@sushichan044/kg-core/plugin";
 import type { GlyphOrientation } from "@sushichan044/kg-core/plugin";
 import {
   Suspense,
@@ -93,6 +93,10 @@ type NovelStyle = CSSProperties & {
 type PositionedStyle = CSSProperties & {
   "--kgv-item-advance": number;
   "--kgv-item-offset": number;
+};
+
+type TateChuYokoStyle = CSSProperties & {
+  "--kgv-tate-chu-yoko-scale": number;
 };
 
 type BandStyle = CSSProperties & {
@@ -200,6 +204,7 @@ type RenderedCell = Readonly<{
   advanceEm: number;
   disposition: SingleGlyphUnit["disposition"];
   presentation: PresentationKind;
+  horizontalAdvanceEm: number | null;
   diagnostics: readonly ManuscriptDiagnostic[];
 }>;
 // 原稿にあるアキ（欧文間隔と、`！` や `？` の後ろの和字間隔）。字面は無いが、選択とコピーで
@@ -237,7 +242,7 @@ function glyphOrientation(value: string, kind: PresentationKind): GlyphOrientati
   return kind === "tate-chu-yoko" ? undefined : resolveGlyphOrientation(value, kind);
 }
 
-function presentationClass(value: string, kind: PresentationKind): string {
+function presentationClass(value: string, kind: PresentationKind): string | undefined {
   switch (glyphOrientation(value, kind)) {
     case "upright": {
       return "kgv-glyph-upright";
@@ -246,9 +251,43 @@ function presentationClass(value: string, kind: PresentationKind): string {
       return "kgv-glyph-sideways";
     }
     case undefined: {
-      return "kgv-glyph-tate-chu-yoko";
+      return undefined;
     }
   }
+}
+
+const graphemeSegmenter = new Intl.Segmenter("ja", { granularity: "grapheme" });
+
+// 縦中横は text-combine-upright に任せず、横組みの字をコンポーザーが測った幅から全角 1 字分に縮める
+// WebKit は text-combine-upright の字を選択範囲の文字列で U+FFFC に置き換え、1em に収まらない連なりを組まずに縦に並べる
+function TateChuYoko({
+  value,
+  horizontalAdvanceEm,
+  measurement,
+}: Readonly<{
+  value: string;
+  horizontalAdvanceEm: number;
+  measurement: FontPreset["measurement"];
+}>) {
+  const style: TateChuYokoStyle = {
+    "--kgv-tate-chu-yoko-scale": Math.min(1, 1 / horizontalAdvanceEm),
+  };
+  return (
+    <span lang="ja" className="kgv-glyph kgv-glyph-tate-chu-yoko" style={style}>
+      {measurement === "logical"
+        ? [...graphemeSegmenter.segment(value)].map(({ segment, index }) =>
+            // 論理測定は半角の字に 0.5em を割り当てるが、フォントを持たない書体の欧文は字幅が比例して広い
+            logicalGraphemeAdvanceEm(segment) === 0.5 ? (
+              <span key={index} className="kgv-tate-chu-yoko-half-width">
+                {segment}
+              </span>
+            ) : (
+              segment
+            ),
+          )
+        : value}
+    </span>
+  );
 }
 
 function emphasisMarks(line: NovelLine): EmphasisMark[] {
@@ -329,6 +368,10 @@ function lineDiagnostics(
         advanceEm: item.renderSpan.advanceEm,
         disposition: item.disposition,
         presentation: item.presentation,
+        horizontalAdvanceEm:
+          item.kind === "combined-glyph" && item.presentation === "tate-chu-yoko"
+            ? item.horizontalAdvanceEm
+            : null,
         diagnostics: [] as ManuscriptDiagnostic[],
       } satisfies RenderedCell;
       cells.push(cell);
@@ -501,6 +544,7 @@ type NovelPageProps = Readonly<{
   gridRow: number | undefined;
   showGrid: boolean;
   ruleCellCount: number;
+  measurement: FontPreset["measurement"];
   activeDiagnosticId: string | null;
   container: RefObject<HTMLDivElement | null>;
   registerPage: (pageIndex: number, element: HTMLElement | null) => void;
@@ -515,6 +559,7 @@ function NovelPage({
   gridRow,
   showGrid,
   ruleCellCount,
+  measurement,
   activeDiagnosticId,
   container,
   registerPage,
@@ -639,19 +684,27 @@ function NovelPage({
                         >
                           {wrapAnnotations(
                             annotationsForRange(line, cell.range),
-                            <span
-                              lang={
-                                glyphOrientation(cell.value, cell.presentation) === "sideways"
-                                  ? "en"
-                                  : "ja"
-                              }
-                              className={joinClassNames(
-                                "kgv-glyph",
-                                presentationClass(cell.value, cell.presentation),
-                              )}
-                            >
-                              {cell.value}
-                            </span>,
+                            cell.horizontalAdvanceEm === null ? (
+                              <span
+                                lang={
+                                  glyphOrientation(cell.value, cell.presentation) === "sideways"
+                                    ? "en"
+                                    : "ja"
+                                }
+                                className={joinClassNames(
+                                  "kgv-glyph",
+                                  presentationClass(cell.value, cell.presentation),
+                                )}
+                              >
+                                {cell.value}
+                              </span>
+                            ) : (
+                              <TateChuYoko
+                                value={cell.value}
+                                horizontalAdvanceEm={cell.horizontalAdvanceEm}
+                                measurement={measurement}
+                              />
+                            ),
                           )}
                         </span>
                       );
@@ -901,6 +954,7 @@ function NovelViewerRenderer({
                 }
                 showGrid={showGrid}
                 ruleCellCount={ruleCellCount}
+                measurement={selectedFont.measurement}
                 activeDiagnosticId={
                   activeDiagnosticId !== null && diagnosticIds.has(activeDiagnosticId)
                     ? activeDiagnosticId

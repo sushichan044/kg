@@ -5,7 +5,7 @@ import {
   pixivParser,
 } from "@sushichan044/kg-core";
 import { expect, test as base } from "vite-plus/test";
-import { server, userEvent } from "vite-plus/test/browser";
+import { userEvent } from "vite-plus/test/browser";
 import type { Locator } from "vite-plus/test/browser";
 import { render } from "vitest-browser-react";
 
@@ -50,14 +50,11 @@ const cases = [
     name: "tate-chu-yoko",
     source: "数字は25歳と60人!?と数えて組む。",
     expected: "数字は25歳と60人!?と数えて組む。",
-    // WebKit は縦中横のテキストを選択範囲の文字列で U+FFFC に置き換える（コピーはビューアーが直す）
-    selectedInWebKit: "数字は￼歳と￼人￼と数えて組む。",
   },
   {
     name: "space after a question mark",
     source: "「待って！？　それ、本当なの……？」",
     expected: "「待って！？　それ、本当なの……？」",
-    selectedInWebKit: "「待って￼　それ、本当なの……？」",
   },
   {
     name: "paragraphs",
@@ -136,11 +133,7 @@ test.for(cases)("copies the manuscript text in order ($name)", async (found, { t
   const cloned = selection.getRangeAt(0).cloneContents().textContent;
   const pasted = await pasteClipboard(screen.getByLabelText("paste target"));
 
-  const expectedSelection =
-    server.browser === "webkit" && "selectedInWebKit" in found
-      ? found.selectedInWebKit
-      : found.expected;
-  expect(bodyOnly(selected)).toBe(bodyOnly(expectedSelection));
+  expect(bodyOnly(selected)).toBe(bodyOnly(found.expected));
   expect(cloned).toBe(bodyOnly(found.expected));
   expect(pasted).toBe(found.expected);
 });
@@ -167,9 +160,7 @@ test("copies a space that the line break removed", async ({ typography }) => {
   const selected = selection.toString();
   const pasted = await pasteClipboard(screen.getByLabelText("paste target"));
 
-  expect(bodyOnly(selected)).toBe(
-    server.browser === "webkit" ? "あいうえおかきくけ￼　こさしすせそ" : source,
-  );
+  expect(bodyOnly(selected)).toBe(source);
   expect(pasted).toBe(source);
 });
 
@@ -195,11 +186,7 @@ test("copies only the manuscript text when the whole page is selected", async ({
   const selected = selection.toString();
   const pasted = await pasteClipboard(screen.getByLabelText("paste target"));
 
-  expect(bodyOnly(selected)).toBe(
-    server.browser === "webkit"
-      ? "　組版見本を確かめる。Hello, World、￼歳"
-      : "　組版見本を確かめる。Hello, World、25歳",
-  );
+  expect(bodyOnly(selected)).toBe("　組版見本を確かめる。Hello, World、25歳");
   expect(pasted).toBe("　組版見本を確かめる。Hello, World、25歳");
 });
 
