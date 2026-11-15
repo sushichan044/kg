@@ -11,6 +11,9 @@
       "entry": ["src/index.ts!", "src/lint.ts!", "src/plugin.ts!"],
       "ignoreDependencies": ["@arethetypeswrong/core", "publint", "unplugin-unused"]
     },
+    "packages/worker-rpc": {
+      "entry": ["src/fixtures/*.worker.ts"]
+    },
     "packages/viewer": {
       "ignoreDependencies": ["@arethetypeswrong/core", "publint", "unplugin-unused"],
       "project": ["font-proof/**/*.{ts,tsx}", "src/**/*.{ts,tsx}!", "!src/**/*.test.{ts,tsx}!"]
