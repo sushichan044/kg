@@ -105,13 +105,21 @@ export function createShapedRunMeasurer(shaper: Shaper): RunMeasurer {
         weight,
         features: horizontal ? { ...features, kern: westernKerning } : features,
       });
+      // HarfBuzz は ZWNJ などを前の字と別のクラスターにするので、クラスターの境界が書記素の途中に来ることがある
+      // 書記素の途中で切れた範囲は RunMeasurement.parseFor が受け付けないので、書記素の境界までまとめる
+      const boundaries = new Set(graphemes.slice(index, last + 1).map(({ end }) => end));
+      let pendingStart: number | undefined;
+      let pendingAdvanceEm = 0;
       for (const cluster of shaped) {
-        push(
-          first.start + cluster.start,
-          first.start + cluster.end,
-          cluster.advanceEm * request.scale,
-        );
+        pendingStart ??= first.start + cluster.start;
+        pendingAdvanceEm += cluster.advanceEm * request.scale;
+        const end = first.start + cluster.end;
+        if (!boundaries.has(end)) continue;
+        push(pendingStart, end, pendingAdvanceEm);
+        pendingStart = undefined;
+        pendingAdvanceEm = 0;
       }
+      if (pendingStart !== undefined) push(pendingStart, runEnd, pendingAdvanceEm);
       index = last + 1;
     }
 
