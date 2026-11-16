@@ -94,7 +94,16 @@ test("centers upright glyphs the bundled font lacks, in body text and ruby", asy
   // 選択、コピー、検索のために、字は DOM のテキストのまま残す
   expect(screen.container.textContent).toContain("あⓐいá");
   // 字面の中心がこまの中央から 0.05em 以内にある
-  await expect
-    .poll(() => inkOffsets(fallbacks))
-    .toSatisfy((offsets: number[]) => offsets.every((offset) => Math.abs(offset) <= 0.05));
+  let offsets: number[] = [];
+  try {
+    await expect
+      .poll(async () => {
+        offsets = await inkOffsets(fallbacks);
+        return offsets.every((offset) => Math.abs(offset) <= 0.05);
+      })
+      .toBe(true);
+  } catch (error) {
+    // poll の失敗は測った値を伝えないので、環境ごとのずれを読めるように添える
+    throw new Error(`ink offsets (em) of ⓐ and ř: ${JSON.stringify(offsets)}`, { cause: error });
+  }
 });
