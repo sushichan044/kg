@@ -8,7 +8,6 @@ export type FontPreset = Readonly<{
   fontName: string;
   family: string;
   textTransforms: readonly FontTextTransform[];
-  measurement: "logical" | "browser-shaped";
   rendering: Readonly<{
     features: Readonly<Record<string, number>>;
     westernKerning: "normal" | "none";
@@ -29,17 +28,7 @@ const FONT_PRESETS = {
     fontName: "KGRinMincho100",
     family: '"KGRinMincho100", "Yu Mincho", "Hiragino Mincho ProN", serif',
     textTransforms: ["combine-kana-voicing-marks"],
-    measurement: "browser-shaped",
     rendering: { ...FIXED_PITCH, synthesis: "style" },
-  },
-  gothic: {
-    id: "gothic",
-    label: "ゴシック",
-    fontName: "",
-    family: '"Yu Gothic", "Hiragino Kaku Gothic ProN", system-ui, sans-serif',
-    textTransforms: [],
-    measurement: "logical",
-    rendering: FIXED_PITCH,
   },
   "genei-koburi": {
     id: "genei-koburi",
@@ -47,7 +36,6 @@ const FONT_PRESETS = {
     fontName: "KGGenEiKoburi61",
     family: '"KGGenEiKoburi61", "Yu Mincho", "Hiragino Mincho ProN", serif',
     textTransforms: [],
-    measurement: "browser-shaped",
     rendering: FIXED_PITCH,
   },
 } as const satisfies Record<FontPresetId, FontPreset>;

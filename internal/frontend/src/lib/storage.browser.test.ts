@@ -190,3 +190,27 @@ test("preserves preferences when migrating the former A5 margins", () => {
   expect(restored.composition.page.topMm).toBe(16.55);
   expect(restored.composition.page.bottomMm).toBe(12);
 });
+
+test("replaces the retired Gothic typeface with the default while keeping other preferences", () => {
+  localStorage.setItem(
+    "kg.manuscript.preferences.v7",
+    JSON.stringify({
+      ...DEFAULT_MANUSCRIPT_PREFERENCES,
+      zoom: 125,
+      notation: "kakuyomu",
+      composition: {
+        ...DEFAULT_MANUSCRIPT_PREFERENCES.composition,
+        appearance: {
+          ...DEFAULT_MANUSCRIPT_PREFERENCES.composition.appearance,
+          fontPreset: "gothic",
+        },
+      },
+    }),
+  );
+
+  const restored = loadManuscriptPreferences();
+
+  expect(restored.composition.appearance.fontPreset).toBe("mincho");
+  expect(restored.zoom).toBe(125);
+  expect(restored.notation).toBe("kakuyomu");
+});

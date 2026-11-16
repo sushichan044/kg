@@ -1,6 +1,6 @@
 import * as v from "valibot";
 
-const FontPresetIdSchema = v.picklist(["mincho", "gothic", "genei-koburi"]);
+const FontPresetIdSchema = v.picklist(["mincho", "genei-koburi"]);
 
 /**
  * 組み込みのタイポグラフィのプロファイル。永続化された `mincho` の ID は Rin Mincho を選ぶ。

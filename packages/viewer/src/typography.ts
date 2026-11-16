@@ -6,11 +6,7 @@ import type {
   NovelComposedManuscript,
   NovelCompositionSettings,
 } from "@sushichan044/kg-core";
-import {
-  createNovelComposer,
-  createShapedRunMeasurer,
-  logicalRunMeasurer,
-} from "@sushichan044/kg-core/plugin";
+import { createNovelComposer, createShapedRunMeasurer } from "@sushichan044/kg-core/plugin";
 import type { ManuscriptComposer, RunMeasurer } from "@sushichan044/kg-core/plugin";
 
 import { loadFontFiles } from "./font-files";
@@ -94,14 +90,6 @@ export async function loadRenderTypography({
   fontUrls,
 }: TypographyOptions): Promise<ManuscriptResult<RenderTypography, TypographyLoadError>> {
   const profile = FontPreset.of(fontPreset);
-  if (profile.measurement === "logical") {
-    return ManuscriptResult.succeed({
-      fontPreset,
-      fontFaces: [],
-      fontFamily: profile.family,
-      dispose: () => {},
-    });
-  }
   const files = await loadFontFiles(fontPreset, fontUrls);
   if (!files.ok) return files;
   const registered = await registerFonts(fontPreset, files.value);
@@ -132,20 +120,6 @@ export async function loadTypography({
         throw new Error("Typography font does not match the composition settings");
       return measure(request);
     };
-  if (profile.measurement === "logical") {
-    const measurer = guard(logicalRunMeasurer);
-    return ManuscriptResult.succeed({
-      fontPreset,
-      fontFaces: [],
-      prepare,
-      fontFamily: profile.family,
-      composer: createNovelComposer({ measurer }),
-      measurer,
-      dispose: () => {
-        disposed = true;
-      },
-    });
-  }
   const files = await loadFontFiles(fontPreset, fontUrls);
   if (!files.ok) return files;
   let shaper: HarfBuzzShaper;
