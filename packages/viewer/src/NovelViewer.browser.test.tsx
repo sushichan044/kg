@@ -158,7 +158,7 @@ test("gives upright Latin initials a full-width vertical advance", async ({ rend
   }
 });
 
-for (const fontPreset of ["mincho", "gothic"] as const) {
+for (const fontPreset of ["mincho", "genei-koburi"] as const) {
   test(`keeps compound punctuation clear of closing brackets in ${fontPreset}`, async ({
     renderViewer,
   }) => {

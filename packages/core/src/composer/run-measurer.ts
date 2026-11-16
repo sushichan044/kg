@@ -7,12 +7,7 @@ import type { RunMeasurement } from "./run-measurement";
 
 export type RunMeasurer = (request: MeasurementRequest) => RunMeasurement;
 
-/**
- * 論理測定で 1 書記素に割り当てる送り幅（em）
- *
- * 半角の字は 0.5、全角と東アジアの曖昧幅の字は 1 になる
- */
-export function logicalGraphemeAdvanceEm(grapheme: string): number {
+function graphemeWidth(grapheme: string): number {
   let width = 1;
   for (const character of grapheme) {
     const codePoint = character.codePointAt(0);
@@ -37,6 +32,6 @@ export const logicalRunMeasurer: RunMeasurer = (request) => {
       ? segments.length
       : request.kind === "base" && request.presentation === "tate-chu-yoko"
         ? 1
-        : segments.reduce((total, { segment }) => total + logicalGraphemeAdvanceEm(segment), 0);
+        : segments.reduce((total, { segment }) => total + graphemeWidth(segment), 0);
   return { kind: "advance", advanceEm: advance * request.scale };
 };

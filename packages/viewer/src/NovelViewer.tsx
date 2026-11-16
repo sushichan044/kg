@@ -10,7 +10,7 @@ import type {
   NovelPage as ComposedNovelPage,
   PresentationKind,
 } from "@sushichan044/kg-core";
-import { logicalGraphemeAdvanceEm, resolveGlyphOrientation } from "@sushichan044/kg-core/plugin";
+import { resolveGlyphOrientation } from "@sushichan044/kg-core/plugin";
 import type { GlyphOrientation } from "@sushichan044/kg-core/plugin";
 import {
   Suspense,
@@ -256,36 +256,21 @@ function presentationClass(value: string, kind: PresentationKind): string | unde
   }
 }
 
-const graphemeSegmenter = new Intl.Segmenter("ja", { granularity: "grapheme" });
-
 // 縦中横は text-combine-upright に任せず、横組みの字をコンポーザーが測った幅から全角 1 字分に縮める
 // WebKit は text-combine-upright の字を選択範囲の文字列で U+FFFC に置き換え、1em に収まらない連なりを組まずに縦に並べる
 function TateChuYoko({
   value,
   horizontalAdvanceEm,
-  measurement,
 }: Readonly<{
   value: string;
   horizontalAdvanceEm: number;
-  measurement: FontPreset["measurement"];
 }>) {
   const style: TateChuYokoStyle = {
     "--kgv-tate-chu-yoko-scale": Math.min(1, 1 / horizontalAdvanceEm),
   };
   return (
     <span lang="ja" className="kgv-glyph kgv-glyph-tate-chu-yoko" style={style}>
-      {measurement === "logical"
-        ? [...graphemeSegmenter.segment(value)].map(({ segment, index }) =>
-            // 論理測定は半角の字に 0.5em を割り当てるが、フォントを持たない書体の欧文は字幅が比例して広い
-            logicalGraphemeAdvanceEm(segment) === 0.5 ? (
-              <span key={index} className="kgv-tate-chu-yoko-half-width">
-                {segment}
-              </span>
-            ) : (
-              segment
-            ),
-          )
-        : value}
+      {value}
     </span>
   );
 }
@@ -544,7 +529,6 @@ type NovelPageProps = Readonly<{
   gridRow: number | undefined;
   showGrid: boolean;
   ruleCellCount: number;
-  measurement: FontPreset["measurement"];
   activeDiagnosticId: string | null;
   container: RefObject<HTMLDivElement | null>;
   registerPage: (pageIndex: number, element: HTMLElement | null) => void;
@@ -559,7 +543,6 @@ function NovelPage({
   gridRow,
   showGrid,
   ruleCellCount,
-  measurement,
   activeDiagnosticId,
   container,
   registerPage,
@@ -703,7 +686,6 @@ function NovelPage({
                               <TateChuYoko
                                 value={cell.value}
                                 horizontalAdvanceEm={cell.horizontalAdvanceEm}
-                                measurement={measurement}
                               />
                             ),
                           )}
@@ -955,7 +937,6 @@ function NovelViewerRenderer({
                 }
                 showGrid={showGrid}
                 ruleCellCount={ruleCellCount}
-                measurement={selectedFont.measurement}
                 activeDiagnosticId={
                   activeDiagnosticId !== null && diagnosticIds.has(activeDiagnosticId)
                     ? activeDiagnosticId
@@ -1040,7 +1021,6 @@ export function NovelViewer(props: NovelViewerProps) {
   const fontPreset = props.composed.settings.appearance.fontPreset;
   if (props.typography !== undefined && props.typography.fontPreset !== fontPreset)
     return <p role="alert">書体と組版設定が一致しません。</p>;
-  if (props.typography !== undefined || FontPreset.of(fontPreset).measurement === "logical")
-    return <NovelViewerRenderer {...props} />;
+  if (props.typography !== undefined) return <NovelViewerRenderer {...props} />;
   return <AutomaticNovelViewer {...props} />;
 }

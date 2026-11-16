@@ -274,7 +274,7 @@
   text-orientation: sideways;
 }
 
-/* 横組みの字をこまの中央に置き、全角 1 字分に縮める。字幅がこまより広いと text-align では中央に寄らない。 */
+/* 横組みの字をこまの中央に置き、全角 1 字分に縮める。字幅がこまより広いと text-align では中央に寄らない */
 .kgv-glyph-tate-chu-yoko {
   position: absolute;
   top: 50%;
@@ -422,11 +422,4 @@
 }
 .kgv-viewer[data-typography] :is(.kgv-glyph-sideways, .kgv-glyph-tate-chu-yoko) {
   font-kerning: var(--kgv-western-kerning);
-}
-
-/* 論理測定が縦中横の半角の字に割り当てた幅に合わせ、半角の字形で描く。 */
-.kgv-viewer .kgv-tate-chu-yoko-half-width {
-  font-feature-settings:
-    var(--kgv-font-features),
-    "hwid" 1;
 }
