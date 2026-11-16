@@ -31,6 +31,7 @@ function needsGlyph(codePoint: number): boolean {
  * - Sideways は横、upright とルビは縦でシェーピングする
  * - Mixed は書記素ごとに向きを解決し、同じ向きが続く範囲をまとめてシェーピングする
  * - 縦中横は連なり全体で全角 1 字分
+ * - 正立の書記素は 1 字分の升に収まり、送りは先頭の字の送りとする（UAX #29、JLREQ）
  * - Cmap に無い書記素は論理幅で置き換える
  */
 export function createShapedRunMeasurer(shaper: Shaper): RunMeasurer {
@@ -109,6 +110,22 @@ export function createShapedRunMeasurer(shaper: Shaper): RunMeasurer {
       // HarfBuzz は ZWNJ などを前の字と別のクラスターにするので、クラスターの境界が書記素の途中に来ることがある
       // 書記素の途中で切れた範囲は RunMeasurement.parseFor が受け付けないので、書記素の境界までまとめる
       const boundaries = new Set(graphemes.slice(index, last + 1).map(({ end }) => end));
+      const graphemeEnds = new Map(
+        graphemes.slice(index, last + 1).map(({ start, end }) => [start, end]),
+      );
+      const uprightBaseAdvanceEm = (start: number, end: number): number | undefined => {
+        if (horizontal) return undefined;
+        const baseLength = String.fromCodePoint(request.text.codePointAt(start) ?? 0).length;
+        if (end - start === baseLength) return undefined;
+        if (graphemeEnds.get(start) !== end) return undefined;
+        const shapedBase = shaper.shape({
+          text: request.text.slice(start, start + baseLength),
+          direction: "vertical",
+          weight,
+          features,
+        });
+        return shapedBase.reduce((sum, cluster) => sum + cluster.advanceEm, 0) * request.scale;
+      };
       let pendingStart: number | undefined;
       let pendingAdvanceEm = 0;
       for (const cluster of shaped) {
@@ -116,7 +133,8 @@ export function createShapedRunMeasurer(shaper: Shaper): RunMeasurer {
         pendingAdvanceEm += cluster.advanceEm * request.scale;
         const end = first.start + cluster.end;
         if (!boundaries.has(end)) continue;
-        push(pendingStart, end, pendingAdvanceEm);
+        // 結合文字や異体字セレクターは送りを足さない
+        push(pendingStart, end, uprightBaseAdvanceEm(pendingStart, end) ?? pendingAdvanceEm);
         pendingStart = undefined;
         pendingAdvanceEm = 0;
       }

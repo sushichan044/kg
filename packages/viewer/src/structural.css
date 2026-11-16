@@ -37,7 +37,8 @@
    読み上げ用の本文は、生成コンテンツでもアクセシビリティツリーに載る。 */
 .kgv-page-text::before,
 .kgv-folio::before,
-.kgv-ruby-character::before,
+.kgv-ruby-character[data-text]::before,
+.kgv-upright-part::before,
 .kgv-emphasis-mark::before {
   content: attr(data-text);
 }
@@ -299,6 +300,17 @@
 /* 行頭や行末で取り除いたアキは描かない。テキストとしてはレイアウトに残るので、選択範囲には入る。 */
 .kgv-space[data-suppressed] .kgv-space-text {
   clip-path: inset(50%);
+}
+
+/* WebKit が半角形を横倒しで半角分しか送らないのを避ける（upright-halfwidth.ts を参照）
+   text-combine-upright は、WebKit が生成コンテンツのルビに適用しないので使わない */
+.kgv-upright-halfwidth {
+  display: inline-block;
+  vertical-align: top;
+  writing-mode: horizontal-tb;
+  inline-size: 1em;
+  block-size: 1em;
+  text-align: center;
 }
 
 /* 行ごと、診断ごとに帯を 1 つ置き、その診断が及ぶこまを覆う。帯は、こま単位の
