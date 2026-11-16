@@ -11,6 +11,16 @@ vi.mock("@sushichan044/kg-core/lint", async (importOriginal) => ({
   proofreadManuscript: proofread,
 }));
 
+// Node の fetch は file: の URL を読めないので、同梱の書体をディスクから直接渡す
+vi.mock("./font-files", () => ({
+  loadFontFiles: async () => {
+    const { readFile } = await import("node:fs/promises");
+    const { ManuscriptResult } = await import("@sushichan044/kg-core");
+    const data = await readFile(new URL("../assets/GenEiKoburiMin6-R.ttf", import.meta.url));
+    return ManuscriptResult.succeed([{ weight: 400, data: new Uint8Array(data).buffer }]);
+  },
+}));
+
 const test = base.extend<{ pipeline: ManuscriptPipeline }>({
   pipeline: async ({}, use) => {
     const pipeline = createManuscriptPipeline();
@@ -19,9 +29,9 @@ const test = base.extend<{ pipeline: ManuscriptPipeline }>({
   },
 });
 
-const gothic = {
+const genei = {
   ...NovelCompositionSettings.defaults,
-  appearance: { ...NovelCompositionSettings.defaults.appearance, fontPreset: "gothic" },
+  appearance: { ...NovelCompositionSettings.defaults.appearance, fontPreset: "genei-koburi" },
 } as const;
 
 test("keeps the composed manuscript when proofreading fails", async ({ pipeline }) => {
@@ -36,7 +46,7 @@ test("keeps the composed manuscript when proofreading fails", async ({ pipeline 
   const outcome = await pipeline.process({
     source: "　あいう",
     notation: "kakuyomu",
-    settings: gothic,
+    settings: genei,
   });
 
   expect.assert(outcome.ok);

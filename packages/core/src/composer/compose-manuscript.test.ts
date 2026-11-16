@@ -665,6 +665,45 @@ describe("composeManuscript", () => {
     expect(line.range.source).toEqual({ start: 0, end: 11 });
   });
 
+  test("marks the last line of each paragraph even when it was shrunk to fit", () => {
+    const source = "ああ、ああああああ。」\nたちつ\n\nてと";
+
+    const result = composeManuscript(parsed(source), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const lines = result.value.layout.pages.flatMap(({ stages }) =>
+      stages.flatMap(({ lines }) => lines.filter(({ padding }) => padding !== true)),
+    );
+    expect(
+      lines.map((line) => ({
+        text: lineText(line),
+        break: line.break.kind,
+        paragraphEnd: line.paragraphEnd === true,
+      })),
+    ).toEqual([
+      { text: "ああ、ああああああ。」", break: "shrunk", paragraphEnd: true },
+      { text: "たちつ", break: "paragraph-end", paragraphEnd: true },
+      { text: "", break: "paragraph-end", paragraphEnd: true },
+      { text: "てと", break: "paragraph-end", paragraphEnd: true },
+    ]);
+  });
+
+  test("marks only the last wrapped line as the end of its paragraph", () => {
+    const result = composeManuscript(parsed(`${"あ".repeat(10)}。続き`), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    expect(contentLines(result.value).map(({ paragraphEnd }) => paragraphEnd)).toEqual([
+      undefined,
+      true,
+    ]);
+  });
+
   test("hangs punctuation instead of starting the next line with it", () => {
     const result = composeManuscript(parsed(`${"あ".repeat(10)}。続き`), {
       composer: novelComposer,
@@ -1353,6 +1392,40 @@ describe("composeManuscript", () => {
 
     expect.assert(result.ok === false, "expected composition to fail");
     expect(result.error).toMatchObject({ kind: "InvalidSettings", composerId: "kg/novel" });
+  });
+
+  test("marks offset and page-fill lines as padding but not blank manuscript lines", () => {
+    const withOffsets: NovelCompositionSettings = {
+      ...settings(),
+      offsets: {
+        document: { leading: 1, trailing: 1 },
+        page: { leading: 0, trailing: 0 },
+        stage: { leading: 1, trailing: 1 },
+      },
+    };
+
+    const result = composeManuscript(parsed("本文\n\n"), {
+      composer: novelComposer,
+      settings: withOffsets,
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    // Worker から受け取る複製でも見分けられる
+    const [page] = globalThis.structuredClone(result.value.layout).pages;
+    expect.assert(page !== undefined);
+    const lines = page.stages.flatMap((stage) => stage.lines);
+    expect(lines.map((line) => [lineText(line), line.padding === true])).toEqual([
+      ["", true],
+      ["", true],
+      ["本文", false],
+      ["", false],
+      ["", true],
+      ["", true],
+      ["", true],
+      ["", true],
+      ["", true],
+      ["", true],
+    ]);
   });
 
   test("uses a custom composer supplied through the options object", () => {

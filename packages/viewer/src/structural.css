@@ -31,6 +31,17 @@
   white-space: nowrap;
 }
 
+/* 原稿の本文でない文字（読み上げ用の本文、ノンブル、ルビ、圏点）は、テキストノードではなく
+   生成コンテンツとして描く。WebKit は user-select: none のテキストも選択範囲の文字列と
+   コピーに含めるが、生成コンテンツはどのエンジンも含めない。
+   読み上げ用の本文は、生成コンテンツでもアクセシビリティツリーに載る。 */
+.kgv-page-text::before,
+.kgv-folio::before,
+.kgv-ruby-character::before,
+.kgv-emphasis-mark::before {
+  content: attr(data-text);
+}
+
 .kgv-viewport {
   box-sizing: border-box;
   min-inline-size: 0;
@@ -158,7 +169,8 @@
   block-size: var(--kgv-cell-size);
 }
 
-.kgv-cell {
+.kgv-cell,
+.kgv-space {
   position: absolute;
   inset-block-start: calc(var(--kgv-item-offset) * var(--kgv-cell-size));
   inset-inline-start: 0;
@@ -227,7 +239,8 @@
   font-style: italic;
 }
 
-.kgv-glyph {
+.kgv-glyph,
+.kgv-space-text {
   display: inline-block;
   position: relative;
   top: 50%;
@@ -244,6 +257,7 @@
    ホストページの `body` から文字に届く。字間の追加や大文字小文字の変換があると、
    文字がこまからはみ出す。 */
 .kgv-glyph,
+.kgv-space-text,
 .kgv-ruby,
 .kgv-emphasis {
   letter-spacing: normal;
@@ -262,6 +276,17 @@
 
 .kgv-glyph-tate-chu-yoko {
   text-combine-upright: all;
+}
+
+/* 原稿のアキは字面を持たないが、選択とコピーのために文字として置く。半角スペースが
+   ボックスの端で詰められないよう、空白を保つ。 */
+.kgv-space-text {
+  white-space: pre;
+}
+
+/* 行頭や行末で取り除いたアキは描かない。テキストとしてはレイアウトに残るので、選択範囲には入る。 */
+.kgv-space[data-suppressed] .kgv-space-text {
+  clip-path: inset(50%);
 }
 
 /* WebKit が半角形を横倒しで半角分しか送らないのを避ける（upright-halfwidth.ts を参照） */
@@ -309,7 +334,8 @@
   cursor: help;
 }
 
-.kgv-cell {
+.kgv-cell,
+.kgv-space {
   pointer-events: auto;
   user-select: text;
 }

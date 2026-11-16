@@ -26,6 +26,7 @@ import type { CSSProperties, Ref, RefCallback, RefObject, ReactNode } from "reac
 import { DiagnosticHover } from "./DiagnosticHover";
 import { DiagnosticMarker } from "./DiagnosticMarker";
 import { fitZoom } from "./fit-zoom";
+import { copyManuscriptText } from "./selection-text";
 import type { ReadyTypography, RenderTypography } from "./typography";
 import { cssFontFeatures } from "./typography-profile";
 import { TypographyContext, TypographyProvider } from "./TypographyProvider";
@@ -193,6 +194,7 @@ type DiagnosticBand = Readonly<{
 
 type PlacedBand = Omit<DiagnosticBand, "lane" | "lanes">;
 type RenderedCell = Readonly<{
+  kind: "glyph";
   value: string;
   range: SingleGlyphUnit["range"];
   offsetEm: number;
@@ -200,6 +202,16 @@ type RenderedCell = Readonly<{
   disposition: SingleGlyphUnit["disposition"];
   presentation: PresentationKind;
   diagnostics: readonly ManuscriptDiagnostic[];
+}>;
+// 原稿にあるアキ（欧文間隔と、`！` や `？` の後ろの和字間隔）。字面は無いが、選択とコピーで
+// 原稿どおりの文字列になるよう、文字として置く。行頭や行末で取り除いたアキは幅を持たない。
+type RenderedSpace = Readonly<{
+  kind: "space";
+  value: string;
+  range: SingleGlyphUnit["range"];
+  offsetEm: number;
+  advanceEm: number;
+  suppressed: boolean;
 }>;
 type EmphasisMark = Readonly<{
   key: string;
@@ -314,8 +326,8 @@ function assignBandLanes(placed: readonly PlacedBand[]): DiagnosticBand[] {
 function lineDiagnostics(
   line: NovelLine,
   diagnostics: readonly ManuscriptDiagnostic[],
-): Readonly<{ bands: DiagnosticBand[]; cells: RenderedCell[] }> {
-  const cells: RenderedCell[] = [];
+): Readonly<{ bands: DiagnosticBand[]; cells: Array<RenderedCell | RenderedSpace> }> {
+  const cells: Array<RenderedCell | RenderedSpace> = [];
   const anchors: Array<
     Readonly<{
       ranges: readonly ManuscriptRange[];
@@ -329,6 +341,7 @@ function lineDiagnostics(
   for (const item of line.items) {
     if (item.kind === "glyph" || item.kind === "combined-glyph") {
       const cell = {
+        kind: "glyph",
         value: item.value,
         range: item.range,
         offsetEm: item.renderSpan.offsetEm,
@@ -351,7 +364,26 @@ function lineDiagnostics(
           cell,
         });
       }
+    } else if (item.kind === "suppressed") {
+      cells.push({
+        kind: "space",
+        value: item.value,
+        range: item.range,
+        // 取り除くアキは行頭か行末にしかない
+        offsetEm:
+          item.range.graphemes.start === line.range?.graphemes.start ? 0 : line.inlineSizeEm,
+        advanceEm: 0,
+        suppressed: true,
+      });
     } else if (item.kind === "glue" && item.origin === "source") {
+      cells.push({
+        kind: "space",
+        value: item.value,
+        range: item.range,
+        offsetEm: item.offsetEm,
+        advanceEm: item.widthEm,
+        suppressed: false,
+      });
       spanStart = Math.min(spanStart, item.range.graphemes.start);
       spanEnd = Math.max(spanEnd, item.range.graphemes.end);
       anchors.push({
@@ -391,6 +423,9 @@ function lineDiagnostics(
     ];
   });
   placed.sort((left, right) => left.offsetEm - right.offsetEm || right.advanceEm - left.advanceEm);
+  // コンポーザーは取り除いたアキを行の先頭の項目にする
+  // 選択範囲の文字列は文書順で決まるので、こまを原稿の順に並べ直す
+  cells.sort((left, right) => left.range.graphemes.start - right.range.graphemes.start);
   return { bands: assignBandLanes(placed), cells };
 }
 
@@ -412,9 +447,8 @@ function renderRuby(annotation: Extract<ComposedAnnotationFragment, { kind: "rub
               className="kgv-ruby-character"
               data-side={item.placement.side}
               style={decorationStyle(item.placement)}
-            >
-              {uprightText(item.value)}
-            </span>
+              data-text={uprightText(item.value)}
+            />
           ))}
         </span>
       </rt>
@@ -567,16 +601,20 @@ function NovelPage({
       aria-label={`${pageIndex + 1}ページ目、全${pageCount}ページ`}
       data-offscreen={pageIndex > 0 ? "" : undefined}
     >
-      <p className="kgv-visually-hidden">{text}</p>
-      <span className="kgv-folio" aria-hidden="true">
-        {pageIndex + 1}
-      </span>
+      <p className="kgv-visually-hidden kgv-page-text" data-text={text} />
+      <span className="kgv-folio" aria-hidden="true" data-text={pageIndex + 1} />
       <div className="kgv-page-grid">
         {stages.map((stage) => (
           <div key={stage.id} className="kgv-stage">
             {stage.lines.map(({ id: lineId, bands, cells, marks, line }) => {
               return (
-                <div key={lineId} className="kgv-line">
+                <div
+                  key={lineId}
+                  className="kgv-line"
+                  data-break={line.break.kind}
+                  data-padding={line.padding === true ? "" : undefined}
+                  data-paragraph-end={line.paragraphEnd === true ? "" : undefined}
+                >
                   {showGrid ? (
                     <span className="kgv-line-rules" aria-hidden="true">
                       {ruleCells}
@@ -584,6 +622,23 @@ function NovelPage({
                   ) : null}
                   <span className="kgv-line-text" aria-hidden="true">
                     {cells.map((cell) => {
+                      if (cell.kind === "space") {
+                        return (
+                          <span
+                            key={cell.range.graphemes.start}
+                            className="kgv-space"
+                            data-suppressed={cell.suppressed ? "" : undefined}
+                            style={
+                              {
+                                "--kgv-item-offset": cell.offsetEm,
+                                "--kgv-item-advance": cell.advanceEm,
+                              } as PositionedStyle
+                            }
+                          >
+                            <span className="kgv-space-text">{cell.value}</span>
+                          </span>
+                        );
+                      }
                       const found = cell.diagnostics;
                       const active = found.some(({ id }) => id === activeDiagnosticId);
                       const content = (
@@ -649,9 +704,8 @@ function NovelPage({
                             className="kgv-emphasis-mark"
                             data-side={placement.side}
                             style={decorationStyle(placement)}
-                          >
-                            {mark}
-                          </span>
+                            data-text={mark}
+                          />
                         ))}
                       </span>
                     </span>
@@ -794,6 +848,19 @@ function NovelViewerRenderer({
       observer.disconnect();
     };
   }, [pages]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (root === null) return;
+    // copy は選択範囲ではなくフォーカスのある要素に届くので、文書で受ける
+    const onCopy = (event: ClipboardEvent) => {
+      copyManuscriptText(event, root);
+    };
+    document.addEventListener("copy", onCopy);
+    return () => {
+      document.removeEventListener("copy", onCopy);
+    };
+  }, []);
 
   useEffect(() => {
     if (activeDiagnosticId === null) return;
@@ -940,7 +1007,6 @@ export function NovelViewer(props: NovelViewerProps) {
   const fontPreset = props.composed.settings.appearance.fontPreset;
   if (props.typography !== undefined && props.typography.fontPreset !== fontPreset)
     return <p role="alert">書体と組版設定が一致しません。</p>;
-  if (props.typography !== undefined || FontPreset.of(fontPreset).measurement === "logical")
-    return <NovelViewerRenderer {...props} />;
+  if (props.typography !== undefined) return <NovelViewerRenderer {...props} />;
   return <AutomaticNovelViewer {...props} />;
 }

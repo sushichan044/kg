@@ -54,6 +54,13 @@ class FakeEventSource {
 
 type FileEntry = (typeof files)[number];
 
+// ビューアーは読み上げ用の本文を、選択範囲に入らないよう生成コンテンツで描く
+function accessibleText(element: Element): string {
+  const content = getComputedStyle(element, "::before").content;
+  if (content === "none" || content === "normal") return "";
+  return JSON.parse(content.replaceAll("\\a ", "\\n")) as string;
+}
+
 type Fixtures = {
   novelSource: { current: string };
   api: { files: readonly FileEntry[]; catalogFails: boolean; failingContent: Set<string> };
@@ -169,7 +176,7 @@ test("renders composer-owned combined units without duplicating the accessible m
     expect(cells.map((cell) => cell.textContent)).toEqual(["あ", "12", "い"]);
     const text = screen.container.querySelector(".kgv-visually-hidden");
     expect.assert(text !== null);
-    expect(text.textContent.trim()).toBe("あ12い");
+    expect(accessibleText(text).trim()).toBe("あ12い");
   });
 });
 
@@ -448,7 +455,7 @@ test("shows a content failure instead of an empty manuscript and opens another f
     expect(label.textContent).toBe("共有 原稿.txt");
     const text = screen.container.querySelector(".kgv-visually-hidden");
     expect.assert(text !== null, "accessible viewer text did not render");
-    expect(text.textContent.trim()).toBe("共有本文");
+    expect(accessibleText(text).trim()).toBe("共有本文");
   });
 });
 
@@ -557,7 +564,7 @@ test("renders pixiv notation after the initial load and a file reload", async ({
     }
     const hiddenText = screen.container.querySelector(".kgv-visually-hidden");
     expect.assert(hiddenText !== null, "accessible viewer text did not render");
-    expect(hiddenText.textContent.replace(/\n+$/, "")).toBe("漢字太字斜体強調");
+    expect(accessibleText(hiddenText).replace(/\n+$/, "")).toBe("漢字太字斜体強調");
   });
   expect(screen.container.textContent).not.toContain("[[rb:");
   expect(screen.container.querySelector("iframe")).toBeNull();
@@ -571,7 +578,7 @@ test("renders pixiv notation after the initial load and a file reload", async ({
     expect(screen.container.querySelectorAll('[data-annotation="bold"]')).toHaveLength(3);
     const hiddenText = screen.container.querySelector(".kgv-visually-hidden");
     expect.assert(hiddenText !== null, "accessible viewer text did not render after reload");
-    expect(hiddenText.textContent.replace(/\n+$/, "")).toBe("再読込");
+    expect(accessibleText(hiddenText).replace(/\n+$/, "")).toBe("再読込");
   });
   expect(screen.container.textContent).not.toContain("[b:");
 });
@@ -921,7 +928,7 @@ test("switches back to an already loaded font without showing the loading text",
   expect(loadingText.seen).toBe(false);
 });
 
-test("keeps settings available after font loading fails and recovers with Gothic", async ({
+test("keeps settings available after font loading fails and recovers with another typeface", async ({
   fontRequest,
   renderApp,
 }) => {
@@ -935,10 +942,10 @@ test("keeps settings available after font loading fails and recovers with Gothic
   await expect.element(screen.getByRole("alert")).toBeVisible();
   await expect.element(screen.getByRole("combobox", { name: "書体" })).toBeVisible();
 
-  await screen.getByRole("combobox", { name: "書体" }).selectOptions("gothic");
+  await screen.getByRole("combobox", { name: "書体" }).selectOptions("genei-koburi");
 
   await waitFor(() => {
-    expect(screen.container.querySelector(".kgv-viewer")).not.toBeNull();
+    expect(screen.container.querySelector('[data-typography="genei-koburi"]')).not.toBeNull();
   });
   expect(screen.container.querySelector('[role="alert"]')).toBeNull();
   expect(screen.container.querySelectorAll(".kgv-glyph").length).toBeGreaterThan(0);
