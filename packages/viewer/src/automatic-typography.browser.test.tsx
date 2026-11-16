@@ -47,14 +47,14 @@ const test = base.extend<{ fontRequest: FontRequest }>({
   },
 });
 
-function composed(text: string, fontPreset: "mincho" | "gothic" = "mincho", fontSizeQ = 12.7) {
+function composed(text: string, fontSizeQ = 12.7) {
   const parsed = parseManuscript(text);
   expect.assert(parsed.ok);
   const result = composeManuscript(parsed.value, {
     composer: novelComposer,
     settings: NovelCompositionSettings.forPaper("a4", {
       ...NovelCompositionSettings.defaults,
-      appearance: { ...NovelCompositionSettings.defaults.appearance, fontPreset, fontSizeQ },
+      appearance: { ...NovelCompositionSettings.defaults.appearance, fontSizeQ },
     }),
   });
   expect.assert(result.ok);
@@ -93,9 +93,7 @@ test("loads bundled Mincho and recomposes changed props without caller typograph
   expect.assert(ref.current !== null);
   expect(ref.current.getVisiblePage()).toBe(0);
 
-  await screen.rerender(
-    <NovelViewer ref={ref} composed={composed("あwater", "mincho", (12 * 25.4) / 18)} />,
-  );
+  await screen.rerender(<NovelViewer ref={ref} composed={composed("あwater", (12 * 25.4) / 18)} />);
   await expect
     .poll(() => screen.container.querySelector(".kgv-glyph-sideways")?.textContent)
     .toBe("water");
@@ -122,15 +120,6 @@ test("retries a failed bundled font load without displaying mismatched text", as
     })
     .toBe(true);
   expect(fontRequest.calls).toBe(2);
-});
-
-test("preserves Gothic composition without loading Mincho", async ({ fontRequest }) => {
-  const screen = await render(<NovelViewer composed={composed("office", "gothic")} />);
-
-  await expect.element(screen.getByLabelText("小説プレビュー")).toBeVisible();
-  expect(fontRequest.calls).toBe(0);
-  expect(screen.container.querySelector("[data-typography]")).toBeNull();
-  expect(screen.container.querySelectorAll(".kgv-cell")).toHaveLength(6);
 });
 
 test("offers retry when font setup rejects and recovers after retry", async ({ fontRequest }) => {

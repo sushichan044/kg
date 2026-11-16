@@ -986,7 +986,6 @@ export function NovelViewer(props: NovelViewerProps) {
   const fontPreset = props.composed.settings.appearance.fontPreset;
   if (props.typography !== undefined && props.typography.fontPreset !== fontPreset)
     return <p role="alert">書体と組版設定が一致しません。</p>;
-  if (props.typography !== undefined || FontPreset.of(fontPreset).measurement === "logical")
-    return <NovelViewerRenderer {...props} />;
+  if (props.typography !== undefined) return <NovelViewerRenderer {...props} />;
   return <AutomaticNovelViewer {...props} />;
 }
