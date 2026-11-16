@@ -116,6 +116,25 @@ test("creates a new worker for the next request after the worker died", async ()
   engine.dispose();
 });
 
+test("creates a new worker for the next request after a message error stopped the worker", async () => {
+  const workers: Worker[] = [];
+  const created = vi.fn<() => Worker>(() => {
+    const worker = createWorker();
+    workers.push(worker);
+    return worker;
+  });
+  const engine = createWorkerEngine(created);
+  const first = await engine.process(inputFor("あ", "mincho"));
+  expect.assert(first.ok);
+
+  workers[0]?.dispatchEvent(new MessageEvent("messageerror"));
+  const recovered = await engine.process(inputFor("あ", "mincho"));
+
+  expect(recovered.ok).toBe(true);
+  expect(created).toHaveBeenCalledTimes(2);
+  engine.dispose();
+});
+
 test("computes only the first and the latest of rapid inputs in the worker", async ({
   workerEngine,
 }) => {
