@@ -20,7 +20,6 @@ import "./styles.css";
 const FONT_URLS = {
   mincho: { 400: rinUrl, 700: rinBoldUrl },
   "genei-koburi": { 400: geneiUrl },
-  gothic: undefined,
 } as const satisfies Record<FontPresetId, unknown>;
 
 const test = base.extend<{ typographyFor: (preset: FontPresetId) => Promise<ReadyTypography> }>({
@@ -91,7 +90,7 @@ function measureGlyph(glyph: HTMLElement) {
   };
 }
 
-const PRESETS: readonly FontPresetId[] = ["mincho", "genei-koburi", "gothic"];
+const PRESETS: readonly FontPresetId[] = ["mincho", "genei-koburi"];
 
 test.for(PRESETS)("draws upright tate-chu-yoko (%s)", async (preset, { typographyFor }) => {
   const typography = await typographyFor(preset);
