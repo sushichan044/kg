@@ -1,24 +1,4 @@
-import {
-  ComposeError,
-  composeManuscript,
-  novelComposer,
-  ManuscriptResult,
-  ParseError,
-  parseManuscript,
-  prepareManuscriptForFont,
-  kakuyomuParser,
-  pixivParser,
-} from "@sushichan044/kg-core";
-import type {
-  NovelComposedManuscript,
-  NovelCompositionSettings,
-  ManuscriptDiagnostic,
-} from "@sushichan044/kg-core";
-import {
-  createDefaultProofreadingRules,
-  ProofreadError,
-  proofreadManuscript,
-} from "@sushichan044/kg-core/lint";
+import type { NovelCompositionSettings } from "@sushichan044/kg-core";
 
 import { assertNever } from "./lib/assert-never";
 import type { ManuscriptNotation, ManuscriptPreferences } from "./lib/storage";
@@ -87,73 +67,4 @@ export function manuscriptReducer(
       return assertNever(action);
     }
   }
-}
-
-type ProcessedManuscript = Readonly<{
-  composed: NovelComposedManuscript;
-  diagnostics: readonly ManuscriptDiagnostic[];
-}>;
-
-/**
- * どの段階が失敗したかを示し、その段階自身のエラーを包む。
- * 段階でタグ付けすると 3 つのエラーユニオンを区別できる。
- * 3 つを単純にまとめたユニオンでは区別できない。
- */
-export type ProcessManuscriptError =
-  | Readonly<{ stage: "parse"; error: ParseError }>
-  | Readonly<{ stage: "compose"; error: ComposeError }>
-  | Readonly<{ stage: "proofread"; error: ProofreadError }>;
-
-export const ProcessManuscriptError = {
-  describe: (failure: ProcessManuscriptError): string => {
-    switch (failure.stage) {
-      case "parse": {
-        return ParseError.describe(failure.error);
-      }
-      case "compose": {
-        return ComposeError.describe(failure.error);
-      }
-      case "proofread": {
-        return ProofreadError.describe(failure.error);
-      }
-      default: {
-        return assertNever(failure);
-      }
-    }
-  },
-} as const;
-
-export function processManuscript(
-  source: string,
-  composition: NovelCompositionSettings,
-  notation: ManuscriptNotation,
-  composer: typeof novelComposer = novelComposer,
-): ManuscriptResult<ProcessedManuscript, ProcessManuscriptError> {
-  const parser = notation === "pixiv" ? pixivParser : kakuyomuParser;
-  const parsed = parseManuscript(source, { parser });
-  if (!parsed.ok) return ManuscriptResult.fail({ stage: "parse", error: parsed.error });
-
-  const prepared = prepareManuscriptForFont(parsed.value, composition.appearance.fontPreset);
-  const composed = composeManuscript(prepared.parsed, {
-    composer,
-    settings: composition,
-  });
-  if (!composed.ok) return ManuscriptResult.fail({ stage: "compose", error: composed.error });
-
-  const proofread = proofreadManuscript(composed.value, {
-    rules: createDefaultProofreadingRules(),
-  });
-  if (!proofread.ok) return ManuscriptResult.fail({ stage: "proofread", error: proofread.error });
-
-  return ManuscriptResult.succeed({
-    composed: composed.value,
-    diagnostics: [
-      ...parsed.warnings.map((warning) =>
-        Object.assign({}, warning, { range: prepared.mapRange(warning.range) }),
-      ),
-      ...composed.warnings,
-      ...proofread.warnings,
-      ...proofread.value,
-    ],
-  });
 }

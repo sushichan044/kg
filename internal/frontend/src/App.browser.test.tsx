@@ -1237,3 +1237,145 @@ test("rejects an export when the browser returns a smaller canvas", async ({ ren
     download.mockRestore();
   }
 });
+
+test("shows a failure panel when the worker cannot be loaded", async ({ renderApp }) => {
+  await page.viewport(1280, 800);
+  const RealWorker = Worker;
+  vi.stubGlobal(
+    "Worker",
+    class extends RealWorker {
+      constructor() {
+        super("/kg-missing.worker.js", { type: "module" });
+      }
+    },
+  );
+
+  try {
+    const screen = await renderApp();
+
+    await expect
+      .element(screen.getByRole("alert").filter({ hasText: "組版ワーカーが失敗しました" }))
+      .toBeVisible();
+    expect(screen.container.querySelector(".kgv-viewport")).toBeNull();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+test("keeps the viewer and offers a retry when the worker dies after a successful composition", async ({
+  novelSource,
+  renderApp,
+}) => {
+  await page.viewport(1280, 800);
+  const RealWorker = Worker;
+  const workers: Worker[] = [];
+  vi.stubGlobal(
+    "Worker",
+    class extends RealWorker {
+      constructor(...args: ConstructorParameters<typeof Worker>) {
+        // 最初の Worker だけを動かし、作り直した Worker は読み込みに失敗させる
+        if (workers.length === 0) super(...args);
+        else super("/kg-missing.worker.js", { type: "module" });
+        workers.push(this);
+      }
+    },
+  );
+
+  try {
+    const screen = await renderApp();
+    await waitFor(() => {
+      expect(screen.container.querySelector(".kgv-viewport")).not.toBeNull();
+    });
+    workers[0]?.dispatchEvent(new ErrorEvent("error", { message: "boom" }));
+    novelSource.current = "あいう";
+    expect.assert(FakeEventSource.latest !== undefined);
+    FakeEventSource.latest.emit("file-changed", JSON.stringify({ id: "novel" }));
+
+    await expect
+      .element(screen.getByRole("alert").filter({ hasText: "組版ワーカーが失敗しました" }))
+      .toBeVisible();
+    expect(screen.container.querySelector(".kgv-viewport")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "再試行" }).first()).toBeDefined();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+test("disables the export while the viewer keeps another file's result after a worker failure", async ({
+  renderApp,
+}) => {
+  await page.viewport(1280, 800);
+  const RealWorker = Worker;
+  const workers: Worker[] = [];
+  vi.stubGlobal(
+    "Worker",
+    class extends RealWorker {
+      constructor(...args: ConstructorParameters<typeof Worker>) {
+        if (workers.length === 0) super(...args);
+        else super("/kg-missing.worker.js", { type: "module" });
+        workers.push(this);
+      }
+    },
+  );
+
+  try {
+    const screen = await renderApp();
+    const exportButton = screen.getByRole("button", { name: "PNGをZIPで出力" }).first();
+    await expect.element(exportButton).toBeEnabled();
+    workers[0]?.dispatchEvent(new ErrorEvent("error", { message: "boom" }));
+
+    await screen
+      .getByRole("complementary", { name: "ワークスペース" })
+      .getByRole("link", { name: "共有 原稿.txt", exact: true })
+      .click();
+
+    await expect
+      .element(screen.getByRole("alert").filter({ hasText: "組版ワーカーが失敗しました" }))
+      .toBeVisible();
+    expect(screen.container.querySelector(".toolbar-label")).toHaveTextContent("共有 原稿.txt");
+    expect(screen.container.querySelector(".kgv-viewport")).not.toBeNull();
+    await expect.element(exportButton).toBeDisabled();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+test("disables the export while the viewer keeps a result made with other settings after a worker failure", async ({
+  renderApp,
+}) => {
+  await page.viewport(1280, 800);
+  const RealWorker = Worker;
+  const workers: Worker[] = [];
+  vi.stubGlobal(
+    "Worker",
+    class extends RealWorker {
+      constructor(...args: ConstructorParameters<typeof Worker>) {
+        if (workers.length === 0) super(...args);
+        else super("/kg-missing.worker.js", { type: "module" });
+        workers.push(this);
+      }
+    },
+  );
+
+  try {
+    const screen = await renderApp();
+    const exportButton = screen.getByRole("button", { name: "PNGをZIPで出力" }).first();
+    await expect.element(exportButton).toBeEnabled();
+    workers[0]?.dispatchEvent(new ErrorEvent("error", { message: "boom" }));
+
+    await screen
+      .getByRole("complementary", { name: "ワークスペース" })
+      .getByText("用紙・組版・書体", { exact: true })
+      .first()
+      .click();
+    await screen.getByRole("combobox", { name: "用紙" }).selectOptions("a4");
+
+    await expect
+      .element(screen.getByRole("alert").filter({ hasText: "組版ワーカーが失敗しました" }))
+      .toBeVisible();
+    expect(screen.container.querySelector(".kgv-viewport")).not.toBeNull();
+    await expect.element(exportButton).toBeDisabled();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});

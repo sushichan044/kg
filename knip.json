@@ -15,10 +15,13 @@
       "entry": ["src/fixtures/*.worker.ts"]
     },
     "packages/viewer": {
-      "entry": ["src/index.ts!"],
+      "entry": ["src/index.ts!", "src/worker.ts!", "src/fixtures/*.worker.ts"],
       "ignoreDependencies": ["@arethetypeswrong/core", "publint", "unplugin-unused"],
       "project": ["font-proof/**/*.{ts,tsx}", "src/**/*.{ts,tsx}!", "!src/**/*.test.{ts,tsx}!"]
     }
+  },
+  "ignoreIssues": {
+    "packages/viewer/src/{manuscript-engine,worker}.ts": ["unlisted"]
   },
   "treatConfigHintsAsErrors": true,
   "treatTagHintsAsErrors": true,

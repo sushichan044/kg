@@ -49,6 +49,8 @@ export default defineConfig(({ mode }) => ({
     include: ["react", "react-dom", "react-dom/client"],
     exclude: ["harfbuzzjs"],
   },
+  // harfbuzzjs が top-level await を使うので、Worker は iife ではなく ES module でバンドルする
+  worker: { format: "es" },
   resolve: {
     dedupe: ["react", "react-dom"],
   },
