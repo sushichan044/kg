@@ -36,7 +36,8 @@ const graphemes = {
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!?.,:;-_()[]{}<>/@#%&*+=~ ",
   ),
   fullwidth: Array.from("Ａｂ１＠％＋　"),
-  halfwidth: [...Array.from("ｱｲﾞﾟ｢｣､｡ｰ"), "ｶﾞ", "ﾊﾟ"],
+  halfwidth: [...Array.from("ｱｲﾞﾟ｢｣､｡ｰ"), "ｶﾞ", "ﾊﾟ", "ｼﾞ", "ｶﾞｷﾞ"],
+  extending: ["あ゙", "か゚", "漢\uFE00"],
   symbols: Array.from("♪☆♡※→©°×÷"),
 } as const;
 

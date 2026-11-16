@@ -132,13 +132,44 @@ test.for(["あ‌い", "あ゙い"])(
 
     const result = measurer(input);
 
-    expect(result.advanceEm).toBe(3);
+    expect(result.advanceEm).toBe(2);
     expect(RunMeasurement.parseFor(input, result)).toEqual(result);
     expect(
       result.kind === "clustered" && result.clusters.map(({ textRange }) => textRange.end),
     ).toEqual([2, 3]);
   },
 );
+
+// 書記素 1 つは全角 1 字分の升で、結合文字や異体字セレクターは送りを足さない
+test.for([
+  ["ｼﾞ", 1],
+  ["ﾊﾟ", 1],
+  ["ｶﾞｷﾞ", 2],
+  ["ﾞ", 1],
+  ["あ゙", 1],
+  ["あ\u0301", 1],
+  ["漢\uFE00", 1],
+  ["あ゙い", 2],
+] as const)(
+  "measures the upright grapheme %j as %d em",
+  ([text, advanceEm], { shaper, request }) => {
+    const measurer = createShapedRunMeasurer(shaper);
+    const input = request({ text, presentation: "upright", scale: 1 });
+
+    const result = measurer(input);
+
+    expect(result.advanceEm).toBe(advanceEm);
+    expect(RunMeasurement.parseFor(input, result)).toEqual(result);
+  },
+);
+
+test("scales the base advance of an upright grapheme in ruby", ({ shaper, request }) => {
+  const measurer = createShapedRunMeasurer(shaper);
+
+  const result = measurer(request({ text: "ｶﾞｷﾞ", kind: "ruby", scale: 0.5 }));
+
+  expect(result.advanceEm).toBe(1);
+});
 
 test("measures tate-chu-yoko as one em without shaping", ({ shaper, shaped, request }) => {
   const measurer = createShapedRunMeasurer(shaper);

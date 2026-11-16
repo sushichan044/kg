@@ -12,6 +12,7 @@ import fontUrl from "../assets/GenEiKoburiMin6-R.ttf?url";
 import { NovelViewer } from "./NovelViewer";
 import { loadTypography } from "./typography";
 import type { ReadyTypography } from "./typography";
+import { splitUprightHalfwidth } from "./upright-halfwidth";
 
 import "./styles.css";
 
@@ -158,6 +159,8 @@ test("draws upright half-width forms in ruby at their composed advances", async 
   const characters = [...screen.container.querySelectorAll<HTMLElement>(".kgv-ruby-character")];
   expect(characters.map(drawnText).join("")).toBe("ｶﾝｼﾞ｢ｰ｣");
   expect(characters.map(({ textContent }) => textContent).join("")).toBe("");
+  // 濁点は直前の字と同じ升に入るので、ｶﾝｼﾞ は 3 つ、｢ｰ｣ は 3 つの升になる
+  expect(screen.container.querySelectorAll(".kgv-upright-halfwidth")).toHaveLength(6);
   for (const character of characters) {
     const box = character.getBoundingClientRect();
     const parts = [...character.querySelectorAll(".kgv-upright-part")].map((part) =>
@@ -169,6 +172,49 @@ test("draws upright half-width forms in ruby at their composed advances", async 
     expect(Math.abs(drawnTop - box.top)).toBeLessThanOrEqual(0.25);
   }
 });
+
+test.for(["ｼﾞ", "ﾊﾟ"])(
+  "draws the mark of %s inside the one em cell of its base",
+  async (text, { typography }) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "kgv-glyph kgv-glyph-upright";
+    wrapper.lang = "ja";
+    Object.assign(wrapper.style, {
+      writingMode: "vertical-rl",
+      fontFamily: typography.fontFamily,
+      fontSize: "40px",
+    });
+    document.body.append(wrapper);
+    try {
+      for (const part of splitUprightHalfwidth(`漢${text}字`)) {
+        const node = document.createElement("span");
+        node.className = part.combined ? "kgv-upright-halfwidth" : "";
+        node.textContent = part.text;
+        wrapper.append(node);
+      }
+      await document.fonts.ready;
+
+      const cells = wrapper.querySelectorAll<HTMLElement>(".kgv-upright-halfwidth");
+      expect(cells).toHaveLength(1);
+      const [cell] = cells;
+      expect.assert(cell);
+      const range = document.createRange();
+      range.selectNodeContents(cell);
+      const cellBox = cell.getBoundingClientRect();
+      const drawn = range.getBoundingClientRect();
+      // 基底と濁点・半濁点が、全角 1 字分の升の中に横に並んで描かれる
+      expect(Math.abs(cellBox.width - 40)).toBeLessThanOrEqual(0.25);
+      expect(Math.abs(cellBox.height - 40)).toBeLessThanOrEqual(0.25);
+      expect(drawn.left).toBeGreaterThanOrEqual(cellBox.left - 0.25);
+      expect(drawn.right).toBeLessThanOrEqual(cellBox.right + 0.25);
+      expect(drawn.top).toBeGreaterThanOrEqual(cellBox.top - 0.25);
+      expect(drawn.bottom).toBeLessThanOrEqual(cellBox.bottom + 0.25);
+      expect(drawn.width).toBeGreaterThan(40 * 0.75);
+    } finally {
+      wrapper.remove();
+    }
+  },
+);
 
 test("measures a three-mark tate-chu-yoko run as the one em it is drawn in", ({ typography }) => {
   const request = {
