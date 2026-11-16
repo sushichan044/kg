@@ -14,6 +14,10 @@ const NovelLineSchema = v.pipe(
     items: readonlyArray(PositionedInlineItem.schema),
     break: LineBreakResult.schema,
     annotations: readonlyArray(ComposedAnnotationFragment.schema),
+    // 段落の最後の行。行の調整（break）とは別で、詰めて収めた行も段落を終えうる
+    paragraphEnd: v.optional(v.literal(true)),
+    // オフセットやページの余りで空けた行は原稿に無いので、原稿の空行と見分けられるようにする
+    padding: v.optional(v.literal(true)),
   }),
   v.check((line) => {
     const ranges = line.items.flatMap((item) =>
@@ -23,6 +27,7 @@ const NovelLineSchema = v.pipe(
           ? [item.range]
           : [],
     );
+    if (line.padding === true && line.range !== null) return false;
     if (line.range === null)
       return (
         ranges.length === 0 &&
@@ -64,11 +69,27 @@ export type NovelLine = v.InferOutput<typeof NovelLineSchema>;
 export const NovelLine = {
   schema: NovelLineSchema,
 
+  /**
+   * 原稿の空行
+   */
   empty: (): NovelLine => ({
     range: null,
     inlineSizeEm: 0,
     items: [],
     break: { kind: "paragraph-end" },
     annotations: [],
+    paragraphEnd: true,
+  }),
+
+  /**
+   * 文書・ページ・段のオフセットやページの余りを埋める、原稿に無い行
+   */
+  padding: (): NovelLine => ({
+    range: null,
+    inlineSizeEm: 0,
+    items: [],
+    break: { kind: "paragraph-end" },
+    annotations: [],
+    padding: true,
   }),
 } as const;
