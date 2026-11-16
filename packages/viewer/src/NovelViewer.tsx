@@ -31,6 +31,7 @@ import type { ReadyTypography, RenderTypography } from "./typography";
 import { cssFontFeatures } from "./typography-profile";
 import { TypographyContext, TypographyProvider } from "./TypographyProvider";
 import { TypographyLoading, TypographyStatus } from "./TypographyStatus";
+import { splitUprightHalfwidth } from "./upright-halfwidth";
 import { useTypography } from "./use-typography";
 
 const NO_DIAGNOSTICS: readonly ManuscriptDiagnostic[] = [];
@@ -240,6 +241,46 @@ function decorationStyle(placement: AnnotationPlacement): DecorationStyle {
 // mixed は CSS の text-orientation に任せず、計測と同じ resolveGlyphOrientation で字ごとに固定する
 function glyphOrientation(value: string, kind: PresentationKind): GlyphOrientation | undefined {
   return kind === "tate-chu-yoko" ? undefined : resolveGlyphOrientation(value, kind);
+}
+
+function uprightText(value: string): ReactNode {
+  const parts = splitUprightHalfwidth(value);
+  if (parts.every(({ combined }) => !combined)) return value;
+  return (
+    <span>
+      {parts.map(({ start, text, combined }) =>
+        combined ? (
+          <span key={start} className="kgv-upright-halfwidth">
+            {text}
+          </span>
+        ) : (
+          text
+        ),
+      )}
+    </span>
+  );
+}
+
+// ルビは選択範囲に入らないよう生成コンテンツで描くので、半角形も部分ごとの生成コンテンツに分ける
+function rubyReading(value: string): { "data-text"?: string; children?: ReactNode } {
+  const parts = splitUprightHalfwidth(value);
+  if (parts.every(({ combined }) => !combined)) return { "data-text": value };
+  return {
+    children: (
+      <span className="kgv-upright-parts">
+        {parts.map(({ start, text, combined }) => (
+          <span
+            key={start}
+            className={joinClassNames(
+              "kgv-upright-part",
+              combined ? "kgv-upright-halfwidth" : undefined,
+            )}
+            data-text={text}
+          />
+        ))}
+      </span>
+    ),
+  };
 }
 
 function presentationClass(value: string, kind: PresentationKind): string | undefined {
@@ -456,7 +497,7 @@ function renderRuby(annotation: Extract<ComposedAnnotationFragment, { kind: "rub
               className="kgv-ruby-character"
               data-side={item.placement.side}
               style={decorationStyle(item.placement)}
-              data-text={item.value}
+              {...rubyReading(item.value)}
             />
           ))}
         </span>
@@ -680,7 +721,9 @@ function NovelPage({
                                   presentationClass(cell.value, cell.presentation),
                                 )}
                               >
-                                {cell.value}
+                                {glyphOrientation(cell.value, cell.presentation) === "upright"
+                                  ? uprightText(cell.value)
+                                  : cell.value}
                               </span>
                             ) : (
                               <TateChuYoko
