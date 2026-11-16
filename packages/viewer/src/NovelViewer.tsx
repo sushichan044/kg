@@ -95,6 +95,10 @@ type PositionedStyle = CSSProperties & {
   "--kgv-item-offset": number;
 };
 
+type TateChuYokoStyle = CSSProperties & {
+  "--kgv-tate-chu-yoko-scale": number;
+};
+
 type BandStyle = CSSProperties & {
   "--kgv-band-lane": number;
   "--kgv-band-lanes": number;
@@ -200,6 +204,7 @@ type RenderedCell = Readonly<{
   advanceEm: number;
   disposition: SingleGlyphUnit["disposition"];
   presentation: PresentationKind;
+  horizontalAdvanceEm: number | null;
   diagnostics: readonly ManuscriptDiagnostic[];
 }>;
 // 原稿にあるアキ（欧文間隔と、`！` や `？` の後ろの和字間隔）。字面は無いが、選択とコピーで
@@ -237,7 +242,7 @@ function glyphOrientation(value: string, kind: PresentationKind): GlyphOrientati
   return kind === "tate-chu-yoko" ? undefined : resolveGlyphOrientation(value, kind);
 }
 
-function presentationClass(value: string, kind: PresentationKind): string {
+function presentationClass(value: string, kind: PresentationKind): string | undefined {
   switch (glyphOrientation(value, kind)) {
     case "upright": {
       return "kgv-glyph-upright";
@@ -246,9 +251,28 @@ function presentationClass(value: string, kind: PresentationKind): string {
       return "kgv-glyph-sideways";
     }
     case undefined: {
-      return "kgv-glyph-tate-chu-yoko";
+      return undefined;
     }
   }
+}
+
+// 縦中横は text-combine-upright に任せず、横組みの字をコンポーザーが測った幅から全角 1 字分に縮める
+// WebKit は text-combine-upright の字を選択範囲の文字列で U+FFFC に置き換え、1em に収まらない連なりを組まずに縦に並べる
+function TateChuYoko({
+  value,
+  horizontalAdvanceEm,
+}: Readonly<{
+  value: string;
+  horizontalAdvanceEm: number;
+}>) {
+  const style: TateChuYokoStyle = {
+    "--kgv-tate-chu-yoko-scale": Math.min(1, 1 / horizontalAdvanceEm),
+  };
+  return (
+    <span lang="ja" className="kgv-glyph kgv-glyph-tate-chu-yoko" style={style}>
+      {value}
+    </span>
+  );
 }
 
 function emphasisMarks(line: NovelLine): EmphasisMark[] {
@@ -329,6 +353,10 @@ function lineDiagnostics(
         advanceEm: item.renderSpan.advanceEm,
         disposition: item.disposition,
         presentation: item.presentation,
+        horizontalAdvanceEm:
+          item.kind === "combined-glyph" && item.presentation === "tate-chu-yoko"
+            ? item.horizontalAdvanceEm
+            : null,
         diagnostics: [] as ManuscriptDiagnostic[],
       } satisfies RenderedCell;
       cells.push(cell);
@@ -640,19 +668,26 @@ function NovelPage({
                         >
                           {wrapAnnotations(
                             annotationsForRange(line, cell.range),
-                            <span
-                              lang={
-                                glyphOrientation(cell.value, cell.presentation) === "sideways"
-                                  ? "en"
-                                  : "ja"
-                              }
-                              className={joinClassNames(
-                                "kgv-glyph",
-                                presentationClass(cell.value, cell.presentation),
-                              )}
-                            >
-                              {cell.value}
-                            </span>,
+                            cell.horizontalAdvanceEm === null ? (
+                              <span
+                                lang={
+                                  glyphOrientation(cell.value, cell.presentation) === "sideways"
+                                    ? "en"
+                                    : "ja"
+                                }
+                                className={joinClassNames(
+                                  "kgv-glyph",
+                                  presentationClass(cell.value, cell.presentation),
+                                )}
+                              >
+                                {cell.value}
+                              </span>
+                            ) : (
+                              <TateChuYoko
+                                value={cell.value}
+                                horizontalAdvanceEm={cell.horizontalAdvanceEm}
+                              />
+                            ),
                           )}
                         </span>
                       );

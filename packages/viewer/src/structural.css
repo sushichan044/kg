@@ -274,8 +274,14 @@
   text-orientation: sideways;
 }
 
+/* 横組みの字をこまの中央に置き、全角 1 字分に縮める。字幅がこまより広いと text-align では中央に寄らない */
 .kgv-glyph-tate-chu-yoko {
-  text-combine-upright: all;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scaleX(var(--kgv-tate-chu-yoko-scale, 1));
+  writing-mode: horizontal-tb;
+  white-space: pre;
 }
 
 /* 原稿のアキは字面を持たないが、選択とコピーのために文字として置く。半角スペースが
@@ -414,6 +420,6 @@
   font-size-adjust: none;
   text-rendering: geometricPrecision;
 }
-.kgv-viewer[data-typography] .kgv-glyph-sideways {
+.kgv-viewer[data-typography] :is(.kgv-glyph-sideways, .kgv-glyph-tate-chu-yoko) {
   font-kerning: var(--kgv-western-kerning);
 }

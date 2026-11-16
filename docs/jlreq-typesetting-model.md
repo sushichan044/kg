@@ -384,9 +384,12 @@ type SingleGlyphUnit = RenderUnitCommon &
 type CombinedGlyphUnit = RenderUnitCommon &
   Readonly<{
     kind: "combined-glyph";
-    presentation: "tate-chu-yoko" | "sideways";
     disposition: "placed";
-  }>;
+  }> &
+  (
+    | Readonly<{ presentation: "sideways" }>
+    | Readonly<{ presentation: "tate-chu-yoko"; horizontalAdvanceEm: number }>
+  );
 
 type PositionedInlineItem =
   | SingleGlyphUnit
@@ -406,7 +409,10 @@ synthetic cluster coverage does not establish that agreement.
 Source placement offsets, layout spans, and render spans are line-relative.
 A tate-chu-yoko run such as `12` or `！？！` occupies one logical em whatever its member
 count, and its members share that advance equally; that mapping is not a claim about the digits' vertical
-ink positions. A shaped `ffi` cluster can instead share one layout span across
+ink positions. `horizontalAdvanceEm` is the run's advance when set horizontally, measured by the
+same provider (HarfBuzz for shaped fonts, the logical widths otherwise). The renderer draws the run
+horizontally and compresses it by `min(1, 1 / horizontalAdvanceEm)` to fit the one em instead of
+relying on `text-combine-upright`. A shaped `ffi` cluster can instead share one layout span across
 all three graphemes. Diagnostics covering any shared member highlight the cluster
 and retain the diagnostic's original range. Overlapping diagnostics remain
 separate records with the existing lane allocation and selection behavior.

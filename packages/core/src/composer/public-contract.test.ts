@@ -66,6 +66,7 @@ describe("public render units", () => {
         kind: "combined-glyph",
         value: "12",
         presentation: "tate-chu-yoko",
+        horizontalAdvanceEm: 1,
         layoutSpan: { offsetEm: 1, advanceEm: 1 },
         sources: [
           expect.objectContaining({ kind: "exact", layoutSpan: { offsetEm: 1, advanceEm: 0.5 } }),
@@ -81,7 +82,11 @@ describe("public render units", () => {
     const unit = lines.flatMap((line) => line.items).find((item) => item.kind === "combined-glyph");
 
     expect.assert(unit !== undefined, "combined unit is missing");
-    expect(unit).toMatchObject({ value: "！？！", presentation: "tate-chu-yoko" });
+    expect(unit).toMatchObject({
+      value: "！？！",
+      presentation: "tate-chu-yoko",
+      horizontalAdvanceEm: 3,
+    });
     expect(unit.layoutSpan.offsetEm).toBe(1);
     expect(unit.layoutSpan.advanceEm).toBeCloseTo(1);
     expect(unit.sources).toHaveLength(3);
