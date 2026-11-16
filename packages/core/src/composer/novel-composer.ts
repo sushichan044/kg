@@ -870,7 +870,11 @@ function wrapSourceLine(
       return ManuscriptResult.fail({
         reason: "annotation fragments cannot preserve their reading positions",
       });
-    annotated.push({ ...line, annotations: fragments });
+    annotated.push(
+      index === lines.length - 1
+        ? { ...line, annotations: fragments, paragraphEnd: true }
+        : { ...line, annotations: fragments },
+    );
   }
   return ManuscriptResult.succeed(annotated);
 }
