@@ -270,6 +270,12 @@
   text-orientation: upright;
 }
 
+/* 同梱フォントに無い字（ルビの字を含む）。主のフォントと代替フォントが同じ行に混ざると、
+   縦組では基準線の合わせ方の差が左右のずれになる。代替フォントだけで描いてこまの中央に置く。 */
+.kgv-glyph-fallback {
+  font-family: var(--kgv-fallback-font);
+}
+
 .kgv-glyph-sideways {
   text-orientation: sideways;
 }

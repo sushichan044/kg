@@ -23,6 +23,7 @@ type PositionedReadingItem = Readonly<{
   value: string;
   textRange: MeasurementTextRange;
   placement: AnnotationPlacement;
+  fallback?: true | undefined;
 }>;
 export type RubyLinePlacement = Readonly<{
   segment: RubyLineSegment;
@@ -109,6 +110,7 @@ function place(
     const item: PositionedReadingItem = {
       value: piece.value,
       textRange: piece.textRange,
+      ...(piece.fallback === true ? { fallback: true as const } : {}),
       placement: {
         side: "before",
         inlineSpan: {

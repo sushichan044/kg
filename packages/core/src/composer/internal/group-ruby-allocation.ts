@@ -86,6 +86,7 @@ export const GroupRubyAllocation = {
         advanceEm: piece.renderSpan.advanceEm,
         offsetEm: piece.renderSpan.offsetEm - layoutStart,
       },
+      fallback: piece.fallback,
     }));
     return {
       segment: { association: group.association, start: fragmentStart, end: fragmentEnd, pieces },

@@ -64,6 +64,7 @@ type Atom = Readonly<{
   clusterRange: ManuscriptRange | null;
   combineRun: boolean;
   horizontalAdvanceEm: number | null;
+  fallback: boolean;
 }>;
 
 type MeasuredSourceLine = Readonly<{
@@ -212,6 +213,7 @@ function measureSourceLine(
             clusterRange,
             combineRun,
             horizontalAdvanceEm,
+            fallback: piece.fallback === true,
           });
         }
         memberStart += memberCount;
@@ -531,7 +533,13 @@ function renderUnits(
       }
     } else {
       if (presentation === "tate-chu-yoko") return undefined;
-      items.push({ ...common, kind: "glyph", presentation, disposition: first.disposition });
+      items.push({
+        ...common,
+        kind: "glyph",
+        presentation,
+        disposition: first.disposition,
+        ...(first.atom.fallback ? { fallback: true as const } : {}),
+      });
     }
   }
   return items;
