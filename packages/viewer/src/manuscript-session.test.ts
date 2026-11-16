@@ -271,3 +271,52 @@ test("keeps the font load of a new connection when a load from the previous one 
 
   expect(loaded[0]?.isDisposed()).toBe(true);
 });
+
+test("keeps the displayed typography after reconnecting until a replacement output is published", async ({
+  session,
+  started,
+  loaded,
+  createEngine,
+  disconnect,
+}) => {
+  session.request(input("a"));
+  started[0]?.resolve(succeed("a"));
+  await vi.waitFor(() => {
+    expect(session.getSnapshot().output).not.toBeNull();
+  });
+
+  disconnect();
+  const reconnected = session.connect(createEngine());
+  started[1]?.resolve(ManuscriptResult.fail({ stage: "worker", message: "boom" }));
+  await vi.waitFor(() => {
+    expect(session.getSnapshot().failure).not.toBeNull();
+  });
+
+  expect(session.getSnapshot().output?.typography).toBe(loaded[0]);
+  expect(loaded[0]?.isDisposed()).toBe(false);
+  session.retry();
+  started[2]?.resolve(succeed("a"));
+  await vi.waitFor(() => {
+    expect(session.getSnapshot().output?.typography).toBe(loaded[1]);
+  });
+  expect(loaded[0]?.isDisposed()).toBe(true);
+  reconnected();
+});
+
+test("disposes the displayed typography when the session stays disconnected", async ({
+  session,
+  started,
+  loaded,
+  disconnect,
+}) => {
+  session.request(input("a"));
+  started[0]?.resolve(succeed("a"));
+  await vi.waitFor(() => {
+    expect(session.getSnapshot().output).not.toBeNull();
+  });
+
+  disconnect();
+  await settled();
+
+  expect(loaded[0]?.isDisposed()).toBe(true);
+});
