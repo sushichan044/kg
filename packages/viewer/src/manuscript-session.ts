@@ -137,7 +137,9 @@ export class ManuscriptSession {
     const loading = load(fontPreset)
       .catch(() => ManuscriptResult.fail({ kind: "font-load" as const }))
       .then((result) => {
-        if (!result.ok) this.#renderFonts.delete(fontPreset);
+        // 接続し直したあとに古い読み込みが失敗しても、新しい接続の読み込みは消さない
+        if (!result.ok && this.#renderFonts.get(fontPreset) === loading)
+          this.#renderFonts.delete(fontPreset);
         return result;
       });
     this.#renderFonts.set(fontPreset, loading);
