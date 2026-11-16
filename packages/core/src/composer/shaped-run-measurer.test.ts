@@ -170,6 +170,25 @@ test("falls back to the logical width for graphemes missing from the font", ({
   });
 });
 
+test("gives graphemes missing from the font a full-width advance in ruby", ({
+  shaper,
+  missing,
+  request,
+}) => {
+  missing.add("ｱ");
+  const measurer = createShapedRunMeasurer(shaper);
+  const input = request({ kind: "ruby", text: "あｱい", scale: 0.5 });
+
+  const result = measurer(input);
+
+  expect(result.advanceEm).toBeCloseTo(1.5, 10);
+  expect(RunMeasurement.parseFor(input, result)).toBeDefined();
+  expect(result.kind === "clustered" && result.clusters[1]?.layoutSpan).toEqual({
+    offsetEm: 0.5,
+    advanceEm: 0.5,
+  });
+});
+
 test("passes the requested weight to the shaper", ({ shaper, shaped, request }) => {
   const measurer = createShapedRunMeasurer(shaper);
 
