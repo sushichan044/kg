@@ -57,6 +57,8 @@ export class ManuscriptSession {
   #snapshot: ManuscriptSnapshot = INITIAL;
   #engine: ManuscriptEngine | null = null;
   #renderFonts = new Map<FontPresetId, ReturnType<RenderFontLoader>>();
+  // 前の接続から引き継いだ、表示中の output の描画用フォント 次の output を出すまで破棄しない
+  #retainedTypography: RenderTypography | null = null;
   #latest: ManuscriptInput | null = null;
   #latestKey: string | null = null;
   #queued: ManuscriptInput | null = null;
@@ -84,7 +86,7 @@ export class ManuscriptSession {
     this.#running = false;
     this.#engine = engine;
     // 処理済みの入力でも処理し直す
-    // 切断で output が使う描画用フォントは破棄済みで、failure も前の engine のものだから
+    // 切断したままのあいだに output の描画用フォントを破棄していることがあり、failure も前の engine のものだから
     if (this.#latest !== null) {
       this.#queued = this.#latest;
       if (!this.#snapshot.pending) this.#update({ pending: true });
@@ -96,11 +98,17 @@ export class ManuscriptSession {
       this.#queued = null;
       engine.dispose();
       this.#engine = null;
+      const displayed = this.#snapshot.output?.typography ?? null;
+      if (displayed !== null) this.#retainedTypography = displayed;
       for (const loading of this.#renderFonts.values())
         void loading.then((result) => {
-          if (result.ok) result.value.dispose();
+          if (result.ok && result.value !== displayed) result.value.dispose();
         });
       this.#renderFonts = new Map();
+      // 同じ同期処理のうちに接続し直されなければ、もう表示されないので破棄する
+      queueMicrotask(() => {
+        if (!this.#connected) this.#releaseRetainedTypography();
+      });
     };
   }
 
@@ -129,6 +137,11 @@ export class ManuscriptSession {
     for (const listener of this.#listeners) listener();
   }
 
+  #releaseRetainedTypography(): void {
+    this.#retainedTypography?.dispose();
+    this.#retainedTypography = null;
+  }
+
   #renderFontsFor(fontPreset: FontPresetId) {
     const found = this.#renderFonts.get(fontPreset);
     if (found !== undefined) return found;
@@ -137,7 +150,9 @@ export class ManuscriptSession {
     const loading = load(fontPreset)
       .catch(() => ManuscriptResult.fail({ kind: "font-load" as const }))
       .then((result) => {
-        if (!result.ok) this.#renderFonts.delete(fontPreset);
+        // 接続し直したあとに古い読み込みが失敗しても、新しい接続の読み込みは消さない
+        if (!result.ok && this.#renderFonts.get(fontPreset) === loading)
+          this.#renderFonts.delete(fontPreset);
         return result;
       });
     this.#renderFonts.set(fontPreset, loading);
@@ -176,6 +191,7 @@ export class ManuscriptSession {
       return;
     }
     const { composed, diagnostics, proofreadFailure } = outcome.value;
+    this.#releaseRetainedTypography();
     // 新しい入力を待たせていても、これは表示中のものより新しいので反映する
     this.#update({
       output: { composed, diagnostics, proofreadFailure, typography: typography.value },
