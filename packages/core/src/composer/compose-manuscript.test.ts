@@ -665,6 +665,45 @@ describe("composeManuscript", () => {
     expect(line.range.source).toEqual({ start: 0, end: 11 });
   });
 
+  test("marks the last line of each paragraph even when it was shrunk to fit", () => {
+    const source = "ああ、ああああああ。」\nたちつ\n\nてと";
+
+    const result = composeManuscript(parsed(source), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    const lines = result.value.layout.pages.flatMap(({ stages }) =>
+      stages.flatMap(({ lines }) => lines.filter(({ padding }) => padding !== true)),
+    );
+    expect(
+      lines.map((line) => ({
+        text: lineText(line),
+        break: line.break.kind,
+        paragraphEnd: line.paragraphEnd === true,
+      })),
+    ).toEqual([
+      { text: "ああ、ああああああ。」", break: "shrunk", paragraphEnd: true },
+      { text: "たちつ", break: "paragraph-end", paragraphEnd: true },
+      { text: "", break: "paragraph-end", paragraphEnd: true },
+      { text: "てと", break: "paragraph-end", paragraphEnd: true },
+    ]);
+  });
+
+  test("marks only the last wrapped line as the end of its paragraph", () => {
+    const result = composeManuscript(parsed(`${"あ".repeat(10)}。続き`), {
+      composer: novelComposer,
+      settings: settings(),
+    });
+
+    expect.assert(result.ok, "expected composition to succeed");
+    expect(contentLines(result.value).map(({ paragraphEnd }) => paragraphEnd)).toEqual([
+      undefined,
+      true,
+    ]);
+  });
+
   test("hangs punctuation instead of starting the next line with it", () => {
     const result = composeManuscript(parsed(`${"あ".repeat(10)}。続き`), {
       composer: novelComposer,

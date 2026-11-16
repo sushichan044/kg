@@ -27,7 +27,7 @@ function manuscriptText(range: Range, viewer: Element): string | undefined {
     .filter((line) => !line.hasAttribute("data-padding"))
     .map((line) => ({
       text: lineText(line) ?? "",
-      paragraphEnd: line.getAttribute("data-break") === "paragraph-end",
+      paragraphEnd: line.hasAttribute("data-paragraph-end"),
     }));
   return lines
     .map(({ text, paragraphEnd }, index) =>

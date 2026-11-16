@@ -2,7 +2,7 @@ import { composeManuscript, ManuscriptDiagnostic, novelComposer } from "@sushich
 import { NamespacedId } from "@sushichan044/kg-core/plugin";
 import { expect } from "vite-plus/test";
 
-import { recordProof, test } from "./fixture";
+import { recordProof, rubyText, test } from "./fixture";
 
 const TOLERANCE_PX = 0.25;
 
@@ -277,7 +277,7 @@ test("carries actual widths through ruby, punctuation and shared-source diagnost
   expect(Number(band.style.getPropertyValue("--kgv-band-length"))).toBe(
     shared.layoutSpan.advanceEm,
   );
-  expect(ruby.textContent).toContain("かん");
+  expect(rubyText(ruby)).toContain("かん");
   const punctuation = line.items.find((item) => item.kind === "glyph" && item.value === "、");
   expect.assert(punctuation?.kind === "glyph");
   expect(punctuation.layoutSpan.advanceEm).toBe(0.5);

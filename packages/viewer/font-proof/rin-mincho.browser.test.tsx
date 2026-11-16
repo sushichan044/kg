@@ -10,7 +10,7 @@ import { render } from "vitest-browser-react";
 
 import { NovelViewer } from "../src/NovelViewer";
 import { loadTypography } from "../src/typography";
-import { test } from "./fixture";
+import { drawnText, test } from "./fixture";
 
 test("matches both Rin faces to independent HarfBuzz metrics and draws combined kana and ruby", async ({
   fonts,
@@ -79,7 +79,7 @@ test("matches both Rin faces to independent HarfBuzz metrics and draws combined 
     const ruby = screen.container.querySelector<HTMLElement>(".kgv-ruby-character");
     expect.assert(bold !== null && ruby !== null);
     expect(getComputedStyle(bold).fontWeight).toBe("700");
-    expect(ruby.textContent).toBe("ん゙");
+    expect(drawnText(ruby)).toBe("ん゙");
     const base = glyphs.at(-1);
     expect.assert(base !== undefined);
     expect(ruby.getBoundingClientRect().left).toBeGreaterThanOrEqual(

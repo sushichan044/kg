@@ -639,6 +639,7 @@ function NovelPage({
                   className="kgv-line"
                   data-break={line.break.kind}
                   data-padding={line.padding === true ? "" : undefined}
+                  data-paragraph-end={line.paragraphEnd === true ? "" : undefined}
                 >
                   {showGrid ? (
                     <span className="kgv-line-rules" aria-hidden="true">

@@ -231,6 +231,16 @@ async function renderProof(fonts: LoadedFonts, text: string, options: ProofOptio
   };
 }
 
+// ルビは選択範囲に入らないよう、文字ごとに生成コンテンツで描く
+export function drawnText(element: Element): string {
+  const content = getComputedStyle(element, "::before").content;
+  return content === "none" || content === "normal" ? "" : (JSON.parse(content) as string);
+}
+
+export function rubyText(ruby: Element): string {
+  return Array.from(ruby.querySelectorAll(".kgv-ruby-character"), drawnText).join("");
+}
+
 export async function recordProof(
   label: string,
   proof: Awaited<ReturnType<typeof renderProof>>,

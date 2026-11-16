@@ -62,6 +62,12 @@ const cases = [
     expected: "あいうえおかきくけこさしすせそ\nたちつてと",
   },
   {
+    // 段落の最後の行が詰めて行長に収まると、行の調整は shrunk になる
+    name: "paragraph ending on a shrunk line",
+    source: "ああ、ああああああ。」\nたちつてと",
+    expected: "ああ、ああああああ。」\nたちつてと",
+  },
+  {
     name: "blank line",
     source: "あいうえおかきくけこさ\n\nたちつてと",
     expected: "あいうえおかきくけこさ\n\nたちつてと",
