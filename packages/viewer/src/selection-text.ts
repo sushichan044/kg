@@ -38,7 +38,7 @@ function manuscriptText(range: Range, viewer: Element): string | undefined {
 
 /**
  * ビューアーの本文を選んでコピーしたとき、クリップボードに原稿の文字列を書く。
- * WebKit は縦中横のテキストを U+FFFC としてコピーするので、DOM の文字から組み立て直す。
+ * 既定のコピーは折り返しの行の切れ目にも改行を入れるので、DOM の文字から組み立て直す
  */
 export function copyManuscriptText(event: ClipboardEvent, viewer: Element): void {
   const selection = document.getSelection();

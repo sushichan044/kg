@@ -63,6 +63,7 @@ type Atom = Readonly<{
   presentation: PresentationKind;
   clusterRange: ManuscriptRange | null;
   combineRun: boolean;
+  horizontalAdvanceEm: number | null;
 }>;
 
 type MeasuredSourceLine = Readonly<{
@@ -164,6 +165,11 @@ function measureSourceLine(
       const clusteredSideways =
         run.presentation === "sideways" &&
         measurements.get(text, "base", run.presentation, style)?.kind === "clustered";
+      const horizontalAdvanceEm =
+        run.presentation === "tate-chu-yoko"
+          ? measurements.get(text, "base", "sideways", style)?.advanceEm
+          : null;
+      if (horizontalAdvanceEm === undefined || horizontalAdvanceEm === 0) return undefined;
       const combineRun =
         run.presentation === "tate-chu-yoko" ||
         pieces.length < group.members.length ||
@@ -205,6 +211,7 @@ function measureSourceLine(
             presentation: run.presentation,
             clusterRange,
             combineRun,
+            horizontalAdvanceEm,
           });
         }
         memberStart += memberCount;
@@ -509,7 +516,19 @@ function renderUnits(
     if (first.atom.combineRun) {
       if (members.length < 2 || (presentation !== "tate-chu-yoko" && presentation !== "sideways"))
         return undefined;
-      items.push({ ...common, kind: "combined-glyph", presentation, disposition: "placed" });
+      if (presentation === "sideways") {
+        items.push({ ...common, kind: "combined-glyph", presentation, disposition: "placed" });
+      } else {
+        const { horizontalAdvanceEm } = first.atom;
+        if (horizontalAdvanceEm === null) return undefined;
+        items.push({
+          ...common,
+          kind: "combined-glyph",
+          presentation,
+          disposition: "placed",
+          horizontalAdvanceEm,
+        });
+      }
     } else {
       if (presentation === "tate-chu-yoko") return undefined;
       items.push({ ...common, kind: "glyph", presentation, disposition: first.disposition });
