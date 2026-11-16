@@ -10,6 +10,7 @@ import rinBoldUrl from "../assets/RinMincho-Bold.ttf?url";
 import rinRegularUrl from "../assets/RinMincho-Regular.ttf?url";
 import { createHarfBuzzShaper } from "./harfbuzz-shaper";
 import { cssFontFeatures } from "./typography-profile";
+import { splitUprightHalfwidth } from "./upright-halfwidth";
 
 const TOLERANCE_EM = 0.002;
 const PROBE_PX = 200;
@@ -33,7 +34,7 @@ const graphemes = {
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!?.,:;-_()[]{}<>/@#%&*+=~ ",
   ),
   fullwidth: Array.from("Ａｂ１＠％＋　"),
-  halfwidth: Array.from("ｱｲﾞﾟ｢｣､｡ｰ"),
+  halfwidth: [...Array.from("ｱｲﾞﾟ｢｣､｡ｰ"), "ｶﾞ", "ﾊﾟ"],
   symbols: Array.from("♪☆♡※→©°×÷"),
 } as const;
 
@@ -48,7 +49,7 @@ const runs = [
   "Hello, world.",
   "e-mail",
 ];
-const rubyTexts = ["ふりがな", "ひらがな", "ルビ", "ゔぁ", "ruby", "ルビ・ルビ", "ー", "ABC"];
+const rubyTexts = ["ふりがな", "ひらがな", "ルビ", "ゔぁ", "ruby", "ルビ・ルビ", "ー", "ABC", "ﾙﾋﾞ"];
 
 // 強制した向きの計測で、ブラウザーが本文と違う描き方をする箇所
 // 同じ WebKit でも OS ごとに描き方が違うので、`<browser>/<platform>` ごとに持つ
@@ -62,14 +63,8 @@ type KnownDifferences = Readonly<{
 const knownDifferences: Readonly<Record<string, KnownDifferences>> = {
   "chromium/darwin": { keys: [], horizontalFonts: [] },
   "chromium/linux": { keys: [], horizontalFonts: [] },
-  // macOS の WebKit は GenEi の半角形を縦でも 0.5 em で描き、縦の欧文には liga を適用する
-  "webkit/darwin": {
-    keys: [
-      ...Array.from("ｱｲﾞﾟ｢｣､｡ｰ").map((text) => `genei-regular|upright/halfwidth|${text}`),
-      "genei-regular|upright/run|ffi fl fi",
-    ],
-    horizontalFonts: [],
-  },
+  // macOS の WebKit は縦の欧文に liga を適用する
+  "webkit/darwin": { keys: ["genei-regular|upright/run|ffi fl fi"], horizontalFonts: [] },
   // Linux の WebKit は Rin の vmtx を読まない（GenEi の vmtx は読む）
   "webkit/linux": { keys: [], horizontalFonts: ["rin-regular", "rin-bold"] },
 };
@@ -161,7 +156,18 @@ const test = base.extend<{
             orientation === "sideways" && preset.rendering.westernKerning === "normal"
               ? "normal"
               : "none";
-          probe.textContent = text;
+          // 正立の半角形は描画側の NovelViewer と同じく 1 字ずつ縦中横にする
+          probe.replaceChildren(
+            ...(orientation === "upright"
+              ? splitUprightHalfwidth(text).map((part) => {
+                  if (!part.combined) return part.text;
+                  const combined = document.createElement("span");
+                  combined.style.textCombineUpright = "all";
+                  combined.textContent = part.text;
+                  return combined;
+                })
+              : [text]),
+          );
           const browser = probe.getBoundingClientRect().height / PROBE_PX;
           horizontalProbe.style.fontSize = probe.style.fontSize;
           horizontalProbe.lang = probe.lang;

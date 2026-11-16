@@ -128,6 +128,35 @@ test("preserves upright abbreviations, tate-chu-yoko, combining marks and fallba
   ).toBeCloseTo(0.5, 10);
 });
 
+// WebKit は源暎こぶり明朝の半角形を、正立を指定しても vrt2 の横倒しの字形で 0.5 em に描く
+test("draws upright half-width forms in ruby at their composed advances", async ({
+  typography,
+}) => {
+  const parsed = parseManuscript("[[rb:漢字>ｶﾝｼﾞ]]と[[rb:記号>｢ｰ｣]]", { parser: pixivParser });
+  expect.assert(parsed.ok);
+  const composed = composeManuscript(parsed.value, {
+    composer: typography.composer,
+    settings: {
+      ...NovelCompositionSettings.defaults,
+      appearance: { ...NovelCompositionSettings.defaults.appearance, fontPreset: "genei-koburi" },
+    },
+  });
+  expect.assert(composed.ok);
+
+  const screen = await render(<NovelViewer composed={composed.value} typography={typography} />);
+
+  const characters = [...screen.container.querySelectorAll<HTMLElement>(".kgv-ruby-character")];
+  expect(characters.map(({ textContent }) => textContent).join("")).toBe("ｶﾝｼﾞ｢ｰ｣");
+  for (const character of characters) {
+    const box = character.getBoundingClientRect();
+    const range = document.createRange();
+    range.selectNodeContents(character);
+    const drawn = range.getBoundingClientRect();
+    expect(Math.abs(drawn.height - box.height)).toBeLessThanOrEqual(0.25);
+    expect(Math.abs(drawn.top - box.top)).toBeLessThanOrEqual(0.25);
+  }
+});
+
 test("measures a three-mark tate-chu-yoko run as the one em it is drawn in", ({ typography }) => {
   const request = {
     text: "！？！",

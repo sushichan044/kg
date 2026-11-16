@@ -264,6 +264,11 @@
   text-combine-upright: all;
 }
 
+/* WebKit が半角形を横倒しで半角分しか送らないのを避ける（upright-halfwidth.ts を参照） */
+.kgv-upright-halfwidth {
+  text-combine-upright: all;
+}
+
 /* 行ごと、診断ごとに帯を 1 つ置き、その診断が及ぶこまを覆う。帯は、こま単位の
    オフセットと長さから配置する。そのため、複数の文字にまたがる診断は、1 文字ごと
    ではなく連続した 1 本の帯として装飾される。

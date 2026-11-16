@@ -30,6 +30,7 @@ import type { ReadyTypography, RenderTypography } from "./typography";
 import { cssFontFeatures } from "./typography-profile";
 import { TypographyContext, TypographyProvider } from "./TypographyProvider";
 import { TypographyLoading, TypographyStatus } from "./TypographyStatus";
+import { splitUprightHalfwidth } from "./upright-halfwidth";
 import { useTypography } from "./use-typography";
 
 const NO_DIAGNOSTICS: readonly ManuscriptDiagnostic[] = [];
@@ -225,6 +226,24 @@ function glyphOrientation(value: string, kind: PresentationKind): GlyphOrientati
   return kind === "tate-chu-yoko" ? undefined : resolveGlyphOrientation(value, kind);
 }
 
+function uprightText(value: string): ReactNode {
+  const parts = splitUprightHalfwidth(value);
+  if (parts.every(({ combined }) => !combined)) return value;
+  return (
+    <span>
+      {parts.map(({ start, text, combined }) =>
+        combined ? (
+          <span key={start} className="kgv-upright-halfwidth">
+            {text}
+          </span>
+        ) : (
+          text
+        ),
+      )}
+    </span>
+  );
+}
+
 function presentationClass(value: string, kind: PresentationKind): string {
   switch (glyphOrientation(value, kind)) {
     case "upright": {
@@ -394,7 +413,7 @@ function renderRuby(annotation: Extract<ComposedAnnotationFragment, { kind: "rub
               data-side={item.placement.side}
               style={decorationStyle(item.placement)}
             >
-              {item.value}
+              {uprightText(item.value)}
             </span>
           ))}
         </span>
@@ -596,7 +615,9 @@ function NovelPage({
                                 presentationClass(cell.value, cell.presentation),
                               )}
                             >
-                              {cell.value}
+                              {glyphOrientation(cell.value, cell.presentation) === "upright"
+                                ? uprightText(cell.value)
+                                : cell.value}
                             </span>,
                           )}
                         </span>
