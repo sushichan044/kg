@@ -391,11 +391,3 @@
 .kgv-viewer[data-typography] .kgv-glyph-sideways {
   font-kerning: var(--kgv-western-kerning);
 }
-
-/* 論理測定が半角の送り幅を割り当てた欧文を、半角の字形で描く。
-   測定器のプロファイルの font-feature-settings に hwid を足すので、同じ詳細度でその後に置く。 */
-.kgv-viewer .kgv-glyph.kgv-glyph-half-width {
-  font-feature-settings:
-    var(--kgv-font-features),
-    "hwid" 1;
-}

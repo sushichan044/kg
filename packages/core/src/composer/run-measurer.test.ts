@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 
-import { logicalGraphemeAdvanceEm, logicalRunMeasurer } from "./run-measurer";
+import { logicalRunMeasurer } from "./run-measurer";
 
 test.each(["！", "？", "‼", "⁇", "⁈", "⁉", "♡", "♪", "☆"])(
   "measures dividing punctuation %s on a full em in Japanese text",
@@ -25,16 +25,3 @@ test.each(["！", "？", "‼", "⁇", "⁈", "⁉", "♡", "♪", "☆"])(
     expect(ruby.advanceEm).toBe(0.5);
   },
 );
-
-test.each([
-  ["H", 0.5],
-  ["&", 0.5],
-  ["2", 0.5],
-  ["―", 1],
-  ["α", 1],
-  ["あ", 1],
-])("assigns %s a logical advance of %d em", (grapheme, expected) => {
-  const advance = logicalGraphemeAdvanceEm(grapheme);
-
-  expect(advance).toBe(expected);
-});

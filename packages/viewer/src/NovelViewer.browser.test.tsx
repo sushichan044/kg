@@ -180,46 +180,6 @@ for (const fontPreset of ["mincho", "gothic"] as const) {
   });
 }
 
-for (const caller of ["with", "without"] as const) {
-  test(`draws sideways Western glyphs within their logical advances in gothic ${caller} caller typography`, async ({
-    renderViewer,
-  }) => {
-    const western = "Hello,World&@#%".split("");
-    const { screen } = await renderViewer(
-      {
-        text: `あ${western.join("")}――い`,
-        flow: { ...flow, lineLengthEm: 20 },
-        appearance: { ...NovelCompositionSettings.defaults.appearance, fontPreset: "gothic" },
-      },
-      caller === "with" ? {} : { typography: undefined },
-    );
-
-    const cells = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-cell"));
-    const bounds = cells.map((cell) => {
-      const glyph = cell.querySelector<HTMLElement>(".kgv-glyph");
-      expect.assert(glyph !== null, `cell ${cell.textContent} has no glyph`);
-      return {
-        value: cell.textContent,
-        cell: cell.getBoundingClientRect(),
-        glyph: glyph.getBoundingClientRect(),
-      };
-    });
-
-    expect(bounds.map(({ value }) => value)).toEqual(["あ", ...western, "―", "―", "い"]);
-    const half = bounds.slice(1, 1 + western.length);
-    const dashes = bounds.slice(1 + western.length, -1);
-    expect(half.filter(({ cell }) => Math.abs(cell.height - cell.width / 2) > 0.1)).toEqual([]);
-    // 横倒しのグリフの送り幅は縦方向の高さになり、こまより高いと隣の字に重なる
-    expect(
-      half.filter(({ cell, glyph }) => glyph.height > cell.height + 0.5).map(({ value }) => value),
-    ).toEqual([]);
-    // 全角の字幅で組むダッシュは、半角の字形に置き換えずに全角のまま描く
-    expect(dashes.filter(({ cell, glyph }) => Math.abs(glyph.height - cell.width) > 0.5)).toEqual(
-      [],
-    );
-  });
-}
-
 test("keeps ruby and emphasis at half the base glyph size", async ({ renderViewer }) => {
   const { screen } = await renderViewer({
     text: "[[rb:夢>ゆめ]][[emphasismark:点>・]]",
