@@ -183,7 +183,7 @@ test("refuses substituted font bytes before installing a face", async () => {
 });
 
 test("rejects a resource for another font and prevents measurement after disposal", async () => {
-  const loaded = await loadTypography({ fontPreset: "gothic" });
+  const loaded = await loadTypography({ fontPreset: "genei-koburi" });
   expect.assert(loaded.ok);
   const parsed = parseManuscript("あ");
   expect.assert(parsed.ok);
@@ -210,5 +210,7 @@ test("rejects a resource for another font and prevents measurement after disposa
   } as const;
   expect(() => loaded.value.measurer(request)).toThrow("Typography font does not match");
   loaded.value.dispose();
-  expect(() => loaded.value.measurer({ ...request, fontPreset: "gothic" })).toThrow("disposed");
+  expect(() => loaded.value.measurer({ ...request, fontPreset: "genei-koburi" })).toThrow(
+    "disposed",
+  );
 });

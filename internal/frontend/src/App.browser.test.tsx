@@ -921,7 +921,7 @@ test("switches back to an already loaded font without showing the loading text",
   expect(loadingText.seen).toBe(false);
 });
 
-test("keeps settings available after font loading fails and recovers with Gothic", async ({
+test("keeps settings available after font loading fails and recovers with another typeface", async ({
   fontRequest,
   renderApp,
 }) => {
@@ -935,10 +935,10 @@ test("keeps settings available after font loading fails and recovers with Gothic
   await expect.element(screen.getByRole("alert")).toBeVisible();
   await expect.element(screen.getByRole("combobox", { name: "書体" })).toBeVisible();
 
-  await screen.getByRole("combobox", { name: "書体" }).selectOptions("gothic");
+  await screen.getByRole("combobox", { name: "書体" }).selectOptions("genei-koburi");
 
   await waitFor(() => {
-    expect(screen.container.querySelector(".kgv-viewer")).not.toBeNull();
+    expect(screen.container.querySelector('[data-typography="genei-koburi"]')).not.toBeNull();
   });
   expect(screen.container.querySelector('[role="alert"]')).toBeNull();
   expect(screen.container.querySelectorAll(".kgv-glyph").length).toBeGreaterThan(0);

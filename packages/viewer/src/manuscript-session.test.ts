@@ -11,7 +11,7 @@ type LoadedTypography = RenderTypography & Readonly<{ isDisposed: () => boolean 
 function loadTypography(): LoadedTypography {
   let disposed = false;
   return {
-    fontPreset: "gothic",
+    fontPreset: "mincho",
     fontFamily: "sans-serif",
     fontFaces: [],
     dispose: () => {
