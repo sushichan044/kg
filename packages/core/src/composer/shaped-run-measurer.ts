@@ -109,13 +109,14 @@ export function createShapedRunMeasurer(shaper: Shaper): RunMeasurer {
       // HarfBuzz は ZWNJ などを前の字と別のクラスターにするので、クラスターの境界が書記素の途中に来ることがある
       // 書記素の途中で切れた範囲は RunMeasurement.parseFor が受け付けないので、書記素の境界までまとめる
       const boundaries = new Set(graphemes.slice(index, last + 1).map(({ end }) => end));
-      const run = graphemes.slice(index, last + 1);
+      const graphemeEnds = new Map(
+        graphemes.slice(index, last + 1).map(({ start, end }) => [start, end]),
+      );
       const uprightBaseAdvanceEm = (start: number, end: number): number | undefined => {
         if (horizontal) return undefined;
-        if (!run.some((grapheme) => grapheme.start === start && grapheme.end === end))
-          return undefined;
         const baseLength = String.fromCodePoint(request.text.codePointAt(start) ?? 0).length;
         if (end - start === baseLength) return undefined;
+        if (graphemeEnds.get(start) !== end) return undefined;
         const shapedBase = shaper.shape({
           text: request.text.slice(start, start + baseLength),
           direction: "vertical",
