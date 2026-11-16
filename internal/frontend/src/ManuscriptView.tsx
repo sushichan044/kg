@@ -161,13 +161,9 @@ export function ManuscriptView({
   const [zoom, setZoom] = useState(manuscript.preferences.zoom);
   const [exportRequest, setExportRequest] = useState<ExportRequest | null>(null);
   const exporting = exportRequest !== null;
-  // 組版ワーカーが失敗すると、別のファイルや古い本文の結果が残るので、いまの本文の結果だけを出力する
+  // 組版ワーカーや書体が失敗したあとに残る結果は、別のファイルや古い本文・設定のものなので出力しない
   const exportBlocked =
-    exporting ||
-    waiting ||
-    composed === null ||
-    typography === undefined ||
-    composed.parsed.source !== source;
+    exporting || waiting || failure !== null || composed === null || typography === undefined;
   const [exportError, setExportError] = useState("");
   const [diagnosticDrawerOpen, setDiagnosticDrawerOpen] = useState(false);
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
