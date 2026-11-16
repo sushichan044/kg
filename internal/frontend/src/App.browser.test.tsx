@@ -1346,3 +1346,43 @@ test("disables the export while the viewer keeps another file's result after a w
     vi.unstubAllGlobals();
   }
 });
+
+test("disables the export while the viewer keeps a result made with other settings after a worker failure", async ({
+  renderApp,
+}) => {
+  await page.viewport(1280, 800);
+  const RealWorker = Worker;
+  const workers: Worker[] = [];
+  vi.stubGlobal(
+    "Worker",
+    class extends RealWorker {
+      constructor(...args: ConstructorParameters<typeof Worker>) {
+        if (workers.length === 0) super(...args);
+        else super("/kg-missing.worker.js", { type: "module" });
+        workers.push(this);
+      }
+    },
+  );
+
+  try {
+    const screen = await renderApp();
+    const exportButton = screen.getByRole("button", { name: "PNGをZIPで出力" }).first();
+    await expect.element(exportButton).toBeEnabled();
+    workers[0]?.dispatchEvent(new ErrorEvent("error", { message: "boom" }));
+
+    await screen
+      .getByRole("complementary", { name: "ワークスペース" })
+      .getByText("用紙・組版・書体", { exact: true })
+      .first()
+      .click();
+    await screen.getByRole("combobox", { name: "用紙" }).selectOptions("a4");
+
+    await expect
+      .element(screen.getByRole("alert").filter({ hasText: "組版ワーカーが失敗しました" }))
+      .toBeVisible();
+    expect(screen.container.querySelector(".kgv-viewport")).not.toBeNull();
+    await expect.element(exportButton).toBeDisabled();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
