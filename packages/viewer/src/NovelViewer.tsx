@@ -256,6 +256,28 @@ function uprightText(value: string): ReactNode {
   );
 }
 
+// ルビは選択範囲に入らないよう生成コンテンツで描くので、半角形も部分ごとの生成コンテンツに分ける
+function rubyReading(value: string): { "data-text"?: string; children?: ReactNode } {
+  const parts = splitUprightHalfwidth(value);
+  if (parts.every(({ combined }) => !combined)) return { "data-text": value };
+  return {
+    children: (
+      <span className="kgv-upright-parts">
+        {parts.map(({ start, text, combined }) => (
+          <span
+            key={start}
+            className={joinClassNames(
+              "kgv-upright-part",
+              combined ? "kgv-upright-halfwidth" : undefined,
+            )}
+            data-text={text}
+          />
+        ))}
+      </span>
+    ),
+  };
+}
+
 function presentationClass(value: string, kind: PresentationKind): string {
   switch (glyphOrientation(value, kind)) {
     case "upright": {
@@ -447,7 +469,7 @@ function renderRuby(annotation: Extract<ComposedAnnotationFragment, { kind: "rub
               className="kgv-ruby-character"
               data-side={item.placement.side}
               style={decorationStyle(item.placement)}
-              data-text={uprightText(item.value)}
+              {...rubyReading(item.value)}
             />
           ))}
         </span>

@@ -12,6 +12,8 @@ import { createHarfBuzzShaper } from "./harfbuzz-shaper";
 import { cssFontFeatures } from "./typography-profile";
 import { splitUprightHalfwidth } from "./upright-halfwidth";
 
+import "./structural.css";
+
 const TOLERANCE_EM = 0.002;
 const PROBE_PX = 200;
 
@@ -156,13 +158,13 @@ const test = base.extend<{
             orientation === "sideways" && preset.rendering.westernKerning === "normal"
               ? "normal"
               : "none";
-          // 正立の半角形は描画側の NovelViewer と同じく 1 字ずつ縦中横にする
+          // 正立の半角形は描画側の NovelViewer と同じく 1 字ずつ横組みの全角の箱に入れる
           probe.replaceChildren(
             ...(orientation === "upright"
               ? splitUprightHalfwidth(text).map((part) => {
                   if (!part.combined) return part.text;
                   const combined = document.createElement("span");
-                  combined.style.textCombineUpright = "all";
+                  combined.className = "kgv-upright-halfwidth";
                   combined.textContent = part.text;
                   return combined;
                 })

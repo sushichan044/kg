@@ -17,7 +17,7 @@ function isHalfwidthForm(codePoint: number): boolean {
  *
  * WebKit は源暎こぶり明朝の半角形を、正立を指定しても vrt2 の横倒しの字形で半角分しか送らない
  * 組版は vmtx どおり全角 1 字分を割り当てる
- * 半角形を 1 字ずつ text-combine-upright で描くと、どのブラウザーでも立てたまま全角 1 字分を送る
+ * 半角形を 1 字ずつ横組みの全角の箱に入れると、どのブラウザーでも立てたまま全角 1 字分を送る
  */
 export function splitUprightHalfwidth(text: string): readonly UprightPart[] {
   const parts: UprightPart[] = [];

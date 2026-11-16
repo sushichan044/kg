@@ -128,6 +128,16 @@ test("preserves upright abbreviations, tate-chu-yoko, combining marks and fallba
   ).toBeCloseTo(0.5, 10);
 });
 
+// ルビは選択範囲に入らないよう生成コンテンツで描く
+function drawnText(element: Element): string {
+  return [element, ...element.querySelectorAll("*")]
+    .map((node) => {
+      const content = getComputedStyle(node, "::before").content;
+      return content === "none" || content === "normal" ? "" : (JSON.parse(content) as string);
+    })
+    .join("");
+}
+
 // WebKit は源暎こぶり明朝の半角形を、正立を指定しても vrt2 の横倒しの字形で 0.5 em に描く
 test("draws upright half-width forms in ruby at their composed advances", async ({
   typography,
@@ -146,14 +156,17 @@ test("draws upright half-width forms in ruby at their composed advances", async 
   const screen = await render(<NovelViewer composed={composed.value} typography={typography} />);
 
   const characters = [...screen.container.querySelectorAll<HTMLElement>(".kgv-ruby-character")];
-  expect(characters.map(({ textContent }) => textContent).join("")).toBe("ｶﾝｼﾞ｢ｰ｣");
+  expect(characters.map(drawnText).join("")).toBe("ｶﾝｼﾞ｢ｰ｣");
+  expect(characters.map(({ textContent }) => textContent).join("")).toBe("");
   for (const character of characters) {
     const box = character.getBoundingClientRect();
-    const range = document.createRange();
-    range.selectNodeContents(character);
-    const drawn = range.getBoundingClientRect();
-    expect(Math.abs(drawn.height - box.height)).toBeLessThanOrEqual(0.25);
-    expect(Math.abs(drawn.top - box.top)).toBeLessThanOrEqual(0.25);
+    const parts = [...character.querySelectorAll(".kgv-upright-part")].map((part) =>
+      part.getBoundingClientRect(),
+    );
+    const drawnTop = Math.min(...parts.map(({ top }) => top));
+    const drawnBottom = Math.max(...parts.map(({ bottom }) => bottom));
+    expect(Math.abs(drawnBottom - drawnTop - box.height)).toBeLessThanOrEqual(0.25);
+    expect(Math.abs(drawnTop - box.top)).toBeLessThanOrEqual(0.25);
   }
 });
 
