@@ -1,6 +1,7 @@
 import react from "@vitejs/plugin-react";
 import Icons from "unplugin-icons/vite";
-import { defineConfig, defineProject } from "vite-plus";
+import { defineConfig } from "vite-plus";
+import type { TestProjectInlineConfiguration } from "vite-plus";
 import { playwright } from "vite-plus/test/browser-playwright";
 
 import { mockFrontend } from "./mock/vite-plugin";
@@ -17,8 +18,11 @@ const reactPlugin = () => react({ compiler: { panicThreshold: "all_errors" } });
 const iconPlugin = () =>
   Icons({ compiler: "jsx", jsx: "react", collectionsNodeResolvePath: import.meta.dirname });
 
+// ルートの vite.config.ts もこの一覧を読むので、どちらから実行しても同じプラグインになるよう宣言元の設定を継承しない
+// 継承すると、単体テストにも React のプラグインが付き、どのプラグインも 2 回ずつ適用される
 export const frontendTestProjects = [
-  defineProject({
+  {
+    extends: false,
     root: import.meta.dirname,
     plugins: [iconPlugin()],
     test: {
@@ -26,8 +30,9 @@ export const frontendTestProjects = [
       include: ["src/**/*.test.ts", "src/**/*.test.tsx", "mock/**/*.test.ts"],
       exclude: ["src/**/*.browser.test.ts", "src/**/*.browser.test.tsx"],
     },
-  }),
-  defineProject({
+  },
+  {
+    extends: false,
     root: import.meta.dirname,
     plugins: [reactPlugin(), iconPlugin()],
     test: {
@@ -40,8 +45,8 @@ export const frontendTestProjects = [
         instances: [{ browser: "chromium" }],
       },
     },
-  }),
-];
+  },
+] satisfies TestProjectInlineConfiguration[];
 
 export default defineConfig(({ mode }) => ({
   cacheDir: mode === "mock" ? "node_modules/.vite-mock" : undefined,
