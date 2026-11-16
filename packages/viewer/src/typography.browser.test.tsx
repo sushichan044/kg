@@ -100,7 +100,9 @@ test("preserves upright abbreviations, tate-chu-yoko, combining marks and fallba
       tcy.getBoundingClientRect().height - Number.parseFloat(getComputedStyle(tcy).fontSize),
     ),
   ).toBeLessThanOrEqual(0.25);
-  expect(screen.container.querySelectorAll(".kgv-glyph-upright")).toHaveLength(2);
+  // mixed のこまも計測と同じ向きに固定する。QR は upright、あ゙ を含む和字と絵文字は mixed の既定で正立
+  expect(screen.container.querySelectorAll(".kgv-glyph-upright")).toHaveLength(10);
+  expect(screen.container.querySelectorAll(".kgv-glyph-sideways")).toHaveLength(0);
   expect(screen.container.textContent).toContain("🦄");
   expect(
     typography.measurer({
