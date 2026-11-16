@@ -83,11 +83,12 @@ export function createShapedRunMeasurer(shaper: Shaper): RunMeasurer {
       if (first === undefined) break;
       if (!first.covered) {
         const text = request.text.slice(first.start, first.end);
-        const fallback =
+        // ルビは正立で描かれ、代替フォントの字も全角 1 字分を占めるので、論理幅の半角を使わない
+        const advanceEm =
           request.kind === "ruby"
-            ? logicalRunMeasurer({ ...request, text })
-            : logicalRunMeasurer({ ...request, text, presentation: first.orientation });
-        push(first.start, first.end, fallback.advanceEm);
+            ? request.scale
+            : logicalRunMeasurer({ ...request, text, presentation: first.orientation }).advanceEm;
+        push(first.start, first.end, advanceEm);
         index += 1;
         continue;
       }
