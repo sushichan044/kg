@@ -47,11 +47,15 @@ function connect(worker: Worker, owned: boolean): Connection {
   const died = new Promise<string>((done) => {
     resolve = done;
   });
-  const onError = (event: ErrorEvent) => {
+  // connectWorker は messageerror でも Worker を止めるので、error と同じく死んだものとして扱う
+  const onError = (event: Event) => {
     deadWorkers.add(worker);
-    resolve(event.message === "" ? "The worker failed to load" : event.message);
+    if (event instanceof ErrorEvent && event.message !== "") resolve(event.message);
+    else if (event.type === "messageerror") resolve("The worker could not read a message");
+    else resolve("The worker failed to load");
   };
   worker.addEventListener("error", onError);
+  worker.addEventListener("messageerror", onError);
   let client = sharedClients.get(worker);
   if (client === undefined) {
     client = connectWorker<ManuscriptWorkerApi>(worker);
@@ -64,6 +68,7 @@ function connect(worker: Worker, owned: boolean): Connection {
     died,
     detach: () => {
       worker.removeEventListener("error", onError);
+      worker.removeEventListener("messageerror", onError);
       if (owned) {
         shared[Symbol.dispose]();
       }

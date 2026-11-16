@@ -161,13 +161,20 @@ export function ManuscriptView({
   const [zoom, setZoom] = useState(manuscript.preferences.zoom);
   const [exportRequest, setExportRequest] = useState<ExportRequest | null>(null);
   const exporting = exportRequest !== null;
+  // 組版ワーカーが失敗すると、別のファイルや古い本文の結果が残るので、いまの本文の結果だけを出力する
+  const exportBlocked =
+    exporting ||
+    waiting ||
+    composed === null ||
+    typography === undefined ||
+    composed.parsed.source !== source;
   const [exportError, setExportError] = useState("");
   const [diagnosticDrawerOpen, setDiagnosticDrawerOpen] = useState(false);
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
   const viewRef = useRef<NovelViewHandle>(null);
 
   const startExport = () => {
-    if (exporting || waiting || composed === null || typography === undefined) return;
+    if (exportBlocked) return;
     setExportError("");
     setExportRequest({
       composed,
@@ -219,7 +226,7 @@ export function ManuscriptView({
         onSidebarToggle={onSidebarToggle}
         onFilesOpen={onFilesOpen}
         onExport={startExport}
-        exporting={exporting || waiting}
+        exporting={exportBlocked}
         documentLabel={file.path}
         composed={composed}
         diagnosticCount={diagnostics.length}
@@ -243,11 +250,7 @@ export function ManuscriptView({
             </small>
           )}
         </div>
-        <IconButton
-          label="PNGをZIPで出力"
-          disabled={exporting || waiting || composed === null || typography === undefined}
-          onClick={startExport}
-        >
+        <IconButton label="PNGをZIPで出力" disabled={exportBlocked} onClick={startExport}>
           <DownloadIcon aria-hidden="true" />
         </IconButton>
         <IconButton
