@@ -373,6 +373,7 @@ describe("public render units", () => {
     expect(v.safeParse(NovelLine.schema, { ...NovelLine.empty(), inlineSizeEm: 1 }).success).toBe(
       false,
     );
+    expect(v.safeParse(NovelLine.schema, { ...line, padding: true }).success).toBe(false);
   });
 
   test("emits one positioned emphasis mark for a combined unit", () => {

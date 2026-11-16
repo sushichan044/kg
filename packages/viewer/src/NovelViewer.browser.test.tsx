@@ -97,6 +97,17 @@ async function renderViewer(options: ViewerFixtureOptions, props: ViewerFixtureP
   return { composed: composed.value, diagnostics, screen, typography };
 }
 
+// ルビ、圏点、ノンブル、読み上げ用の本文は、選択範囲に入らないよう生成コンテンツで描く
+function drawnText(element: Element): string {
+  const content = getComputedStyle(element, "::before").content;
+  if (content === "none" || content === "normal") return "";
+  return JSON.parse(content.replaceAll("\\a ", "\\n")) as string;
+}
+
+function rubyText(element: Element): string {
+  return Array.from(element.querySelectorAll(".kgv-ruby-character"), drawnText).join("");
+}
+
 const test = base.extend<{ renderViewer: typeof renderViewer }>({
   renderViewer: async ({}, use) => {
     await use(renderViewer);
@@ -147,7 +158,7 @@ test("gives upright Latin initials a full-width vertical advance", async ({ rend
   }
 });
 
-for (const fontPreset of ["mincho", "gothic"] as const) {
+for (const fontPreset of ["mincho", "genei-koburi"] as const) {
   test(`keeps compound punctuation clear of closing brackets in ${fontPreset}`, async ({
     renderViewer,
   }) => {
@@ -285,7 +296,7 @@ test("keeps a diagnostic on one digit selectable through its exact source placem
   expect(selected).toEqual(diagnostic);
   const assistiveText = screen.container.querySelector(".kgv-visually-hidden");
   expect.assert(assistiveText !== null);
-  expect(assistiveText.textContent.trim()).toBe("12");
+  expect(drawnText(assistiveText).trim()).toBe("12");
 });
 
 test("highlights a shared ligature for a diagnostic on one source member", async ({
@@ -529,7 +540,7 @@ test("renders the ruby kind and reading decided by core", async ({ renderViewer 
   expect(ruby.dataset.rubyFit).toBe("group");
   const reading = ruby.querySelector(".kgv-ruby");
   expect.assert(reading !== null, "ruby reading did not render");
-  expect(reading.textContent).toBe("かな");
+  expect(rubyText(reading)).toBe("かな");
   expect(ruby.querySelectorAll(".kgv-ruby-character")).toHaveLength(2);
 });
 
@@ -615,7 +626,7 @@ test("renders a short group reading on every fragment when possible", async ({ r
     screen.container.querySelectorAll<HTMLElement>('[data-annotation="ruby"] .kgv-ruby'),
   );
 
-  expect(readings.map(({ textContent }) => textContent)).toEqual(["よ", "み"]);
+  expect(readings.map(rubyText)).toEqual(["よ", "み"]);
 });
 
 test("renders the complete group reading across a suppressed gap", async ({ renderViewer }) => {
@@ -628,7 +639,7 @@ test("renders the complete group reading across a suppressed gap", async ({ rend
     screen.container.querySelectorAll<HTMLElement>('[data-annotation="ruby"] .kgv-ruby'),
   );
 
-  expect(readings.map(({ textContent }) => textContent)).toEqual(["よみよみ", "よ"]);
+  expect(readings.map(rubyText)).toEqual(["よみよみ", "よ"]);
 });
 
 test("renders semantic styles from composed annotation fragments", async ({ renderViewer }) => {
@@ -644,12 +655,10 @@ test("renders semantic styles from composed annotation fragments", async ({ rend
   expect.assert(bold !== null && italic !== null && emphasis !== null);
   expect(getComputedStyle(bold).fontWeight).toBe("700");
   expect(getComputedStyle(italic).fontStyle).toBe("italic");
-  expect(
-    Array.from(
-      screen.container.querySelectorAll(".kgv-emphasis-mark"),
-      ({ textContent }) => textContent,
-    ),
-  ).toEqual(['"', '"']);
+  expect(Array.from(screen.container.querySelectorAll(".kgv-emphasis-mark"), drawnText)).toEqual([
+    '"',
+    '"',
+  ]);
 });
 
 test("marks every emphasised character beside its line", async ({ renderViewer }) => {
@@ -663,7 +672,7 @@ test("marks every emphasised character beside its line", async ({ renderViewer }
   const marks = Array.from(screen.container.querySelectorAll<HTMLElement>(".kgv-emphasis-mark"));
   expect.assert(line !== null, "viewer has no line");
   expect(cells.map(({ textContent }) => textContent)).toEqual(["無", "圏", "点"]);
-  expect(marks.map(({ textContent }) => textContent)).toEqual(["・", "・"]);
+  expect(marks.map(drawnText)).toEqual(["・", "・"]);
 
   const lineBounds = line.getBoundingClientRect();
 
@@ -868,11 +877,11 @@ for (const zoom of [50, 100, 150]) {
     expect(bounds.bottom - textBounds.bottom).toBeCloseTo(mm(12), 1);
     const folio = first.querySelector<HTMLElement>(".kgv-folio");
     expect.assert(folio !== null);
-    expect(folio.textContent).toBe("1");
+    expect(drawnText(folio)).toBe("1");
     expect(folio.getBoundingClientRect().left - bounds.left).toBeCloseTo(mm(13), 1);
     const secondFolio = second.querySelector<HTMLElement>(".kgv-folio");
     expect.assert(secondFolio !== null);
-    expect(secondFolio.textContent).toBe("2");
+    expect(drawnText(secondFolio)).toBe("2");
     expect(
       second.getBoundingClientRect().right - secondFolio.getBoundingClientRect().right,
     ).toBeCloseTo(mm(13), 1);

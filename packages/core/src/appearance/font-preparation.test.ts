@@ -56,7 +56,6 @@ describe("font preparation", () => {
 
     expect(prepareTextForFont(text, "mincho")).toBe("あ゙ん゙ぁ゙ア゚ㇷ゚ がぱ あ゙ ゛゜ ｱﾞ 😀\nあ゙゛");
     expect(prepareTextForFont(text, "genei-koburi")).toBe(text);
-    expect(prepareTextForFont(text, "gothic")).toBe(text);
   });
 
   test("preserves the source and maps either original member to the combined grapheme", () => {

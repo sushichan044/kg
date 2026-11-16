@@ -33,6 +33,12 @@ const PreviousA5Schema = v.looseObject({
     page: v.looseObject({ topMm: v.literal(12), bottomMm: v.literal(16.55) }),
   }),
 });
+// 廃止したゴシックの書体を選んでいた設定
+const RetiredFontPresetSchema = v.looseObject({
+  composition: v.looseObject({
+    appearance: v.looseObject({ fontPreset: v.literal("gothic") }),
+  }),
+});
 
 type AppState = v.InferOutput<typeof AppStateSchema>;
 export type ManuscriptPreferences = v.InferOutput<typeof ManuscriptPreferencesSchema>;
@@ -92,7 +98,21 @@ export function loadManuscriptPreferences(): ManuscriptPreferences {
           },
         }
       : stored;
-    const current = v.safeParse(ManuscriptPreferencesSchema, migrated);
+    // ほかの設定はそのまま残し、書体だけを既定に戻す
+    const retired = v.safeParse(RetiredFontPresetSchema, migrated);
+    const restored = retired.success
+      ? {
+          ...retired.output,
+          composition: {
+            ...retired.output.composition,
+            appearance: {
+              ...retired.output.composition.appearance,
+              fontPreset: NovelCompositionSettings.defaults.appearance.fontPreset,
+            },
+          },
+        }
+      : migrated;
+    const current = v.safeParse(ManuscriptPreferencesSchema, restored);
     return current.success ? current.output : DEFAULT_MANUSCRIPT_PREFERENCES;
   } catch {
     return DEFAULT_MANUSCRIPT_PREFERENCES;

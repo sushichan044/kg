@@ -189,19 +189,6 @@ test("gives graphemes missing from the font a full-width advance in ruby", ({
   });
 });
 
-test("uses the logical measurer for presets that do not need shaping", ({
-  shaper,
-  shaped,
-  request,
-}) => {
-  const measurer = createShapedRunMeasurer(shaper);
-
-  const result = measurer(request({ text: "あい", fontPreset: "gothic" }));
-
-  expect(result).toEqual({ kind: "advance", advanceEm: 2 });
-  expect(shaped).toHaveLength(0);
-});
-
 test("passes the requested weight to the shaper", ({ shaper, shaped, request }) => {
   const measurer = createShapedRunMeasurer(shaper);
 

@@ -26,5 +26,4 @@ export const typographyFonts: Readonly<Record<FontPresetId, readonly TypographyF
       sha256: "c27fb4039ac9fae19152716992b5b9d07558e24f6cccea7b0c1abd0109235166",
     },
   ],
-  gothic: [],
 };

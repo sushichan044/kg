@@ -110,7 +110,7 @@ describe("physical page dimensions", () => {
     const custom = NovelCompositionSettings.forPaper("a4", {
       ...a5,
       flow: { lineLengthEm: 10, linesPerStage: 10, stagesPerPage: 1 },
-      appearance: { ...a5.appearance, fontSizeQ: 16, fontPreset: "gothic" },
+      appearance: { ...a5.appearance, fontSizeQ: 16, fontPreset: "genei-koburi" },
       offsets: { ...a5.offsets, document: { leading: 1, trailing: 0 } },
     });
 
@@ -119,7 +119,7 @@ describe("physical page dimensions", () => {
     expect(restored.flow).toEqual(a5.flow);
     expect(restored.page).toEqual(a5.page);
     expect(restored.appearance.fontSizeQ).toBe(12.7);
-    expect(restored.appearance.fontPreset).toBe("gothic");
+    expect(restored.appearance.fontPreset).toBe("genei-koburi");
     expect(restored.offsets.document.leading).toBe(1);
     expect(NovelCompositionSettings.is(restored)).toBe(true);
   });

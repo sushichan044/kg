@@ -1,7 +1,6 @@
 import {
   ComposeError,
   composeManuscript,
-  FontPreset,
   kakuyomuParser,
   ManuscriptResult,
   ParseError,
@@ -17,11 +16,7 @@ import type {
 } from "@sushichan044/kg-core";
 import type { ProofreadError } from "@sushichan044/kg-core/lint";
 import { createDefaultProofreadingRules, proofreadManuscript } from "@sushichan044/kg-core/lint";
-import {
-  createNovelComposer,
-  createShapedRunMeasurer,
-  logicalRunMeasurer,
-} from "@sushichan044/kg-core/plugin";
+import { createNovelComposer, createShapedRunMeasurer } from "@sushichan044/kg-core/plugin";
 import type { RunMeasurer } from "@sushichan044/kg-core/plugin";
 
 import { loadFontFiles } from "./font-files";
@@ -82,8 +77,6 @@ type PresetRuntime = Readonly<{ measurer: RunMeasurer; dispose: () => void }>;
 async function loadPresetRuntime(
   fontPreset: FontPresetId,
 ): Promise<ManuscriptResult<PresetRuntime, TypographyLoadError>> {
-  if (FontPreset.of(fontPreset).measurement === "logical")
-    return ManuscriptResult.succeed({ measurer: logicalRunMeasurer, dispose: () => {} });
   const files = await loadFontFiles(fontPreset);
   if (!files.ok) return files;
   try {

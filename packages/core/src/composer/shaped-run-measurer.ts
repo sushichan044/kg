@@ -36,7 +36,6 @@ function needsGlyph(codePoint: number): boolean {
 export function createShapedRunMeasurer(shaper: Shaper): RunMeasurer {
   return (request) => {
     const preset = FontPreset.of(request.fontPreset);
-    if (preset.measurement === "logical") return logicalRunMeasurer(request);
     const presentation =
       request.kind === "ruby"
         ? "upright"
