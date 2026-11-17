@@ -1,5 +1,56 @@
 # Changelog
 
+## [0.14.0](https://github.com/sushichan044/kg/compare/kg-viewer-v0.13.0...kg-viewer-v0.14.0) (2026-11-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* FontPresetId no longer accepts "gothic", and FontPreset no longer has a measurement field.
+
+### Features
+
+* **frontend:** use the viewer's worker-backed manuscript hook ([a493c75](https://github.com/sushichan044/kg/commit/a493c75a34f6b83e1a68e5c5d2515f21db3551f7))
+* **viewer:** add DOM-free harfbuzzjs Shaper adapter ([0a2a288](https://github.com/sushichan044/kg/commit/0a2a288118f35210f8581d58688b3d5166936da0))
+* **viewer:** compose and proofread manuscripts in a Web Worker ([81d33e5](https://github.com/sushichan044/kg/commit/81d33e5cc1f3b1b977c17ffca04ff4d9d85e7cb5))
+* **viewer:** measure with the harfbuzz shaper and pin mixed glyph orientation ([b4c7b41](https://github.com/sushichan044/kg/commit/b4c7b41a9ebf4a7671cea4c7b004cbe0b7e747fe))
+* **viewer:** run the manuscript pipeline in a Web Worker ([ad2cc01](https://github.com/sushichan044/kg/commit/ad2cc01048f9461328e1a5017500e3f0febcf282))
+* **viewer:** switch measurement to the font-file shaper ([85312be](https://github.com/sushichan044/kg/commit/85312be653432991dcdbbdc12fa82826ade95c12))
+
+
+### Bug Fixes
+
+* remove the Gothic font preset ([1dc2ed9](https://github.com/sushichan044/kg/commit/1dc2ed967b369a4f72bc1d6f37b4a81ad4492fef))
+* **viewer:** center fallback glyphs in a horizontal box independent of font vertical metrics ([c6b4273](https://github.com/sushichan044/kg/commit/c6b4273425ee8cf9c9987f3e0a8220038e38fa52))
+* **viewer:** draw logically measured Western glyphs at half width ([d27f7cf](https://github.com/sushichan044/kg/commit/d27f7cfd60960fd4227509021085221a38c216f8))
+* **viewer:** draw tate-chu-yoko as compressed horizontal text ([fd8d8b8](https://github.com/sushichan044/kg/commit/fd8d8b853b1b4f792186c2540bb86afdd38cdce7)), closes [#210](https://github.com/sushichan044/kg/issues/210)
+* **viewer:** draw upright half-width forms at their composed advance ([89a072e](https://github.com/sushichan044/kg/commit/89a072e90d474284549fa868ee6b543de17a0d15))
+* **viewer:** draw upright half-width forms at their composed advance ([6199d1f](https://github.com/sushichan044/kg/commit/6199d1f12a1a5f7d84c3afe4f0cb3d99361e468f))
+* **viewer:** keep a half-width mark in the one-em cell of its base ([527f9ac](https://github.com/sushichan044/kg/commit/527f9acca106f32e3a31af9af8cedfbb6ff724a5))
+* **viewer:** keep a new connection's font load when an old one fails ([9a5d2b9](https://github.com/sushichan044/kg/commit/9a5d2b9346489fb111033993328eadab0fb68505))
+* **viewer:** keep blank manuscript lines when copying ([a18ee7e](https://github.com/sushichan044/kg/commit/a18ee7e1105227257a641e278b10400a2f724ad9))
+* **viewer:** keep paragraph newlines when copying shrunk paragraph ends ([2efdb6e](https://github.com/sushichan044/kg/commit/2efdb6ec6e8ae422cb068ec19d84e259a156d450))
+* **viewer:** keep the displayed typography alive across reconnection ([4a4c146](https://github.com/sushichan044/kg/commit/4a4c1461f0db55be137221149c7b1d5c54b7715e))
+* **viewer:** keep upright half-width ruby at its advance as generated content ([2210c39](https://github.com/sushichan044/kg/commit/2210c397063f9f739ff2d18bbe0b46060d1ce2dd))
+* **viewer:** make selected and copied text match the manuscript ([9efee98](https://github.com/sushichan044/kg/commit/9efee98ad0a1beb5b8bcc0db04a6f44f6fa19474))
+* **viewer:** make selected and copied text match the manuscript ([65e4061](https://github.com/sushichan044/kg/commit/65e4061fd6c21a7932c70a70a0074e50738d7b5e)), closes [#206](https://github.com/sushichan044/kg/issues/206)
+* **viewer:** reprocess the latest input when reconnecting an engine ([bfd4b34](https://github.com/sushichan044/kg/commit/bfd4b346aa727ce15c8c2cd2a3c383d689d9cf23))
+* **viewer:** treat a worker stopped by messageerror as dead ([ee876aa](https://github.com/sushichan044/kg/commit/ee876aa680e4a135f3e4aeed5429208ff11588dc))
+* **viewer:** 収録外の正立字を代替フォントだけで描いてこまの中央に置く ([8024568](https://github.com/sushichan044/kg/commit/8024568cac7b14b5d3d1f6e6cacd64c2ab0c4bed)), closes [#219](https://github.com/sushichan044/kg/issues/219)
+* **viewer:** 縦中横を text-combine-upright を使わずに描く ([cff0916](https://github.com/sushichan044/kg/commit/cff0916a29a55b6df4f386840ffa64b58068c59a))
+* **viewer:** 縦書きで正立させた収録外の欧字を字幅の中央に置く ([ce7483b](https://github.com/sushichan044/kg/commit/ce7483b7fcda6edf5f058514e154c197d47ecc44))
+
+
+### Reverts
+
+* **viewer:** drop the half-width workaround for logically measured glyphs ([24c0f16](https://github.com/sushichan044/kg/commit/24c0f1699db502369236c539364cc96fe9fc83f1))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @sushichan044/kg-core bumped to 0.14.0
+
 ## [0.13.0](https://github.com/sushichan044/kg/compare/kg-viewer-v0.12.2...kg-viewer-v0.13.0) (2026-11-11)
 
 
