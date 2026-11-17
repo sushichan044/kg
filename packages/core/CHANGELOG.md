@@ -1,5 +1,48 @@
 # Changelog
 
+## [0.14.0](https://github.com/sushichan044/kg/compare/kg-core-v0.13.0...kg-core-v0.14.0) (2026-11-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* FontPresetId no longer accepts "gothic", and FontPreset no longer has a measurement field.
+
+### Features
+
+* **core:** add Shaper port and shaped run measurer ([f8a5169](https://github.com/sushichan044/kg/commit/f8a516910f82a7c32ba79f163a1c4c2bf60f5e87))
+* **core:** report the horizontal advance of tate-chu-yoko units ([dd9f86d](https://github.com/sushichan044/kg/commit/dd9f86d2d5993d5c4877682e91d4048ca0ae9478)), closes [#210](https://github.com/sushichan044/kg/issues/210)
+* **core:** resolve glyph orientation for mixed vertical text ([7a6fbb3](https://github.com/sushichan044/kg/commit/7a6fbb389f47b8252b8bce7b131254081b1cd496)), closes [#191](https://github.com/sushichan044/kg/issues/191)
+* **core:** resolve glyph orientation for mixed vertical text ([30f1449](https://github.com/sushichan044/kg/commit/30f14495a94bf191dec4af67c58453e904ad8838)), closes [#191](https://github.com/sushichan044/kg/issues/191)
+* measure runs from font files with a Shaper port ([4f9e1ee](https://github.com/sushichan044/kg/commit/4f9e1eebef1dd720093cd69cf3a1a17161ba3b97))
+
+
+### Bug Fixes
+
+* **core:** give uncovered ruby graphemes a full-width advance ([2d8b9c3](https://github.com/sushichan044/kg/commit/2d8b9c3f8e6668584b00c0a36e522feeec5368f7))
+* **core:** keep shaped clusters on grapheme boundaries ([a3d840d](https://github.com/sushichan044/kg/commit/a3d840db434f7efa9d9583499c85eec82798428a))
+* **core:** reject empty graphemes for every presentation ([d4279b0](https://github.com/sushichan044/kg/commit/d4279b00437fc64df1a38ae3ff7cdcd330591aa8))
+* **core:** reject empty graphemes for every presentation ([3d576e3](https://github.com/sushichan044/kg/commit/3d576e3040d9c2454128a084bec8d56823a43bdc))
+* **core:** ルビの収録外の字を全角幅で組む ([4b96e2a](https://github.com/sushichan044/kg/commit/4b96e2a5f24ff6f3e810e1de5ebbb3cba938b96e))
+* remove the Gothic font preset ([1dc2ed9](https://github.com/sushichan044/kg/commit/1dc2ed967b369a4f72bc1d6f37b4a81ad4492fef))
+* **viewer:** draw logically measured Western glyphs at half width ([d27f7cf](https://github.com/sushichan044/kg/commit/d27f7cfd60960fd4227509021085221a38c216f8))
+* **viewer:** draw upright half-width forms at their composed advance ([89a072e](https://github.com/sushichan044/kg/commit/89a072e90d474284549fa868ee6b543de17a0d15))
+* **viewer:** keep a half-width mark in the one-em cell of its base ([527f9ac](https://github.com/sushichan044/kg/commit/527f9acca106f32e3a31af9af8cedfbb6ff724a5))
+* **viewer:** keep paragraph newlines when copying shrunk paragraph ends ([2efdb6e](https://github.com/sushichan044/kg/commit/2efdb6ec6e8ae422cb068ec19d84e259a156d450))
+* **viewer:** make selected and copied text match the manuscript ([9efee98](https://github.com/sushichan044/kg/commit/9efee98ad0a1beb5b8bcc0db04a6f44f6fa19474))
+* **viewer:** 収録外の正立字を代替フォントだけで描いてこまの中央に置く ([8024568](https://github.com/sushichan044/kg/commit/8024568cac7b14b5d3d1f6e6cacd64c2ab0c4bed)), closes [#219](https://github.com/sushichan044/kg/issues/219)
+* **viewer:** 縦中横を text-combine-upright を使わずに描く ([cff0916](https://github.com/sushichan044/kg/commit/cff0916a29a55b6df4f386840ffa64b58068c59a))
+* **viewer:** 縦書きで正立させた収録外の欧字を字幅の中央に置く ([ce7483b](https://github.com/sushichan044/kg/commit/ce7483b7fcda6edf5f058514e154c197d47ecc44))
+
+
+### Performance Improvements
+
+* **core:** look up grapheme ends once per run ([48bff7a](https://github.com/sushichan044/kg/commit/48bff7a308bc198b5a05de86a3279fe6dfed9a89))
+
+
+### Reverts
+
+* **viewer:** drop the half-width workaround for logically measured glyphs ([24c0f16](https://github.com/sushichan044/kg/commit/24c0f1699db502369236c539364cc96fe9fc83f1))
+
 ## [0.13.0](https://github.com/sushichan044/kg/compare/kg-core-v0.12.2...kg-core-v0.13.0) (2026-11-11)
 
 
