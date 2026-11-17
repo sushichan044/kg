@@ -83,6 +83,7 @@ type NovelStyle = CSSProperties & {
   "--kgv-margin-inner": string;
   "--kgv-margin-outer": string;
   "--kgv-manuscript-font": string;
+  "--kgv-fallback-font": string;
   "--kgv-font-features": string;
   "--kgv-western-kerning": string;
   "--kgv-font-synthesis": string;
@@ -132,7 +133,7 @@ function graphemeSeverity(
   return diagnostics.some(({ severity }) => severity === "error") ? "error" : "warning";
 }
 
-function joinClassNames(...names: Array<string | undefined>): string {
+function joinClassNames(...names: Array<string | false | undefined>): string {
   return names.filter((name) => name !== undefined && name !== "").join(" ");
 }
 
@@ -206,6 +207,7 @@ type RenderedCell = Readonly<{
   disposition: SingleGlyphUnit["disposition"];
   presentation: PresentationKind;
   horizontalAdvanceEm: number | null;
+  fallback: boolean;
   diagnostics: readonly ManuscriptDiagnostic[];
 }>;
 // 原稿にあるアキ（欧文間隔と、`！` や `？` の後ろの和字間隔）。字面は無いが、選択とコピーで
@@ -236,6 +238,13 @@ function decorationStyle(placement: AnnotationPlacement): DecorationStyle {
     "--kgv-decoration-block-offset": placement.blockOffsetEm,
     "--kgv-decoration-block-size": placement.blockSizeEm,
   };
+}
+
+// 同梱フォントに無い字は、先頭のフォントを除いた並びで描く
+// 同梱フォントと代替フォントが同じ行に混ざると、縦組ではベースラインの合わせ方の差が左右のずれになる
+function fallbackFontFamily(family: string): string {
+  const separator = family.indexOf(",");
+  return separator === -1 ? family : family.slice(separator + 1).trim();
 }
 
 // mixed は CSS の text-orientation に任せず、計測と同じ resolveGlyphOrientation で字ごとに固定する
@@ -398,6 +407,7 @@ function lineDiagnostics(
           item.kind === "combined-glyph" && item.presentation === "tate-chu-yoko"
             ? item.horizontalAdvanceEm
             : null,
+        fallback: item.kind === "glyph" && item.fallback === true,
         diagnostics: [] as ManuscriptDiagnostic[],
       } satisfies RenderedCell;
       cells.push(cell);
@@ -494,7 +504,10 @@ function renderRuby(annotation: Extract<ComposedAnnotationFragment, { kind: "rub
           {annotation.readingItems.map((item) => (
             <span
               key={`${item.textRange.start}:${item.value}`}
-              className="kgv-ruby-character"
+              className={joinClassNames(
+                "kgv-ruby-character",
+                item.fallback === true && "kgv-glyph-fallback",
+              )}
               data-side={item.placement.side}
               style={decorationStyle(item.placement)}
               {...rubyReading(item.value)}
@@ -719,6 +732,9 @@ function NovelPage({
                                 className={joinClassNames(
                                   "kgv-glyph",
                                   presentationClass(cell.value, cell.presentation),
+                                  cell.fallback &&
+                                    glyphOrientation(cell.value, cell.presentation) === "upright" &&
+                                    "kgv-glyph-fallback",
                                 )}
                               >
                                 {glyphOrientation(cell.value, cell.presentation) === "upright"
@@ -936,6 +952,7 @@ function NovelViewerRenderer({
     "--kgv-margin-inner": `${geometry.innerMm * (value / 100)}mm`,
     "--kgv-margin-outer": `${geometry.outerMm * (value / 100)}mm`,
     "--kgv-manuscript-font": fontFamily,
+    "--kgv-fallback-font": fallbackFontFamily(fontFamily),
     "--kgv-font-features": cssFontFeatures(selectedFont),
     "--kgv-western-kerning": selectedFont.rendering.westernKerning,
     "--kgv-font-synthesis": selectedFont.rendering.synthesis,

@@ -201,6 +201,21 @@ test("falls back to the logical width for graphemes missing from the font", ({
   });
 });
 
+test("marks only the graphemes missing from the font as fallback clusters", ({
+  shaper,
+  missing,
+  request,
+}) => {
+  missing.add("ř");
+  const measurer = createShapedRunMeasurer(shaper);
+
+  const result = measurer(request({ kind: "ruby", text: "Dořk", scale: 0.5 }));
+
+  expect(result.kind === "clustered" && result.clusters.map((cluster) => cluster.fallback)).toEqual(
+    [undefined, undefined, true, undefined],
+  );
+});
+
 test("gives graphemes missing from the font a full-width advance in ruby", ({
   shaper,
   missing,

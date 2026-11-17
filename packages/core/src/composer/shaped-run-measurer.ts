@@ -67,12 +67,13 @@ export function createShapedRunMeasurer(shaper: Shaper): RunMeasurer {
 
     const clusters: MeasuredCluster[] = [];
     let offsetEm = 0;
-    const push = (start: number, end: number, advanceEm: number) => {
+    const push = (start: number, end: number, advanceEm: number, fallback = false) => {
       const span = { offsetEm, advanceEm };
       clusters.push({
         textRange: MeasurementTextRange.of({ start, end }),
         layoutSpan: span,
         renderSpan: span,
+        ...(fallback ? { fallback: true } : {}),
       });
       offsetEm += advanceEm;
     };
@@ -88,7 +89,7 @@ export function createShapedRunMeasurer(shaper: Shaper): RunMeasurer {
           request.kind === "ruby"
             ? request.scale
             : logicalRunMeasurer({ ...request, text, presentation: first.orientation }).advanceEm;
-        push(first.start, first.end, advanceEm);
+        push(first.start, first.end, advanceEm, true);
         index += 1;
         continue;
       }

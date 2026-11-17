@@ -17,6 +17,7 @@ const readingItem = readonlyObject({
   value: v.pipe(v.string(), v.nonEmpty()),
   textRange: MeasurementTextRange.schema,
   placement: AnnotationPlacement.schema,
+  fallback: v.optional(v.literal(true)),
 });
 
 const ComposedAnnotationFragmentSchema = v.pipe(

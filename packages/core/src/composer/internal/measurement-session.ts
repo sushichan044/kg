@@ -67,6 +67,7 @@ export const MeasurementSession = {
             textRange: cluster.textRange,
             layoutSpan: cluster.layoutSpan,
             renderSpan: cluster.renderSpan,
+            ...(cluster.fallback === true ? { fallback: true as const } : {}),
             value: text.slice(cluster.textRange.start, cluster.textRange.end),
           }));
         }
@@ -98,6 +99,7 @@ export const MeasurementSession = {
               offsetEm: offsetEm + (cluster?.renderSpan.offsetEm ?? 0),
               advanceEm: cluster?.renderSpan.advanceEm ?? measured.advanceEm,
             },
+            ...(cluster?.fallback === true ? { fallback: true as const } : {}),
           });
           offsetEm += measured.advanceEm;
         }

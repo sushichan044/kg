@@ -271,6 +271,28 @@
   text-orientation: upright;
 }
 
+/* 同梱フォントに無い字（ルビの字を含む）。主のフォントと代替フォントが同じ行に混ざると、
+   縦組では基準線の合わせ方の差が左右のずれになる。代替フォントだけで描いてこまの中央に置く。 */
+.kgv-glyph-fallback {
+  font-family: var(--kgv-fallback-font);
+}
+
+/* 縦組みの中で縦書きのまま描くと、代替フォントの縦組み用の寸法（基準線、縦書き用の字幅）に
+   左右の位置が依存し、環境ごとにこまの中央からずれる。字を横組みの 1em 四方の箱に入れ、
+   advance を text-align で中央に寄せれば、フォントの縦組みの寸法に頼らずに済む。字は DOM のテキストのまま。 */
+.kgv-glyph-fallback:not(.kgv-ruby-character) {
+  writing-mode: horizontal-tb;
+  inline-size: 1em;
+  block-size: 1em;
+  text-align: center;
+  white-space: pre;
+}
+
+.kgv-ruby-character.kgv-glyph-fallback::before {
+  writing-mode: horizontal-tb;
+  white-space: pre;
+}
+
 .kgv-glyph-sideways {
   text-orientation: sideways;
 }
