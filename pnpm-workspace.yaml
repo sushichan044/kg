@@ -12,7 +12,7 @@ catalogs:
     typescript: 7.0.2
     unplugin-unused: 0.6.0
     vitest-browser-react: 2.3.0
-    vite-plus: 1.6.0
+    vite-plus: 1.7.0
   prod:
     oxc-transform-react: 0.157.0
     react: 19.3.0
@@ -21,8 +21,19 @@ catalogs:
 
 minimumReleaseAge: 10080
 
+minimumReleaseAgeExclude:
+  - "@oxc-project/*"
+  - "@oxfmt/*"
+  - "@oxlint/*"
+  - "@tsrs/*"
+  - "@voidzero-dev/*"
+  - oxfmt
+  - oxlint
+  - tsrs
+  - vite-plus
+
 overrides:
-  vite: "npm:@voidzero-dev/vite-plus-core@1.6.0"
+  vite: "npm:@voidzero-dev/vite-plus-core@8.3.8000"
 
 packages:
   - "internal/frontend"
@@ -32,3 +43,4 @@ trustPolicy: no-downgrade
 
 trustPolicyExclude:
   - semver@6.3.1
+  - tsrs@7.1.0-beta.tsrs2
