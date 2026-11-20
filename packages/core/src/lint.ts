@@ -5,3 +5,5 @@ export { consistentKanjiOpeningRule } from "./proofreading/rules/consistent-kanj
 export { consistentLatinWidthRule } from "./proofreading/rules/consistent-latin-width";
 export { consistentNumeralWidthRule } from "./proofreading/rules/consistent-numeral-width";
 export { createDefaultProofreadingRules } from "./proofreading/rules/default-rules";
+
+export type { ProofreadingRule } from "./proofreading/proofreading-rule";

@@ -18,6 +18,9 @@ export type {
   ManuscriptInput,
   ManuscriptNotation,
   ProcessedManuscript,
+  ProofreadManuscriptInput,
+  ProofreadManuscriptOutcome,
 } from "./manuscript-pipeline";
 export type { ManuscriptOutput } from "./manuscript-session";
 export type { ManuscriptWorkerSource } from "./manuscript-engine";
+export { createManuscriptWorkerClient } from "./manuscript-engine";

@@ -44,11 +44,13 @@ without a worker and 123 ms with one. Passing `worker` is optional, but use it
 whenever your bundler can build a worker. You create the worker, so the package
 does not depend on a bundler.
 
-Add a one-line worker file:
+Add a worker entry file. Call `startManuscriptWorker()` once to use the default options:
 
 ```ts
 // kg.worker.ts
-import "@sushichan044/kg-viewer/worker";
+import { startManuscriptWorker } from "@sushichan044/kg-viewer/worker";
+
+startManuscriptWorker();
 ```
 
 Pass `new Worker(...)`, or a function that creates it, to the hook. A function
@@ -85,6 +87,48 @@ function Preview({ source }: { source: string }) {
 
 The worker uses top-level `await` (HarfBuzz), so bundle workers as ES modules.
 In Vite, set `worker: { format: "es" }`.
+
+### Configure the worker
+
+Use the same startup function to pass options. Rules contain functions, so
+construct them in the worker entry file. Supplying `rules` replaces the defaults.
+Set `onCompose: false` to skip proofreading when composing.
+
+```ts
+import {
+  createDefaultProofreadingRules,
+  consistentNumeralWidthRule,
+} from "@sushichan044/kg-core/lint";
+import { startManuscriptWorker } from "@sushichan044/kg-viewer/worker";
+
+startManuscriptWorker({
+  proofreading: {
+    rules: [...createDefaultProofreadingRules(), consistentNumeralWidthRule()],
+    onCompose: false,
+  },
+});
+```
+
+Use `createManuscriptWorkerClient` to call the worker outside React. Its
+`proofread` method runs rules that accept parsed manuscripts without loading a
+font or composing pages. Call `dispose()` when done. A client given a factory
+owns the worker it creates.
+
+```ts
+import { createManuscriptWorkerClient } from "@sushichan044/kg-viewer";
+
+const client = createManuscriptWorkerClient(createWorker);
+try {
+  const result = await client.proofread({
+    source: "　本文です。",
+    notation: "pixiv",
+    fontPreset: "mincho",
+  });
+  if (result.ok) console.log(result.value);
+} finally {
+  client.dispose();
+}
+```
 
 ### Fallback: run on the main thread
 

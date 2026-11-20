@@ -14,7 +14,7 @@ import type {
   NovelComposedManuscript,
   NovelCompositionSettings,
 } from "@sushichan044/kg-core";
-import type { ProofreadError } from "@sushichan044/kg-core/lint";
+import type { ProofreadError, ProofreadingRule } from "@sushichan044/kg-core/lint";
 import { createDefaultProofreadingRules, proofreadManuscript } from "@sushichan044/kg-core/lint";
 import { createNovelComposer, createShapedRunMeasurer } from "@sushichan044/kg-core/plugin";
 import type { RunMeasurer } from "@sushichan044/kg-core/plugin";
@@ -30,6 +30,29 @@ export type ManuscriptInput = Readonly<{
   notation: ManuscriptNotation;
   settings: NovelCompositionSettings;
 }>;
+
+export type ProofreadManuscriptInput = Readonly<{
+  source: string;
+  notation: ManuscriptNotation;
+  fontPreset: FontPresetId;
+}>;
+
+export type ProofreadManuscriptOutcome = ManuscriptResult<
+  readonly ManuscriptDiagnostic[],
+  | Extract<ManuscriptFailure, { stage: "parse" | "worker" }>
+  | Readonly<{ stage: "proofread"; error: ProofreadError }>
+>;
+
+export type ManuscriptWorkerOptions = Readonly<{
+  proofreading?: Readonly<{
+    rules?: readonly ProofreadingRule[];
+    onCompose?: boolean;
+  }>;
+}>;
+
+function parseSource({ source, notation }: Pick<ManuscriptInput, "source" | "notation">) {
+  return parseManuscript(source, { parser: notation === "pixiv" ? pixivParser : kakuyomuParser });
+}
 
 export type ProcessedManuscript = Readonly<{
   composed: NovelComposedManuscript;
@@ -69,6 +92,7 @@ export type ManuscriptOutcome = ManuscriptResult<ProcessedManuscript, Manuscript
 
 export type ManuscriptPipeline = Readonly<{
   process: (input: ManuscriptInput) => Promise<ManuscriptOutcome>;
+  proofread: (input: ProofreadManuscriptInput) => ProofreadManuscriptOutcome;
   dispose: () => void;
 }>;
 
@@ -94,14 +118,16 @@ async function loadPresetRuntime(
  * Parse、prepare、compose、proofread を順に行う
  * DOM を使わないので、Worker でもメインスレッドでも同じものが動く
  */
-export function createManuscriptPipeline(): ManuscriptPipeline {
+export function createManuscriptPipeline({
+  proofreading,
+}: ManuscriptWorkerOptions = {}): ManuscriptPipeline {
+  const rules = proofreading?.rules ?? createDefaultProofreadingRules();
+  const parsedRules = rules.filter((rule) => rule.kind === "parsed");
   // 失敗した読み込みは残さず、次の要求で読み直す
   const runtimes = new Map<
     FontPresetId,
     Promise<ManuscriptResult<PresetRuntime, TypographyLoadError>>
   >();
-  // ルールは関数を含み structured clone できないので、要求では受け取らずここで作る
-  const rules = createDefaultProofreadingRules();
 
   const runtimeFor = (fontPreset: FontPresetId) => {
     const found = runtimes.get(fontPreset);
@@ -115,14 +141,21 @@ export function createManuscriptPipeline(): ManuscriptPipeline {
   };
 
   return {
+    proofread: (input) => {
+      const parsed = parseSource(input);
+      if (!parsed.ok) return ManuscriptResult.fail({ stage: "parse", error: parsed.error });
+
+      const prepared = prepareManuscriptForFont(parsed.value, input.fontPreset);
+      const result = proofreadManuscript(prepared.parsed, { rules: parsedRules });
+      if (!result.ok) return ManuscriptResult.fail({ stage: "proofread", error: result.error });
+      return result;
+    },
     process: async ({ source, notation, settings }) => {
       const fontPreset = settings.appearance.fontPreset;
       const runtime = await runtimeFor(fontPreset);
       if (!runtime.ok) return ManuscriptResult.fail({ stage: "typography", error: runtime.error });
 
-      const parsed = parseManuscript(source, {
-        parser: notation === "pixiv" ? pixivParser : kakuyomuParser,
-      });
+      const parsed = parseSource({ source, notation });
       if (!parsed.ok) return ManuscriptResult.fail({ stage: "parse", error: parsed.error });
 
       const prepared = prepareManuscriptForFont(parsed.value, fontPreset);
@@ -132,7 +165,10 @@ export function createManuscriptPipeline(): ManuscriptPipeline {
       });
       if (!composed.ok) return ManuscriptResult.fail({ stage: "compose", error: composed.error });
 
-      const proofread = proofreadManuscript(composed.value, { rules });
+      const proofread =
+        proofreading?.onCompose === false
+          ? ManuscriptResult.succeed([])
+          : proofreadManuscript(composed.value, { rules });
       return ManuscriptResult.succeed({
         composed: composed.value,
         diagnostics: [

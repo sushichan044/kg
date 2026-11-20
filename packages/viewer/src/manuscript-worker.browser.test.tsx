@@ -3,7 +3,11 @@ import type { FontPresetId } from "@sushichan044/kg-core";
 import { expect, test as base, vi } from "vite-plus/test";
 import { renderHook } from "vitest-browser-react";
 
-import { createMainThreadEngine, createWorkerEngine } from "./manuscript-engine";
+import {
+  createMainThreadEngine,
+  createManuscriptWorkerClient,
+  createWorkerEngine,
+} from "./manuscript-engine";
 import type { ManuscriptEngine } from "./manuscript-engine";
 import type { ManuscriptInput } from "./manuscript-pipeline";
 import type { ManuscriptOutput } from "./manuscript-session";
@@ -74,6 +78,28 @@ test.for(cases)(
     expect(viaWorker.value).toEqual(direct.value);
   },
 );
+
+test("runs configured rules independently of composition", async () => {
+  const client = createManuscriptWorkerClient(
+    () =>
+      new Worker(new URL("./fixtures/custom-kg.worker.ts", import.meta.url), { type: "module" }),
+  );
+  try {
+    const request = inputFor("　数字は1と２。", "mincho");
+
+    const proofread = await client.proofread({ ...request, fontPreset: "mincho" });
+    const composed = await client.process(request);
+
+    expect.assert(proofread.ok);
+    expect.assert(composed.ok);
+    expect(proofread.value.map((diagnostic) => diagnostic.origin.id)).toEqual([
+      "kg/consistent-numeral-width",
+    ]);
+    expect(composed.value.diagnostics).toEqual([]);
+  } finally {
+    client.dispose();
+  }
+});
 
 test("reports a parse failure from the worker", async ({ workerEngine }) => {
   const outcome = await workerEngine.process({
