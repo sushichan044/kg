@@ -31,3 +31,14 @@ func TestParseArgs_AcceptsExistingPath(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{dir}, opts.roots)
 }
+
+func TestParseArgs_VersionSkipsPathValidation(t *testing.T) {
+	t.Parallel()
+
+	missing := filepath.Join(t.TempDir(), "missing.txt")
+
+	opts, err := parseArgs([]string{"--version", missing})
+
+	require.NoError(t, err)
+	assert.True(t, opts.version)
+}

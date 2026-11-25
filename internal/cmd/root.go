@@ -51,6 +51,7 @@ type options struct {
 	shutdown   bool
 	restart    bool
 	status     bool
+	version    bool
 	jsonOut    bool
 	restore    string
 	roots      []string
@@ -99,6 +100,7 @@ func parseArgs(args []string) (options, error) {
 	fs.BoolVar(&opts.shutdown, "shutdown", false, "stop the running server")
 	fs.BoolVar(&opts.restart, "restart", false, "restart the running server")
 	fs.BoolVar(&opts.status, "status", false, "print the running server status")
+	fs.BoolVar(&opts.version, "version", false, "print the kg version")
 	fs.BoolVar(&opts.jsonOut, "json", false, "with --status, print raw JSON")
 	fs.StringVar(&opts.restore, "restore", "", "internal: restore watched roots from this file")
 	fs.BoolVarP(&help, "help", "h", false, "show help")
@@ -110,6 +112,9 @@ func parseArgs(args []string) (options, error) {
 		fs.Usage()
 
 		return options{}, pflag.ErrHelp
+	}
+	if opts.version {
+		return opts, nil
 	}
 
 	baseDir, err := os.Getwd()
@@ -149,6 +154,10 @@ func absPaths(paths []string, baseDir string) []string {
 
 func dispatch(opts options, logger *slog.Logger) error {
 	switch {
+	case opts.version:
+		fmt.Fprintln(os.Stdout, version.Get())
+
+		return nil
 	case opts.shutdown:
 		if err := requestShutdown(opts.port); err != nil {
 			return err
