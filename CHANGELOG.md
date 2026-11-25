@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.12.1](https://github.com/sushichan044/kg/compare/v0.12.0...v0.12.1) (2026-11-25)
+
+
+### Features
+
+* **cli:** add --version flag ([40c5554](https://github.com/sushichan044/kg/commit/40c55540377cff698ea45814af4903e508f7c7f0))
+
+
+### Bug Fixes
+
+* **deps:** update vite-plus to 1.6.0 for GHSA-p4f5-76q4-ffq7 ([ae9af11](https://github.com/sushichan044/kg/commit/ae9af11e49df2b06239fe8ed237bfe9f381ef3ae))
+* **deps:** update vite-plus to 1.6.0 for GHSA-p4f5-76q4-ffq7 ([1e5133c](https://github.com/sushichan044/kg/commit/1e5133c4ac66132dc6e7151f8523997fedfbb970))
+
 ## [0.12.0](https://github.com/sushichan044/kg/compare/v0.11.0...v0.12.0) (2026-11-17)
 
 
