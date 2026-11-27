@@ -1,11 +1,16 @@
 import { exposeApi } from "kg-worker-rpc/worker";
 
 import { createManuscriptPipeline } from "./manuscript-pipeline";
+import type { ManuscriptPipeline, ManuscriptWorkerOptions } from "./manuscript-pipeline";
 
-const pipeline = createManuscriptPipeline();
+export type { ManuscriptWorkerOptions } from "./manuscript-pipeline";
 
-const api = { process: pipeline.process };
+export type ManuscriptWorkerApi = Pick<ManuscriptPipeline, "process" | "proofread">;
 
-export type ManuscriptWorkerApi = typeof api;
-
-exposeApi(api);
+/**
+ * Start the manuscript service inside a dedicated Web Worker.
+ */
+export function startManuscriptWorker(options?: ManuscriptWorkerOptions): void {
+  const { process, proofread } = createManuscriptPipeline(options);
+  exposeApi({ process, proofread } satisfies ManuscriptWorkerApi);
+}
